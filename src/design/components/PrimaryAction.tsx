@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
     color: color.ink,
   },
   labelDisabled: {
-    color: color.ink30,
+    // ink30 carries rules and boxes, never text — DESIGN_SYSTEM.md accessibility.
+    color: color.ink60,
   },
 });

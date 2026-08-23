@@ -90,7 +90,7 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 | `DisplayNumber` | Número grande con sufijo opcional |
 | `Timer` | Número de tiempo grande, centrado |
 | `Rule` | Regla horizontal, `thick` o `thin` |
-| `LedgerRow` | Fila etiqueta ↔ valor |
+| `LedgerRow` | Fila etiqueta ↔ valor. Tocable cuando es un hábito que se marca |
 | `Chip` | Opción seleccionable, borde 0.5 o 1 según estado |
 | `ChipRow` | Fila de chips que envuelve. Existe porque las pantallas no importan tokens |
 | `ChoiceCard` | Opción con título y descripción (profundidad, tipo de hábito) |

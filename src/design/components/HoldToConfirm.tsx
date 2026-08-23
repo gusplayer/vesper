@@ -89,9 +89,7 @@ export function HoldToConfirm({ label, onConfirm, holdMs, enabled = true }: Hold
         accessibilityLabel={label}
         style={styles.block}
       >
-        <Text style={[styles.label, enabled ? styles.labelEnabled : styles.labelDisabled]}>
-          {label}
-        </Text>
+        <Text style={styles.label}>{label}</Text>
       </Pressable>
     );
   }
@@ -105,9 +103,7 @@ export function HoldToConfirm({ label, onConfirm, holdMs, enabled = true }: Hold
       accessibilityState={{ disabled: !enabled }}
       style={styles.block}
     >
-      <Text style={[styles.label, enabled ? styles.labelEnabled : styles.labelDisabled]}>
-        {label}
-      </Text>
+      <Text style={styles.label}>{label}</Text>
       <View style={styles.track}>
         <Animated.View
           style={[
@@ -132,13 +128,10 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: font.family.regular,
     fontSize: font.size.body,
-    textAlign: 'center',
-  },
-  labelEnabled: {
     color: color.ink60,
-  },
-  labelDisabled: {
-    color: color.ink30,
+    textAlign: 'center',
+    // Same tone whether it responds or not: in deep depth the words themselves say so,
+    // which is how this app communicates state. Never with a tone or a color.
   },
   track: {
     height: rule.progress,

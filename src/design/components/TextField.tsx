@@ -29,7 +29,7 @@ export function TextField({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={color.ink30}
+        placeholderTextColor={color.ink60}
         autoFocus={autoFocus}
         keyboardType={keyboardType}
         onEndEditing={onEndEditing}

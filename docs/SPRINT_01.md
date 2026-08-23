@@ -59,7 +59,8 @@ Criterio: `domain/` no importa React ni la base de datos.
       ocultará cuando exista el onboarding que permita salirse
 - [x] `config/session.tsx` — se abre con el tap en el número. Es ruta, no modal nativo:
       un modal nativo sube deslizándose y el lenguaje visual solo permite fade de 120ms
-- [ ] `config/habit.tsx` — creación de hábito, con tope de 5
+- [x] `config/habit.tsx` — creación de hábito, con tope de 5. Se llega desde
+      `agregar hábito` en el libro mayor, su único punto de entrada
 
 ### 6. Comportamiento de sesión
 

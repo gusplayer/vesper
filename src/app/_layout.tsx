@@ -47,6 +47,7 @@ export default function RootLayout() {
       {/* No back gesture: a swipe must not be able to abandon a deep session. */}
       <Stack.Screen name="session" options={{ gestureEnabled: false }} />
       <Stack.Screen name="config/session" />
+      <Stack.Screen name="config/habit" />
     </Stack>
   );
 }
