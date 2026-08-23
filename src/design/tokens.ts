@@ -49,7 +49,7 @@ export const space = { xs: 4, sm: 8, md: 14, lg: 18, xl: 24 } as const;
 /** Max 4px. Rounder corners are iOS language, not paper. */
 export const radius = { box: 4 } as const;
 
-export const rule = { thick: 1, thin: 0.5 } as const;
+export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 
 export const layout = {
   /** Side margins. Vertical margins are generous, like a page. */

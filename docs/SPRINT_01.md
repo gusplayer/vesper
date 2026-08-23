@@ -20,11 +20,11 @@ Lee `CLAUDE.md`, `docs/PRD.md` y `docs/DESIGN_SYSTEM.md` antes de empezar.
 
 - [x] `src/design/tokens.ts` — copiar exactamente los valores de `DESIGN_SYSTEM.md`
 - [x] `Screen`, `ScreenHeader`, `Rule`, `Label`, `Caption`
-- [ ] `DisplayNumber`, `Timer`
-- [ ] `LedgerRow`, `Chip`, `ChoiceCard`
-- [ ] `PrimaryAction`, `HoldToConfirm`, `ProgressRule`
-- [ ] `TextField` — lo necesita el modo `firme` de la tarea 6
-- [ ] `WeekGrid`
+- [x] `DisplayNumber`, `Timer`
+- [x] `LedgerRow`, `Chip`, `ChipRow`, `ChoiceCard`
+- [x] `PrimaryAction`, `HoldToConfirm`, `ProgressRule`
+- [x] `TextField` — lo necesita el modo `firme` de la tarea 6
+- [x] `WeekGrid`
 
 Criterio: ningún componente importa un color literal. Todos vienen de `tokens.ts`.
 
@@ -53,18 +53,20 @@ Criterio: `domain/` no importa React ni la base de datos.
 
 - [x] `_layout.tsx` con dos rutas y sin tab bar. El swipe vive en el pager, no acá (ADR-0009)
 - [x] `app/index.tsx` — host del pager, arranca siempre en inicio
-- [ ] `screens/Home.tsx` — inicio con arranque en un tap
-- [ ] `app/session.tsx` — timer calculado como `now - startedAt`, no por acumulación de ticks
-- [ ] `screens/Life.tsx` — la página no se monta si `life_screen_enabled` es falso
-- [ ] `config/session.tsx` — modal desde tap en el número
-- [ ] `config/habit.tsx` — modal de creación de hábito, con tope de 5
+- [x] `screens/Home.tsx` — inicio con arranque en un tap
+- [x] `app/session.tsx` — timer calculado como `now - startedAt`, no por acumulación de ticks
+- [x] `screens/Life.tsx` — sin fecha de nacimiento invita, no cuenta. La página se
+      ocultará cuando exista el onboarding que permita salirse
+- [x] `config/session.tsx` — se abre con el tap en el número. Es ruta, no modal nativo:
+      un modal nativo sube deslizándose y el lenguaje visual solo permite fade de 120ms
+- [ ] `config/habit.tsx` — creación de hábito, con tope de 5
 
 ### 6. Comportamiento de sesión
 
-- [ ] Los tres niveles de profundidad en `HoldToConfirm`
-- [ ] Modo firme: campo de texto + espera de 15s
-- [ ] Modo profundo: mantener pulsado no responde
-- [ ] Background: recalcular al volver, incrementar `interruptions`
+- [x] Los tres niveles de profundidad en `HoldToConfirm`
+- [x] Modo firme: campo de texto + espera de 15s, con salida para seguir
+- [x] Modo profundo: mantener pulsado no responde, y el gesto de volver está desactivado
+- [x] Background: recalcular al volver, incrementar `interruptions`
 
 ### 7. Cierre
 
@@ -78,6 +80,16 @@ Desde abrir la app hasta estar en sesión: **un tap, menos de 3 segundos.**
 
 Si esa condición no se cumple, el sprint no está terminado por más que todo lo demás
 funcione.
+
+## Desviaciones del PRD, deliberadas
+
+- **Duración custom.** El PRD dice "scroll en tap largo". Implementado como chip `otra`
+  que abre un campo numérico. Un scroll en tap largo es un picker, y un picker es
+  lenguaje de iOS. Si el campo resulta peor, el cambio no requiere migración.
+- **La intención se escribe en la sesión**, no en la configuración. El PRD la muestra en
+  la pantalla de sesión y no dice dónde se escribe; la configuración tiene tres
+  decisiones y meter una cuarta la rompe.
+- **`sesión N de hoy`** en vez de `sesión N de M del día`. Ningún documento define M.
 
 ## Fuera de este sprint
 

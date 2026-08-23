@@ -98,23 +98,33 @@ export function listBetween(from: number, to: number): Session[] {
 }
 
 /**
- * Closes sessions that survived a process death as `expired`.
+ * Closes running sessions whose planned time already ran out, as `expired`.
  *
  * Called before the first render. Without it the one-running-session invariant locks
  * the app forever: nothing can start while a ghost session is still running, and in
  * `deep` depth nothing can end it either.
  *
+ * It deliberately leaves alone a session still inside its window. The clock is
+ * `now - startedAt`, so a session survives the app being killed — reopening two
+ * minutes into a 25 minute session should continue it, not void it. Only a session
+ * whose time is already up cannot continue.
+ *
+ * The outcome is `expired` and not `completed`: the timer ran its course, but nobody
+ * was watching, so crediting it as completed would be a claim we cannot make.
+ *
  * Returns how many were recovered, so the caller can log it during development.
  */
 export function recoverOrphans(now: number): number {
-  const orphans = rows(getDb().executeSync("SELECT * FROM sessions WHERE outcome = 'running'"));
+  const orphans = rows(
+    getDb().executeSync(
+      "SELECT * FROM sessions WHERE outcome = 'running' AND started_at + planned_ms <= ?",
+      [now],
+    ),
+  );
 
   for (const row of orphans) {
     const session = toSession(row);
-    // A session whose planned time has not run out yet is still legitimately running
-    // if the app was merely backgrounded — but reaching this code means the process
-    // died, so there is nobody left ticking it.
-    update(closeSession(session, Math.min(now, session.startedAt + session.plannedMs), 'expired'));
+    update(closeSession(session, session.startedAt + session.plannedMs, 'expired'));
   }
 
   return orphans.length;

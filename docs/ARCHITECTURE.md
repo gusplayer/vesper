@@ -108,11 +108,15 @@ Background no es lo mismo que muerte del proceso. Si el sistema mata la app —o
 cierra desde el multitarea— la sesión queda `running` en la DB y nadie la cierra.
 
 Al arrancar, antes de renderizar la primera pantalla, `sessions.recoverOrphans(now)` cierra
-toda sesión `running` como `expired` con `actual_ms = min(now - started_at, planned_ms)`.
+como `expired` las sesiones `running` **cuyo tiempo planeado ya venció**.
+
+Una sesión que todavía está dentro de su ventana no se toca: el timer es `now - startedAt`,
+así que sobrevive a que el proceso muera. Volver a abrir la app a los dos minutos de una
+sesión de 25 debe continuarla, no anularla. El store la hidrata y la sesión sigue.
 
 `expired` existe precisamente para esto y se distingue de `cancelled`: el usuario no se rindió,
-solo no sabemos qué pasó. En el libro mayor cuenta como tiempo invertido; en las métricas de
-abandono, no.
+solo no sabemos qué pasó. Tampoco es `completed`, que afirmaría un foco que nadie presenció.
+En el libro mayor cuenta como tiempo invertido; en las métricas de abandono, no.
 
 ## Cálculo del libro mayor
 

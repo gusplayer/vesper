@@ -64,12 +64,14 @@ export const font = {
 ```ts
 export const space = { xs: 4, sm: 8, md: 14, lg: 18, xl: 24 } as const;
 export const radius = { box: 4 } as const;
-export const rule = { thick: 1, thin: 0.5 } as const;
+export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 ```
 
 - Radio máximo 4px. Las esquinas muy redondeadas son lenguaje de iOS, no de papel.
 - Márgenes laterales de 16px. Márgenes verticales generosos, como una página.
 - Regla **gruesa en tinta** separa el encabezado. Reglas **finas en ink30** separan secciones.
+- `rule.progress` son los 3px de `ProgressRule` y `HoldToConfirm`. Es el único grosor
+  que no separa nada: mide.
 - Cero sombras, cero degradados, cero blur, cero elevación.
 
 ## Movimiento
@@ -79,7 +81,7 @@ export const rule = { thick: 1, thin: 0.5 } as const;
 - **Prohibido:** spring, escala, rebote, parallax, skeleton shimmer.
 - El único movimiento continuo permitido es la barra de progreso de la sesión y la de "mantener pulsado".
 
-## Componentes (~15, escritos a mano)
+## Componentes (16, escritos a mano)
 
 | Componente | Descripción |
 |---|---|
@@ -90,6 +92,7 @@ export const rule = { thick: 1, thin: 0.5 } as const;
 | `Rule` | Regla horizontal, `thick` o `thin` |
 | `LedgerRow` | Fila etiqueta ↔ valor |
 | `Chip` | Opción seleccionable, borde 0.5 o 1 según estado |
+| `ChipRow` | Fila de chips que envuelve. Existe porque las pantallas no importan tokens |
 | `ChoiceCard` | Opción con título y descripción (profundidad, tipo de hábito) |
 | `PrimaryAction` | Bloque con borde de tinta y texto centrado |
 | `HoldToConfirm` | Botón de mantener pulsado con barra de progreso |

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { bootDatabase, type BootResult } from '../db/boot';
 import { stackScreenOptions } from '../design/navigation';
+import { useSessionStore } from '../store/session';
 
 /**
  * Root layout. Serif is 70% of the effect, so nothing renders until Literata is
@@ -20,6 +21,13 @@ export default function RootLayout() {
   // Synchronous on purpose: op-sqlite is sync, so the database is ready before the
   // first render and no screen has to handle a "not migrated yet" state.
   const [boot] = useState<BootResult>(() => bootDatabase(Date.now()));
+  const hydrate = useSessionStore((state) => state.hydrate);
+
+  // Runs after orphan recovery, so anything still `running` is a session the user
+  // legitimately left open by backgrounding the app.
+  useEffect(() => {
+    hydrate();
+  }, [hydrate, boot]);
 
   useEffect(() => {
     if (__DEV__) {
@@ -33,5 +41,12 @@ export default function RootLayout() {
     return null;
   }
 
-  return <Stack screenOptions={stackScreenOptions} />;
+  return (
+    <Stack screenOptions={stackScreenOptions}>
+      <Stack.Screen name="index" />
+      {/* No back gesture: a swipe must not be able to abandon a deep session. */}
+      <Stack.Screen name="session" options={{ gestureEnabled: false }} />
+      <Stack.Screen name="config/session" />
+    </Stack>
+  );
 }

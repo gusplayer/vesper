@@ -1,26 +1,126 @@
+import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
+
+import { dayBounds, weekStart } from '../domain/day';
+import { buildLedger } from '../domain/ledger';
+import type { Depth, LedgerRow as LedgerRowData } from '../domain/types';
+import * as activitiesRepo from '../db/repositories/activities';
+import * as sessionConfigRepo from '../db/repositories/sessionConfig';
+import * as sessionsRepo from '../db/repositories/sessions';
 import { Caption } from '../design/components/Caption';
 import { Label } from '../design/components/Label';
+import { LedgerRow } from '../design/components/LedgerRow';
+import { DisplayNumber } from '../design/components/DisplayNumber';
+import { PrimaryAction } from '../design/components/PrimaryAction';
 import { Rule } from '../design/components/Rule';
 import { Screen } from '../design/components/Screen';
 import { ScreenHeader } from '../design/components/ScreenHeader';
+import { dayText, durationText, minutesText } from '../lib/format';
+import { useNow } from '../lib/useNow';
+import { useSessionStore } from '../store/session';
+
+const DEPTH_LABEL: Record<Depth, string> = {
+  soft: 'suave',
+  firm: 'firme',
+  deep: 'profundo',
+};
+
+/** Verified time is celebrated, unregistered time whispers. Never a color. */
+function toneFor(row: LedgerRowData): 'strong' | 'normal' | 'faint' {
+  if (row.provenance === 'verified') {
+    return 'strong';
+  }
+  return row.provenance === 'unknown' ? 'faint' : 'normal';
+}
+
+type HomeProps = {
+  /** Bumped by the pager host on focus, so the ledger reloads after a session. */
+  revision: number;
+};
 
 /**
- * Placeholder. The real screen — duration, context line, `empezar`, day ledger —
- * is docs/SPRINT_01.md task 5 and needs the components from task 2 first.
+ * One tap from opening the app to being in a session. That is the whole screen.
+ *
+ * Tapping the big number is the only way into session config — there is no gear icon
+ * anywhere in the app (ADR-0007).
  */
-export function Home() {
-  const today = new Date().toLocaleDateString('es-CO', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+export function Home({ revision }: HomeProps) {
+  const router = useRouter();
+  // A minute is enough: nothing here counts seconds.
+  const now = useNow(60_000);
+  const running = useSessionStore((state) => state.session);
+  const start = useSessionStore((state) => state.start);
+
+  const data = useMemo(() => {
+    const { dayStart, dayEnd } = dayBounds(now);
+    const activities = activitiesRepo.listActive();
+    const config = sessionConfigRepo.loadOrDefault();
+    const today = sessionsRepo.listBetween(dayStart, dayEnd);
+    const week = sessionsRepo.listBetween(weekStart(now), dayEnd);
+
+    return {
+      activities,
+      config,
+      ledger: buildLedger({
+        dayStart,
+        dayEnd,
+        now,
+        activities,
+        sessions: today,
+        healthSamples: [],
+        usageEstimateMs: 0,
+      }),
+      sessionsToday: today.length,
+      weekMs: week.reduce((total, session) => total + sessionsRepo.servedMs(session, now), 0),
+    };
+    // revision is a dependency on purpose: it is the signal that the database changed.
+  }, [now, revision, running]);
+
+  const { config } = data;
+
+  function onStart(): void {
+    if (running !== null) {
+      router.push('/session');
+      return;
+    }
+    if (config === null) {
+      return;
+    }
+    start(config, Date.now());
+    router.push('/session');
+  }
+
+  const activityLabel =
+    data.activities.find((activity) => activity.id === config?.activityId)?.label ?? '—';
 
   return (
-    <Screen>
-      <ScreenHeader left={today} right="meta semanal" />
-      <Label>inicio</Label>
+    <Screen scroll>
+      <ScreenHeader left={dayText(now)} right={`${durationText(data.weekMs)} esta semana`} />
+
+      <DisplayNumber
+        value={config === null ? '—' : minutesText(config.plannedMs)}
+        suffix="min"
+        onPress={() => router.push('/config/session')}
+        accessibilityLabel="duración de la sesión, toca para configurar"
+      />
+      <Caption>
+        {config === null
+          ? 'sin actividades'
+          : `${activityLabel} · ${DEPTH_LABEL[config.depth]} · sin bloqueo`}
+      </Caption>
+
+      <PrimaryAction
+        label={running === null ? 'empezar' : 'seguir'}
+        onPress={onStart}
+        disabled={config === null}
+      />
+
       <Rule />
-      <Caption>fase 1 · sin permisos, sin bloqueo</Caption>
+      <Label>hoy</Label>
+      {data.ledger.rows.map((row) => (
+        <LedgerRow key={row.key} label={row.label} value={durationText(row.ms)} tone={toneFor(row)} />
+      ))}
+      {data.ledger.declaredCapped ? <Caption>tope de 6h declarables alcanzado</Caption> : null}
     </Screen>
   );
 }
