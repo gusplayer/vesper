@@ -38,8 +38,10 @@ src/
     ledger.ts             cálculo del libro mayor del día
     life.ts               cálculo de semanas y proyección
   db/
-    client.ts             instancia de op-sqlite
-    migrations/           001_init.sql, 002_...
+    client.ts             instancia de op-sqlite y runner de migraciones
+    sql.ts                helpers de texto SQL, puros y testeables
+    boot.ts               abre, migra, siembra y recupera huérfanas
+    migrations/           001_init.ts, 002_... en TypeScript, no .sql
     repositories/
       sessions.ts
       habits.ts
@@ -49,9 +51,15 @@ src/
   blocking/               fase 2
     ios/
     android/
+  lib/
+    uuid.ts               UUID v7 sobre expo-crypto
   store/
     session.ts            estado de la sesión en curso
 ```
+
+Las migraciones son `.ts` y no `.sql` porque Metro no empaqueta `.sql` sin configurar
+el resolver, y mantener las dos cosas sería tener dos fuentes de verdad del esquema.
+Una migración publicada no se edita: se agrega la siguiente.
 
 ## Reglas de capas
 
@@ -136,8 +144,12 @@ contando el futuro como tiempo perdido.
 
 ## Testing
 
-- `domain/` — unit tests con vitest. Cobertura objetivo 80%.
-- `db/repositories/` — tests de integración contra SQLite en memoria.
+- `domain/` y `db/sql.ts` — unit tests con vitest. Cobertura objetivo 80%.
+  Son los módulos puros: no importan React ni op-sqlite, así que no necesitan
+  transform de React Native.
+- `db/repositories/` — se verifican corriendo la app. `boot.ts` loguea en dev cuántas
+  actividades hay y cuántas sesiones huérfanas cerró, que es la señal de que las
+  migraciones y la recuperación corrieron de verdad.
 - UI — sin tests en fase 1. El prototipo se valida usándolo.
 
 ## Qué no está en la arquitectura y es a propósito

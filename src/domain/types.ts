@@ -97,6 +97,8 @@ export type LedgerInput = {
   dayStart: Millis;
   dayEnd: Millis;
   now: Millis;
+  /** Needed to label rows. The ledger resolves no ids on its own. */
+  activities: Activity[];
   sessions: Session[];
   /** Empty in phase 1. */
   healthSamples: HealthSample[];
@@ -105,9 +107,19 @@ export type LedgerInput = {
 };
 
 export type LedgerRow = {
+  /** Stable identity for the UI: an activity key, a health type, or 'unknown'. */
+  key: string;
   label: string;
   ms: number;
   provenance: Provenance;
+};
+
+export type Ledger = {
+  rows: LedgerRow[];
+  /** Real declared total, before the daily cap. */
+  declaredMs: number;
+  /** True when declaredMs exceeded the cap, so the UI can say so out loud. */
+  declaredCapped: boolean;
 };
 
 /** Product decision, not a technical limit. */

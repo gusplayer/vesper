@@ -12,14 +12,14 @@ Lee `CLAUDE.md`, `docs/PRD.md` y `docs/DESIGN_SYSTEM.md` antes de empezar.
 - [x] `strict: true` en `tsconfig.json`
 - [x] `expo-dev-client`, `expo-router`, `@op-engineering/op-sqlite`, `zustand`, `expo-font`,
       `@expo-google-fonts/literata`, `expo-crypto`, `vitest`
-- [ ] Cargar Literata (400 regular, 500 medium) con `expo-font`
-- [ ] `src/lib/uuid.ts` — UUID v7 sobre `expo-crypto`, sin dependencias extra
-- [ ] Verificar con `npx tsc --noEmit`
+- [x] Cargar Literata (400 regular, 500 medium) con `expo-font`
+- [x] `src/lib/uuid.ts` — UUID v7 sobre `expo-crypto`, sin dependencias extra
+- [x] Verificar con `npx tsc --noEmit`
 
 ### 2. Tokens y componentes base
 
-- [ ] `src/design/tokens.ts` — copiar exactamente los valores de `DESIGN_SYSTEM.md`
-- [ ] `Screen`, `ScreenHeader`, `Rule`, `Label`, `Caption`
+- [x] `src/design/tokens.ts` — copiar exactamente los valores de `DESIGN_SYSTEM.md`
+- [x] `Screen`, `ScreenHeader`, `Rule`, `Label`, `Caption`
 - [ ] `DisplayNumber`, `Timer`
 - [ ] `LedgerRow`, `Chip`, `ChoiceCard`
 - [ ] `PrimaryAction`, `HoldToConfirm`, `ProgressRule`
@@ -30,21 +30,21 @@ Criterio: ningún componente importa un color literal. Todos vienen de `tokens.t
 
 ### 3. Base de datos
 
-- [ ] `src/db/client.ts` con op-sqlite
-- [ ] Runner de migraciones simple: tabla `_migrations`, aplica los `.sql` en orden
-- [ ] `001_init.sql` con las tablas de fase 1 de `DATA_MODEL.md`
-- [ ] Seed de actividades por defecto: trabajo, lectura, aprender, gym, familia, amigos
-- [ ] Repositorios: `sessions`, `habits`, `activities`, `settings`
-- [ ] `sessions.recoverOrphans(now)` — cierra como `expired` las sesiones `running` que
+- [x] `src/db/client.ts` con op-sqlite
+- [x] Runner de migraciones: tabla `_migrations`, cada migración en su transacción
+- [x] `001_init.ts` con las tablas de fase 1 de `DATA_MODEL.md`
+- [x] Seed de actividades por defecto: trabajo, lectura, aprender, gym, familia, amigos
+- [x] Repositorios: `sessions`, `habits`, `activities`, `settings`
+- [x] `sessions.recoverOrphans(now)` — cierra como `expired` las sesiones `running` que
       sobrevivieron a una muerte del proceso. Se llama antes del primer render
 
 ### 4. Dominio
 
-- [ ] `src/domain/types.ts`
-- [ ] `src/domain/session.ts` — `createSession`, `close`, `elapsed`
-- [ ] `src/domain/ledger.ts` — construcción del libro mayor con procedencia
-- [ ] `src/domain/life.ts` — semanas vividas, restantes, proyección
-- [ ] Unit tests de los tres módulos con vitest (`domain/` es TS puro, no necesita
+- [x] `src/domain/types.ts`
+- [x] `src/domain/session.ts` — `createSession`, `close`, `elapsed`
+- [x] `src/domain/ledger.ts` — construcción del libro mayor con procedencia
+- [x] `src/domain/life.ts` — semanas vividas, restantes, proyección
+- [x] Unit tests de los tres módulos con vitest (`domain/` es TS puro, no necesita
       transform de RN). Cobertura objetivo 80%
 
 Criterio: `domain/` no importa React ni la base de datos.

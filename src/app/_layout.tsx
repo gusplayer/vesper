@@ -2,7 +2,9 @@ import { Literata_400Regular } from '@expo-google-fonts/literata/400Regular';
 import { Literata_500Medium } from '@expo-google-fonts/literata/500Medium';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import { useEffect, useState } from 'react';
 
+import { bootDatabase, type BootResult } from '../db/boot';
 import { stackScreenOptions } from '../design/navigation';
 
 /**
@@ -14,6 +16,18 @@ import { stackScreenOptions } from '../design/navigation';
  */
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Literata_400Regular, Literata_500Medium });
+
+  // Synchronous on purpose: op-sqlite is sync, so the database is ready before the
+  // first render and no screen has to handle a "not migrated yet" state.
+  const [boot] = useState<BootResult>(() => bootDatabase(Date.now()));
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        `db ready · ${boot.activityCount} activities · ${boot.orphansRecovered} orphan(s) recovered`,
+      );
+    }
+  }, [boot]);
 
   if (!fontsLoaded) {
     return null;
