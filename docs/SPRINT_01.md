@@ -51,10 +51,11 @@ Criterio: `domain/` no importa React ni la base de datos.
 
 ### 5. Pantallas
 
-- [ ] `_layout.tsx` con swipe horizontal entre las tres rutas, sin tab bar
-- [ ] `index.tsx` — inicio con arranque en un tap
-- [ ] `session.tsx` — timer calculado como `now - startedAt`, no por acumulación de ticks
-- [ ] `life.tsx` — oculta si `life_screen_enabled` es falso
+- [x] `_layout.tsx` con dos rutas y sin tab bar. El swipe vive en el pager, no acá (ADR-0009)
+- [x] `app/index.tsx` — host del pager, arranca siempre en inicio
+- [ ] `screens/Home.tsx` — inicio con arranque en un tap
+- [ ] `app/session.tsx` — timer calculado como `now - startedAt`, no por acumulación de ticks
+- [ ] `screens/Life.tsx` — la página no se monta si `life_screen_enabled` es falso
 - [ ] `config/session.tsx` — modal desde tap en el número
 - [ ] `config/habit.tsx` — modal de creación de hábito, con tope de 5
 
