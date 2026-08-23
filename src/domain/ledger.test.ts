@@ -19,6 +19,7 @@ const activities: Activity[] = [
   { id: 'a-read', key: 'lectura', label: 'lectura', isDefault: true, archivedAt: null, createdAt: 0 },
 ];
 
+/** A finished session that served exactly `ms` starting at `startedAt`. */
 function done(id: string, activityId: string, ms: number, startedAt: number): Session {
   const config: SessionConfig = {
     activityId,
@@ -35,6 +36,24 @@ function done(id: string, activityId: string, ms: number, startedAt: number): Se
   };
 }
 
+function sample(
+  id: string,
+  type: HealthSample['type'],
+  startedAt: number,
+  endedAt: number,
+): HealthSample {
+  return {
+    id,
+    externalId: `ext-${id}`,
+    type,
+    value: 1,
+    unit: 'count',
+    startedAt,
+    endedAt,
+    sourceName: null,
+  };
+}
+
 function input(overrides: Partial<LedgerInput> = {}): LedgerInput {
   return {
     dayStart: DAY_START,
@@ -46,6 +65,10 @@ function input(overrides: Partial<LedgerInput> = {}): LedgerInput {
     usageEstimateMs: 0,
     ...overrides,
   };
+}
+
+function rowMs(ledger: ReturnType<typeof buildLedger>, key: string): number | undefined {
+  return ledger.rows.find((row) => row.key === key)?.ms;
 }
 
 describe('declared rows', () => {
@@ -73,7 +96,18 @@ describe('declared rows', () => {
     );
     const ledger = buildLedger(input({ sessions: [running], now: DAY_START + HOUR }));
 
-    expect(ledger.rows.find((row) => row.key === 'trabajo')?.ms).toBe(HOUR);
+    expect(rowMs(ledger, 'trabajo')).toBe(HOUR);
+  });
+
+  it('credits only what a session served, not the wall clock until it was closed', () => {
+    // Closed on returning from background: endedAt is an hour past the planned end.
+    const session: Session = {
+      ...done('s-1', 'a-work', HOUR, DAY_START),
+      endedAt: DAY_START + 2 * HOUR,
+    };
+    const ledger = buildLedger(input({ sessions: [session] }));
+
+    expect(rowMs(ledger, 'trabajo')).toBe(HOUR);
   });
 
   it('leaves out activities with no time today', () => {
@@ -83,54 +117,9 @@ describe('declared rows', () => {
   });
 });
 
-describe('the 6h declared cap', () => {
-  it('does not touch a normal day', () => {
-    const ledger = buildLedger(input({ sessions: [done('s-1', 'a-work', 3 * HOUR, DAY_START)] }));
-
-    expect(ledger.declaredCapped).toBe(false);
-    expect(ledger.declaredMs).toBe(3 * HOUR);
-  });
-
-  it('reports the real declared total even when it goes over', () => {
-    const ledger = buildLedger(
-      input({
-        sessions: [done('s-1', 'a-read', 8 * HOUR, DAY_START)],
-        now: DAY_START + 10 * HOUR,
-      }),
-    );
-
-    expect(ledger.declaredCapped).toBe(true);
-    expect(ledger.declaredMs).toBe(8 * HOUR);
-    // The row keeps what the user declared: the ledger is a mirror, not a judge.
-    expect(ledger.rows.find((row) => row.key === 'lectura')?.ms).toBe(8 * HOUR);
-  });
-
-  it('gives the excess no credit in the day allocation', () => {
-    const ledger = buildLedger(
-      input({
-        sessions: [done('s-1', 'a-read', 8 * HOUR, DAY_START)],
-        now: DAY_START + 10 * HOUR,
-      }),
-    );
-
-    const unknown = ledger.rows.find((row) => row.key === 'unknown');
-    expect(unknown?.ms).toBe(10 * HOUR - DECLARED_DAILY_CAP_MS);
-  });
-});
-
 describe('verified rows', () => {
-  const workout: HealthSample = {
-    id: 'h-1',
-    externalId: 'ext-1',
-    type: 'workout',
-    value: 1,
-    unit: 'count',
-    startedAt: DAY_START + HOUR,
-    endedAt: DAY_START + 2 * HOUR,
-    sourceName: 'Apple Watch',
-  };
-
   it('are labelled and never capped', () => {
+    const workout = sample('h-1', 'workout', DAY_START + HOUR, DAY_START + 2 * HOUR);
     const ledger = buildLedger(input({ healthSamples: [workout] }));
     const row = ledger.rows.find((r) => r.provenance === 'verified');
 
@@ -139,16 +128,31 @@ describe('verified rows', () => {
   });
 
   it('clip a sample that crosses midnight to the day window', () => {
-    const sleep: HealthSample = {
-      ...workout,
-      id: 'h-2',
-      type: 'sleep',
-      startedAt: DAY_START - 3 * HOUR,
-      endedAt: DAY_START + 5 * HOUR,
-    };
+    const sleep = sample('h-2', 'sleep', DAY_START - 3 * HOUR, DAY_START + 5 * HOUR);
     const ledger = buildLedger(input({ healthSamples: [sleep] }));
 
-    expect(ledger.rows.find((row) => row.key === 'sleep')?.ms).toBe(5 * HOUR);
+    expect(rowMs(ledger, 'sleep')).toBe(5 * HOUR);
+  });
+
+  it('counts two overlapping samples of the same type once', () => {
+    const ledger = buildLedger(
+      input({
+        healthSamples: [
+          sample('h-1', 'workout', DAY_START + HOUR, DAY_START + 3 * HOUR),
+          sample('h-2', 'workout', DAY_START + 2 * HOUR, DAY_START + 4 * HOUR),
+        ],
+      }),
+    );
+
+    expect(rowMs(ledger, 'workout')).toBe(3 * HOUR);
+  });
+
+  it('never counts a sample that lies entirely outside the day', () => {
+    const ledger = buildLedger(
+      input({ healthSamples: [sample('h-1', 'workout', DAY_START - 5 * HOUR, DAY_START - HOUR)] }),
+    );
+
+    expect(ledger.rows.some((row) => row.provenance === 'verified')).toBe(false);
   });
 });
 
@@ -159,7 +163,7 @@ describe('sin registrar', () => {
     );
 
     // 8h into the day with 2h recorded: 6h unregistered, not 22h.
-    expect(ledger.rows.find((row) => row.key === 'unknown')?.ms).toBe(6 * HOUR);
+    expect(rowMs(ledger, 'unknown')).toBe(6 * HOUR);
   });
 
   it('uses the real day length, so a 23h DST day does not invent an hour', () => {
@@ -167,29 +171,87 @@ describe('sin registrar', () => {
       input({ dayEnd: DAY_START + 23 * HOUR, now: DAY_START + 30 * HOUR }),
     );
 
-    expect(ledger.rows.find((row) => row.key === 'unknown')?.ms).toBe(23 * HOUR);
+    expect(rowMs(ledger, 'unknown')).toBe(23 * HOUR);
   });
 
-  it('floors at zero instead of going negative', () => {
+  it('counts a verified workout inside a declared session once, not twice', () => {
     const ledger = buildLedger(
       input({
-        sessions: [done('s-1', 'a-work', 5 * HOUR, DAY_START)],
-        now: DAY_START + 2 * HOUR,
+        sessions: [done('s-1', 'a-work', 2 * HOUR, DAY_START)],
+        healthSamples: [sample('h-1', 'workout', DAY_START + 30 * 60_000, DAY_START + HOUR)],
+        now: DAY_START + 8 * HOUR,
       }),
     );
 
-    expect(ledger.rows.find((row) => row.key === 'unknown')).toBeUndefined();
+    // The overlapping half hour is inside the session, so the day is covered by 2h.
+    expect(rowMs(ledger, 'unknown')).toBe(6 * HOUR);
+    // And each row still reports its own real total.
+    expect(rowMs(ledger, 'trabajo')).toBe(2 * HOUR);
+    expect(rowMs(ledger, 'workout')).toBe(30 * 60_000);
+  });
+
+  it('subtracts verified sleep, so documented hours are not called unregistered', () => {
+    const ledger = buildLedger(
+      input({
+        healthSamples: [sample('h-1', 'sleep', DAY_START, DAY_START + 7 * HOUR)],
+        now: DAY_START + 8 * HOUR,
+      }),
+    );
+
+    expect(rowMs(ledger, 'unknown')).toBe(HOUR);
+  });
+
+  it('leaves the estimate out of the subtraction: it is a floor, not an interval', () => {
+    const ledger = buildLedger(input({ usageEstimateMs: 3 * HOUR, now: DAY_START + 8 * HOUR }));
+
+    expect(rowMs(ledger, 'usage')).toBe(3 * HOUR);
+    expect(rowMs(ledger, 'unknown')).toBe(8 * HOUR);
+  });
+
+  it('disappears rather than going negative when the day is fully covered', () => {
+    const ledger = buildLedger(
+      input({
+        sessions: [done('s-1', 'a-work', 8 * HOUR, DAY_START)],
+        now: DAY_START + 8 * HOUR,
+      }),
+    );
+
+    expect(rowMs(ledger, 'unknown')).toBeUndefined();
   });
 });
 
-describe('estimated row', () => {
-  it('only appears when there is an estimate, which is 0 in phase 1', () => {
-    expect(buildLedger(input()).rows.some((row) => row.provenance === 'estimated')).toBe(false);
-    expect(
-      buildLedger(input({ usageEstimateMs: HOUR })).rows.some(
-        (row) => row.provenance === 'estimated',
-      ),
-    ).toBe(true);
+describe('the 6h declared cap', () => {
+  it('does not fire on a normal day', () => {
+    const ledger = buildLedger(input({ sessions: [done('s-1', 'a-work', 3 * HOUR, DAY_START)] }));
+
+    expect(ledger.declaredCapped).toBe(false);
+    expect(ledger.declaredMs).toBe(3 * HOUR);
+  });
+
+  it('fires as a warning, reporting the real declared total', () => {
+    const ledger = buildLedger(
+      input({
+        sessions: [done('s-1', 'a-read', 8 * HOUR, DAY_START)],
+        now: DAY_START + 10 * HOUR,
+      }),
+    );
+
+    expect(ledger.declaredCapped).toBe(true);
+    expect(ledger.declaredMs).toBe(8 * HOUR);
+    expect(rowMs(ledger, 'lectura')).toBe(8 * HOUR);
+  });
+
+  it('no longer shrinks the residual, which is now a partition — see ADR-0010', () => {
+    const ledger = buildLedger(
+      input({
+        sessions: [done('s-1', 'a-read', 8 * HOUR, DAY_START)],
+        now: DAY_START + 10 * HOUR,
+      }),
+    );
+
+    // 10h elapsed, 8h covered by the session. Before ADR-0010 the cap made this 4h.
+    expect(rowMs(ledger, 'unknown')).toBe(2 * HOUR);
+    expect(DECLARED_DAILY_CAP_MS).toBe(6 * HOUR);
   });
 });
 
@@ -198,18 +260,7 @@ describe('provenance', () => {
     const ledger = buildLedger(
       input({
         sessions: [done('s-1', 'a-work', HOUR, DAY_START)],
-        healthSamples: [
-          {
-            id: 'h-1',
-            externalId: 'ext-1',
-            type: 'workout',
-            value: 1,
-            unit: 'count',
-            startedAt: DAY_START + HOUR,
-            endedAt: DAY_START + 2 * HOUR,
-            sourceName: null,
-          },
-        ],
+        healthSamples: [sample('h-1', 'workout', DAY_START + 2 * HOUR, DAY_START + 3 * HOUR)],
         usageEstimateMs: HOUR,
       }),
     );

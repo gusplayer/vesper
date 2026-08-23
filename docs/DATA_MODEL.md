@@ -143,7 +143,9 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 1. Solo puede existir **una** sesión con `outcome = 'running'` a la vez.
 2. `actual_ms <= planned_ms` siempre. Una sesión nunca excede lo planeado.
 3. Máximo 5 filas en `habits` con `archived_at IS NULL`.
-4. La suma de tiempo declarado por día tiene tope de 6h (21600000 ms). Se aplica en `domain/ledger.ts`, no en la DB.
+4. El tope de 6h declarables (21600000 ms) es una **advertencia**, no una resta: desde
+   ADR-0010 el renglón `sin registrar` es una partición del reloj y no hay suma que romper.
+   `domain/ledger.ts` expone `declaredCapped` para que la UI lo diga en voz alta.
 5. `habit_marks` con `source = 'health'` no se pueden borrar manualmente. Son verificadas.
 6. Un hábito admite **una sola marca manual por día**. Lo garantiza
    `UNIQUE(habit_id, day_key, source_ref)` con `source_ref TEXT NOT NULL DEFAULT ''`.

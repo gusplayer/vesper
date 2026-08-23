@@ -1,6 +1,6 @@
 # ADR-0010 — El renglón `sin registrar` no suma monedas: resta intervalos
 
-**Estado:** propuesta · 2026-08
+**Estado:** aceptada · 2026-08
 
 ## Contexto
 

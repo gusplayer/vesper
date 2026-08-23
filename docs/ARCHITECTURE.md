@@ -135,16 +135,26 @@ type LedgerInput = {
 
 Y devuelve renglones con su procedencia (`verified` | `declared` | `estimated` | `unknown`).
 
-El renglón `sin registrar` es:
+El renglón `sin registrar` es la parte del día transcurrido que **ningún intervalo cubre**:
 
 ```ts
-Math.max(0, Math.min(now, dayEnd) - dayStart - sumaDelResto)
+const to = Math.min(now, dayEnd);
+Math.max(0, (to - dayStart) - medidaDeLaUnion(sesiones ∪ muestras))
 ```
 
-Dos detalles que importan. **No es `86400000`**: en el día de cambio de horario el día local
-dura 23h o 25h, y `dayStart`/`dayEnd` ya vienen en el input justo para eso. **Y se acota con
-`now`**: si no, a las 10:00 con 2h registradas el libro mayor reportaría 22h sin registrar,
-contando el futuro como tiempo perdido.
+No es una suma: es el complemento de una unión de intervalos. Esa distinción es la que hace
+que la regla 9 se cumpla literalmente y que un entrenamiento verificado dentro de una sesión
+declarada ocupe el reloj una sola vez. Ver ADR-0010.
+
+Tres detalles que importan. **No es `86400000`**: en el día de cambio de horario el día local
+dura 23h o 25h. **Se acota con `now`**: si no, a las 10:00 con 2h registradas reportaría 22h
+sin registrar, contando el futuro como tiempo perdido. **Y el estimado queda fuera de la
+resta**: no tiene intervalos y ADR-0004 prohíbe presentarlo como cifra exacta, así que no
+puede entrar en una partición exacta.
+
+El intervalo de una sesión es `[startedAt, startedAt + servido]`, no `[startedAt, endedAt]`:
+una sesión cerrada al volver de background tiene `endedAt` más allá de su fin planeado y
+nunca recibe crédito por tiempo que no sirvió.
 
 ## Testing
 
