@@ -23,7 +23,12 @@ información — es fricción y honestidad. No quiere otro dashboard.
 
 ## Las tres pantallas
 
-Navegación por swipe horizontal. Sin tab bar. Sin pantalla de ajustes.
+Sin tab bar. Sin pantalla de ajustes.
+
+El swipe horizontal va entre **inicio y vida**. La sesión activa no es una página del
+swipe: es una ruta a pantalla completa de la que solo se sale terminando el timer o
+manteniendo pulsado. Si fuera una página, un deslizamiento abandonaría una sesión
+`profunda` y el nivel no significaría nada. Ver ADR-0009.
 
 ### 1. Inicio (también es la pantalla de arranque de sesión)
 

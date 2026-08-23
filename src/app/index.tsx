@@ -1,29 +1,29 @@
-import { Caption } from '../design/components/Caption';
-import { Label } from '../design/components/Label';
-import { Rule } from '../design/components/Rule';
-import { Screen } from '../design/components/Screen';
-import { ScreenHeader } from '../design/components/ScreenHeader';
+import PagerView from 'react-native-pager-view';
+import { StyleSheet } from 'react-native';
+
+import { Home } from '../screens/Home';
+import { Life } from '../screens/Life';
 
 /**
- * Scaffold placeholder, not the real home screen. It exists to prove on device
- * that Literata loads and the four tones render as paper and ink.
+ * Pager host. Two pages: inicio and vida — the session is its own route, so it can
+ * never be abandoned with a swipe. See docs/adr/0009-swipe-navigation.md.
  *
- * The real screen — duration, context line, `empezar`, day ledger — is
- * docs/SPRINT_01.md task 5, and needs the components from task 2 first.
+ * Always starts on inicio. Vida is never the initial page, the PRD requires it.
+ *
+ * TODO: hide the vida page when settings.life_screen_enabled is false. Needs the
+ * settings repository (docs/SPRINT_01.md task 3).
  */
-export default function HomeScreen() {
-  const today = new Date().toLocaleDateString('es-CO', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
-
+export default function PagerHost() {
   return (
-    <Screen>
-      <ScreenHeader left={today} right="meta semanal" />
-      <Label>vesper</Label>
-      <Rule />
-      <Caption>fase 1 · sin permisos, sin bloqueo</Caption>
-    </Screen>
+    <PagerView style={styles.pager} initialPage={0}>
+      <Home key="home" />
+      <Life key="life" />
+    </PagerView>
   );
 }
+
+const styles = StyleSheet.create({
+  pager: {
+    flex: 1,
+  },
+});

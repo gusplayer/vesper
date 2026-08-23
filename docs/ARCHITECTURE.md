@@ -6,7 +6,7 @@
 |---|---|---|
 | Runtime | Expo SDK + dev client | Módulos nativos obligatorios en fase 2 (ADR-0001) |
 | Lenguaje | TypeScript estricto | `strict: true`, sin `any` |
-| Navegación | expo-router | 3 rutas, swipe horizontal |
+| Navegación | expo-router + react-native-pager-view | 2 rutas y un pager. Ver ADR-0009 |
 | Persistencia | op-sqlite | Rápido, síncrono, sin ORM |
 | Ids | UUID v7 propio sobre `expo-crypto` | 20 líneas. Evita `uuid` + `react-native-get-random-values` |
 | Estado UI | Zustand | Solo estado efímero. La verdad vive en SQLite |
@@ -19,14 +19,16 @@ Sin backend en fase 1. Sin cuenta de usuario. Sin sync.
 
 ```
 src/
-  app/                    expo-router
+  app/                    expo-router. Todo archivo aquí es una ruta
     _layout.tsx
-    index.tsx             pantalla inicio
-    session.tsx           pantalla sesión activa
-    life.tsx              pantalla vida
+    index.tsx             host del pager: inicio + vida
+    session.tsx           ruta de sesión activa, sin swipe
     config/
       session.tsx         modal de configuración de sesión
       habit.tsx           modal de hábito
+  screens/                páginas del pager. No son rutas, por eso no viven en app/
+    Home.tsx
+    Life.tsx
   design/
     tokens.ts             color, font, space, radius, rule
     components/           ~15 componentes
@@ -54,7 +56,7 @@ src/
 ## Reglas de capas
 
 ```
-app/  →  domain/  →  db/repositories/  →  db/client
+app/ screens/  →  domain/  →  db/repositories/  →  db/client
   ↓
 design/components
 ```
@@ -64,7 +66,8 @@ design/components
   Recibe datos, devuelve datos. Es lo único que se testea con unit tests.
 - **`design/components` no conoce el dominio.** Recibe props primitivas.
   `<LedgerRow label="gym" value="hecho" />`, no `<LedgerRow habit={habit} />`.
-- **Los tokens no se importan en `app/`.** Solo en `design/`.
+- **Los tokens no se importan en `app/` ni en `screens/`.** Solo en `design/`. Si una
+  pantalla necesita un token, falta un componente.
 
 ## Flujo de una sesión
 

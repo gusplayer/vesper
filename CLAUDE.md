@@ -52,7 +52,8 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - **Código en inglés, UI en español.** Identificadores, comentarios, nombres de archivo y
   mensajes de commit en inglés. Los strings que ve el usuario, en español y hardcodeados:
   no hay i18n en fase 1 (`docs/ARCHITECTURE.md`).
-- **Los tokens solo se importan en `src/design/`.** Las pantallas de `src/app/` no conocen
+- **Los tokens solo se importan en `src/design/`.** Las pantallas de `src/app/` y
+  `src/screens/` no conocen
   `space` ni `color`: todo el layout vive en componentes de `design/components/`. Si una
   pantalla necesita un token, falta un componente.
 - Commits convencionales: `feat:`, `fix:`, `chore:`, `docs:`.

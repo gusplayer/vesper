@@ -15,3 +15,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0006 | Lenguaje visual de tinta electrónica | aceptada |
 | 0007 | No existe pantalla de ajustes | aceptada |
 | 0008 | El hábito tiene nombre propio, no hereda el de una actividad | aceptada |
+| 0009 | El swipe es un pager de dos páginas; la sesión es una ruta | aceptada |
