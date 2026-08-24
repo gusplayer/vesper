@@ -14,6 +14,7 @@ App de foco y asignación de tiempo con estética de tinta electrónica.
 | `docs/ARCHITECTURE.md` | Stack, estructura, flujo de datos |
 | `docs/DATA_MODEL.md` | Esquema de base de datos |
 | `docs/ROADMAP.md` | Fases y criterios de salida |
+| `docs/STATUS.md` | Dónde quedamos: qué está probado y qué falta |
 | `docs/SPRINT_01.md` | Tareas del primer prototipo |
 | `docs/PLATFORM_IOS.md` | Screen Time API, entitlement, límites |
 | `docs/PLATFORM_ANDROID.md` | Usage stats, bloqueo, políticas de Play |
@@ -56,6 +57,13 @@ npx expo run:android --device Pixel_6_API_34
 
 El primer build de Android compila Kotlin de op-sqlite, pager-view y expo-modules-core, y
 tarda bastante más que el de iOS.
+
+Cada vez que el emulador arranca hace falta abrirle el puerto de Metro, o la app queda
+esperando el bundle para siempre:
+
+```bash
+$ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
+```
 
 `/ios` y `/android` están en `.gitignore`: son carpetas generadas por prebuild.
 

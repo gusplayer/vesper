@@ -7,6 +7,7 @@ Instrucciones para Claude Code trabajando en **Vesper**.
 App móvil de foco y asignación de tiempo con estética de tinta electrónica.
 Pomodoro + hábitos + conciencia del tiempo de vida. Bloqueo de apps llega en fase 2.
 
+Lee `docs/STATUS.md` para saber dónde quedó todo antes de empezar.
 Lee `docs/PRD.md` antes de tomar cualquier decisión de producto.
 Lee `docs/DESIGN_SYSTEM.md` antes de escribir cualquier componente de UI.
 Lee `docs/adr/` antes de proponer cambios de arquitectura.
