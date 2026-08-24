@@ -64,6 +64,11 @@ export default function WeekConfigScreen() {
     // targetMs on purpose: changing the target re-reads the closing against it.
   }, [targetMs]);
 
+  const storedIsPreset =
+    targetMs === null ||
+    targetMs <= 0 ||
+    WEEKLY_TARGET_HOURS.some((hours) => hours * HOUR === targetMs);
+
   function update(next: number | null): void {
     setTargetMs(next);
     settings.setNumber(settings.SETTING_KEYS.weeklyFocusTargetMs, next ?? 0, Date.now());
@@ -124,6 +129,15 @@ export default function WeekConfigScreen() {
             onPress={() => update(hours * HOUR)}
           />
         ))}
+        {/* A stored target outside the presets still shows as selected instead of
+            leaving every chip unselected, which reads as no goal when there is one. */}
+        {storedIsPreset ? null : (
+          <Chip
+            label={durationText(targetMs ?? 0)}
+            selected
+            onPress={() => undefined}
+          />
+        )}
         <Chip
           label="ninguna"
           selected={targetMs === null || targetMs <= 0}
