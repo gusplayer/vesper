@@ -9,6 +9,7 @@ import {
 } from '../domain/session';
 import type { Session } from '../domain/types';
 import * as sessions from '../db/repositories/sessions';
+import * as settings from '../db/repositories/settings';
 
 /**
  * The running session. Ephemeral UI state only — the truth lives in SQLite, and this
@@ -50,6 +51,16 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
     const closed = closeSession(current, now, outcome, { exitReason: exitReason ?? null });
     sessions.update(closed);
+
+    // Completing a session is what ends the first time — ADR-0012. Cancelling one does
+    // not: the user has not seen a session through yet.
+    if (
+      outcome === 'completed' &&
+      settings.getNumber(settings.SETTING_KEYS.onboardingCompletedAt) === null
+    ) {
+      settings.setNumber(settings.SETTING_KEYS.onboardingCompletedAt, now, now);
+    }
+
     set({ session: null });
   },
 

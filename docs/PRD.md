@@ -101,8 +101,9 @@ Se configura tocando el progreso en el encabezado de inicio, que es donde se lee
 meta por defecto:** la app no inventa un número contra el cual medirte, y `ninguna` es una
 respuesta válida.
 
-La **pantalla de cierre del domingo** sigue sin construirse: sería una cuarta pantalla y la
-regla 2 permite tres. Necesita decidirse dónde vive antes de implementarla.
+El **cierre del domingo** vive en la misma ruta de la meta: ese día el encabezado dice
+`cerrar la semana` y la ruta muestra primero cómo cerró, y debajo la meta de la que empieza.
+No es una cuarta pantalla. Ver ADR-0013.
 
 ## Fuera de alcance en v1
 
@@ -130,5 +131,5 @@ Si la respuesta a la primera es no, el problema no era el bloqueo.
 |---|---|
 | La pantalla de vida genera ansiedad | Opt-in, nunca inicial, nunca push, framing de asignación |
 | El usuario infla el tiempo declarado | Tope de 6h/día declarables; separación visual de verificado |
-| El onboarding pide demasiado | Cero permisos hasta después de la primera sesión completada |
+| El onboarding pide demasiado | No hay onboarding: una línea en la primera vez, y cero permisos hasta después de la primera sesión completada. Ver ADR-0012 |
 | Estética e-ink se vuelve decorativa | Regla: solo texto, reglas horizontales y cuadros rellenos |

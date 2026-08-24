@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { dayBounds, dayKeyOf, weekStart } from '../domain/day';
 import { weeklyProgress } from '../domain/habits';
 import { buildLedger } from '../domain/ledger';
-import { weekProgress } from '../domain/week';
+import { isClosingDay, weekProgress } from '../domain/week';
 import type { Depth, LedgerRow as LedgerRowData } from '../domain/types';
 import * as activitiesRepo from '../db/repositories/activities';
 import * as habitsRepo from '../db/repositories/habits';
@@ -41,10 +41,25 @@ function toneFor(row: LedgerRowData): 'strong' | 'normal' | 'faint' {
 const MAX_HABITS_HINT = 'agregar hábito';
 
 /**
+ * The only explanatory text in the app, and it appears once. There is no onboarding in
+ * phase 1: there is nothing to ask for and any screen before this one works against the
+ * one-tap metric. See ADR-0012.
+ */
+const FIRST_TIME_LINE =
+  'tres monedas separadas: lo que invertís, lo que Health confirma, lo que consumís. nunca se suman';
+
+/**
  * The header line for the weekly goal. Without a target it reports the total and says
  * nothing about progress: the app does not invent a number to measure you against.
  */
-function weekSummary(week: { focusMs: number; targetMs: number | null; met: boolean; daysLeft: number }): string {
+function weekSummary(
+  week: { focusMs: number; targetMs: number | null; met: boolean; daysLeft: number },
+  closingDay: boolean,
+): string {
+  // On Sunday the header stops counting down and invites the closing — ADR-0013.
+  if (closingDay) {
+    return 'cerrar la semana';
+  }
   if (week.targetMs === null || week.targetMs <= 0) {
     return `${durationText(week.focusMs)} esta semana`;
   }
@@ -104,6 +119,10 @@ export function Home({ revision }: HomeProps) {
         usageEstimateMs: 0,
       }),
       sessionsToday: today.length,
+      // The first time ends when a session has been completed, not when the app opens:
+      // rule 8 keys on having done a session — ADR-0012.
+      firstTime:
+        settingsRepo.getNumber(settingsRepo.SETTING_KEYS.onboardingCompletedAt) === null,
       week: weekProgress(
         week,
         (session) => sessionsRepo.servedMs(session, now),
@@ -136,7 +155,7 @@ export function Home({ revision }: HomeProps) {
     <Screen scroll>
       <ScreenHeader
         left={dayText(now)}
-        right={weekSummary(data.week)}
+        right={weekSummary(data.week, isClosingDay(now))}
         onPressRight={() => router.push('/config/week')}
       />
 
@@ -157,6 +176,7 @@ export function Home({ revision }: HomeProps) {
         onPress={onStart}
         disabled={config === null}
       />
+      {data.firstTime ? <Caption>{FIRST_TIME_LINE}</Caption> : null}
 
       <Rule />
       <Label>hoy</Label>

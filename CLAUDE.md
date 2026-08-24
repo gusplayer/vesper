@@ -20,7 +20,7 @@ Lee `docs/adr/` antes de proponer cambios de arquitectura.
 5. **Cuatro colores en toda la app.** Ver `docs/DESIGN_SYSTEM.md`. Nunca `#000` ni `#fff`.
 6. **Sin animaciones de spring, escala o parallax.** Transiciones instantáneas o fade de 120ms máximo.
 7. **Local-first.** La app funciona completa sin red y sin cuenta. No agregues backend sin ADR.
-8. **Cero permisos requeridos para la primera sesión.** El onboarding es saltable en todos sus pasos.
+8. **Cero permisos requeridos para la primera sesión.** En fase 1 no hay onboarding: hay una línea que desaparece al completar la primera sesión. Ver ADR-0012.
 9. **Nunca sumar tiempo verificado y declarado en una misma métrica.** Ver ADR-0005.
 10. **Nunca persistir datos de `DeviceActivityReport`.** Es técnicamente imposible y arquitectónicamente prohibido. Ver ADR-0004.
 

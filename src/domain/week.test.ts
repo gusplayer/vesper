@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { daysLeftInWeek, weekProgress } from './week';
+import { daysLeftInWeek, isClosingDay, weekProgress } from './week';
 import { createSession } from './session';
 import type { Session } from './types';
 
@@ -26,6 +26,17 @@ describe('daysLeftInWeek', () => {
 
   it('never reaches zero: today still counts', () => {
     expect(daysLeftInWeek(new Date(2026, 7, 23, 23, 59).getTime())).toBe(1);
+  });
+});
+
+describe('isClosingDay', () => {
+  it('is only Sunday', () => {
+    // 2026-08-17 Monday through 2026-08-23 Sunday.
+    const days = [17, 18, 19, 20, 21, 22, 23].map((day) =>
+      isClosingDay(new Date(2026, 7, day, 12).getTime()),
+    );
+
+    expect(days).toEqual([false, false, false, false, false, false, true]);
   });
 });
 

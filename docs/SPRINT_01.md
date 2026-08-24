@@ -74,6 +74,7 @@ Criterio: `domain/` no importa React ni la base de datos.
 
 - [x] Ícono y splash propios: tinta sobre papel, sin flash blanco al arrancar
 - [x] Dynamic Type verificado a `extra-extra-extra-large` (~135%, sobre el 130% exigido)
+- [x] Primera vez sin onboarding, y cierre del domingo sin pantalla nueva (ADR-0012, ADR-0013)
 - [ ] `npx tsc --noEmit` sin errores
 - [ ] Correr en dispositivo físico iOS y Android
 - [ ] README con instrucciones de arranque verificadas

@@ -20,6 +20,13 @@ export type WeekProgress = {
   daysLeft: number;
 };
 
+/**
+ * Sunday is closing day: the weekly goal ends and the next one is chosen. See ADR-0013.
+ */
+export function isClosingDay(now: Millis): boolean {
+  return new Date(now).getDay() === 0;
+}
+
 /** Days remaining in the week including today, so Monday reads as 7 and Sunday as 1. */
 export function daysLeftInWeek(now: Millis): number {
   const elapsedDays = Math.floor((now - weekStart(now)) / 86_400_000);
