@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import * as settings from '../db/repositories/settings';
@@ -9,6 +9,7 @@ import { Label } from '../design/components/Label';
 import { PrimaryAction } from '../design/components/PrimaryAction';
 import { Screen } from '../design/components/Screen';
 import { ScreenHeader } from '../design/components/ScreenHeader';
+import { TextAction } from '../design/components/TextAction';
 import { TextField } from '../design/components/TextField';
 import { WeekGrid } from '../design/components/WeekGrid';
 
@@ -112,18 +113,15 @@ export function Life({ revision }: LifeProps) {
         <Caption>
           la proyección de tiempo en redes llega con los datos de uso, en la fase 3
         </Caption>
-        <Pressable
+        <TextAction
+          label={`nacido el ${formatBirthDate(stored.birthDate)} · esperanza ${stored.expectancy} años`}
+          size="caption"
           onPress={() => {
             setDraft(stored.birthDate === null ? '' : formatBirthDate(stored.birthDate));
             setEditing(true);
           }}
-          accessibilityRole="button"
-          accessibilityLabel="cambiar la fecha de nacimiento"
-        >
-          <Caption>
-            {`nacido el ${formatBirthDate(stored.birthDate)} · esperanza ${stored.expectancy} años · toca para cambiar`}
-          </Caption>
-        </Pressable>
+          accessibilityLabel="cambiar la fecha de nacimiento y la esperanza de vida"
+        />
       </View>
     </Screen>
   );

@@ -5,6 +5,7 @@ import { Stack } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { bootDatabase, type BootResult } from '../db/boot';
+import { FatalError } from '../design/components/FatalError';
 import { stackScreenOptions } from '../design/navigation';
 import { useSessionStore } from '../store/session';
 
@@ -20,22 +21,37 @@ export default function RootLayout() {
 
   // Synchronous on purpose: op-sqlite is sync, so the database is ready before the
   // first render and no screen has to handle a "not migrated yet" state.
-  const [boot] = useState<BootResult>(() => bootDatabase(Date.now()));
+  //
+  // A failure here is fatal rather than thrown: this is a local-first app, the database
+  // is the product, and a red box is not an answer we can give a user.
+  const [boot] = useState<BootResult | Error>(() => {
+    try {
+      return bootDatabase(Date.now());
+    } catch (caught) {
+      return caught instanceof Error ? caught : new Error(String(caught));
+    }
+  });
   const hydrate = useSessionStore((state) => state.hydrate);
 
   // Runs after orphan recovery, so anything still `running` is a session the user
   // legitimately left open by backgrounding the app.
   useEffect(() => {
-    hydrate();
+    if (!(boot instanceof Error)) {
+      hydrate();
+    }
   }, [hydrate, boot]);
 
   useEffect(() => {
-    if (__DEV__) {
+    if (__DEV__ && !(boot instanceof Error)) {
       console.log(
         `db ready · ${boot.activityCount} activities · ${boot.orphansRecovered} orphan(s) recovered`,
       );
     }
   }, [boot]);
+
+  if (boot instanceof Error) {
+    return <FatalError message={boot.message} />;
+  }
 
   if (!fontsLoaded) {
     return null;
@@ -48,6 +64,8 @@ export default function RootLayout() {
       <Stack.Screen name="session" options={{ gestureEnabled: false }} />
       <Stack.Screen name="config/session" />
       <Stack.Screen name="config/habit" />
+      <Stack.Screen name="config/week" />
+      <Stack.Screen name="config/habit-edit" />
     </Stack>
   );
 }

@@ -106,6 +106,26 @@ export function insert(habit: NewHabit, now: number): Habit {
   return created;
 }
 
+export function rename(habitId: string, name: string): void {
+  const trimmed = name.trim();
+  if (trimmed.length === 0) {
+    throw new Error('habit name cannot be empty');
+  }
+  // Re-links the activity: renaming 'leer' to 'gym' should follow the name.
+  getDb().executeSync('UPDATE habits SET name = ?, activity_id = ? WHERE id = ?', [
+    trimmed,
+    findByKey(trimmed.toLowerCase())?.id ?? null,
+    habitId,
+  ]);
+}
+
+export function setWeeklyTarget(habitId: string, weeklyTarget: number): void {
+  getDb().executeSync('UPDATE habits SET weekly_target = ? WHERE id = ?', [
+    weeklyTarget,
+    habitId,
+  ]);
+}
+
 /** Habits are archived, never deleted: their marks are history. */
 export function archive(habitId: string, now: number): void {
   getDb().executeSync('UPDATE habits SET archived_at = ? WHERE id = ?', [now, habitId]);

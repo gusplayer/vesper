@@ -70,8 +70,8 @@ export default function HabitConfigScreen() {
       <Screen>
         <ScreenHeader left="hábito" right="listo" onPressRight={() => router.back()} />
         <Caption>
-          ya tenés cinco hábitos. es el máximo, y es una decisión de producto: archivá uno
-          desde el libro mayor si querés otro
+          ya tenés cinco hábitos. es el máximo, y es una decisión de producto: mantené
+          pulsado uno en el libro mayor para archivarlo y liberar un lugar
         </Caption>
       </Screen>
     );

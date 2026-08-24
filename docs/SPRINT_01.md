@@ -25,6 +25,7 @@ Lee `CLAUDE.md`, `docs/PRD.md` y `docs/DESIGN_SYSTEM.md` antes de empezar.
 - [x] `PrimaryAction`, `HoldToConfirm`, `ProgressRule`
 - [x] `TextField` — lo necesita el modo `firme` de la tarea 6
 - [x] `WeekGrid`
+- [x] `TextAction` y `FatalError` — no estaban previstos. Ver ADR-0011 y `_layout.tsx`
 
 Criterio: ningún componente importa un color literal. Todos vienen de `tokens.ts`.
 
@@ -71,6 +72,8 @@ Criterio: `domain/` no importa React ni la base de datos.
 
 ### 7. Cierre
 
+- [x] Ícono y splash propios: tinta sobre papel, sin flash blanco al arrancar
+- [x] Dynamic Type verificado a `extra-extra-extra-large` (~135%, sobre el 130% exigido)
 - [ ] `npx tsc --noEmit` sin errores
 - [ ] Correr en dispositivo físico iOS y Android
 - [ ] README con instrucciones de arranque verificadas

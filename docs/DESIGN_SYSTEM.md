@@ -81,7 +81,7 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 - **Prohibido:** spring, escala, rebote, parallax, skeleton shimmer.
 - El único movimiento continuo permitido es la barra de progreso de la sesión y la de "mantener pulsado".
 
-## Componentes (16, escritos a mano)
+## Componentes (18, escritos a mano)
 
 | Componente | Descripción |
 |---|---|
@@ -101,10 +101,23 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 | `TextField` | Campo con regla debajo, sin caja |
 | `Label` | Texto de etiqueta en ink60 |
 | `Caption` | Texto de pista en caption size |
+| `TextAction` | Texto tocable: regla fina debajo, se oscurece al presionar. Ver ADR-0011 |
+| `FatalError` | La única pantalla que existe porque algo se rompió |
 
 Estados seleccionados: borde `1px ink` y texto `ink`.
 Estados no seleccionados: borde `0.5px ink30` y texto `ink60`.
-No hay estados de fondo relleno.
+La selección se comunica **solo con el grosor del borde**. No hay fondo relleno persistente.
+
+**Estado de pulsado (ADR-0011).** Los controles con caja se **invierten** mientras el dedo
+está encima: fondo `ink`, texto `paper`. Instantáneo al presionar y al soltar, así que no
+puede confundirse con una selección. Es lo que hace un Kindle con lo que tocás.
+
+El texto tocable lleva **regla fina debajo** y pasa de `ink60` a `ink` al presionarlo. Sin
+esa regla no había forma de saber qué texto responde, y la regla 3 apoya el producto entero
+en ese tipo de control.
+
+**Área tocable mínima: 44pt.** En chips y filas es altura; en texto tocable es `hitSlop`,
+para no deformar la fila del encabezado.
 
 ## Accesibilidad
 

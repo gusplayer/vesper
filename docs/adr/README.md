@@ -17,3 +17,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0008 | El hábito tiene nombre propio, no hereda el de una actividad | aceptada |
 | 0009 | El swipe es un pager de dos páginas; la sesión es una ruta | aceptada |
 | 0010 | El renglón `sin registrar` no suma monedas: resta intervalos | aceptada |
+| 0011 | El toque se acusa invirtiendo la caja; el texto tocable lleva regla | aceptada |

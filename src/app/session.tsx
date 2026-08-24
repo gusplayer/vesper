@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { AppState, Pressable, View } from 'react-native';
+import { AppState, View } from 'react-native';
 
 import { dayBounds } from '../domain/day';
 import { FIRM_WAIT_MS, HOLD_MS, canGiveUp, elapsed, isDue, remaining } from '../domain/session';
@@ -12,6 +12,7 @@ import { Label } from '../design/components/Label';
 import { ProgressRule } from '../design/components/ProgressRule';
 import { Screen } from '../design/components/Screen';
 import { ScreenHeader } from '../design/components/ScreenHeader';
+import { TextAction } from '../design/components/TextAction';
 import { TextField } from '../design/components/TextField';
 import { Timer } from '../design/components/Timer';
 import { timerText } from '../lib/format';
@@ -124,13 +125,11 @@ export default function SessionScreen() {
             autoFocus
             accessibilityLabel="motivo para terminar"
           />
-          <Pressable
+          <TextAction
+            label={`sales en ${Math.ceil(waitLeft / 1000)}s · seguir`}
             onPress={() => setExitStartedAt(null)}
-            accessibilityRole="button"
             accessibilityLabel="seguir en la sesión"
-          >
-            <Caption>{`sales en ${Math.ceil(waitLeft / 1000)}s · toca aquí para seguir`}</Caption>
-          </Pressable>
+          />
         </View>
       )}
 

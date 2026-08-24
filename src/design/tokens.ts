@@ -54,4 +54,6 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 export const layout = {
   /** Side margins. Vertical margins are generous, like a page. */
   pageMargin: 16,
+  /** Minimum tappable height for anything that responds — ADR-0011. */
+  touchTarget: 44,
 } as const;

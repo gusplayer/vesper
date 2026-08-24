@@ -16,10 +16,28 @@ export function ChoiceCard({ title, description, selected, onPress }: ChoiceCard
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={[styles.card, selected ? styles.selected : styles.unselected]}
+      style={({ pressed }) => [
+        styles.card,
+        selected ? styles.selected : styles.unselected,
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <Text style={[styles.title, selected ? styles.inkText : styles.mutedText]}>{title}</Text>
-      <Text style={styles.description}>{description}</Text>
+      {({ pressed }) => (
+        <>
+          <Text
+            style={[
+              styles.title,
+              selected ? styles.inkText : styles.mutedText,
+              pressed ? styles.paperText : null,
+            ]}
+          >
+            {title}
+          </Text>
+          <Text style={[styles.description, pressed ? styles.paperText : null]}>
+            {description}
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 }
@@ -52,5 +70,12 @@ const styles = StyleSheet.create({
     fontFamily: font.family.regular,
     fontSize: font.size.label,
     color: color.ink60,
+  },
+  /** Inverted while held — ADR-0011. */
+  pressed: {
+    backgroundColor: color.ink,
+  },
+  paperText: {
+    color: color.paper,
   },
 });

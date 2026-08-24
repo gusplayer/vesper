@@ -94,8 +94,15 @@ entrenamiento, caminata, sueño. Se ofrece por defecto cuando el nombre coincide
 
 ## Metas semanales, no rachas diarias
 
-Un objetivo por semana. Se reinicia el lunes. Pantalla de cierre el domingo.
+Un objetivo por semana, en horas de foco. Se reinicia el lunes.
 Las rachas diarias castigan a quien se enferma un martes.
+
+Se configura tocando el progreso en el encabezado de inicio, que es donde se lee. **No hay
+meta por defecto:** la app no inventa un número contra el cual medirte, y `ninguna` es una
+respuesta válida.
+
+La **pantalla de cierre del domingo** sigue sin construirse: sería una cuarta pantalla y la
+regla 2 permite tres. Necesita decidirse dónde vive antes de implementarla.
 
 ## Fuera de alcance en v1
 

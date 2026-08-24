@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { color, font, radius, rule, space } from '../tokens';
+import { color, font, layout, radius, rule, space } from '../tokens';
 
 type PrimaryActionProps = {
   label: string;
@@ -16,11 +16,23 @@ export function PrimaryAction({ label, onPress, disabled = false }: PrimaryActio
       disabled={disabled}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
-      style={[styles.block, disabled ? styles.disabled : styles.enabled]}
+      style={({ pressed }) => [
+        styles.block,
+        disabled ? styles.disabled : styles.enabled,
+        pressed && !disabled ? styles.pressed : null,
+      ]}
     >
-      <Text style={[styles.label, disabled ? styles.labelDisabled : styles.labelEnabled]}>
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <Text
+          style={[
+            styles.label,
+            disabled ? styles.labelDisabled : styles.labelEnabled,
+            pressed && !disabled ? styles.labelPressed : null,
+          ]}
+        >
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -28,6 +40,8 @@ export function PrimaryAction({ label, onPress, disabled = false }: PrimaryActio
 const styles = StyleSheet.create({
   block: {
     paddingVertical: space.lg,
+    minHeight: layout.touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.box,
     alignItems: 'center',
   },
@@ -49,5 +63,12 @@ const styles = StyleSheet.create({
   labelDisabled: {
     // ink30 carries rules and boxes, never text — DESIGN_SYSTEM.md accessibility.
     color: color.ink60,
+  },
+  /** Inverted while held — ADR-0011. Never while disabled: nothing to acknowledge. */
+  pressed: {
+    backgroundColor: color.ink,
+  },
+  labelPressed: {
+    color: color.paper,
   },
 });

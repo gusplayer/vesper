@@ -1,8 +1,9 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { space } from '../tokens';
 import { Label } from './Label';
 import { Rule } from './Rule';
+import { TextAction } from './TextAction';
 
 type ScreenHeaderProps = {
   left: string;
@@ -13,18 +14,14 @@ type ScreenHeaderProps = {
 
 /** Row of labels with a thick rule underneath. */
 export function ScreenHeader({ left, right, onPressRight }: ScreenHeaderProps) {
-  const rightLabel = right === undefined ? null : <Label>{right}</Label>;
-
   return (
     <View>
       <View style={styles.row}>
         <Label>{left}</Label>
-        {onPressRight === undefined ? (
-          rightLabel
+        {right === undefined ? null : onPressRight === undefined ? (
+          <Label>{right}</Label>
         ) : (
-          <Pressable onPress={onPressRight} accessibilityRole="button" accessibilityLabel={right}>
-            {rightLabel}
-          </Pressable>
+          <TextAction label={right} onPress={onPressRight} />
         )}
       </View>
       <Rule weight="thick" />

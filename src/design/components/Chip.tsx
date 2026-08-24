@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { color, font, radius, rule, space } from '../tokens';
+import { color, font, layout, radius, rule, space } from '../tokens';
 
 type ChipProps = {
   label: string;
@@ -18,11 +18,23 @@ export function Chip({ label, selected, onPress }: ChipProps) {
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      style={[styles.chip, selected ? styles.selected : styles.unselected]}
+      style={({ pressed }) => [
+        styles.chip,
+        selected ? styles.selected : styles.unselected,
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <Text style={[styles.label, selected ? styles.labelSelected : styles.labelUnselected]}>
-        {label}
-      </Text>
+      {({ pressed }) => (
+        <Text
+          style={[
+            styles.label,
+            selected ? styles.labelSelected : styles.labelUnselected,
+            pressed ? styles.labelPressed : null,
+          ]}
+        >
+          {label}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -30,7 +42,8 @@ export function Chip({ label, selected, onPress }: ChipProps) {
 const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+    minHeight: layout.touchTarget,
+    justifyContent: 'center',
     borderRadius: radius.box,
   },
   selected: {
@@ -50,5 +63,12 @@ const styles = StyleSheet.create({
   },
   labelUnselected: {
     color: color.ink60,
+  },
+  /** A Kindle inverts what you touch. Instant on press, instant on release — ADR-0011. */
+  pressed: {
+    backgroundColor: color.ink,
+  },
+  labelPressed: {
+    color: color.paper,
   },
 });

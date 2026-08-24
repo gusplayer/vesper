@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 
 import type { SessionConfig } from '../../domain/session';
@@ -35,11 +35,14 @@ const DEPTHS: ReadonlyArray<{ value: Depth; title: string; description: string }
  */
 export default function SessionConfigScreen() {
   const router = useRouter();
-  const activities = activitiesRepo.listActive();
+  // Re-read after creating one, so the new chip appears immediately.
+  const [activityRevision, setActivityRevision] = useState(0);
+  const activities = useMemo(() => activitiesRepo.listActive(), [activityRevision]);
   const [config, setConfig] = useState<SessionConfig | null>(() =>
     sessionConfigRepo.loadOrDefault(),
   );
   const [customMinutes, setCustomMinutes] = useState('');
+  const [newActivity, setNewActivity] = useState<string | null>(null);
 
   function update(next: SessionConfig): void {
     setConfig(next);
@@ -108,7 +111,35 @@ export default function SessionConfigScreen() {
             onPress={() => update({ ...config, activityId: activity.id })}
           />
         ))}
+        <Chip label="otra" selected={false} onPress={() => setNewActivity('')} />
       </ChipRow>
+      {newActivity === null ? null : (
+        <View>
+          <TextField
+            value={newActivity}
+            onChangeText={setNewActivity}
+            placeholder="nombre de la actividad"
+            autoFocus
+            onEndEditing={() => {
+              const label = newActivity.trim().toLowerCase();
+              if (label.length === 0) {
+                setNewActivity(null);
+                return;
+              }
+              // The key is the name: activities are the user's own vocabulary, and a
+              // duplicate name is a duplicate activity.
+              const existing = activitiesRepo.findByKey(label);
+              const activity =
+                existing ?? activitiesRepo.insert(label, label, Date.now());
+              update({ ...config, activityId: activity.id });
+              setActivityRevision((current) => current + 1);
+              setNewActivity(null);
+            }}
+            accessibilityLabel="nombre de la actividad nueva"
+          />
+          <Caption>en minúscula, como todo en la app</Caption>
+        </View>
+      )}
 
       <Label>profundidad</Label>
       {DEPTHS.map((depth) => (

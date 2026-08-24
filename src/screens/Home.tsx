@@ -4,14 +4,16 @@ import { useMemo, useState } from 'react';
 import { dayBounds, dayKeyOf, weekStart } from '../domain/day';
 import { weeklyProgress } from '../domain/habits';
 import { buildLedger } from '../domain/ledger';
+import { weekProgress } from '../domain/week';
 import type { Depth, LedgerRow as LedgerRowData } from '../domain/types';
 import * as activitiesRepo from '../db/repositories/activities';
 import * as habitsRepo from '../db/repositories/habits';
+import * as settingsRepo from '../db/repositories/settings';
 import * as sessionConfigRepo from '../db/repositories/sessionConfig';
 import * as sessionsRepo from '../db/repositories/sessions';
 import { Caption } from '../design/components/Caption';
 import { Label } from '../design/components/Label';
-import { Pressable } from 'react-native';
+import { TextAction } from '../design/components/TextAction';
 import { LedgerRow } from '../design/components/LedgerRow';
 import { DisplayNumber } from '../design/components/DisplayNumber';
 import { PrimaryAction } from '../design/components/PrimaryAction';
@@ -37,6 +39,20 @@ function toneFor(row: LedgerRowData): 'strong' | 'normal' | 'faint' {
 }
 
 const MAX_HABITS_HINT = 'agregar hábito';
+
+/**
+ * The header line for the weekly goal. Without a target it reports the total and says
+ * nothing about progress: the app does not invent a number to measure you against.
+ */
+function weekSummary(week: { focusMs: number; targetMs: number | null; met: boolean; daysLeft: number }): string {
+  if (week.targetMs === null || week.targetMs <= 0) {
+    return `${durationText(week.focusMs)} esta semana`;
+  }
+  if (week.met) {
+    return `meta hecha · ${durationText(week.focusMs)}`;
+  }
+  return `${durationText(week.focusMs)} de ${durationText(week.targetMs)} · ${week.daysLeft}d`;
+}
 
 type HomeProps = {
   /** Bumped by the pager host on focus, so the ledger reloads after a session. */
@@ -88,7 +104,12 @@ export function Home({ revision }: HomeProps) {
         usageEstimateMs: 0,
       }),
       sessionsToday: today.length,
-      weekMs: week.reduce((total, session) => total + sessionsRepo.servedMs(session, now), 0),
+      week: weekProgress(
+        week,
+        (session) => sessionsRepo.servedMs(session, now),
+        settingsRepo.getNumber(settingsRepo.SETTING_KEYS.weeklyFocusTargetMs),
+        now,
+      ),
     };
     // revision and marks are dependencies on purpose: they are the signals that the
     // database changed underneath.
@@ -113,7 +134,11 @@ export function Home({ revision }: HomeProps) {
 
   return (
     <Screen scroll>
-      <ScreenHeader left={dayText(now)} right={`${durationText(data.weekMs)} esta semana`} />
+      <ScreenHeader
+        left={dayText(now)}
+        right={weekSummary(data.week)}
+        onPressRight={() => router.push('/config/week')}
+      />
 
       <DisplayNumber
         value={config === null ? '—' : minutesText(config.plannedMs)}
@@ -164,18 +189,13 @@ export function Home({ revision }: HomeProps) {
             }
             setMarks((current) => current + 1);
           }}
-          accessibilityLabel={`${progress.habit.name}, ${progress.markedDays} de ${progress.habit.weeklyTarget} esta semana, toca para ${progress.markedToday ? 'desmarcar' : 'marcar'} hoy`}
+          onLongPress={() => router.push({ pathname: '/config/habit-edit', params: { id: progress.habit.id } })}
+          accessibilityLabel={`${progress.habit.name}, ${progress.markedDays} de ${progress.habit.weeklyTarget} esta semana, toca para ${progress.markedToday ? 'desmarcar' : 'marcar'} hoy, mantén pulsado para editar`}
         />
       ))}
       {data.habits.length === 0 ? <Caption>sin hábitos todavía</Caption> : null}
       {data.habits.length >= 5 ? null : (
-        <Pressable
-          onPress={() => router.push('/config/habit')}
-          accessibilityRole="button"
-          accessibilityLabel={MAX_HABITS_HINT}
-        >
-          <Caption>{MAX_HABITS_HINT}</Caption>
-        </Pressable>
+        <TextAction label={MAX_HABITS_HINT} onPress={() => router.push('/config/habit')} />
       )}
     </Screen>
   );
