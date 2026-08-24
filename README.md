@@ -26,20 +26,53 @@ dev build (ADR-0001).
 
 ```bash
 npm install
-npx expo prebuild --clean
-npx expo run:ios          # o run:android
+```
+
+### iOS
+
+```bash
+npx expo prebuild --platform ios
+npx expo run:ios --device "iPhone 17 Pro"
 ```
 
 Después del primer build, el ciclo normal es `npx expo start --dev-client`.
 
+### Android
+
+Requiere el SDK de Android y Java 17. Si `ANDROID_HOME` no está en el entorno:
+
+```bash
+export ANDROID_HOME=$HOME/Library/Android/sdk
+```
+
+```bash
+npx expo prebuild --platform android
+npx expo run:android --device Pixel_6_API_34
+```
+
+`--device` toma el **nombre del AVD**, no el id de adb: `emulator-5554` falla con
+`Could not find device with name`. Los AVDs disponibles salen con
+`$ANDROID_HOME/emulator/emulator -list-avds`.
+
+El primer build de Android compila Kotlin de op-sqlite, pager-view y expo-modules-core, y
+tarda bastante más que el de iOS.
+
 `/ios` y `/android` están en `.gitignore`: son carpetas generadas por prebuild.
+
+### Si `npm install <paquete>` falla
+
+`.npmrc` fija `legacy-peer-deps=true`. El árbol de SDK 57 tiene un conflicto de peers con
+`react-dom` que hace fallar cualquier instalación sin ese flag.
 
 ## Tests
 
 ```bash
-npx vitest run       # unit tests de src/domain/
-npx tsc --noEmit     # obligatorio antes de cerrar cualquier tarea
+npm test             # unit tests de src/domain/ y src/db/sql.ts
+npm run typecheck    # obligatorio antes de cerrar cualquier tarea
 ```
+
+Los módulos puros se testean con vitest. Todo lo que toca op-sqlite o React se verifica
+corriendo la app.
 
 ## Estado
 
