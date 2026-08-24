@@ -20,12 +20,21 @@ export function timerText(ms: number): string {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-/** '2h 15m', '45m', '0m'. Used by the ledger, where seconds are noise. */
+/**
+ * '2h 15m', '45m', '<1m', '0m'. Used by the ledger, where seconds are noise.
+ *
+ * Anything under a minute reads '<1m' rather than '0m': a session that served 55
+ * seconds is not nothing, and a row claiming 0m while sitting in the ledger reads like
+ * a bug. Exactly zero still says '0m'.
+ */
 export function durationText(ms: number): string {
   const total = Math.max(0, ms);
   const hours = Math.floor(total / HOUR);
   const minutes = Math.floor((total % HOUR) / MINUTE);
 
+  if (total > 0 && total < MINUTE) {
+    return '<1m';
+  }
   if (hours === 0) {
     return `${minutes}m`;
   }

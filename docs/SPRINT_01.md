@@ -76,8 +76,9 @@ Criterio: `domain/` no importa React ni la base de datos.
 - [x] Dynamic Type verificado a `extra-extra-extra-large` (~135%, sobre el 130% exigido)
 - [x] Primera vez sin onboarding, y cierre del domingo sin pantalla nueva (ADR-0012, ADR-0013)
 - [ ] `npx tsc --noEmit` sin errores
+- [x] Correr en emulador de Android: build, fuentes, pager y SQLite verificados
+- [x] README con instrucciones de arranque verificadas en las dos plataformas
 - [ ] Correr en dispositivo físico iOS y Android
-- [ ] README con instrucciones de arranque verificadas
 
 ## Definición de terminado
 

@@ -34,6 +34,12 @@ describe('durationText', () => {
   it('shows 0m rather than an empty string', () => {
     expect(durationText(0)).toBe('0m');
   });
+
+  it("reads '<1m' under a minute, because a 55 second session is not nothing", () => {
+    expect(durationText(55_000)).toBe('<1m');
+    expect(durationText(1)).toBe('<1m');
+    expect(durationText(MINUTE)).toBe('1m');
+  });
 });
 
 describe('minutesText', () => {
