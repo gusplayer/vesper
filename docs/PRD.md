@@ -67,6 +67,11 @@ Toda la configuración se abre desde donde se lee, y no hay otro acceso (ADR-000
 - Si hubo interrupciones, una línea que las cuenta. Se anotan, no se castigan
 - Al vencer el timer la ruta no se va: muestra la duración servida, la intención tal como
   se escribió y `volver`. Una sesión cancelada no pasa por ahí. Ver ADR-0015
+- **Salida consciente** (2026-09): `Terminar` no termina. Abre un ritual a pantalla completa
+  cuyo largo depende de la profundidad: suave respira tres rondas (4-4-6) y confirma;
+  firme además escribe la frase "Elijo dejar esto ahora" y dice por qué; profundo no
+  tiene salida. En cada paso el botón grande es `Seguir enfocado`. El desbloqueo de
+  emergencia espera 10 s antes de poder usarse y descuenta uno de los cinco del mes.
 
 Comportamiento por nivel de profundidad:
 - **Suave** — mantener pulsado termina de inmediato

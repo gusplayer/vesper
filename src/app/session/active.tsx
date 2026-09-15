@@ -15,7 +15,7 @@ import {
 import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
 import { countText, modeRunningText } from '../../data/modes';
 import { elapsed, isDue, remaining, sessionProgress } from '../../domain/session';
-import { ExitSheet } from '../../features/session/ExitSheet';
+import { EmergencySheet } from '../../features/session/EmergencySheet';
 import { timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 
@@ -36,7 +36,7 @@ export default function ActiveSessionScreen() {
   const spendEmergency = useAppStore((state) => state.useEmergency);
   const now = useNow(1000);
   const [intention, setIntentionText] = useState(session?.intention ?? '');
-  const [askingWhy, setAskingWhy] = useState(false);
+  const [askingEmergency, setAskingEmergency] = useState(false);
   // The session closes exactly once, whichever path gets there first.
   const closedRef = useRef(false);
 
@@ -69,7 +69,7 @@ export default function ActiveSessionScreen() {
       return;
     }
     closedRef.current = true;
-    setAskingWhy(false);
+    setAskingEmergency(false);
     finish('cancelled', Date.now(), reason);
     router.dismissTo('/(tabs)');
   };
@@ -83,10 +83,7 @@ export default function ActiveSessionScreen() {
     session.depth === 'deep' ? (
       <Button label="Profundo · solo el timer termina" onPress={() => undefined} disabled />
     ) : (
-      <Button
-        label="Terminar"
-        onPress={() => (session.depth === 'firm' ? setAskingWhy(true) : leave(null))}
-      />
+      <Button label="Terminar" onPress={() => router.push('/session/exit')} />
     );
 
   const footer = (
@@ -100,10 +97,7 @@ export default function ActiveSessionScreen() {
             : 'Sin desbloqueos de emergencia'
         }
         disabled={emergencyLeft === 0}
-        onPress={() => {
-          spendEmergency();
-          leave('desbloqueo de emergencia');
-        }}
+        onPress={() => setAskingEmergency(true)}
       />
     </>
   );
@@ -154,8 +148,15 @@ export default function ActiveSessionScreen() {
         </Stack>
       </Stack>
 
-      {askingWhy ? (
-        <ExitSheet onStay={() => setAskingWhy(false)} onLeave={(reason) => leave(reason)} />
+      {askingEmergency ? (
+        <EmergencySheet
+          left={emergencyLeft}
+          onStay={() => setAskingEmergency(false)}
+          onUse={() => {
+            spendEmergency();
+            leave('desbloqueo de emergencia');
+          }}
+        />
       ) : null}
     </Screen>
   );
