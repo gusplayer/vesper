@@ -28,12 +28,12 @@ const STEPS: ReadonlyArray<Step> = [
       <Stack align="center" gap="md">
         <HeroObject size="md" />
         <Text variant="caption" tone="secondary">
-          Tocá para enfocar
+          Toca para enfocar
         </Text>
       </Stack>
     ),
-    title: 'Tocá para enfocar. Tocá de nuevo para volver.',
-    body: 'Elegí un modo, tocá el botón y las apps que elegiste quedan en pausa hasta que termines.',
+    title: 'Toca para enfocar. Toca de nuevo para volver.',
+    body: 'Elige un modo, toca el botón y las apps que elegiste quedan en pausa hasta que termines.',
   },
   {
     preview: (
@@ -43,7 +43,7 @@ const STEPS: ReadonlyArray<Step> = [
       </ListGroup>
     ),
     title: 'Estás cubierto en una emergencia',
-    body: 'Tenés 5 desbloqueos de emergencia. Suficientes para cuando de verdad los necesitás. Los encontrás en Ajustes.',
+    body: 'Tienes 5 desbloqueos de emergencia. Suficientes para cuando de verdad los necesitas. Los encuentras en Ajustes.',
   },
   {
     preview: (
@@ -55,7 +55,7 @@ const STEPS: ReadonlyArray<Step> = [
       </Stack>
     ),
     title: 'Nada sale de tu teléfono',
-    body: 'Sin cuenta ni nube. Lo que invertís, lo que Salud confirma y lo que consumís se cuentan aparte y nunca se suman.',
+    body: 'Sin cuenta ni nube. Lo que inviertes, lo que Salud confirma y lo que consumes se cuentan aparte y nunca se suman.',
   },
 ];
 

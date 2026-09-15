@@ -21,7 +21,7 @@ export function FatalError({ message }: FatalErrorProps) {
           {message}
         </Text>
         <Text variant="label" tone="tertiary">
-          cerrá la app y volvé a abrirla. si sigue pasando, es un bug nuestro.
+          cierra la app y vuelve a abrirla. si sigue pasando, es un bug nuestro.
         </Text>
       </View>
     </SafeAreaView>

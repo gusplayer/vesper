@@ -65,7 +65,7 @@ describe('sessionEndReminder', () => {
     const spec = sessionEndReminder(aRunningSession({ plannedMs: HOUR + 15 * MINUTE }));
 
     expect(spec.title).toBe('Terminó tu sesión');
-    expect(spec.body).toBe('1h 15m de foco. Volvé a Vesper para cerrarla.');
+    expect(spec.body).toBe('1h 15m de foco. Vuelve a Vesper para cerrarla.');
     expect(spec.sound).toBe(true);
   });
 });
@@ -91,7 +91,7 @@ describe('scheduleReminders', () => {
 
     expect(spec?.weekday).toBe(EXPO_SUNDAY);
     expect(spec?.title).toBe('Empieza Trabajo');
-    expect(spec?.body).toBe('Modo Sin redes. Tocá para enfocar.');
+    expect(spec?.body).toBe('Modo Sin redes. Toca para enfocar.');
     expect(spec?.sound).toBe(false);
   });
 
@@ -111,7 +111,7 @@ describe('weeklyCloseReminder', () => {
     expect(spec.weekday).toBe(EXPO_SUNDAY);
     expect(spec.hour).toBe(20);
     expect(spec.minute).toBe(0);
-    expect(spec.title).toBe('Cerrá la semana');
+    expect(spec.title).toBe('Cierra la semana');
     expect(spec.id).toBe('weekly-close');
   });
 });
@@ -178,7 +178,7 @@ describe('plannedNotifications', () => {
       aState({ schedules: [aSchedule({ days: [true, false, false, false, false, false, false] })], prefs: { ...ALL_OFF, coaching: true } }),
     );
 
-    expect(spec?.body).toBe('Modo Trabajo profundo. Tocá para enfocar.');
+    expect(spec?.body).toBe('Modo Trabajo profundo. Toca para enfocar.');
   });
 
   it('is the full set: session, schedules and weekly close together, with unique ids', () => {

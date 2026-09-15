@@ -22,12 +22,12 @@ const FAQS: Faq[] = [
   {
     question: '¿Por qué no se suman las tres monedas?',
     answer:
-      'Lo verificado (Salud), lo declarado (vos) y lo estimado (uso del teléfono) miden cosas distintas. Sumarlos daría un número que no significa nada.',
+      'Lo verificado (Salud), lo declarado (tú) y lo estimado (uso del teléfono) miden cosas distintas. Sumarlos daría un número que no significa nada.',
   },
   {
     question: '¿Cómo funciona el desbloqueo de emergencia?',
     answer:
-      'Termina la sesión en el acto, sin espera. Tenés cinco por mes y se cuentan en Ajustes.',
+      'Termina la sesión en el acto, sin espera. Tienes cinco por mes y se cuentan en Ajustes.',
   },
   {
     question: '¿Vesper sube mis datos?',

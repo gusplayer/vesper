@@ -12,7 +12,7 @@ export default function WelcomeScreen() {
           <>
             <Button label="Empezar" onPress={() => router.push('/onboarding/goal')} />
             <Text variant="caption" tone="tertiary" align="center">
-              Al continuar aceptás los Términos y la Privacidad.
+              Al continuar aceptas los Términos y la Privacidad.
             </Text>
           </>
         }
@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
             Tu tiempo es tuyo.
           </Text>
           <Text variant="title" align="center">
-            Volvé a lo que importa.
+            Vuelve a lo que importa.
           </Text>
           <Text variant="label" tone="secondary" align="center">
             Sin cuenta, sin nube. Todo queda en tu teléfono.

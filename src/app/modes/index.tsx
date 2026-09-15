@@ -53,7 +53,7 @@ export default function ModesScreen() {
 
       {modes.length === 0 ? (
         <Text variant="label" tone="secondary" align="center">
-          Todavía no hay modos. Creá uno con el más, o elegí una idea.
+          Todavía no hay modos. Crea uno con el más, o elige una idea.
         </Text>
       ) : null}
 

@@ -17,7 +17,7 @@ type ModeCardProps = {
 export function ModeCard({ mode, active, onSelect, onEdit, onMore }: ModeCardProps) {
   const apps = appsById(mode.appIds);
   return (
-    <Card onPress={onSelect} accessibilityLabel={`${mode.name}, ${active ? 'activo' : 'tocá para activar'}`}>
+    <Card onPress={onSelect} accessibilityLabel={`${mode.name}, ${active ? 'activo' : 'toca para activar'}`}>
       <Stack gap="md">
         <Stack direction="row" align="center" gap="md">
           <Stack gap="xs" grow>

@@ -64,7 +64,7 @@ export default function NotificationsScreen() {
   };
 
   const tryNow = () => {
-    void presentNow('Así se ve un aviso', 'Vesper te va a hablar así. Tocá para volver.');
+    void presentNow('Así se ve un aviso', 'Vesper te va a hablar así. Toca para volver.');
   };
 
   return (
@@ -90,7 +90,7 @@ export default function NotificationsScreen() {
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              Acá no hay notificaciones
+              Aquí no hay notificaciones
             </Text>
             <Text variant="label" tone="secondary">
               {capability.reason}
@@ -105,7 +105,7 @@ export default function NotificationsScreen() {
             </Text>
             <Text variant="label" tone="secondary">
               El sistema no lo vuelve a pedir. Activalo en Ajustes del sistema › Vesper ›
-              Notificaciones y volvé acá.
+              Notificaciones y vuelve aquí.
             </Text>
           </Stack>
         </Card>

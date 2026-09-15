@@ -28,7 +28,7 @@ export function EmergencySheet({ left, onStay, onUse }: EmergencySheetProps) {
           {`Te quedan ${left} este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.`}
         </Text>
         <Text variant="caption" tone="secondary">
-          {ready ? 'Si de verdad es una emergencia, adelante.' : `Podés confirmar en ${Math.ceil(waitLeft / SECOND)} s.`}
+          {ready ? 'Si de verdad es una emergencia, adelante.' : `Puedes confirmar en ${Math.ceil(waitLeft / SECOND)} s.`}
         </Text>
         <Button label="Seguir enfocado" onPress={onStay} />
         <Button variant="ghost" label="Usar un desbloqueo" onPress={onUse} disabled={!ready} />

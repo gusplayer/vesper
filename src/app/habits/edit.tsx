@@ -23,7 +23,7 @@ export default function EditHabitScreen() {
               Ese hábito ya no está.
             </Text>
             <Text variant="label" tone="secondary">
-              Volvé a la actividad y elegí otro.
+              Vuelve a la actividad y elige otro.
             </Text>
           </Stack>
         </Card>

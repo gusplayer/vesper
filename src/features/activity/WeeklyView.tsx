@@ -29,7 +29,7 @@ const PERIODS = [
   { key: '0', label: 'ESTA SEMANA' },
 ] as const;
 
-const FIRST_WEEK = 'Tu primera semana está en marcha. Volvé por tu promedio.';
+const FIRST_WEEK = 'Tu primera semana está en marcha. Vuelve por tu promedio.';
 
 type WeeklyViewProps = {
   stats: ReadonlyArray<DayStat>;

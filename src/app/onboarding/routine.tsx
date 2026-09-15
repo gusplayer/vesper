@@ -15,7 +15,7 @@ import {
 import { TimeSheet } from '../../features/onboarding/TimeSheet';
 import { daysText, timeText } from '../../features/schedules/format';
 
-const OPEN_END_LABEL = 'Al terminar vos';
+const OPEN_END_LABEL = 'Hasta que lo termines';
 
 /** Optional: make the first mode a routine. Start, end and days, then continue or skip. */
 export default function RoutineScreen() {
@@ -70,7 +70,7 @@ export default function RoutineScreen() {
 
       <TimeSheet
         visible={editing !== null}
-        title="Elegí la hora"
+        title="Elige la hora"
         value={editing === 'end' ? schedule.endMinutes : schedule.startMinutes}
         openEnd={editing === 'end'}
         onClose={() => setEditing(null)}

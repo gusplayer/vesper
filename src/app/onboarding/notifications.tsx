@@ -56,13 +56,13 @@ export default function NotificationsScreen() {
     >
       <PageHeader onBack={() => router.back()} />
       <Text variant="caption" tone="tertiary" align="center">
-        Seguí en camino
+        Sigue en camino
       </Text>
       <Text variant="title" align="center">
-        Sacale el jugo a Vesper
+        Sácale el jugo a Vesper
       </Text>
       <Text variant="label" tone="secondary" align="center">
-        Permití notificaciones para avisos a tiempo que te ayuden a cumplir.
+        Permite notificaciones para avisos a tiempo que te ayuden a cumplir.
       </Text>
 
       {/* A fake notification, the way one would land on the lock screen. */}
@@ -74,7 +74,7 @@ export default function NotificationsScreen() {
               El tiempo se escapa
             </Text>
             <Text variant="label" tone="secondary">
-              Vesper lo recupera. Empezá una sesión.
+              Vesper lo recupera. Empieza una sesión.
             </Text>
           </Stack>
           <Text variant="caption" tone="tertiary">

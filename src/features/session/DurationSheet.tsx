@@ -29,7 +29,7 @@ export function DurationSheet({ visible, onClose, onStart }: DurationSheetProps)
         ))}
       </Stack>
       <Text variant="caption" tone="secondary">
-        La próxima vez, mantené el botón para empezar sin preguntar.
+        La próxima vez, mantén el botón para empezar sin preguntar.
       </Text>
       <Button label={`Enfocar ${minutesText(plannedMs)} min`} onPress={() => onStart(plannedMs)} />
     </Sheet>

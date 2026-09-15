@@ -85,7 +85,7 @@ export function weekSummaryText(week: WeekProgress, closingDay: boolean): string
 /** What the Sunday closing says under the numbers. */
 export function weekClosingText(week: WeekProgress): string {
   if (!hasTarget(week.targetMs)) {
-    return 'no había meta esta semana. poné una para la que empieza mañana';
+    return 'no había meta esta semana. pon una para la que empieza mañana';
   }
   if (week.met) {
     return 'meta cumplida. la semana que empieza mañana arranca en cero';

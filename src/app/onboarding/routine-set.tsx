@@ -47,7 +47,7 @@ export default function RoutineSetScreen() {
 
       <Text variant="title">Tu rutina está lista</Text>
       <Text variant="label" tone="secondary">
-        Podés editarla cuando quieras en la pestaña Horarios.
+        Puedes editarla cuando quieras en la pestaña Horarios.
       </Text>
     </Screen>
   );

@@ -74,7 +74,9 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   componentes de `design/components/`. Si una pantalla necesita un token, falta un componente.
 - Piezas compartidas por varias pantallas de un área van en `src/features/<área>/`, nunca
   dentro de `src/app/` (expo-router convierte cada archivo en ruta).
-- Copy en español, en voseo y en oración: "Tocá para enfocar". Sin mayúsculas completas.
+- **Copy en español neutro, de tú, en oración**: "Toca para enfocar", "Elige un modo", "Puedes
+  cambiarlo". Nunca voseo (tocá, podés, vos), nunca usted, nunca regionalismos. Sin
+  mayúsculas completas. Tildes correctas. Números con coma decimal ("77,6").
 - Commits convencionales: `feat:`, `fix:`, `chore:`, `docs:`.
 
 ## Cómo trabajar

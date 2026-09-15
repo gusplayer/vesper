@@ -15,7 +15,7 @@ const BLOCKS: ReadonlyArray<PermissionBlock> = [
   {
     icon: 'lock',
     heading: 'Cómo lo usamos',
-    body: 'Nunca vemos qué apps bloqueás ni tu historial. Todo queda en tu teléfono.',
+    body: 'Nunca vemos qué apps bloqueas ni tu historial. Todo queda en tu teléfono.',
   },
   {
     icon: 'zap',
@@ -48,7 +48,7 @@ export default function ScreenTimeScreen() {
 
   return (
     <PermissionPage
-      title="Conectá Vesper a Tiempo de uso"
+      title="Conecta Vesper a Tiempo de uso"
       blocks={BLOCKS}
       onBack={() => router.back()}
       footer={
@@ -56,8 +56,8 @@ export default function ScreenTimeScreen() {
           <Button label="Permitir acceso" busyLabel="Pidiendo…" busy={busy} onPress={() => void allow()} />
           <Text variant="caption" tone="tertiary" align="center">
             {reason === null
-              ? 'iOS te va a pedir confirmar. Podés cambiarlo después en Ajustes.'
-              : `Podés seguir sin esto: ${reason}.`}
+              ? 'iOS te va a pedir confirmar. Puedes cambiarlo después en Ajustes.'
+              : `Puedes seguir sin esto: ${reason}.`}
           </Text>
         </>
       }

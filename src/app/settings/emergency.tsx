@@ -46,7 +46,7 @@ export default function EmergencyScreen() {
               Desbloqueo de emergencia
             </Text>
             <Text variant="label" tone="secondary">
-              Terminá una sesión sin esperar cuando de verdad lo necesitás
+              Termina una sesión sin esperar cuando de verdad lo necesitas
             </Text>
           </Stack>
           <Badge label={`${settings.emergencyLeft} restantes`} />
@@ -55,7 +55,7 @@ export default function EmergencyScreen() {
 
       <Stack gap="xs">
         <Text variant="caption" tone="tertiary" align="center">
-          {`Tenés ${settings.emergencyTotal} por mes. Suficientes para una emergencia real, no para el scroll.`}
+          {`Tienes ${settings.emergencyTotal} por mes. Suficientes para una emergencia real, no para el scroll.`}
         </Text>
         {running === null ? (
           <Text variant="caption" tone="tertiary" align="center">

@@ -105,7 +105,7 @@ export default function ModeEditScreen() {
           <Stack gap="xs">
             <Text variant="heading">Comportamiento</Text>
             <Text variant="label" tone="secondary">
-              Elegí qué se limita mientras estás enfocado
+              Elige qué se limita mientras estás enfocado
             </Text>
           </Stack>
           <SegmentedControl segments={BEHAVIORS} value={draft.behavior} onChange={draft.setBehavior} />

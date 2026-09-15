@@ -33,7 +33,7 @@ export default function AboutScreen() {
       </Stack>
 
       <Text variant="body" tone="secondary" align="center">
-        Vesper mide el tiempo que invertís, no el que consumís. Lo que hacés con foco, lo que
+        Vesper mide el tiempo que inviertes, no el que consumes. Lo que haces con foco, lo que
         verifica Salud y lo que el teléfono estima viven en columnas distintas y nunca se suman.
         La idea es que veas tu tiempo como algo que se asigna, no como algo que se pierde.
       </Text>

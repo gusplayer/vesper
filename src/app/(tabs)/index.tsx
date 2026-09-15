@@ -54,7 +54,7 @@ export default function FocusScreen() {
       <Button label="Seguir" onPress={() => router.push('/session/active')} />
     ) : (
       <Button
-        label="Tocá o mantené para enfocar"
+        label="Toca o mantén para enfocar"
         onPress={() => setAsking(true)}
         onLongPress={() => begin(plannedMs)}
         disabled={mode === null}
@@ -94,7 +94,7 @@ export default function FocusScreen() {
             </Text>
             <Button
               variant="ghost"
-              label="Creá tu primer modo ›"
+              label="Crea tu primer modo ›"
               onPress={() => router.push('/modes/edit')}
             />
           </>

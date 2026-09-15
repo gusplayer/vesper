@@ -57,7 +57,7 @@ export default function AppsScreen() {
             disabled={appIds.length === 0}
           />
           <Text variant="caption" tone="tertiary" align="center">
-            Bloqueá hasta 50 distracciones por modo. Podés editarlo cuando quieras.
+            Bloquea hasta 50 distracciones por modo. Puedes editarlo cuando quieras.
           </Text>
         </>
       }
@@ -65,7 +65,7 @@ export default function AppsScreen() {
       <PageHeader onBack={() => router.back()} />
       <Text variant="title">{`Bien, tu primer modo se llama ${modeName}`}</Text>
       <Text variant="label" tone="secondary">
-        Ahora elegí las apps a bloquear cuando lo uses.
+        Ahora elige las apps a bloquear cuando lo uses.
       </Text>
 
       <Stack direction="row" justify="center" gap="lg">

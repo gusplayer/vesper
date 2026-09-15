@@ -10,12 +10,12 @@ const BLOCKS: ReadonlyArray<PermissionBlock> = [
   {
     icon: 'activity',
     heading: 'Hábitos que se marcan solos',
-    body: 'Gym, pasos y sueño se confirman con Salud. No tenés que tocar nada.',
+    body: 'Gym, pasos y sueño se confirman con Salud. No tienes que tocar nada.',
   },
   {
     icon: 'lock',
     heading: 'Nunca sale del teléfono',
-    body: 'Lo que Salud comparte se lee acá y no va a ningún servidor.',
+    body: 'Lo que Salud comparte se lee aquí y no va a ningún servidor.',
   },
   {
     icon: 'heart',
@@ -49,7 +49,7 @@ export default function HealthScreen() {
 
   return (
     <PermissionPage
-      title="Conectá Salud"
+      title="Conecta Salud"
       blocks={BLOCKS}
       onBack={() => router.back()}
       footer={

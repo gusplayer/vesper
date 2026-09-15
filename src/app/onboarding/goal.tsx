@@ -27,9 +27,9 @@ export default function GoalScreen() {
     >
       <Text variant="title">¿Para qué es tu primer modo?</Text>
       <Text variant="label" tone="secondary">
-        Cada modo bloquea las apps que elijas. Podés sumar más cuando quieras.
+        Cada modo bloquea las apps que elijas. Puedes sumar más cuando quieras.
       </Text>
-      <Section title="Elegí una">
+      <Section title="Elige una">
         {GOAL_OPTIONS.map((option) => (
           <Card
             key={option.ideaId}

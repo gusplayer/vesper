@@ -31,7 +31,7 @@ const DEFAULT_START = 9 * MINUTES_PER_HOUR;
 const DEFAULT_END = 18 * MINUTES_PER_HOUR;
 
 /** What "Termina" says when the schedule runs until the user ends it. */
-const OPEN_END = 'Al terminar vos';
+const OPEN_END = 'Hasta que lo termines';
 
 type Picking = 'start' | 'end' | null;
 
@@ -147,7 +147,7 @@ export default function ScheduleEditScreen() {
           value={endMinutes === null ? OPEN_END : timeText(endMinutes)}
           onPress={() => setPicking('end')}
         />
-        <ListRow label="Modo" value={mode?.name ?? 'Elegí uno'} onPress={() => setModeSheetOpen(true)} />
+        <ListRow label="Modo" value={mode?.name ?? 'Elige uno'} onPress={() => setModeSheetOpen(true)} />
       </ListGroup>
 
       <Section
@@ -179,7 +179,7 @@ export default function ScheduleEditScreen() {
         </Card>
       )}
 
-      <Sheet visible={picking !== null} title="Elegí la hora" onClose={() => setPicking(null)}>
+      <Sheet visible={picking !== null} title="Elige la hora" onClose={() => setPicking(null)}>
         <Stack gap="lg">
           <Stack gap="sm">
             <Text variant="caption" tone="secondary">

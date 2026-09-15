@@ -7,7 +7,7 @@ type TimeSheetProps = {
   title: string;
   /** Minutes from midnight, or null for "until you end it" when `openEnd` is allowed. */
   value: number | null;
-  /** Offers the "Al terminar vos" chip. Only the end of a window can be open. */
+  /** Offers the "Hasta que lo termines" chip. Only the end of a window can be open. */
   openEnd?: boolean;
   onClose: () => void;
   onDone: (minutes: number | null) => void;
@@ -15,7 +15,7 @@ type TimeSheetProps = {
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const MINUTES = [0, 15, 30, 45];
-const OPEN_END_LABEL = 'Al terminar vos';
+const OPEN_END_LABEL = 'Hasta que lo termines';
 
 /**
  * The prototype's time picker: chips for the hour and the quarter, no native wheel

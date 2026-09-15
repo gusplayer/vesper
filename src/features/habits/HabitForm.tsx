@@ -107,7 +107,7 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
       <Section title="Cómo se cuenta">
         <CountModeCard
           title="Declarado"
-          description="Lo marcás vos"
+          description="Lo marcas tú"
           selected={effectiveMode === 'declared'}
           onPress={() => setCountMode('declared')}
         />

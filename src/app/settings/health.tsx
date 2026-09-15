@@ -26,7 +26,7 @@ const BLOCKS: Block[] = [
   {
     icon: 'activity',
     title: 'Cómo lo usás',
-    text: 'Los hábitos verificados se marcan solos: gym, pasos, sueño. Vos no tocás nada.',
+    text: 'Los hábitos verificados se marcan solos: gym, pasos, sueño. Tú no tocas nada.',
   },
   {
     icon: 'lock',
@@ -40,7 +40,7 @@ const BLOCKS: Block[] = [
   },
 ];
 
-const DENIED_TEXT = 'Salud no dio permiso. Podés intentarlo de nuevo desde acá.';
+const DENIED_TEXT = 'Salud no dio permiso. Puedes intentarlo de nuevo desde aquí.';
 
 /**
  * Salud: the pitch and a connect button, or the week's summary and a way out.

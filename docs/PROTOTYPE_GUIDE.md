@@ -1,7 +1,7 @@
 # Guía del prototipo — cómo se escribe una pantalla
 
 Vale para todo lo que vive en `src/app/` desde ADR-0016. Es corta a propósito: si una
-pantalla necesita algo que no está acá, falta un componente o un hook, no una excepción.
+pantalla necesita algo que no está aquí, falta un componente o un hook, no una excepción.
 
 ## Referencia visual
 
@@ -17,7 +17,7 @@ geométrica (Outfit). Sin rebotes, sin springs.
    `src/design/tokens` ni `src/design/theme`, nunca `StyleSheet` con números.
 2. **Layout con componentes**: `Screen` (fondo, safe area, márgenes, `footer` pinneado),
    `Stack` (gaps), `Section` (título + contenido), `Card`, `ListGroup` + `ListRow`.
-   Si necesitás un `View` con estilo, es un componente nuevo en `src/design/components/`.
+   Si necesitas un `View` con estilo, es un componente nuevo en `src/design/components/`.
 3. **Texto solo con `Text`**: `variant` = hero | title | heading | body | label | caption;
    `tone` = primary | secondary | tertiary | onInk | accent | danger.
 4. **Un botón primario por pantalla**, en el `footer` de `Screen`. Acciones secundarias
@@ -32,7 +32,8 @@ geométrica (Outfit). Sin rebotes, sin springs.
    paralelo en la pantalla.
 7. **Formato**: `durationText`, `timerText`, `minutesText`, `dayText` de `src/lib/format`.
    Nunca concatenar "h" y "m" a mano.
-8. **Copy en español, en voseo, en oración** ("Tocá para enfocar", "Sin redes"). Sin
+8. **Copy en español neutro, de tú, en oración** ("Toca para enfocar", "Elige un modo").
+   Nunca voseo (tocá, podés, vos) ni usted ni regionalismos. Sin
    mayúsculas completas salvo la palabra VESPER del objeto.
 9. **Nada es real.** Los permisos (Screen Time, Salud, notificaciones) se "conceden" con
    un botón que cambia un flag en settings. Que la pantalla lo diga en una línea
@@ -44,8 +45,8 @@ geométrica (Outfit). Sin rebotes, sin springs.
 
 | Ruta | Referencia en Brick |
 |---|---|
-| `(tabs)/index` | Home: contador "Xh Ym hoy" arriba, `HeroObject`, nombre del modo + "bloquea N apps", "Gestionar modos ›", botón "Tocá o mantené para enfocar". Con sesión corriendo el botón dice "Seguir". Banner opcional (`settings.pendingBanner`). |
-| `session/active` | Tema oscuro (lo pone el store). "Llevás enfocado" + `hero` con el tiempo, objeto, modo, "ver modos ›", botón "Terminar" según profundidad (suave: termina; firme: hoja "¿por qué?" + espera 15 s; profundo: no responde, el botón lo dice). Intención editable. |
+| `(tabs)/index` | Home: contador "Xh Ym hoy" arriba, `HeroObject`, nombre del modo + "bloquea N apps", "Gestionar modos ›", botón "Toca o mantén para enfocar". Con sesión corriendo el botón dice "Seguir". Banner opcional (`settings.pendingBanner`). |
+| `session/active` | Tema oscuro (lo pone el store). "Llevas enfocado" + `hero` con el tiempo, objeto, modo, "ver modos ›", botón "Terminar" según profundidad (suave: termina; firme: hoja "¿por qué?" + espera 15 s; profundo: no responde, el botón lo dice). Intención editable. |
 | `session/exit` | La salida consciente (`domain/exitRitual`): suave respira 3 rondas y confirma; firme además escribe la frase y dice por qué; profundo no tiene salida. "Seguir enfocado" es siempre el botón primario. La emergencia es una hoja aparte con 10 s de espera. |
 | `session/complete` | "Primera sesión completa." / "Sesión completa." + tarjeta con Modo, Apps bloqueadas, Duración + botón Continuar. Si es la sesión número N, título "Recuperaste tu tiempo". |
 | `modes/index` | Lista de tarjetas: nombre, "Bloquea N apps · M sitios", `AppIconStack`, botón Editar, menú "…" (hoja con Duplicar / Eliminar con confirmación), radio de activo con check verde. Tarjeta "Explorar ideas". `+` arriba a la derecha. |
@@ -59,7 +60,7 @@ geométrica (Outfit). Sin rebotes, sin springs.
 | `(tabs)/settings` | Tarjeta "Este teléfono · sin cuenta, local". Grupo: Mis reglas ›, Desbloqueo de emergencia (5 ›). Grupo: Live Activities (On ›), Notificaciones (On ›), Salud (Conectada/No ›). Grupo: Vida (fecha de nacimiento) ›, Centro de ayuda ›, Acerca de ›. Pie: VESPER, versión, Términos · Privacidad. |
 | `settings/*` | Cada una una `ListGroup` de filas con toggle o valor y su descripción, como Brick. Emergencia: tarjeta con "N restantes" y botón "Usar desbloqueo de emergencia" (habilitado solo con sesión activa). Salud: conectar/desconectar + resumen `HEALTH`. Vida: fecha de nacimiento y esperanza editables (`FieldRow`). |
 | `habits/new`, `habits/edit` | Nombre, veces por semana (`Chip` 2/4/6), cómo se cuenta (declarado / verificado si el nombre coincide con salud, `healthTypeFor` de `src/domain/habits`), guardar; en editar, "Archivar" ghost con confirmación. Máximo 5. |
-| `onboarding/*` | welcome (oscuro forzado con `ForcedTheme`? no: usá `Card tone="ink"` grande a pantalla completa con título "Tu tiempo es tuyo." y botón "Empezar"), goal ("¿Para qué es tu primer modo?" radio list 5 opciones → crea el modo con `MODE_IDEAS`), apps ("Elegí las apps a bloquear" → `modes/apps` reutilizada con `params`), screen-time (explicación en tres bloques con iconos + "Permitir acceso"), health (igual, "Conectar Salud" / "Ahora no"), routine ("¿Hacemos X una rutina?" Empieza/Termina + `DayPicker` + Continuar / Saltar), routine-set ("Tu rutina está lista" con la tarjeta del horario + Guardar), notifications ("Sacale el jugo" + Permitir / Ahora no), tour (3 pasos con `ProgressDots`: Tocá para enfocar / Estás cubierto en una emergencia / Todo queda en tu teléfono; el último marca `onboardingDone`). |
+| `onboarding/*` | welcome (oscuro forzado con `ForcedTheme`? no: usa `Card tone="ink"` grande a pantalla completa con título "Tu tiempo es tuyo." y botón "Empezar"), goal ("¿Para qué es tu primer modo?" radio list 5 opciones → crea el modo con `MODE_IDEAS`), apps ("Elige las apps a bloquear" → `modes/apps` reutilizada con `params`), screen-time (explicación en tres bloques con iconos + "Permitir acceso"), health (igual, "Conectar Salud" / "Ahora no"), routine ("¿Hacemos X una rutina?" Empieza/Termina + `DayPicker` + Continuar / Saltar), routine-set ("Tu rutina está lista" con la tarjeta del horario + Guardar), notifications ("Sácale el jugo" + Permitir / Ahora no), tour (3 pasos con `ProgressDots`: Toca para enfocar / Estás cubierto en una emergencia / Todo queda en tu teléfono; el último marca `onboardingDone`). |
 
 ## Cómo se verifica
 

@@ -128,7 +128,7 @@ export default function LifeScreen() {
         />
         <Text variant="caption" tone="tertiary">
           {manual
-            ? `Sobre ${yearsLabel(years)} años: lo pusiste vos. Cambiar el país o el sexo lo vuelve a calcular.`
+            ? `Sobre ${yearsLabel(years)} años: lo pusiste tú. Cambiar el país o el sexo lo vuelve a calcular.`
             : expectancySourceText(resolved, sex)}
         </Text>
       </Section>
@@ -138,7 +138,7 @@ export default function LifeScreen() {
         value={life === null ? '—' : life.left.toLocaleString('es-CO')}
         description={
           life === null
-            ? 'Escribí tu fecha de nacimiento para verlas.'
+            ? 'Escribe tu fecha de nacimiento para verlas.'
             : `${life.lived.toLocaleString('es-CO')} vividas de ${life.total.toLocaleString('es-CO')} en total.`
         }
       />

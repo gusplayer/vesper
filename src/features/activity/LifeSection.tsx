@@ -38,7 +38,7 @@ export function LifeSection({ now }: LifeSectionProps) {
         <Card onPress={() => router.push('/settings/life')} accessibilityLabel="Ir a Ajustes, Vida">
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              Poné tu fecha de nacimiento en Ajustes › Vida
+              Pon tu fecha de nacimiento en Ajustes › Vida
             </Text>
             <Text variant="label" tone="secondary">
               Sin eso no hay semanas que contar.
@@ -53,9 +53,9 @@ export function LifeSection({ now }: LifeSectionProps) {
   const resolved = resolveExpectancy(settings.country, settings.sex);
   const sourceText =
     settings.lifeExpectancyYears !== resolved.years
-      ? `Sobre ${yearsText(settings.lifeExpectancyYears)} años, el número que pusiste vos.`
+      ? `Sobre ${yearsText(settings.lifeExpectancyYears)} años, el número que pusiste tú.`
       : resolved.source === 'default'
-        ? `${expectancySourceText(resolved, settings.sex)} Podés afinarlo con tu país en Ajustes › Vida.`
+        ? `${expectancySourceText(resolved, settings.sex)} Puedes afinarlo con tu país en Ajustes › Vida.`
         : expectancySourceText(resolved, settings.sex);
   const leftText = unit === 'weeks' ? weeksText(life.left) : daysText(life.left * 7);
   const consumedText = unit === 'weeks' ? weeksText(consumedWeeks) : daysText(consumedWeeks * 7);
@@ -67,18 +67,18 @@ export function LifeSection({ now }: LifeSectionProps) {
           <Pressable
             onPress={() => setUnit(unit === 'weeks' ? 'days' : 'weeks')}
             accessibilityRole="button"
-            accessibilityLabel={`Te quedan ${leftText}. Tocá para ver en ${unit === 'weeks' ? 'días' : 'semanas'}`}
+            accessibilityLabel={`Te quedan ${leftText}. Toca para ver en ${unit === 'weeks' ? 'días' : 'semanas'}`}
           >
             <Stack gap="xs">
               <Text variant="title">{`Te quedan ${leftText}.`}</Text>
               <Text variant="body" tone="secondary">
-                Hacé que valgan la pena.
+                Haz que valgan la pena.
               </Text>
               <Text variant="caption" tone="tertiary">
                 {sourceText}
               </Text>
               <Text variant="caption" tone="tertiary">
-                {unit === 'weeks' ? 'Tocá el número para verlo en días.' : 'Tocá el número para verlo en semanas.'}
+                {unit === 'weeks' ? 'Toca el número para verlo en días.' : 'Toca el número para verlo en semanas.'}
               </Text>
             </Stack>
           </Pressable>

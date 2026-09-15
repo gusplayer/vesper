@@ -27,9 +27,9 @@ import { emptyToNull } from '../../lib/text';
 import { useNow } from '../../lib/useNow';
 
 const PHASE_WORD: Record<BreathPhase, string> = {
-  inhale: 'Inhalá',
-  hold: 'Sostené',
-  exhale: 'Exhalá',
+  inhale: 'Inhala',
+  hold: 'Sostén',
+  exhale: 'Exhala',
 };
 
 /**
@@ -67,7 +67,7 @@ export default function ExitScreen() {
     step === 'breathe' ? (
       <Stack align="center" gap="sm">
         <Text variant="label" tone="secondary">
-          Antes de decidir, respirá.
+          Antes de decidir, respira.
         </Text>
         <Text variant="hero">{breath.done ? 'Listo' : PHASE_WORD[breath.phase]}</Text>
         <Text variant="title" tone="secondary">
@@ -79,7 +79,7 @@ export default function ExitScreen() {
       </Stack>
     ) : step === 'type' ? (
       <Stack gap="md">
-        <Text variant="title">Escribí la frase.</Text>
+        <Text variant="title">Escribe la frase.</Text>
         <Card tone="muted">
           <Text variant="heading" align="center">
             {EXIT_SENTENCE}
@@ -87,12 +87,12 @@ export default function ExitScreen() {
         </Card>
         <FieldRow label="Frase" value={typed} onChangeText={setTyped} placeholder="Tal cual" autoFocus />
         <Text variant="caption" tone="tertiary">
-          Sin autocompletar: es para que lo digas vos.
+          Sin autocompletar: es para que lo digas tú.
         </Text>
       </Stack>
     ) : step === 'why' ? (
       <Stack gap="md">
-        <Text variant="title">¿Por qué terminás?</Text>
+        <Text variant="title">¿Por qué terminas?</Text>
         <FieldRow label="Motivo" value={reason} onChangeText={setReason} placeholder="Una línea alcanza" autoFocus />
         <Text variant="caption" tone="tertiary">
           Queda guardado con la sesión. Nadie más lo ve.
@@ -102,7 +102,7 @@ export default function ExitScreen() {
       <Stack gap="md">
         <Text variant="title">Terminar la sesión.</Text>
         <Text variant="body" tone="secondary">
-          {`Llevás ${durationText(elapsed(session, now))} enfocado. Lo hecho queda contado; lo que falta, no.`}
+          {`Llevas ${durationText(elapsed(session, now))} enfocado. Lo hecho queda contado; lo que falta, no.`}
         </Text>
       </Stack>
     );

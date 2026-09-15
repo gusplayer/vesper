@@ -106,7 +106,7 @@ export default function ActiveSessionScreen() {
     <Screen footer={footer}>
       <Stack align="center" gap="xs">
         <Text variant="label" tone="secondary">
-          Llevás enfocado
+          Llevas enfocado
         </Text>
         <Text variant="hero">{timerText(elapsed(session, now))}</Text>
       </Stack>

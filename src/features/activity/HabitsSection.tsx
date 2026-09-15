@@ -103,8 +103,8 @@ export function HabitsSection({ now }: HabitsSectionProps) {
       </ListGroup>
       <Text variant="caption" tone="tertiary">
         {settings.healthConnected
-          ? '“hoy” marca el día de hoy. El número es cuántos días llevás esta semana. Los verificados los marca Salud sola.'
-          : '“hoy” marca el día de hoy. El número es cuántos días llevás esta semana.'}
+          ? '“hoy” marca el día de hoy. El número es cuántos días llevas esta semana. Los verificados los marca Salud sola.'
+          : '“hoy” marca el día de hoy. El número es cuántos días llevas esta semana.'}
       </Text>
       {full ? (
         <Text variant="caption" tone="tertiary">

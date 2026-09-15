@@ -64,7 +64,7 @@ export function sessionEndReminder(session: Session): DateSpec {
     trigger: 'date',
     at: session.startedAt + session.plannedMs,
     title: 'Terminó tu sesión',
-    body: `${durationText(session.plannedMs)} de foco. Volvé a Vesper para cerrarla.`,
+    body: `${durationText(session.plannedMs)} de foco. Vuelve a Vesper para cerrarla.`,
     sound: true,
   };
 }
@@ -90,7 +90,7 @@ export function scheduleReminders(schedule: Schedule, modeName: string): WeeklyS
       hour,
       minute,
       title: `Empieza ${schedule.name}`,
-      body: `Modo ${modeName}. Tocá para enfocar.`,
+      body: `Modo ${modeName}. Toca para enfocar.`,
       sound: false,
     });
   });
@@ -106,8 +106,8 @@ export function weeklyCloseReminder(): WeeklySpec {
     weekday: EXPO_SUNDAY,
     hour: WEEKLY_CLOSE_HOUR,
     minute: WEEKLY_CLOSE_MINUTE,
-    title: 'Cerrá la semana',
-    body: 'Mirá cómo te fue. La que empieza mañana arranca en cero.',
+    title: 'Cierra la semana',
+    body: 'Mira cómo te fue. La que empieza mañana arranca en cero.',
     sound: false,
   };
 }

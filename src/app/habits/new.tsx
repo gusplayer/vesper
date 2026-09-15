@@ -21,7 +21,7 @@ export default function NewHabitScreen() {
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              Ya tenés cinco hábitos.
+              Ya tienes cinco hábitos.
             </Text>
             <Text variant="label" tone="secondary">
               Cinco es el máximo, a propósito: la atención no escala. Archivá uno para hacer
@@ -36,7 +36,7 @@ export default function NewHabitScreen() {
   return (
     <HabitForm
       title="Nuevo hábito"
-      caption={`Podés tener ${left} más`}
+      caption={`Puedes tener ${left} más`}
       onSubmit={(values) => {
         upsertHabit(values);
         router.back();

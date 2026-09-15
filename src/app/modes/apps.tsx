@@ -110,7 +110,7 @@ export default function ModeAppsScreen() {
     <Screen scroll footer={<Button label="Listo" onPress={done} />}>
       <PageHeader onBack={() => router.back()} title="Apps reales" />
       <Text variant="label" tone="secondary">
-        Elegí en Tiempo de uso qué apps, categorías y sitios limita este modo. Vesper guarda
+        Elige en Tiempo de uso qué apps, categorías y sitios limita este modo. Vesper guarda
         la selección sin ver qué hay adentro.
       </Text>
       <Card padded={false}>

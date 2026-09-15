@@ -132,7 +132,7 @@ describe('weekSummaryText', () => {
 describe('weekClosingText', () => {
   it('asks for a goal when there was none', () => {
     expect(weekClosingText(aWeek({ targetMs: null }))).toBe(
-      'no había meta esta semana. poné una para la que empieza mañana',
+      'no había meta esta semana. pon una para la que empieza mañana',
     );
   });
 

@@ -39,7 +39,7 @@ export default function SettingsScreen() {
       <PageHeader title="Ajustes" />
 
       <ListGroup>
-        <ListRow icon="smartphone" label="Este teléfono" description="Sin cuenta. Todo queda acá." />
+        <ListRow icon="smartphone" label="Este teléfono" description="Sin cuenta. Todo queda aquí." />
       </ListGroup>
 
       <ListGroup>

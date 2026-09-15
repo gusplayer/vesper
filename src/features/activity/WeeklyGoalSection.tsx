@@ -20,7 +20,7 @@ export function WeeklyGoalSection({ now }: WeeklyGoalSectionProps) {
   const hasGoal = hasTarget(targetMs);
 
   const status = !hasGoal
-    ? 'Sin meta. Tocá para elegir una.'
+    ? 'Sin meta. Toca para elegir una.'
     : week.met
       ? 'Meta cumplida'
       : `${daysText(week.daysLeft)} para el cierre`;
