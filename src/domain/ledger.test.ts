@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { aDoneSession, anActivity, aRunningSession, T0 } from './fixtures';
 import { buildLedger } from './ledger';
-import { createSession, type SessionConfig } from './session';
+import { HOUR, MINUTE } from './time';
 import {
   DECLARED_DAILY_CAP_MS,
   type Activity,
@@ -10,29 +11,17 @@ import {
   type Session,
 } from './types';
 
-const HOUR = 3_600_000;
-const DAY_START = 1_700_000_000_000;
+const DAY_START = T0;
 const DAY_END = DAY_START + 24 * HOUR;
 
 const activities: Activity[] = [
-  { id: 'a-work', key: 'trabajo', label: 'trabajo', isDefault: true, archivedAt: null, createdAt: 0 },
-  { id: 'a-read', key: 'lectura', label: 'lectura', isDefault: true, archivedAt: null, createdAt: 0 },
+  anActivity({ id: 'a-work', key: 'trabajo', label: 'trabajo' }),
+  anActivity({ id: 'a-read', key: 'lectura', label: 'lectura' }),
 ];
 
 /** A finished session that served exactly `ms` starting at `startedAt`. */
 function done(id: string, activityId: string, ms: number, startedAt: number): Session {
-  const config: SessionConfig = {
-    activityId,
-    plannedMs: ms,
-    depth: 'soft',
-    blockProfile: null,
-  };
-  return {
-    ...createSession(id, config, startedAt),
-    outcome: 'completed',
-    actualMs: ms,
-    endedAt: startedAt + ms,
-  };
+  return aDoneSession(ms, startedAt, { id, activityId });
 }
 
 function sample(
@@ -70,6 +59,16 @@ function rowMs(ledger: ReturnType<typeof buildLedger>, key: string): number | un
   return ledger.rows.find((row) => row.key === key)?.ms;
 }
 
+describe('the window', () => {
+  it('has no rows before the day starts', () => {
+    expect(buildLedger(input({ now: DAY_START - HOUR })).rows).toEqual([]);
+  });
+
+  it('has no unregistered row at the exact start of the day', () => {
+    expect(buildLedger(input({ now: DAY_START })).rows).toEqual([]);
+  });
+});
+
 describe('declared rows', () => {
   it('groups sessions by activity and sorts by time', () => {
     const ledger = buildLedger(
@@ -88,11 +87,7 @@ describe('declared rows', () => {
   });
 
   it('counts a running session by what it has served so far', () => {
-    const running = createSession(
-      's-run',
-      { activityId: 'a-work', plannedMs: 2 * HOUR, depth: 'soft', blockProfile: null },
-      DAY_START,
-    );
+    const running = aRunningSession({ activityId: 'a-work', plannedMs: 2 * HOUR, startedAt: DAY_START });
     const ledger = buildLedger(input({ sessions: [running], now: DAY_START + HOUR }));
 
     expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
@@ -113,6 +108,51 @@ describe('declared rows', () => {
     const ledger = buildLedger(input({ sessions: [done('s-1', 'a-work', HOUR, DAY_START)] }));
 
     expect(ledger.rows.some((row) => row.key === 'activity:lectura')).toBe(false);
+  });
+
+  it('covers the clock with a session of an unknown activity, but shows no row for it', () => {
+    const ledger = buildLedger(input({ sessions: [done('s-1', 'a-ghost', HOUR, DAY_START)] }));
+
+    expect(ledger.rows.some((row) => row.provenance === 'declared')).toBe(false);
+    expect(rowMs(ledger, 'unknown')).toBe(7 * HOUR);
+  });
+
+  it('clips a session that started yesterday to the day', () => {
+    const ledger = buildLedger(
+      input({ sessions: [done('s-1', 'a-work', 3 * HOUR, DAY_START - 2 * HOUR)] }),
+    );
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
+  });
+
+  it('drops a session in the future', () => {
+    const ledger = buildLedger(
+      input({ sessions: [done('s-1', 'a-work', HOUR, DAY_START + 10 * HOUR)] }),
+    );
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBeUndefined();
+    expect(rowMs(ledger, 'unknown')).toBe(8 * HOUR);
+  });
+
+  it('shows no row for a zero-length session', () => {
+    const ledger = buildLedger(input({ sessions: [done('s-1', 'a-work', 0, DAY_START)] }));
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBeUndefined();
+  });
+
+  it('gives each activity its full time when two sessions overlap, and counts the union once', () => {
+    const ledger = buildLedger(
+      input({
+        sessions: [
+          done('s-1', 'a-work', HOUR, DAY_START),
+          done('s-2', 'a-read', HOUR, DAY_START + 30 * MINUTE),
+        ],
+      }),
+    );
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
+    expect(rowMs(ledger, 'activity:lectura')).toBe(HOUR);
+    expect(ledger.declaredMs).toBe(90 * MINUTE);
   });
 });
 
@@ -177,7 +217,7 @@ describe('sin registrar', () => {
     const ledger = buildLedger(
       input({
         sessions: [done('s-1', 'a-work', 2 * HOUR, DAY_START)],
-        healthSamples: [sample('h-1', 'workout', DAY_START + 30 * 60_000, DAY_START + HOUR)],
+        healthSamples: [sample('h-1', 'workout', DAY_START + 30 * MINUTE, DAY_START + HOUR)],
         now: DAY_START + 8 * HOUR,
       }),
     );
@@ -186,7 +226,7 @@ describe('sin registrar', () => {
     expect(rowMs(ledger, 'unknown')).toBe(6 * HOUR);
     // And each row still reports its own real total.
     expect(rowMs(ledger, 'activity:trabajo')).toBe(2 * HOUR);
-    expect(rowMs(ledger, 'health:workout')).toBe(30 * 60_000);
+    expect(rowMs(ledger, 'health:workout')).toBe(30 * MINUTE);
   });
 
   it('subtracts verified sleep, so documented hours are not called unregistered', () => {
@@ -227,6 +267,18 @@ describe('the 6h declared cap', () => {
     expect(ledger.declaredMs).toBe(3 * HOUR);
   });
 
+  it('fires one millisecond past the cap, not at it', () => {
+    const at = buildLedger(
+      input({ sessions: [done('s-1', 'a-read', DECLARED_DAILY_CAP_MS, DAY_START)] }),
+    );
+    const over = buildLedger(
+      input({ sessions: [done('s-1', 'a-read', DECLARED_DAILY_CAP_MS + 1, DAY_START)] }),
+    );
+
+    expect(at.declaredCapped).toBe(false);
+    expect(over.declaredCapped).toBe(true);
+  });
+
   it('fires as a warning, reporting the real declared total', () => {
     const ledger = buildLedger(
       input({
@@ -255,8 +307,8 @@ describe('the 6h declared cap', () => {
 });
 
 describe('provenance', () => {
-  it('is carried by every row, so nothing can be summed by accident', () => {
-    const ledger = buildLedger(
+  const full = () =>
+    buildLedger(
       input({
         sessions: [done('s-1', 'a-work', HOUR, DAY_START)],
         healthSamples: [sample('h-1', 'workout', DAY_START + 2 * HOUR, DAY_START + 3 * HOUR)],
@@ -264,8 +316,39 @@ describe('provenance', () => {
       }),
     );
 
-    expect(new Set(ledger.rows.map((row) => row.provenance))).toEqual(
+  it('is carried by every row, so nothing can be summed by accident', () => {
+    expect(new Set(full().rows.map((row) => row.provenance))).toEqual(
       new Set(['declared', 'verified', 'estimated', 'unknown']),
     );
+  });
+
+  it('orders rows declared, verified, estimated, unknown', () => {
+    expect(full().rows.map((row) => row.provenance)).toEqual([
+      'declared',
+      'verified',
+      'estimated',
+      'unknown',
+    ]);
+  });
+
+  it('namespaces row keys', () => {
+    expect(full().rows.map((row) => row.key)).toEqual([
+      'activity:trabajo',
+      'health:workout',
+      'usage',
+      'unknown',
+    ]);
+  });
+
+  it('keeps a user activity named unknown apart from the unregistered row', () => {
+    const ledger = buildLedger(
+      input({
+        activities: [anActivity({ id: 'a-unk', key: 'unknown', label: 'unknown' })],
+        sessions: [done('s-1', 'a-unk', HOUR, DAY_START)],
+      }),
+    );
+
+    expect(rowMs(ledger, 'activity:unknown')).toBe(HOUR);
+    expect(rowMs(ledger, 'unknown')).toBe(7 * HOUR);
   });
 });
