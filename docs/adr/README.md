@@ -23,3 +23,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0014 | La sesión activa se ve distinta porque está en tinta | aceptada |
 | 0015 | Cuando el timer termina, la sesión se cierra en la misma ruta | aceptada |
 | 0016 | El prototipo completo toma la forma de Brick; supera las reglas 1, 2, 3, 5, 6 y los ADR 0006, 0007, 0009 | aceptada |
+| 0017 | Capacidades reales detrás de una capa de plataforma: persistencia, notificaciones, Salud, Live Activity, bloqueo | aceptada |

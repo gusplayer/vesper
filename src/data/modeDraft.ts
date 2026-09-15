@@ -82,7 +82,9 @@ export const useModeDraftStore = create<ModeDraftState>((set) => ({
 }));
 
 /** The draft as upsertMode wants it. The id is only sent while editing. */
-export function draftToMode(draft: ModeDraft): Omit<Mode, 'id' | 'createdAt'> & { id?: string } {
+export function draftToMode(
+  draft: ModeDraft,
+): Omit<Mode, 'id' | 'createdAt' | 'selectionToken'> & { id?: string } {
   const base = {
     name: draft.name.trim(),
     behavior: draft.behavior,

@@ -29,10 +29,14 @@ type AppState = {
   dayStats: DayStat[];
 
   // Modes
-  upsertMode: (mode: Omit<Mode, 'id' | 'createdAt'> & { id?: string }) => Mode;
+  upsertMode: (
+    mode: Omit<Mode, 'id' | 'createdAt' | 'selectionToken'> & { id?: string; selectionToken?: string | null },
+  ) => Mode;
   duplicateMode: (id: string) => void;
   deleteMode: (id: string) => void;
   setActiveMode: (id: string) => void;
+  /** Stores the native Screen Time selection for a mode. Null clears it. */
+  setModeSelection: (id: string, selectionToken: string | null) => void;
 
   // Schedules
   upsertSchedule: (schedule: Omit<Schedule, 'id'> & { id?: string }) => Schedule;
@@ -50,6 +54,8 @@ type AppState = {
   upsertHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'archivedAt'> & { id?: string }) => void;
   archiveHabit: (id: string) => void;
   toggleHabitToday: (id: string, now: number) => void;
+  /** Replaces every Health-sourced mark with what Health says now. Manual marks stay. */
+  setHealthMarks: (marks: HabitMark[], syncedAt: number) => void;
 
   // Stats
   recordFocus: (now: number, focusMs: number) => void;
@@ -72,6 +78,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...input,
       id: existing?.id ?? uuidv7(Date.now()),
       createdAt: existing?.createdAt ?? Date.now(),
+      selectionToken: input.selectionToken ?? existing?.selectionToken ?? null,
     };
     set((state) => ({
       modes: existing
@@ -109,6 +116,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setActiveMode: (id) => set({ activeModeId: id }),
+
+  setModeSelection: (id, selectionToken) =>
+    set((state) => ({ modes: state.modes.map((m) => (m.id === id ? { ...m, selectionToken } : m)) })),
 
   upsertSchedule: (input) => {
     const schedule: Schedule = { ...input, id: input.id ?? uuidv7(Date.now()) };
@@ -181,6 +191,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     });
   },
+
+  setHealthMarks: (marks, syncedAt) =>
+    set((state) => ({
+      habitMarks: [...state.habitMarks.filter((m) => m.source !== 'health'), ...marks],
+      settings: { ...state.settings, healthSyncedAt: syncedAt },
+    })),
 
   recordFocus: (now, focusMs) => {
     const dayKey = dayKeyOf(now);

@@ -68,6 +68,7 @@ export const MODES: Mode[] = [
     websiteIds: ['instagram.com', 'tiktok.com', 'x.com'],
     depth: 'firm',
     activityId: 'trabajo',
+    selectionToken: null,
     createdAt: 1,
   },
   {
@@ -78,6 +79,7 @@ export const MODES: Mode[] = [
     websiteIds: [],
     depth: 'soft',
     activityId: 'familia',
+    selectionToken: null,
     createdAt: 2,
   },
   {
@@ -88,6 +90,7 @@ export const MODES: Mode[] = [
     websiteIds: [],
     depth: 'deep',
     activityId: 'trabajo',
+    selectionToken: null,
     createdAt: 3,
   },
 ];
@@ -170,6 +173,7 @@ export const SETTINGS: Settings = {
   lifeExpectancyYears: 77.6,
   weeklyTargetMs: 15 * HOUR,
   pendingBanner: null,
+  healthSyncedAt: null,
 };
 
 export const HABITS: Habit[] = [

@@ -10,7 +10,10 @@
     "backgroundColor": "#F2F0EA",
     "ios": {
       "bundleIdentifier": "com.gusplayer.vesper",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSSupportsLiveActivities": true
+      }
     },
     "android": {
       "package": "com.gusplayer.vesper",
@@ -31,6 +34,40 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.4"
+          }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1C1B1A"
+        }
+      ],
+      [
+        "expo-widgets",
+        {
+          "enablePushNotifications": false
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Vesper lee entrenamientos, pasos y sueño para marcar solos los hábitos verificados. Nada sale del teléfono.",
+          "healthUpdatePermission": "Vesper no escribe datos de salud."
+        }
+      ],
+      [
+        "react-native-device-activity",
+        {
+          "appleTeamId": "2D3R79CT8F",
+          "appGroup": "group.com.gusplayer.vesper"
         }
       ]
     ]

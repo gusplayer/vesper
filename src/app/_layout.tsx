@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { useAppStore } from '../data';
 import { DevJump } from '../dev/DevJump';
+import { PlatformEffects } from '../platform/PlatformEffects';
 import { ThemeProvider, useSchemeStore } from '../design/theme';
 import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
 
@@ -32,6 +33,7 @@ export default function RootLayout() {
     <ThemeProvider>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {__DEV__ ? <DevJump /> : null}
+      <PlatformEffects />
       <Stack screenOptions={stackScreenOptions}>
         <Stack.Protected guard={!onboardingDone}>
           <Stack.Screen name="onboarding" />

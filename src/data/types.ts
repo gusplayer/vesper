@@ -33,6 +33,12 @@ export type Mode = {
   depth: Depth;
   /** Which activity the ledger credits. */
   activityId: string;
+  /**
+   * The opaque FamilyActivitySelection token from iOS Screen Time, when the user picked
+   * real apps through the native picker. Null in the simulator and until the entitlement
+   * exists. Never resolved to app names — ADR-0004.
+   */
+  selectionToken: string | null;
   createdAt: number;
 };
 
@@ -87,6 +93,8 @@ export type Settings = {
   weeklyTargetMs: number | null;
   /** Shown once on the home page after the first schedule completes. */
   pendingBanner: { title: string; message: string } | null;
+  /** Last time Health was read, epoch ms. Null until the first sync. */
+  healthSyncedAt: number | null;
 };
 
 export type DayStat = {
