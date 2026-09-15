@@ -151,6 +151,8 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     rules: rules(value.rules, defaults.rules),
     notifications: notifications(value.notifications, defaults.notifications),
     birthDate: numOrNull(value.birthDate, defaults.birthDate),
+    country: typeof value.country === 'string' ? value.country : defaults.country,
+    sex: value.sex === 'female' || value.sex === 'male' ? value.sex : defaults.sex,
     lifeExpectancyYears: num(value.lifeExpectancyYears, defaults.lifeExpectancyYears),
     weeklyTargetMs: numOrNull(value.weeklyTargetMs, defaults.weeklyTargetMs),
     pendingBanner: banner(value.pendingBanner, defaults.pendingBanner),

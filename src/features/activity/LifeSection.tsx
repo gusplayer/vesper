@@ -2,9 +2,10 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable } from 'react-native';
 
-import { USAGE, useLife } from '../../data';
+import { USAGE, useLife, useSettings } from '../../data';
 import { Card, DotGrid, Section, Stack, Text } from '../../design/components';
 import { projectedWeeksConsumed } from '../../domain/life';
+import { expectancySourceText, resolveExpectancy, yearsText } from '../../domain/lifeExpectancy';
 import { daysText, weeksText } from './text';
 
 /** 52 weeks a row: a year per line, like the classic life calendar. */
@@ -24,6 +25,7 @@ type LifeSectionProps = {
 export function LifeSection({ now }: LifeSectionProps) {
   const router = useRouter();
   const life = useLife(now);
+  const settings = useSettings();
   const [unit, setUnit] = useState<Unit>('weeks');
   const cells = useMemo(
     () => (life === null ? [] : Array.from({ length: life.total }, (_, i) => i < life.lived)),
@@ -48,6 +50,13 @@ export function LifeSection({ now }: LifeSectionProps) {
   }
 
   const consumedWeeks = Math.round(projectedWeeksConsumed(USAGE.weekMs, life.left));
+  const resolved = resolveExpectancy(settings.country, settings.sex);
+  const sourceText =
+    settings.lifeExpectancyYears !== resolved.years
+      ? `Sobre ${yearsText(settings.lifeExpectancyYears)} años, el número que pusiste vos.`
+      : resolved.source === 'default'
+        ? `${expectancySourceText(resolved, settings.sex)} Podés afinarlo con tu país en Ajustes › Vida.`
+        : expectancySourceText(resolved, settings.sex);
   const leftText = unit === 'weeks' ? weeksText(life.left) : daysText(life.left * 7);
   const consumedText = unit === 'weeks' ? weeksText(consumedWeeks) : daysText(consumedWeeks * 7);
 
@@ -64,6 +73,9 @@ export function LifeSection({ now }: LifeSectionProps) {
               <Text variant="title">{`Te quedan ${leftText}.`}</Text>
               <Text variant="body" tone="secondary">
                 Hacé que valgan la pena.
+              </Text>
+              <Text variant="caption" tone="tertiary">
+                {sourceText}
               </Text>
               <Text variant="caption" tone="tertiary">
                 {unit === 'weeks' ? 'Tocá el número para verlo en días.' : 'Tocá el número para verlo en semanas.'}

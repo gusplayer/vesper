@@ -135,6 +135,8 @@ const DEFAULTS: Settings = {
   rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
   notifications: { coaching: true, updates: true, sessionEnd: true, weeklyClose: true },
   birthDate: 700_000_000_000,
+  country: null,
+  sex: null,
   lifeExpectancyYears: 77.6,
   weeklyTargetMs: 54_000_000,
   pendingBanner: null,

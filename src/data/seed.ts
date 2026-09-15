@@ -174,6 +174,8 @@ export const SETTINGS: Settings = {
   rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
   notifications: { coaching: true, updates: true, sessionEnd: true, weeklyClose: true },
   birthDate: new Date(1992, 3, 14).getTime(),
+  country: null,
+  sex: null,
   lifeExpectancyYears: 77.6,
   weeklyTargetMs: 15 * HOUR,
   pendingBanner: null,

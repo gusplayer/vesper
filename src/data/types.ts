@@ -89,6 +89,14 @@ export type Settings = {
   rules: Rules;
   notifications: NotificationPrefs;
   birthDate: number | null;
+  /**
+   * Optional, never asked for up front. With a country (and sex) the reference
+   * expectancy becomes the user's; without them the default applies. Nothing else is
+   * collected for this: no weight, no height (docs/PRD.md).
+   */
+  country: string | null;
+  sex: 'female' | 'male' | null;
+  /** Kept in step with country and sex by the settings action; editable by hand. */
   lifeExpectancyYears: number;
   weeklyTargetMs: number | null;
   /** Shown once on the home page after the first schedule completes. */
