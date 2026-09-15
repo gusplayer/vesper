@@ -25,3 +25,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0016 | El prototipo completo toma la forma de Brick; supera las reglas 1, 2, 3, 5, 6 y los ADR 0006, 0007, 0009 | aceptada |
 | 0017 | Capacidades reales detrás de una capa de plataforma: persistencia, notificaciones, Salud, Live Activity, bloqueo | aceptada |
 | 0018 | Arte de foco: una ilustración puntillista que se dibuja durante la sesión | aceptada |
+| 0019 | Las rutinas encienden sesiones (esperan si hay una) y Android bloquea sin AccessibilityService | aceptada |
