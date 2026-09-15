@@ -15,7 +15,7 @@ import {
 } from '../../design/components';
 import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
 import { countText, modeRunningText } from '../../data/modes';
-import { elapsed, isDue, remaining, sessionProgress } from '../../domain/session';
+import { elapsed, isDue, sessionProgress } from '../../domain/session';
 import { EmergencySheet } from '../../features/session/EmergencySheet';
 import { FocusArt } from '../../features/session/FocusArt';
 import { timerText } from '../../lib/format';
@@ -132,9 +132,6 @@ export default function ActiveSessionScreen() {
               <Text variant="caption" tone="secondary" align="center">
                 {mode === null ? 'Enfocado' : mode.name}
               </Text>
-              <Text variant="caption" tone="tertiary" align="center">
-                {`quedan ${timerText(remaining(session, now))}`}
-              </Text>
             </Stack>
             <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} layout="landscape" />
           </Stack>
@@ -148,7 +145,7 @@ export default function ActiveSessionScreen() {
         <Stack align="center" gap="lg">
           <FlipClock value={timerText(elapsed(session, now))} scale={1.6} />
           <Text variant="label" tone="secondary">
-            {mode === null ? 'Enfocado' : `${mode.name} · quedan ${timerText(remaining(session, now))}`}
+            {mode === null ? 'Enfocado' : mode.name}
           </Text>
           <Button variant="ghost" label="Arte" onPress={() => setShowingArt(true)} />
         </Stack>
@@ -219,16 +216,11 @@ export default function ActiveSessionScreen() {
 
       <Stack gap="sm">
         <ProgressBar progress={sessionProgress(session, now)} />
-        <Stack direction="row" justify="space-between">
-          <Text variant="caption" tone="secondary">
-            {`quedan ${timerText(remaining(session, now))}`}
+        {session.interruptions > 0 ? (
+          <Text variant="caption" tone="secondary" align="right">
+            {countText(session.interruptions, 'interrupción', 'interrupciones')}
           </Text>
-          {session.interruptions > 0 ? (
-            <Text variant="caption" tone="secondary">
-              {countText(session.interruptions, 'interrupción', 'interrupciones')}
-            </Text>
-          ) : null}
-        </Stack>
+        ) : null}
       </Stack>
 
       {askingEmergency ? (

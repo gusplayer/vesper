@@ -43,12 +43,19 @@ export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusAr
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Stack gap="md" align="center">
         <StippleCanvas dots={dots} visible={visible} />
-        <Text variant="body" weight="medium">
-          {artwork.name}
-        </Text>
-        <Text variant="caption" tone="tertiary" align="center">
-          {done ? (artwork.caption ?? 'Terminado.') : 'Se termina cuando termina la sesión.'}
-        </Text>
+        {/* No name while it grows: the drawing is its own reveal. */}
+        {done ? (
+          <>
+            <Text variant="body" weight="medium">
+              {artwork.name}
+            </Text>
+            {artwork.caption === undefined ? null : (
+              <Text variant="caption" tone="tertiary" align="center">
+                {artwork.caption}
+              </Text>
+            )}
+          </>
+        ) : null}
       </Stack>
     </Pressable>
   );
