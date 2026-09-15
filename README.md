@@ -1,6 +1,7 @@
 # Vesper
 
-App de foco y asignación de tiempo con estética de tinta electrónica.
+App de foco y asignación de tiempo. Desde ADR-0016, un prototipo navegable de todas las
+fases con datos falsos, con la forma de Brick.
 
 > Pomodoro que respeta tu tiempo, hábitos que se verifican solos, y un recordatorio honesto de cuánta vida te queda.
 
@@ -11,6 +12,7 @@ App de foco y asignación de tiempo con estética de tinta electrónica.
 | `CLAUDE.md` | Reglas de trabajo para Claude Code |
 | `docs/PRD.md` | Qué se construye y qué no |
 | `docs/DESIGN_SYSTEM.md` | Tokens, tipografía, componentes |
+| `docs/PROTOTYPE_GUIDE.md` | Cómo se escribe una pantalla del prototipo |
 | `docs/ARCHITECTURE.md` | Stack, estructura, flujo de datos |
 | `docs/DATA_MODEL.md` | Esquema de base de datos |
 | `docs/ROADMAP.md` | Fases y criterios de salida |

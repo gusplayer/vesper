@@ -39,3 +39,7 @@ Estética de tinta electrónica, con las restricciones tomadas literalmente:
 
 Los "~15 componentes" son 23, todos escritos a mano. La lista vive en
 `docs/DESIGN_SYSTEM.md`.
+
+## Nota (2026-09-15)
+
+Superada por ADR-0016: la estética e-ink se abandona; el sistema de diseño sigue a Brick.

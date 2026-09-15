@@ -21,7 +21,16 @@ Y un denominador: las semanas de vida restantes.
 Alguien que ya intentó reducir su uso del teléfono y falló. Sabe que el problema no es
 información — es fricción y honestidad. No quiere otro dashboard.
 
-## Las tres pantallas
+## Estructura desde ADR-0016
+
+Cuatro pestañas de texto: **Foco**, **Horarios**, **Actividad**, **Ajustes**. La sesión
+activa y su cierre son rutas a pantalla completa. Modos reemplazan a la configuración de
+sesión; horarios encienden un modo solo; Actividad reúne las estadísticas, la meta
+semanal, los hábitos, el libro mayor del día y las semanas de vida. La descripción
+detallada por pantalla está en `docs/PROTOTYPE_GUIDE.md`. Lo que sigue es la versión
+anterior, vigente en su fondo (monedas separadas, profundidades, meta semanal, vida).
+
+## Las tres pantallas (versión e-ink, superada en forma)
 
 Sin tab bar. Sin pantalla de ajustes.
 

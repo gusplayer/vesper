@@ -55,3 +55,7 @@ Siguen siendo tres pantallas y dos modales: la regla 2 de `CLAUDE.md` no se toca
 `life_screen_enabled` se eliminó del código: el pager siempre tiene dos páginas y vida se
 muestra siempre, con una invitación cuando no hay fecha de nacimiento. La variante de una
 sola página no está implementada y ocultar vida es una decisión pendiente en `docs/STATUS.md`.
+
+## Nota (2026-09-15)
+
+Superada por ADR-0016: cuatro pestañas de texto. La sesión sigue siendo una ruta sin gesto de volver.

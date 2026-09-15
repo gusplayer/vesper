@@ -43,3 +43,7 @@ Las rutas son seis: `index`, `session` y cuatro de configuración (`config/sessi
 `config/habit`, `config/week`, `config/habit-edit`), todas con fade, ninguna modal.
 `habit-edit` no tiene ADR propio: es el "se editan desde el libro mayor" de esta decisión,
 alcanzado con un toque largo. Ver `docs/ARCHITECTURE.md`.
+
+## Nota (2026-09-15)
+
+Superada por ADR-0016: hay pestaña de Ajustes. Sigue sin haber cuenta ni backend.
