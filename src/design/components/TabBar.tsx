@@ -108,10 +108,12 @@ const styles = StyleSheet.create({
   tab: {
     minHeight: layout.touchTarget,
     alignItems: 'center',
+    // The word sits at the bottom of its touch area, so the bar hugs it.
+    justifyContent: 'flex-end',
     paddingHorizontal: space.sm,
   },
   labelBox: {
-    paddingBottom: space.sm + INDICATOR,
+    paddingBottom: space.xs + INDICATOR,
   },
   indicator: {
     position: 'absolute',
