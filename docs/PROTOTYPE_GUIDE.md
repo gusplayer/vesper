@@ -47,6 +47,7 @@ geométrica (Outfit). Sin rebotes, sin springs.
 |---|---|
 | `(tabs)/index` | Home: contador "Xh Ym hoy" arriba, `HeroObject`, nombre del modo + "bloquea N apps", "Gestionar modos ›", botón "Toca o mantén para enfocar". Con sesión corriendo el botón dice "Seguir". Banner opcional (`settings.pendingBanner`). |
 | `session/active` | Tema oscuro (lo pone el store). "Llevas enfocado" + `hero` con el tiempo, objeto, modo, "ver modos ›", botón "Terminar" según profundidad (suave: termina; firme: hoja "¿por qué?" + espera 15 s; profundo: no responde, el botón lo dice). Intención editable. |
+| `session/active?art=1` | Arte de foco (ADR-0018): el reloj se achica y una obra puntillista se dibuja al ritmo de la sesión. Obras en `src/domain/art/works/`, motor en `src/domain/art/`, visor `npx tsx scripts/artPreview.ts <dir> --file <obra>`. |
 | `session/exit` | La salida consciente (`domain/exitRitual`): suave respira 3 rondas y confirma; firme además escribe la frase y dice por qué; profundo no tiene salida. "Seguir enfocado" es siempre el botón primario. La emergencia es una hoja aparte con 10 s de espera. |
 | `session/complete` | "Primera sesión completa." / "Sesión completa." + tarjeta con Modo, Apps bloqueadas, Duración + botón Continuar. Si es la sesión número N, título "Recuperaste tu tiempo". |
 | `modes/index` | Lista de tarjetas: nombre, "Bloquea N apps · M sitios", `AppIconStack`, botón Editar, menú "…" (hoja con Duplicar / Eliminar con confirmación), radio de activo con check verde. Tarjeta "Explorar ideas". `+` arriba a la derecha. |

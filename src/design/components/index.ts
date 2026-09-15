@@ -46,3 +46,4 @@ export { NativeHost } from './NativeHost';
 export { Columns } from './Columns';
 export { FlipClock } from './FlipClock';
 export { FlipDigit } from './FlipDigit';
+export { StippleCanvas } from './StippleCanvas';

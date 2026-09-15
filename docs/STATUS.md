@@ -55,6 +55,14 @@ Tests: 364 en 30 archivos. `tsc` limpio. Compilación iOS con cuatro targets ver
   El resto de la app queda en vertical (`expo-screen-orientation`, `src/platform/orientation.ts`).
   Verificado rotando el simulador por script.
 
+## Arte de foco (2026-09-15)
+
+Cinco obras puntillistas que se dibujan punto a punto durante la sesión (ADR-0018):
+pagoda, Torre Eiffel, Estatua de la Libertad, rostro y perro. Cada una se revisó a ojo
+con el visor a 25, 50, 75 y 100 %. Verificado en simulador: la vista abre con `?art=1` y
+el dibujo avanza con el reloj. No verificado: el rendimiento del trazado con 6.000 puntos
+en una sesión de 90 minutos en un teléfono real.
+
 ## Cómo revisar una pantalla sin tocar
 
 En `src/dev/route.ts` poné `DEV_START_ROUTE = '/modes'` (y `DEV_SESSION = 'running'` para

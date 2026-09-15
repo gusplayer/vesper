@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
@@ -17,6 +17,7 @@ import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } f
 import { countText, modeRunningText } from '../../data/modes';
 import { elapsed, isDue, remaining, sessionProgress } from '../../domain/session';
 import { EmergencySheet } from '../../features/session/EmergencySheet';
+import { FocusArt } from '../../features/session/FocusArt';
 import { timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 import { useOrientation } from '../../lib/useOrientation';
@@ -49,6 +50,10 @@ export default function ActiveSessionScreen() {
   );
   const [intention, setIntentionText] = useState(session?.intention ?? '');
   const [askingEmergency, setAskingEmergency] = useState(false);
+  // The drawing view (ADR-0018). A view, not a state: exit rules do not change.
+  // `?art=1` opens it directly, for links and for reviewing.
+  const params = useLocalSearchParams<{ art?: string }>();
+  const [showingArt, setShowingArt] = useState(params.art === '1');
   // The session closes exactly once, whichever path gets there first.
   const closedRef = useRef(false);
 
@@ -132,6 +137,32 @@ export default function ActiveSessionScreen() {
     );
   }
 
+  // With the drawing open the clock shrinks and the middle of the page is the work;
+  // the intention and the mode step aside, the exit stays where it always is.
+  if (showingArt) {
+    return (
+      <Screen footer={footer}>
+        <Stack align="center" gap="xs">
+          <FlipClock value={timerText(elapsed(session, now))} scale={0.7} />
+        </Stack>
+        <Spacer />
+        <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} />
+        <Spacer />
+        <ProgressBar progress={sessionProgress(session, now)} />
+        {askingEmergency ? (
+          <EmergencySheet
+            left={emergencyLeft}
+            onStay={() => setAskingEmergency(false)}
+            onUse={() => {
+              spendEmergency();
+              leave('desbloqueo de emergencia');
+            }}
+          />
+        ) : null}
+      </Screen>
+    );
+  }
+
   return (
     <Screen footer={footer}>
       <Stack align="center" gap="xs">
@@ -142,8 +173,9 @@ export default function ActiveSessionScreen() {
       </Stack>
 
       <Spacer />
-      <Stack align="center">
+      <Stack align="center" gap="sm">
         <HeroObject />
+        <Button variant="ghost" label="Arte" onPress={() => setShowingArt(true)} />
       </Stack>
       <Spacer />
 
