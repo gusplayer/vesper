@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 import {
   Button,
   FieldRow,
+  FlipClock,
   HeroObject,
   ProgressBar,
   Screen,
@@ -108,7 +109,7 @@ export default function ActiveSessionScreen() {
         <Text variant="label" tone="secondary">
           Llevas enfocado
         </Text>
-        <Text variant="hero">{timerText(elapsed(session, now))}</Text>
+        <FlipClock value={timerText(elapsed(session, now))} />
       </Stack>
 
       <Spacer />

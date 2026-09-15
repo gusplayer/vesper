@@ -74,7 +74,7 @@ export default function FocusScreen() {
       <Stack align="center">
         <Card>
           <Text variant="label" weight="medium">
-            {`${durationText(todayMs)} · hoy`}
+            {`${durationText(todayMs)} enfocado hoy`}
           </Text>
         </Card>
       </Stack>

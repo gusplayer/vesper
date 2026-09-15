@@ -44,3 +44,5 @@ export { PeriodStrip } from './PeriodStrip';
 export { ThemeScope } from './ThemeScope';
 export { NativeHost } from './NativeHost';
 export { Columns } from './Columns';
+export { FlipClock } from './FlipClock';
+export { FlipDigit } from './FlipDigit';
