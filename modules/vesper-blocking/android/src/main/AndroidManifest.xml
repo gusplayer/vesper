@@ -1,0 +1,59 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+
+  <!--
+    Granted in system Settings, not with a dialog: the app sends the user to
+    ACTION_USAGE_ACCESS_SETTINGS. Lint flags it as a signature permission, which is
+    exactly how it is meant to be used by third parties.
+  -->
+  <uses-permission
+    android:name="android.permission.PACKAGE_USAGE_STATS"
+    tools:ignore="ProtectedPermissions" />
+  <!-- The shield is a TYPE_APPLICATION_OVERLAY window; also granted in Settings. -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+  <!--
+    Package visibility (Android 11+): the picker lists launchable apps through this
+    intent, never through QUERY_ALL_PACKAGES. HOME is queried to recognise the launcher
+    so it is never shielded.
+  -->
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.HOME" />
+    </intent>
+  </queries>
+
+  <application>
+    <!--
+      Polls UsageStatsManager while a session runs. Android 14 requires a declared
+      type; there is no closer fit than specialUse, which Google Play reviews by hand.
+    -->
+    <service
+      android:name="com.gusplayer.vesper.blocking.BlockingService"
+      android:exported="false"
+      android:foregroundServiceType="specialUse"
+      android:stopWithTask="false">
+      <property
+        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+        android:value="Focus session: detects when a user-selected app comes to the foreground and covers it with a full-screen reminder until the session ends." />
+    </service>
+
+    <!-- Fallback shield for apps that refuse overlays. Translucent: it paints itself. -->
+    <activity
+      android:name="com.gusplayer.vesper.blocking.ShieldActivity"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:launchMode="singleInstance"
+      android:taskAffinity=""
+      android:noHistory="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+  </application>
+</manifest>

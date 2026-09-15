@@ -1,0 +1,19 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+// A local Expo module: compileSdk, minSdk and the Kotlin version come from the
+// expo-module-gradle-plugin, so this file only names the library.
+group = 'com.gusplayer.vesper.blocking'
+version = '0.1.0'
+
+expoModule {
+  canBePublished false
+}
+
+android {
+  namespace "com.gusplayer.vesper.blocking"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A copy of src/design/tokens.ts (colors.light / colors.dark). The native shield cannot
+  read TypeScript, so the four warm greys live here too. Keep both files in step.
+  Only the dark scheme is used today: the shield is a session surface (ADR-0016).
+-->
+<resources>
+  <!-- light -->
+  <color name="vesper_light_bg">#E8E6E2</color>
+  <color name="vesper_light_bg_elevated">#EEECE8</color>
+  <color name="vesper_light_card">#F8F7F5</color>
+  <color name="vesper_light_card_muted">#E3E1DC</color>
+  <color name="vesper_light_ink">#1C1B1A</color>
+  <color name="vesper_light_ink_secondary">#66645F</color>
+  <color name="vesper_light_ink_tertiary">#A6A39E</color>
+  <color name="vesper_light_line">#DCD9D3</color>
+  <color name="vesper_light_on_ink">#F8F7F5</color>
+  <color name="vesper_light_accent">#2F7BF6</color>
+  <color name="vesper_light_success">#3B7A4A</color>
+  <color name="vesper_light_danger">#C0392B</color>
+
+  <!-- dark -->
+  <color name="vesper_dark_bg">#191919</color>
+  <color name="vesper_dark_bg_elevated">#202020</color>
+  <color name="vesper_dark_card">#262626</color>
+  <color name="vesper_dark_card_muted">#303030</color>
+  <color name="vesper_dark_ink">#F2F1EE</color>
+  <color name="vesper_dark_ink_secondary">#A9A7A2</color>
+  <color name="vesper_dark_ink_tertiary">#6F6D69</color>
+  <color name="vesper_dark_line">#343434</color>
+  <color name="vesper_dark_on_ink">#191919</color>
+  <color name="vesper_dark_accent">#3B84F5</color>
+  <color name="vesper_dark_success">#5FA46F</color>
+  <color name="vesper_dark_danger">#E06B5E</color>
+</resources>

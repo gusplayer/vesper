@@ -3,6 +3,9 @@
  * launch, so any screen can be reviewed without tapping through. Null in git.
  * DEV_SESSION starts a fake session first ('running') or starts and completes one
  * ('completed'), for the session screens.
+ * DEV_BLOCK_TEST is an Android package name: two seconds after launch the blocking
+ * module shields it, so the shield can be checked from adb without tapping.
  */
 export const DEV_START_ROUTE: string | null = null;
 export const DEV_SESSION: 'running' | 'completed' | null = null;
+export const DEV_BLOCK_TEST: string | null = null;

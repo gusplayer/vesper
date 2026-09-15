@@ -11,6 +11,8 @@ type ListRowProps = {
   /** A second line under the label. */
   description?: string;
   icon?: IconName;
+  /** Something drawn instead of the icon: a real app image. */
+  leading?: ReactNode;
   /** Text on the right: a count, 'On', a value. */
   value?: string;
   /** A control on the right: a toggle, a radio, a checkbox. Replaces the chevron. */
@@ -30,6 +32,7 @@ export function ListRow({
   label,
   description,
   icon,
+  leading,
   value,
   right,
   onPress,
@@ -42,6 +45,7 @@ export function ListRow({
   const spokenLabel = accessibilityLabel ?? [label, description, value].filter(Boolean).join(', ');
   const content = (
     <View style={styles.row}>
+      {leading}
       {icon === undefined ? null : (
         <View style={styles.icon}>
           <Icon name={icon} size="row" tone={tone === 'danger' ? 'danger' : 'secondary'} />
