@@ -35,15 +35,17 @@ export function Button({
   const { colors } = useTheme();
   const inactive = disabled || busy;
 
+  // Secondary sits on cards as often as on the page, so it is one step darker than
+  // a card. Disabled reads the same way in every variant: tertiary text.
   const background =
     variant === 'primary'
       ? inactive
         ? colors.cardMuted
         : colors.ink
       : variant === 'secondary'
-        ? colors.card
+        ? colors.cardMuted
         : 'transparent';
-  const tone = variant === 'primary' ? (inactive ? 'tertiary' : 'onInk') : 'primary';
+  const tone = inactive ? 'tertiary' : variant === 'primary' ? 'onInk' : 'primary';
 
   return (
     <Pressable

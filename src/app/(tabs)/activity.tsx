@@ -1,11 +1,32 @@
-import { Screen, Text } from '../../design/components';
+import { useState } from 'react';
 
-/** Placeholder — replaced by the screen team. */
-export default function PlaceholderScreen() {
+import { useDayStats } from '../../data';
+import { Screen } from '../../design/components';
+import { ActivityHeader, type ActivityView } from '../../features/activity/ActivityHeader';
+import { LifetimeView } from '../../features/activity/LifetimeView';
+import { MonthlyView } from '../../features/activity/MonthlyView';
+import { WeeklyView } from '../../features/activity/WeeklyView';
+import { useNow } from '../../lib/useNow';
+
+/**
+ * The activity tab: weekly, monthly or lifetime, chosen from the title. The lifetime
+ * view is where Vesper's own blocks live (ADR-0016).
+ */
+export default function ActivityScreen() {
+  const now = useNow(60_000);
+  const stats = useDayStats();
+  const [view, setView] = useState<ActivityView>('week');
+
   return (
-    <Screen>
-      <Text variant="heading">Actividad</Text>
-      <Text tone="secondary">en construcción</Text>
+    <Screen scroll inTabs>
+      <ActivityHeader view={view} onChangeView={setView} />
+      {view === 'week' ? (
+        <WeeklyView stats={stats} now={now} />
+      ) : view === 'month' ? (
+        <MonthlyView stats={stats} now={now} />
+      ) : (
+        <LifetimeView stats={stats} now={now} />
+      )}
     </Screen>
   );
 }
