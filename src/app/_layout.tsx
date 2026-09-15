@@ -10,6 +10,7 @@ import { bootAndHydrate, useAppStore } from '../data';
 import type { BootResult } from '../db/boot';
 import { DevJump } from '../dev/DevJump';
 import { PlatformEffects } from '../platform/PlatformEffects';
+import { lockPortrait } from '../platform/orientation';
 import { FatalError } from '../design/components';
 import { ThemeProvider, useSchemeStore } from '../design/theme';
 import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
@@ -41,6 +42,11 @@ export default function RootLayout() {
 
   const onboardingDone = useAppStore((state) => state.settings.onboardingDone);
   const scheme = useSchemeStore((state) => state.scheme);
+
+  // Portrait everywhere; the active session unlocks itself while it is on screen.
+  useEffect(() => {
+    lockPortrait();
+  }, []);
 
   useEffect(() => {
     if (__DEV__ && !(boot instanceof Error)) {

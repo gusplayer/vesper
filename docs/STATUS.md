@@ -47,6 +47,14 @@ Tests: 364 en 30 archivos. `tsc` limpio. Compilación iOS con cuatro targets ver
    terminar.
 4. `Ajustes › Borrar todo y reiniciar` deja la base como recién instalada.
 
+## Sesión: reloj y modo horizontal (2026-09-15)
+
+- El timer es un reloj split-flap (`FlipClock`): cada dígito cae en dos mitades con
+  aceleración natural, 340 ms, sin rebote. Verificado con capturas a mitad del giro.
+- Girar el teléfono durante la sesión muestra solo el reloj grande, el modo y la barra.
+  El resto de la app queda en vertical (`expo-screen-orientation`, `src/platform/orientation.ts`).
+  Verificado rotando el simulador por script.
+
 ## Cómo revisar una pantalla sin tocar
 
 En `src/dev/route.ts` poné `DEV_START_ROUTE = '/modes'` (y `DEV_SESSION = 'running'` para

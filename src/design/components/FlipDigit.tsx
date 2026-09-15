@@ -7,22 +7,26 @@ import { font, radius } from '../tokens';
 type FlipDigitProps = {
   /** One character. Digits flip; anything else just sits there. */
   value: string;
+  /** 1 is the session clock; the sideways clock uses more. */
+  scale?: number;
 };
 
 /** Card proportions. The card is a little taller than the glyph, like a real flap. */
 const CARD_HEIGHT = 64;
 const CARD_WIDTH = 44;
-const FLIP_MS = 260;
+const FLIP_MS = 340;
 
 /**
  * One split-flap card. Two halves separated by a hairline; when the value changes the
  * top half of the old digit falls forward and the bottom half of the new one follows,
  * the way the old airport boards did. Linear timing, no bounce.
  */
-export function FlipDigit({ value }: FlipDigitProps) {
+export function FlipDigit({ value, scale = 1 }: FlipDigitProps) {
   const { colors } = useTheme();
   const [shown, setShown] = useState(value);
-  const [progress] = useState(() => new Animated.Value(0));
+  // Two values, one per half, so each half gets its own curve on the native driver.
+  const [topProgress] = useState(() => new Animated.Value(0));
+  const [bottomProgress] = useState(() => new Animated.Value(0));
   const running = useRef(false);
 
   useEffect(() => {
@@ -30,20 +34,31 @@ export function FlipDigit({ value }: FlipDigitProps) {
       return;
     }
     running.current = true;
-    progress.setValue(0);
-    Animated.timing(progress, {
-      toValue: 1,
-      duration: FLIP_MS,
-      easing: Easing.linear,
-      useNativeDriver: true,
-    }).start(() => {
+    topProgress.setValue(0);
+    bottomProgress.setValue(0);
+    // The top half falls like something let go (accelerating); the bottom half lands
+    // like something set down (decelerating). Neither overshoots.
+    Animated.sequence([
+      Animated.timing(topProgress, {
+        toValue: 1,
+        duration: FLIP_MS / 2,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(bottomProgress, {
+        toValue: 1,
+        duration: FLIP_MS / 2,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
       running.current = false;
       setShown(value);
     });
-  }, [value, shown, progress]);
+  }, [value, shown, topProgress, bottomProgress]);
 
-  const topFlap = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['0deg', '-90deg', '-90deg'] });
-  const bottomFlap = progress.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['90deg', '90deg', '0deg'] });
+  const topFlap = topProgress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-90deg'] });
+  const bottomFlap = bottomProgress.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '0deg'] });
 
   const card = { backgroundColor: colors.card };
   const glyph = { color: colors.ink };
@@ -51,7 +66,7 @@ export function FlipDigit({ value }: FlipDigitProps) {
   const previous = shown;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, scale === 1 ? null : { transform: [{ scale }], margin: (CARD_HEIGHT * (scale - 1)) / 2 }]}>
       {/* Behind: the new digit's top half and the old digit's bottom half. */}
       <View style={[styles.half, styles.top, card]}>
         <Animated.Text style={[styles.glyph, glyph]}>{next}</Animated.Text>

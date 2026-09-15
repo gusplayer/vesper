@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import {
@@ -19,6 +19,8 @@ import { elapsed, isDue, remaining, sessionProgress } from '../../domain/session
 import { EmergencySheet } from '../../features/session/EmergencySheet';
 import { timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
+import { useOrientation } from '../../lib/useOrientation';
+import { allowRotation, lockPortrait } from '../../platform/orientation';
 
 /**
  * The running session. The store already flipped the theme to dark. The clock is
@@ -36,6 +38,15 @@ export default function ActiveSessionScreen() {
   const registerInterruption = useFocusStore((state) => state.registerInterruption);
   const spendEmergency = useAppStore((state) => state.useEmergency);
   const now = useNow(1000);
+  const orientation = useOrientation();
+
+  // Only this screen may turn sideways; everything else is portrait.
+  useFocusEffect(
+    useCallback(() => {
+      allowRotation();
+      return () => lockPortrait();
+    }, []),
+  );
   const [intention, setIntentionText] = useState(session?.intention ?? '');
   const [askingEmergency, setAskingEmergency] = useState(false);
   // The session closes exactly once, whichever path gets there first.
@@ -102,6 +113,24 @@ export default function ActiveSessionScreen() {
       />
     </>
   );
+
+  // Sideways, the session is a clock on a table: the time, the mode, the bar. No buttons;
+  // turning the phone back is the way to act.
+  if (orientation === 'landscape') {
+    return (
+      <Screen>
+        <Spacer />
+        <Stack align="center" gap="lg">
+          <FlipClock value={timerText(elapsed(session, now))} scale={1.6} />
+          <Text variant="label" tone="secondary">
+            {mode === null ? 'Enfocado' : `${mode.name} · quedan ${timerText(remaining(session, now))}`}
+          </Text>
+        </Stack>
+        <Spacer />
+        <ProgressBar progress={sessionProgress(session, now)} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen footer={footer}>
