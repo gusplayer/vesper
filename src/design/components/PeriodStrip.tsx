@@ -23,7 +23,7 @@ export function PeriodStrip({ options, selectedKey, onSelect }: PeriodStripProps
           <Pressable
             key={option.key}
             onPress={() => onSelect(option.key)}
-            accessibilityRole="button"
+            accessibilityRole="tab"
             accessibilityState={{ selected }}
             accessibilityLabel={option.label}
             hitSlop={8}
@@ -32,7 +32,7 @@ export function PeriodStrip({ options, selectedKey, onSelect }: PeriodStripProps
             <Text
               variant="caption"
               weight={selected ? 'medium' : 'regular'}
-              tone={selected ? 'primary' : 'tertiary'}
+              tone={selected ? 'primary' : 'secondary'}
               align="center"
             >
               {option.label}

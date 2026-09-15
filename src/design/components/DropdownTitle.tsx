@@ -20,9 +20,10 @@ export function DropdownTitle({ label, onPress, accessibilityLabel }: DropdownTi
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? label}
+        accessibilityLabel={label}
+        accessibilityHint={accessibilityLabel}
         hitSlop={8}
-        style={({ pressed }) => [styles.button, { opacity: pressed ? 0.6 : 1 }]}
+        style={({ pressed }) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}
       >
         <Text variant="body" weight="medium">
           {label}

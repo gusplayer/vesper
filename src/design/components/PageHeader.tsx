@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { layout, space } from '../tokens';
+import { layout } from '../tokens';
 import { IconCircle } from './IconCircle';
 import { Text } from './Text';
 
@@ -41,7 +41,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: layout.touchTarget,
-    marginBottom: space.sm,
   },
   side: {
     width: layout.touchTarget,

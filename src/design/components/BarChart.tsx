@@ -17,6 +17,8 @@ export type Bar = {
 
 type BarChartProps = {
   bars: ReadonlyArray<Bar>;
+  /** What VoiceOver reads for the whole chart, e.g. per-day values. */
+  accessibilityLabel?: string;
   /** Two dotted guide lines with a label on the right: [{ value, label }]. */
   guides?: ReadonlyArray<{ value: number; label: string }>;
   /** The 'PROM' pill on the right at this value. */
@@ -29,7 +31,7 @@ type BarChartProps = {
  * and the average, so nothing ever overflows. Bars are ink; a highlighted one is
  * secondary ink.
  */
-export function BarChart({ bars, guides = [], average, height = 160 }: BarChartProps) {
+export function BarChart({ bars, guides = [], average, height = 160, accessibilityLabel }: BarChartProps) {
   const { colors } = useTheme();
   const max = Math.max(
     1,
@@ -40,23 +42,27 @@ export function BarChart({ bars, guides = [], average, height = 160 }: BarChartP
   const scale = (value: number) => (value / max) * height;
 
   return (
-    <View style={styles.chart}>
-      <View style={[styles.plot, { height }]}>
+    <View style={styles.chart} accessible={accessibilityLabel !== undefined} accessibilityLabel={accessibilityLabel}>
+      <View style={[styles.plot, { height: height + TOP_ROOM }]}>
         {guides.map((guide) => (
           <View key={guide.label} style={[styles.guide, { bottom: scale(guide.value) }]}>
-            <View style={[styles.guideLine, { borderColor: colors.line }]} />
-            <Text variant="caption" tone="tertiary">
-              {guide.label}
-            </Text>
+            <View style={[styles.guideLine, { borderColor: colors.inkTertiary }]} />
+            <View style={styles.gutter}>
+              <Text variant="caption" tone="secondary">
+                {guide.label}
+              </Text>
+            </View>
           </View>
         ))}
         {average === undefined ? null : (
           <View style={[styles.average, { bottom: scale(average) - 9 }]}>
-            <View style={[styles.guideLine, { borderColor: colors.inkTertiary }]} />
-            <View style={[styles.pill, { backgroundColor: colors.inkSecondary }]}>
-              <Text variant="caption" weight="medium" tone="onInk">
-                PROM
-              </Text>
+            <View style={[styles.guideLine, { borderColor: colors.inkSecondary }]} />
+            <View style={styles.gutter}>
+              <View style={[styles.pill, { backgroundColor: colors.ink }]}>
+                <Text variant="caption" weight="medium" tone="onInk">
+                  PROM
+                </Text>
+              </View>
             </View>
           </View>
         )}
@@ -94,9 +100,18 @@ export function BarChart({ bars, guides = [], average, height = 160 }: BarChartP
   );
 }
 
+/** Room above the tallest bar so the top guide label is not clipped. */
+const TOP_ROOM = 16;
+/** The right column shared by bars, labels, guide text and the average pill. */
+const GUTTER = 52;
+
 const styles = StyleSheet.create({
   chart: {
     rowGap: space.sm,
+  },
+  gutter: {
+    width: GUTTER,
+    alignItems: 'flex-end',
   },
   plot: {
     justifyContent: 'flex-end',
@@ -105,7 +120,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     columnGap: space.sm,
-    paddingRight: 40,
+    paddingRight: GUTTER,
   },
   barColumn: {
     flex: 1,
@@ -129,6 +144,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderTopWidth: 1,
     borderStyle: 'dashed',
+    opacity: 0.6,
   },
   average: {
     position: 'absolute',
@@ -146,7 +162,7 @@ const styles = StyleSheet.create({
   labels: {
     flexDirection: 'row',
     columnGap: space.sm,
-    paddingRight: 40,
+    paddingRight: GUTTER,
   },
   labelColumn: {
     flex: 1,

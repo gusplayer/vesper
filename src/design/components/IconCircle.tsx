@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { layout, radius } from '../tokens';
+import { layout, radius, shadow } from '../tokens';
 import { Icon, type IconName } from './Icon';
 
 type IconCircleProps = {
@@ -18,7 +18,7 @@ export function IconCircle({ name, onPress, tone = 'muted', accessibilityLabel }
   const background =
     tone === 'ink' ? colors.ink : tone === 'card' ? colors.card : colors.cardMuted;
   const content = (
-    <View style={[styles.circle, { backgroundColor: background }]}>
+    <View style={[styles.circle, { backgroundColor: background, shadowColor: colors.shadow }, tone === 'card' ? styles.lifted : null]}>
       <Icon name={name} size="md" tone={tone === 'ink' ? 'onInk' : 'primary'} />
     </View>
   );
@@ -45,5 +45,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  lifted: {
+    ...shadow.card,
   },
 });

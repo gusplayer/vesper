@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useTheme } from '../theme';
 import { layout, space } from '../tokens';
 import { Icon, type IconName } from './Icon';
 import { Text } from './Text';
@@ -14,8 +15,9 @@ type ListRowProps = {
   value?: string;
   /** A control on the right: a toggle, a radio, a checkbox. Replaces the chevron. */
   right?: ReactNode;
-  /** Shows a chevron and makes the row press. */
+  /** Makes the row press. A 'link' shows a chevron; an 'action' (alert, toggle) does not. */
   onPress?: () => void;
+  kind?: 'link' | 'action';
   tone?: 'primary' | 'danger';
   accessibilityLabel?: string;
 };
@@ -31,14 +33,18 @@ export function ListRow({
   value,
   right,
   onPress,
+  kind = 'link',
   tone = 'primary',
   accessibilityLabel,
 }: ListRowProps) {
+  const { colors } = useTheme();
+  // VoiceOver reads what is on screen: label, description and value, in that order.
+  const spokenLabel = accessibilityLabel ?? [label, description, value].filter(Boolean).join(', ');
   const content = (
     <View style={styles.row}>
       {icon === undefined ? null : (
         <View style={styles.icon}>
-          <Icon name={icon} size="md" tone={tone === 'danger' ? 'danger' : 'primary'} />
+          <Icon name={icon} size="row" tone={tone === 'danger' ? 'danger' : 'secondary'} />
         </View>
       )}
       <View style={styles.text}>
@@ -57,7 +63,7 @@ export function ListRow({
         </Text>
       )}
       {right}
-      {onPress !== undefined && right === undefined ? (
+      {onPress !== undefined && right === undefined && kind === 'link' ? (
         <Icon name="chevron-right" size="sm" tone="secondary" />
       ) : null}
     </View>
@@ -70,8 +76,8 @@ export function ListRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      accessibilityLabel={spokenLabel}
+      style={({ pressed }) => [styles.pressable, pressed ? { backgroundColor: colors.cardMuted } : null]}
     >
       {content}
     </Pressable>
@@ -83,12 +89,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: space.md,
-    minHeight: layout.touchTarget + space.sm,
+    minHeight: layout.touchTarget + space.xs,
     paddingVertical: space.sm,
   },
   icon: {
     width: layout.icon.lg,
     alignItems: 'center',
+  },
+  pressable: {
+    marginHorizontal: -space.lg,
+    paddingHorizontal: space.lg,
   },
   text: {
     flex: 1,

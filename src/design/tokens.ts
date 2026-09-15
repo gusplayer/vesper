@@ -42,7 +42,8 @@ export const colors: Record<Scheme, Colors> = {
     card: '#F8F7F5',
     cardMuted: '#E3E1DC',
     ink: '#1C1B1A',
-    inkSecondary: '#6E6C68',
+    inkSecondary: '#66645F',
+    /** Placeholders and hints only: ~2:1 on the page, never text that informs. */
     inkTertiary: '#A6A39E',
     line: '#DCD9D3',
     onInk: '#F8F7F5',
@@ -118,8 +119,8 @@ export const layout = {
   pageMargin: 20,
   touchTarget: 44,
   tabBarHeight: 56,
-  /** Feather icon sizes. */
-  icon: { sm: 16, md: 20, lg: 24 },
+  /** Feather icon sizes. `row` is the list-row icon: lighter than text next to it. */
+  icon: { sm: 16, md: 20, lg: 24, row: 18 },
   /** The centered object on the home page. */
   hero: 132,
   appIcon: { sm: 24, md: 40, lg: 56 },

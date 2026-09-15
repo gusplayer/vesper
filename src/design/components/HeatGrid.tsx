@@ -1,12 +1,12 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { radius, space } from '../tokens';
+import { space } from '../tokens';
 import { Text } from './Text';
 
 export type HeatCell = {
   key: string;
-  /** 0 = nothing, 1 = a full day. Drawn as ink opacity. */
+  /** 0 = nothing, 1 = a full day. Quantized into four levels when drawn. */
   intensity: number;
   /** Today gets a ring so the grid has a "you are here". */
   today?: boolean;
@@ -22,8 +22,23 @@ type HeatGridProps = {
   accessibilityLabel?: string;
 };
 
-const CELL = 30;
+const CELL = 28;
 const GAP = 6;
+const RING = 3;
+
+/** Four levels read as levels; a continuous ramp reads as mud. Empty is an outline. */
+function levelOpacity(intensity: number): number {
+  if (intensity <= 0) {
+    return 0;
+  }
+  if (intensity < 0.34) {
+    return 0.4;
+  }
+  if (intensity < 0.67) {
+    return 0.7;
+  }
+  return 1;
+}
 
 /**
  * Days as squares: the more focus, the more ink. Four weeks fit the home page and
@@ -39,7 +54,7 @@ export function HeatGrid({ cells, columns = 7, columnLabels, onPress, accessibil
         <View style={styles.labels}>
           {columnLabels.map((label, index) => (
             <View key={index} style={styles.labelCell}>
-              <Text variant="caption" tone="tertiary" align="center">
+              <Text variant="caption" tone="secondary" align="center">
                 {label}
               </Text>
             </View>
@@ -47,19 +62,28 @@ export function HeatGrid({ cells, columns = 7, columnLabels, onPress, accessibil
         </View>
       )}
       <View style={styles.cells}>
-        {cells.map((cell) => (
-          <View
-            key={cell.key}
-            style={[
-              styles.cell,
-              {
-                backgroundColor: colors.ink,
-                opacity: 0.1 + 0.9 * Math.min(1, Math.max(0, cell.intensity)),
-              },
-              cell.today ? { borderWidth: 2, borderColor: colors.inkSecondary, opacity: Math.max(0.3, 0.1 + 0.9 * cell.intensity) } : null,
-            ]}
-          />
-        ))}
+        {cells.map((cell) => {
+          const opacity = levelOpacity(cell.intensity);
+          return (
+            // The ring sits outside the tinted square, so it never fades with the cell.
+            <View
+              key={cell.key}
+              style={[
+                styles.slot,
+                cell.today ? { borderColor: colors.ink, borderWidth: RING } : null,
+              ]}
+            >
+              <View
+                style={[
+                  styles.cell,
+                  opacity === 0
+                    ? { borderWidth: 1, borderColor: colors.inkTertiary }
+                    : { backgroundColor: colors.ink, opacity },
+                ]}
+              />
+            </View>
+          );
+        })}
       </View>
     </View>
   );
@@ -95,9 +119,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: GAP,
   },
-  cell: {
+  slot: {
     width: CELL,
     height: CELL,
-    borderRadius: radius.sm / 2,
+    borderRadius: CELL * 0.28,
+    padding: 0,
+    overflow: 'hidden',
+  },
+  cell: {
+    flex: 1,
+    borderRadius: CELL * 0.25,
   },
 });

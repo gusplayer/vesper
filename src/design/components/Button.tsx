@@ -45,7 +45,7 @@ export function Button({
       : variant === 'secondary'
         ? colors.cardMuted
         : 'transparent';
-  const tone = inactive ? 'tertiary' : variant === 'primary' ? 'onInk' : 'primary';
+  const tone = inactive ? 'secondary' : variant === 'primary' ? 'onInk' : 'primary';
 
   return (
     <Pressable

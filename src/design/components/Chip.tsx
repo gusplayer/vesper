@@ -32,7 +32,7 @@ export function Chip({ label, selected, onPress }: ChipProps) {
 
 const styles = StyleSheet.create({
   chip: {
-    minHeight: layout.touchTarget - 6,
+    minHeight: layout.touchTarget,
     borderRadius: radius.pill,
     paddingHorizontal: space.lg,
     justifyContent: 'center',

@@ -9,7 +9,7 @@ export type IconName = ComponentProps<typeof Feather>['name'];
 
 type IconProps = {
   name: IconName;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'row';
   tone?: TextTone;
 };
 
@@ -28,5 +28,6 @@ export function Icon({ name, size = 'md', tone = 'primary' }: IconProps) {
             : tone === 'danger'
               ? colors.danger
               : colors.ink;
-  return <Feather name={name} size={layout.icon[size]} color={color} />;
+  // Decorative: the text beside it carries the meaning for VoiceOver.
+  return <Feather name={name} size={layout.icon[size]} color={color} accessible={false} importantForAccessibility="no" />;
 }

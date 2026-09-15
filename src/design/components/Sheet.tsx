@@ -20,7 +20,7 @@ export function Sheet({ visible, title, onClose, children }: SheetProps) {
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="cerrar" />
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="cerrar" />
       <View
         style={[
           styles.sheet,
@@ -29,7 +29,7 @@ export function Sheet({ visible, title, onClose, children }: SheetProps) {
       >
         <View style={styles.header}>
           <View style={styles.spacer} />
-          <Text variant="body" weight="medium" align="center" style={styles.title}>
+          <Text variant="body" weight="medium" align="center" style={styles.title} accessibilityRole="header">
             {title}
           </Text>
           <IconCircle name="x" onPress={onClose} accessibilityLabel="cerrar" />

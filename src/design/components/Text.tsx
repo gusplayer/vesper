@@ -14,6 +14,7 @@ type TextProps = {
   align?: 'left' | 'center' | 'right';
   numberOfLines?: number;
   style?: StyleProp<TextStyle>;
+  accessibilityRole?: 'header' | 'text';
 };
 
 const DEFAULT_WEIGHT: Record<TextVariant, 'regular' | 'medium' | 'semibold'> = {
@@ -51,12 +52,17 @@ export function Text({
   align = 'left',
   numberOfLines,
   style,
+  accessibilityRole,
 }: TextProps) {
   const { colors } = useTheme();
   const resolvedWeight = weight ?? DEFAULT_WEIGHT[variant];
   return (
     <RNText
       numberOfLines={numberOfLines}
+      accessibilityRole={accessibilityRole}
+      // Big type is welcome on titles; captions and labels stop at 1.6× so fixed
+      // layouts (the grid, the tab bar) survive the largest accessibility sizes.
+      maxFontSizeMultiplier={variant === 'caption' || variant === 'label' ? 1.6 : 2}
       style={[
         {
           fontFamily: font.family[resolvedWeight],

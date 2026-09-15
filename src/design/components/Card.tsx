@@ -41,7 +41,7 @@ export function Card({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [base, { opacity: pressed ? 0.9 : 1 }]}
+      style={({ pressed }) => [base, pressed ? { backgroundColor: colors.cardMuted } : null]}
     >
       {children}
     </Pressable>
