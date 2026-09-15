@@ -4,8 +4,10 @@ import { AppState, View } from 'react-native';
 
 import { dayBounds } from '../domain/day';
 import { FIRM_WAIT_MS, HOLD_MS, canGiveUp, elapsed, isDue, remaining } from '../domain/session';
+import type { Session } from '../domain/types';
 import * as activitiesRepo from '../db/repositories/activities';
 import * as sessionsRepo from '../db/repositories/sessions';
+import { Body } from '../design/components/Body';
 import { Caption } from '../design/components/Caption';
 import { HoldToConfirm } from '../design/components/HoldToConfirm';
 import { Label } from '../design/components/Label';
@@ -31,6 +33,11 @@ const GIVE_UP_LABEL: Record<'soft' | 'firm' | 'deep', string> = {
  *
  * The clock is `now - startedAt`, never a sum of ticks, so backgrounding the app does
  * not slow the session down.
+ *
+ * Three states: running, leaving (firm depth, the "why" field is open), and closed.
+ * When the timer runs out the route does not leave: it shows what was done and the
+ * intention as written, and waits for `volver` — ADR-0015. A cancelled session never
+ * passes through here: there is nothing to close.
  */
 export default function SessionScreen() {
   const router = useRouter();
@@ -44,6 +51,8 @@ export default function SessionScreen() {
   /** Set when a firm hold completed: the "why" field is open and the wait is running. */
   const [exitStartedAt, setExitStartedAt] = useState<number | null>(null);
   const [exitReason, setExitReason] = useState('');
+  /** The completed session, kept here after the store has let go of it. */
+  const [closed, setClosed] = useState<Session | null>(null);
 
   // Leaving the app counts as an interruption in firm and deep. It never cancels.
   useEffect(() => {
@@ -55,13 +64,13 @@ export default function SessionScreen() {
     return () => subscription.remove();
   }, [registerInterruption]);
 
-  // The timer ran out. Close as completed, crediting the full planned time.
+  // The timer ran out. Close as completed, crediting the full planned time, and stay:
+  // the closing state reads it back — ADR-0015.
   useEffect(() => {
     if (session !== null && isDue(session, now)) {
-      finish('completed', now);
-      router.back();
+      setClosed(finish('completed', now));
     }
-  }, [session, now, finish, router]);
+  }, [session, now, finish]);
 
   // The firm wait elapsed: the user gets to leave, with whatever they wrote.
   useEffect(() => {
@@ -71,6 +80,34 @@ export default function SessionScreen() {
     }
   }, [exitStartedAt, now, exitReason, finish, router]);
 
+  const { dayStart, dayEnd } = dayBounds(now);
+  const ordinal = sessionsRepo.listBetween(dayStart, dayEnd).length;
+  const shown = closed ?? session;
+  const activityLabel =
+    activitiesRepo.listActive().find((activity) => activity.id === shown?.activityId)?.label ?? '';
+
+  if (closed !== null) {
+    return (
+      <Screen>
+        <ScreenHeader left={activityLabel} right={`sesión ${ordinal} de hoy`} />
+
+        <Timer value={timerText(closed.actualMs)} />
+        <ProgressRule progress={1} />
+
+        {closed.intention === null ? (
+          <Caption>sin intención escrita</Caption>
+        ) : (
+          <Body>{closed.intention}</Body>
+        )}
+
+        <TextAction label="volver" onPress={() => router.back()} />
+        {closed.interruptions === 0 ? null : (
+          <Caption>{`${closed.interruptions} interrupción(es)`}</Caption>
+        )}
+      </Screen>
+    );
+  }
+
   if (session === null) {
     return (
       <Screen>
@@ -79,11 +116,6 @@ export default function SessionScreen() {
       </Screen>
     );
   }
-
-  const { dayStart, dayEnd } = dayBounds(now);
-  const ordinal = sessionsRepo.listBetween(dayStart, dayEnd).length;
-  const activityLabel =
-    activitiesRepo.listActive().find((activity) => activity.id === session.activityId)?.label ?? '';
 
   function onHoldConfirmed(): void {
     if (session === null) {

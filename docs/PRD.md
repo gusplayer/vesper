@@ -49,6 +49,8 @@ Tocar el número grande abre la configuración de sesión. No hay otro acceso a 
 - Intención escrita por el usuario
 - Barra de progreso fina
 - `mantén pulsado para terminar` — 1.5s, sin diálogo de confirmación
+- Al vencer el timer la ruta no se va: muestra la duración servida, la intención tal como
+  se escribió y `volver`. Una sesión cancelada no pasa por ahí. Ver ADR-0015
 
 Comportamiento por nivel de profundidad:
 - **Suave** — mantener pulsado termina de inmediato

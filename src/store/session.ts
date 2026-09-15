@@ -24,7 +24,11 @@ type SessionStore = {
   /** Reads the running session from the database. Called once at startup. */
   hydrate: () => void;
   start: (config: SessionConfig, now: number) => Session;
-  finish: (outcome: CloseOutcome, now: number, exitReason?: string | null) => void;
+  /**
+   * Closes the running session and returns the closed row, so the session route can
+   * show it after the store has let go of it — ADR-0015. Null when nothing was running.
+   */
+  finish: (outcome: CloseOutcome, now: number, exitReason?: string | null) => Session | null;
   /** The intention is written on the session screen, where it is also displayed. */
   setIntention: (intention: string) => void;
   registerInterruption: () => void;
@@ -47,7 +51,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
   finish: (outcome, now, exitReason) => {
     const current = get().session;
     if (current === null) {
-      return;
+      return null;
     }
     const closed = closeSession(current, now, outcome, { exitReason: exitReason ?? null });
     sessions.update(closed);
@@ -62,6 +66,7 @@ export const useSessionStore = create<SessionStore>((set, get) => ({
     }
 
     set({ session: null });
+    return closed;
   },
 
   setIntention: (intention) => {
