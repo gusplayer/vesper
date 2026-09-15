@@ -12,13 +12,15 @@ type FocusArtProps = {
   now: number;
   /** Tapping the drawing goes back to the clock. */
   onPress: () => void;
+  /** Sideways: the canvas fills the height and the words go beside it, not below. */
+  layout?: 'portrait' | 'landscape';
 };
 
 /**
  * The drawing that grows with the session (ADR-0018). The work and its dots are fixed
  * by the session id, computed once; each second only the visible count changes.
  */
-export function FocusArt({ session, now, onPress }: FocusArtProps) {
+export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusArtProps) {
   const artwork = useMemo(() => artworkFor(session.id), [session.id]);
   const dots = useMemo(
     () => stipple(artwork, dotBudget(session.plannedMs), seedFor(session.id)),
@@ -27,12 +29,18 @@ export function FocusArt({ session, now, onPress }: FocusArtProps) {
   const visible = visibleDots(dots.length, elapsed(session, now), session.plannedMs);
   const done = visible >= dots.length;
 
+  const label = `${artwork.name}, ${Math.round((visible / dots.length) * 100)} por ciento. Toca para volver al reloj`;
+
+  if (layout === 'landscape') {
+    return (
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={{ flex: 1 }}>
+        <StippleCanvas dots={dots} visible={visible} fit="height" />
+      </Pressable>
+    );
+  }
+
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${artwork.name}, ${Math.round((visible / dots.length) * 100)} por ciento. Toca para volver al reloj`}
-    >
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Stack gap="md" align="center">
         <StippleCanvas dots={dots} visible={visible} />
         <Text variant="body" weight="medium">

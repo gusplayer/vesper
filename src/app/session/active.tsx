@@ -122,6 +122,26 @@ export default function ActiveSessionScreen() {
   // Sideways, the session is a clock on a table: the time, the mode, the bar. No buttons;
   // turning the phone back is the way to act.
   if (orientation === 'landscape') {
+    if (showingArt) {
+      // Sideways with the drawing: the clock keeps the left third, the work the rest.
+      return (
+        <Screen>
+          <Stack direction="row" gap="xl" grow align="stretch">
+            <Stack justify="center" align="center" gap="sm">
+              <FlipClock value={timerText(elapsed(session, now))} scale={0.8} />
+              <Text variant="caption" tone="secondary" align="center">
+                {mode === null ? 'Enfocado' : mode.name}
+              </Text>
+              <Text variant="caption" tone="tertiary" align="center">
+                {`quedan ${timerText(remaining(session, now))}`}
+              </Text>
+            </Stack>
+            <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} layout="landscape" />
+          </Stack>
+          <ProgressBar progress={sessionProgress(session, now)} />
+        </Screen>
+      );
+    }
     return (
       <Screen>
         <Spacer />
@@ -130,6 +150,7 @@ export default function ActiveSessionScreen() {
           <Text variant="label" tone="secondary">
             {mode === null ? 'Enfocado' : `${mode.name} · quedan ${timerText(remaining(session, now))}`}
           </Text>
+          <Button variant="ghost" label="Arte" onPress={() => setShowingArt(true)} />
         </Stack>
         <Spacer />
         <ProgressBar progress={sessionProgress(session, now)} />
