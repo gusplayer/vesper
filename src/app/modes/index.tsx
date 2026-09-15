@@ -14,13 +14,14 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { useAppStore, useModes } from '../../data';
+import { useAppStore, useModes, useRunningSession } from '../../data';
 import type { Mode } from '../../data/types';
 import { ModeCard } from '../../features/modes/ModeCard';
 
 /** The list of modes. Tapping a card activates it; '…' duplicates or deletes. */
 export default function ModesScreen() {
   const router = useRouter();
+  const running = useRunningSession() !== null;
   const modes = useModes();
   const activeModeId = useAppStore((state) => state.activeModeId);
   const setActiveMode = useAppStore((state) => state.setActiveMode);
@@ -43,13 +44,21 @@ export default function ModesScreen() {
         onBack={() => router.back()}
         title="Modos"
         right={
-          <IconCircle
-            name="plus"
-            onPress={() => router.push('/modes/edit')}
-            accessibilityLabel="nuevo modo"
-          />
+          running ? undefined : (
+            <IconCircle
+              name="plus"
+              onPress={() => router.push('/modes/edit')}
+              accessibilityLabel="nuevo modo"
+            />
+          )
         }
       />
+
+      {running ? (
+        <Text variant="label" tone="secondary" align="center">
+          Estás en una sesión: los modos son de solo lectura hasta que termine.
+        </Text>
+      ) : null}
 
       {modes.length === 0 ? (
         <Text variant="label" tone="secondary" align="center">
@@ -62,12 +71,14 @@ export default function ModesScreen() {
           key={mode.id}
           mode={mode}
           active={mode.id === activeModeId}
+          readOnly={running}
           onSelect={() => setActiveMode(mode.id)}
           onEdit={() => router.push({ pathname: '/modes/edit', params: { id: mode.id } })}
           onMore={() => setMenuFor(mode)}
         />
       ))}
 
+      {running ? null : (
       <Card tone="muted" onPress={() => router.push('/modes/ideas')} accessibilityLabel="explorar ideas">
         <Stack direction="row" align="center" gap="md">
           <Stack gap="xs" grow>
@@ -79,6 +90,7 @@ export default function ModesScreen() {
           <Icon name="chevron-right" size="sm" tone="secondary" />
         </Stack>
       </Card>
+      )}
 
       <Sheet visible={menuFor !== null} title="Opciones" onClose={() => setMenuFor(null)}>
         {menuFor === null ? null : (

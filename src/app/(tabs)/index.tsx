@@ -121,7 +121,9 @@ export default function FocusScreen() {
               <Text variant="label" tone="secondary">
                 {modeSummaryText(mode)}
               </Text>
-              <Button variant="ghost" label="Gestionar modos ›" onPress={() => router.push('/modes')} />
+              {session === null ? (
+                <Button variant="ghost" label="Gestionar modos ›" onPress={() => router.push('/modes')} />
+              ) : null}
             </>
           )}
         </Stack>

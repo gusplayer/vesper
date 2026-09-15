@@ -4,6 +4,8 @@ import { modeSummaryText } from '../../data/modes';
 import type { Mode } from '../../data/types';
 
 type ModeCardProps = {
+  /** During a session nothing here may change: no select, no edit, no menu. */
+  readOnly?: boolean;
   mode: Mode;
   active: boolean;
   /** Tapping the card makes it the active mode. */
@@ -14,10 +16,13 @@ type ModeCardProps = {
 };
 
 /** One mode on the list: name, what it limits, its app tiles, Editar and '…'. */
-export function ModeCard({ mode, active, onSelect, onEdit, onMore }: ModeCardProps) {
+export function ModeCard({ mode, active, onSelect, onEdit, onMore, readOnly = false }: ModeCardProps) {
   const apps = appsById(mode.appIds);
   return (
-    <Card onPress={onSelect} accessibilityLabel={`${mode.name}, ${active ? 'activo' : 'toca para activar'}`}>
+    <Card
+      onPress={readOnly ? undefined : onSelect}
+      accessibilityLabel={`${mode.name}, ${active ? 'activo' : readOnly ? 'solo lectura' : 'toca para activar'}`}
+    >
       <Stack gap="md">
         <Stack direction="row" align="center" gap="md">
           <Stack gap="xs" grow>
@@ -29,6 +34,7 @@ export function ModeCard({ mode, active, onSelect, onEdit, onMore }: ModeCardPro
           <Check checked={active} tone="success" />
         </Stack>
         {apps.length > 0 ? <AppIconStack apps={apps} max={4} /> : null}
+        {readOnly ? null : (
         <Stack direction="row" align="center" gap="md">
           {/* A muted card, not Button secondary: that pill is the card's own color. */}
           <Stack grow>
@@ -40,6 +46,7 @@ export function ModeCard({ mode, active, onSelect, onEdit, onMore }: ModeCardPro
           </Stack>
           <IconCircle name="more-horizontal" onPress={onMore} accessibilityLabel={`opciones de ${mode.name}`} />
         </Stack>
+        )}
       </Stack>
     </Card>
   );

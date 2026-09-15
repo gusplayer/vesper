@@ -1,12 +1,12 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Pressable } from 'react-native';
 
 import {
   Button,
   FlipClock,
   HeroObject,
-  IconCircle,
+  Icon,
   ProgressBar,
   Screen,
   Spacer,
@@ -17,6 +17,7 @@ import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } f
 import { countText } from '../../data/modes';
 import { elapsed, isDue, sessionProgress } from '../../domain/session';
 import { EmergencySheet } from '../../features/session/EmergencySheet';
+import { ModeDetailsSheet } from '../../features/modes/ModeDetailsSheet';
 import { FocusArt } from '../../features/session/FocusArt';
 import { timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
@@ -52,6 +53,7 @@ export default function ActiveSessionScreen() {
   // `?art=1` opens it directly, for links and for reviewing.
   const params = useLocalSearchParams<{ art?: string }>();
   const [showingArt, setShowingArt] = useState(params.art === '1');
+  const [showingMode, setShowingMode] = useState(false);
   // The session closes exactly once, whichever path gets there first.
   const closedRef = useRef(false);
 
@@ -190,10 +192,22 @@ export default function ActiveSessionScreen() {
       </Stack>
       <Spacer />
 
-      <Stack direction="row" align="center" justify="center" gap="sm">
-        <Text variant="heading">{mode?.name ?? 'Sesión'}</Text>
-        <IconCircle name="edit-2" onPress={() => router.push('/modes')} accessibilityLabel="Cambiar de modo" />
+      <Stack align="center" gap="xs">
+        <Pressable
+          onPress={() => setShowingMode(true)}
+          disabled={mode === null}
+          accessibilityRole="button"
+          accessibilityLabel={`${mode?.name ?? 'Sesión'}. Ver qué hace este modo`}
+        >
+          <Stack direction="row" align="center" gap="sm">
+            <Text variant="heading">{mode?.name ?? 'Sesión'}</Text>
+            {mode === null ? null : <Icon name="info" size="sm" tone="tertiary" />}
+          </Stack>
+        </Pressable>
       </Stack>
+      {mode === null ? null : (
+        <ModeDetailsSheet mode={mode} visible={showingMode} onClose={() => setShowingMode(false)} />
+      )}
 
       <Stack gap="sm">
         <ProgressBar progress={sessionProgress(session, now)} />
