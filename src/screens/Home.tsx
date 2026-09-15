@@ -41,6 +41,12 @@ function toneFor(row: LedgerRowData): 'strong' | 'normal' | 'faint' {
 const MAX_HABITS_HINT = 'agregar hábito';
 
 /**
+ * At the limit, the link does not vanish silently: rule 4 is a product decision, and a
+ * control that disappears without a word reads as a bug. Say why, in one line.
+ */
+const MAX_HABITS_REACHED = 'cinco es el máximo, a propósito';
+
+/**
  * The only explanatory text in the app, and it appears once. There is no onboarding in
  * phase 1: there is nothing to ask for and any screen before this one works against the
  * one-tap metric. See ADR-0012.
@@ -214,7 +220,9 @@ export function Home({ revision }: HomeProps) {
         />
       ))}
       {data.habits.length === 0 ? <Caption>sin hábitos todavía</Caption> : null}
-      {data.habits.length >= 5 ? null : (
+      {data.habits.length >= 5 ? (
+        <Caption>{MAX_HABITS_REACHED}</Caption>
+      ) : (
         <TextAction label={MAX_HABITS_HINT} onPress={() => router.push('/config/habit')} />
       )}
     </Screen>
