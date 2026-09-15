@@ -5,6 +5,29 @@
  */
 
 const WEEKDAY_SHORT = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const;
+const WEEKDAY_LONG = [
+  'lunes',
+  'martes',
+  'miércoles',
+  'jueves',
+  'viernes',
+  'sábado',
+  'domingo',
+] as const;
+const MONTH_LONG = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+] as const;
 const MONTH_SHORT = [
   'ene',
   'feb',
@@ -19,6 +42,12 @@ const MONTH_SHORT = [
   'nov',
   'dic',
 ] as const;
+
+/** Local midnight of a 'YYYY-MM-DD' key. */
+export function midnightOf(dayKey: string): number {
+  const [year, month, day] = dayKey.split('-').map(Number);
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1).getTime();
+}
 
 /** The same local time `days` days away. Negative goes back. */
 export function shiftDays(ms: number, days: number): number {
@@ -49,6 +78,17 @@ export function dayOfMonth(ms: number): number {
 /** 'lun', 'mar', … for a weekday index. */
 export function weekdayShort(index: number): string {
   return WEEKDAY_SHORT[index] ?? '';
+}
+
+/** 'lunes', 'martes', … for a weekday index. */
+export function weekdayLong(index: number): string {
+  return WEEKDAY_LONG[index] ?? '';
+}
+
+/** 'domingo 13 de septiembre' — the spoken form of a day, for VoiceOver. */
+export function dayLongLabel(ms: number): string {
+  const date = new Date(ms);
+  return `${weekdayLong(weekdayIndex(ms))} ${date.getDate()} de ${MONTH_LONG[date.getMonth()] ?? ''}`;
 }
 
 /** 'sep 2026'. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { daysText, overlaps, timeText, windowText } from './format';
+import { daysText, overlapNames, overlaps, timeText, windowText } from './format';
 
 const WEEKDAYS = [true, true, true, true, true, false, false];
 
@@ -70,5 +70,39 @@ describe('overlaps', () => {
     const late = { startMinutes: 23 * 60, endMinutes: 23 * 60 + 30, days: WEEKDAYS };
     expect(overlaps(work, openEnded)).toBe(true);
     expect(overlaps(openEnded, late)).toBe(true);
+  });
+});
+
+describe('overlapNames', () => {
+  const work = { id: 'work', name: 'Trabajo', enabled: true, startMinutes: 9 * 60, endMinutes: 18 * 60, days: WEEKDAYS };
+  const lunch = {
+    id: 'lunch',
+    name: 'Almuerzo',
+    enabled: true,
+    startMinutes: 12 * 60,
+    endMinutes: 13 * 60,
+    days: [true, false, false, false, false, false, false],
+  };
+  const evening = { id: 'evening', name: 'Tarde', enabled: true, startMinutes: 17 * 60, endMinutes: null, days: WEEKDAYS };
+  const weekend = {
+    id: 'weekend',
+    name: 'Finde',
+    enabled: true,
+    startMinutes: 10 * 60,
+    endMinutes: 12 * 60,
+    days: [false, false, false, false, false, true, true],
+  };
+
+  it('is empty when nothing crosses', () => {
+    expect(overlapNames(work, [work, weekend])).toEqual([]);
+  });
+
+  it('names every schedule it crosses, in list order, never itself', () => {
+    expect(overlapNames(work, [work, lunch, evening, weekend])).toEqual(['Almuerzo', 'Tarde']);
+  });
+
+  it('ignores disabled schedules on either side', () => {
+    expect(overlapNames(work, [work, { ...lunch, enabled: false }, evening])).toEqual(['Tarde']);
+    expect(overlapNames({ ...work, enabled: false }, [work, lunch, evening])).toEqual([]);
   });
 });

@@ -76,3 +76,19 @@ export function overlaps(a: ScheduleWindow, b: ScheduleWindow): boolean {
   }
   return a.startMinutes < endOf(b) && b.startMinutes < endOf(a);
 }
+
+/** What overlapNames needs from a schedule: its window plus who it is and whether it counts. */
+export type OverlapCandidate = ScheduleWindow & Pick<Schedule, 'id' | 'name' | 'enabled'>;
+
+/**
+ * The names of the other enabled schedules this one crosses, in list order. Disabled
+ * schedules never take part, on either side: a schedule that is off cannot clash.
+ */
+export function overlapNames(schedule: OverlapCandidate, all: ReadonlyArray<OverlapCandidate>): string[] {
+  if (!schedule.enabled) {
+    return [];
+  }
+  return all
+    .filter((other) => other.id !== schedule.id && other.enabled && overlaps(schedule, other))
+    .map((other) => other.name);
+}

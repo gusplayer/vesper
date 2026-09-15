@@ -22,7 +22,7 @@ import {
   type CalendarDay,
   type Delta,
 } from './selectors';
-import { sessionsText } from './text';
+import { chartSummary, dayCardSummary, deltaText, sessionsText } from './text';
 
 const PERIODS = [
   { key: '1', label: 'SEMANA PASADA' },
@@ -44,6 +44,9 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
   const average = useMemo(() => weekAverage(stats, now, offset), [stats, now, offset]);
   const delta = useMemo(() => deltaVsPrevious(stats, now, offset), [stats, now, offset]);
   const days = useMemo(() => weekDayCards(stats, now, offset), [stats, now, offset]);
+  // The cards stop at today, and so does what VoiceOver reads for the chart: a day that
+  // has not happened is not 'sin foco'.
+  const spokenChart = useMemo(() => chartSummary(bars.slice(0, days.length)), [bars, days]);
 
   return (
     <Stack gap="lg">
@@ -52,13 +55,16 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
         selectedKey={String(offset)}
         onSelect={(key) => setOffset(Number(key))}
       />
-      <Section title="Tiempo enfocado promedio">
+      <Section title="Promedio por día">
         <Text variant="title">{average === null ? '—' : durationText(average)}</Text>
-        <DeltaLine delta={delta} offset={offset} />
+        <DeltaLine delta={delta} firstWeek={average === null && offset === 0} />
       </Section>
-      <Card>
-        <BarChart bars={bars} guides={guides} average={average ?? undefined} />
-      </Card>
+      <BarChart
+        bars={bars}
+        guides={guides}
+        average={average ?? undefined}
+        accessibilityLabel={spokenChart}
+      />
       <Stack gap="md">
         {days.map((day) => (
           <DayCard key={day.dayKey} day={day} />
@@ -68,42 +74,32 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
   );
 }
 
-function DeltaLine({ delta, offset }: { delta: Delta | null; offset: number }) {
+function DeltaLine({ delta, firstWeek }: { delta: Delta | null; firstWeek: boolean }) {
   if (delta === null) {
-    return (
+    // Nothing to compare against yet. The line only speaks up while the very first
+    // week is still empty; a quiet past week just shows its average.
+    return firstWeek ? (
       <Text variant="label" tone="secondary">
         {FIRST_WEEK}
       </Text>
-    );
+    ) : null;
   }
-  const against = offset === 0 ? 'vs semana pasada' : 'vs la semana anterior';
-  if (delta.direction === 'flat') {
-    return (
-      <Stack direction="row" gap="xs" align="center">
-        <Icon name="minus" size="sm" tone="secondary" />
-        <Text variant="label" tone="secondary">
-          {`Igual ${against}`}
-        </Text>
-      </Stack>
-    );
-  }
+  const icon =
+    delta.direction === 'up' ? 'arrow-up-right' : delta.direction === 'down' ? 'arrow-down-right' : 'minus';
   return (
     <Stack direction="row" gap="xs" align="center">
-      <Icon
-        name={delta.direction === 'up' ? 'arrow-up-right' : 'arrow-down-right'}
-        size="sm"
-        tone="secondary"
-      />
+      <Icon name={icon} size="sm" tone="secondary" />
       <Text variant="label" tone="secondary">
-        {`${delta.percent}% ${against}`}
+        {deltaText(delta)}
       </Text>
     </Stack>
   );
 }
 
 function DayCard({ day }: { day: CalendarDay }) {
+  // The card is one thing to VoiceOver; the segmented bar inside is decoration.
   return (
-    <Card>
+    <Card accessibilityLabel={dayCardSummary(day)}>
       <Stack gap="sm">
         <Stack direction="row" gap="xs" align="center">
           <Text variant="caption" tone="secondary">

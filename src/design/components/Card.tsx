@@ -34,7 +34,16 @@ export function Card({
   ];
 
   if (onPress === undefined) {
-    return <View style={base}>{children}</View>;
+    // A static card can still be one VoiceOver element when it is given a label.
+    return (
+      <View
+        style={base}
+        accessible={accessibilityLabel !== undefined}
+        accessibilityLabel={accessibilityLabel}
+      >
+        {children}
+      </View>
+    );
   }
   return (
     <Pressable

@@ -21,7 +21,7 @@ import {
   useTodayFocusMs,
 } from '../../data';
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
-import { WEEKDAY_INITIALS, recentDayCells } from '../../features/home/recentDays';
+import { WEEKDAY_INITIALS, gridSummary, recentDayCells } from '../../features/home/recentDays';
 import { DurationSheet } from '../../features/session/DurationSheet';
 import { durationText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
@@ -42,6 +42,9 @@ export default function FocusScreen() {
   const start = useFocusStore((state) => state.start);
   const plannedMs = usePlannedStore((state) => state.plannedMs);
   const [asking, setAsking] = useState(false);
+  const cells = recentDayCells(stats, now);
+  const todayText = durationText(todayMs);
+  const openActivity = () => router.push('/(tabs)/activity');
 
   const begin = (ms: number) => {
     if (mode === null) {
@@ -75,50 +78,53 @@ export default function FocusScreen() {
       )}
 
       <Stack align="center">
-        <Card>
+        <Card
+          onPress={openActivity}
+          accessibilityLabel={`Hoy: ${todayText} enfocado. Ver la actividad`}
+        >
           <Text variant="label" weight="medium">
-            {`${durationText(todayMs)} enfocado hoy`}
+            {`${todayText} enfocado hoy`}
           </Text>
         </Card>
       </Stack>
 
       <Spacer />
-      <Stack align="center" gap="sm">
-        <HeatGrid
-          cells={recentDayCells(stats, now)}
-          columnLabels={WEEKDAY_INITIALS}
-          onPress={() => router.push('/(tabs)/activity')}
-          accessibilityLabel="Últimas cuatro semanas de foco. Toca para ver la actividad"
-        />
-        <Text variant="caption" tone="tertiary">
-          Últimas cuatro semanas
-        </Text>
+      <Stack align="center" gap="xxl">
+        <Stack align="center" gap="sm">
+          <HeatGrid
+            cells={cells}
+            columnLabels={WEEKDAY_INITIALS}
+            onPress={openActivity}
+            accessibilityLabel={gridSummary(cells)}
+          />
+          <Button variant="ghost" label="Ver actividad ›" onPress={openActivity} />
+        </Stack>
+
+        <Stack align="center" gap="xs">
+          {mode === null ? (
+            <>
+              <Text variant="heading">Sin modos</Text>
+              <Text variant="label" tone="secondary">
+                Un modo dice qué se bloquea mientras enfocas
+              </Text>
+              <Button
+                variant="ghost"
+                label="Crea tu primer modo ›"
+                onPress={() => router.push('/modes/edit')}
+              />
+            </>
+          ) : (
+            <>
+              <Text variant="heading">{mode.name}</Text>
+              <Text variant="label" tone="secondary">
+                {modeSummaryText(mode)}
+              </Text>
+              <Button variant="ghost" label="Gestionar modos ›" onPress={() => router.push('/modes')} />
+            </>
+          )}
+        </Stack>
       </Stack>
       <Spacer />
-
-      <Stack align="center" gap="xs">
-        {mode === null ? (
-          <>
-            <Text variant="heading">Sin modos</Text>
-            <Text variant="label" tone="secondary">
-              Un modo dice qué se bloquea mientras enfocás
-            </Text>
-            <Button
-              variant="ghost"
-              label="Crea tu primer modo ›"
-              onPress={() => router.push('/modes/edit')}
-            />
-          </>
-        ) : (
-          <>
-            <Text variant="heading">{mode.name}</Text>
-            <Text variant="label" tone="secondary">
-              {modeSummaryText(mode)}
-            </Text>
-            <Button variant="ghost" label="Gestionar modos ›" onPress={() => router.push('/modes')} />
-          </>
-        )}
-      </Stack>
 
       <DurationSheet visible={asking} onClose={() => setAsking(false)} onStart={begin} />
     </Screen>

@@ -5,6 +5,7 @@ import { durationText } from '../../lib/format';
 import {
   dayOfMonth,
   daysInMonth,
+  midnightOf,
   monthLabel,
   monthStart,
   shiftDays,
@@ -111,16 +112,39 @@ export function weekBars(stats: ReadonlyArray<DayStat>, now: number, offset = 0)
   }));
 }
 
-/** Mean focus per day, over the days of that week that had any. Null when none did. */
+/**
+ * Mean focus per day over the days of that week that have happened: Monday to today
+ * for the current week, all seven for a past one. A day off counts as zero, so the
+ * number is honest about the week and not just about the good days. Null when the
+ * week has no focus at all.
+ */
 export function weekAverage(stats: ReadonlyArray<DayStat>, now: number, offset = 0): number | null {
-  return averageOfFocused(weekDays(stats, now, offset));
+  const elapsed = weekDays(stats, now, offset).filter((day) => !day.isFuture);
+  if (elapsed.length === 0 || !elapsed.some((day) => day.stat.focusMs > 0)) {
+    return null;
+  }
+  return elapsed.reduce((total, day) => total + day.stat.focusMs, 0) / elapsed.length;
 }
+
+/** How many days of that week had any focus. */
+export function weekFocusedDays(stats: ReadonlyArray<DayStat>, now: number, offset = 0): number {
+  return weekDays(stats, now, offset).filter((day) => !day.isFuture && day.stat.focusMs > 0).length;
+}
+
+/** A week needs this many focused days before a comparison against it means anything. */
+export const MIN_DAYS_FOR_DELTA = 2;
 
 /**
  * How this week's average compares to the previous one. Null when either week has
- * no data: a percentage against nothing is not a number worth showing.
+ * fewer than two days with focus: a percentage against one afternoon is noise.
  */
 export function deltaVsPrevious(stats: ReadonlyArray<DayStat>, now: number, offset = 0): Delta | null {
+  if (
+    weekFocusedDays(stats, now, offset) < MIN_DAYS_FOR_DELTA ||
+    weekFocusedDays(stats, now, offset + 1) < MIN_DAYS_FOR_DELTA
+  ) {
+    return null;
+  }
   const current = weekAverage(stats, now, offset);
   const previous = weekAverage(stats, now, offset + 1);
   if (current === null || previous === null) {
@@ -247,10 +271,4 @@ export function recentMonths(stats: ReadonlyArray<DayStat>, now: number, count =
     }
   }
   return months;
-}
-
-/** Local midnight of a 'YYYY-MM-DD' key. */
-function midnightOf(dayKey: string): number {
-  const [year, month, day] = dayKey.split('-').map(Number);
-  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1).getTime();
 }
