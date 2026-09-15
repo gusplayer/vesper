@@ -116,7 +116,7 @@ export default function ExitScreen() {
       {step === 'confirm' ? (
         <Button variant="ghost" label="Terminar de verdad" onPress={leave} />
       ) : (
-        <Button variant="ghost" label="Continuar" onPress={next} disabled={!canContinue} />
+        <Button variant="ghost" label="Quiero terminar" onPress={next} disabled={!canContinue} />
       )}
     </>
   );
