@@ -16,28 +16,46 @@ import {
   PageHeader,
   Screen,
   Section,
+  SegmentedControl,
   Sheet,
   Stack,
   Text,
 } from '../../design/components';
+import { MANUAL_DEFAULT_MS } from '../../domain/routines';
+import { MINUTE } from '../../domain/time';
 import { daysText, overlaps, timeText } from '../../features/schedules/format';
+import { minutesText } from '../../lib/format';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const MINUTE_STEPS = [0, 15, 30, 45];
 const MINUTES_PER_HOUR = 60;
 
 const DEFAULT_DAYS = [true, true, true, true, true, false, false];
+/** A hand-started routine has no days: the engine never starts it on its own. */
+const NO_DAYS = [false, false, false, false, false, false, false];
 const DEFAULT_START = 9 * MINUTES_PER_HOUR;
 const DEFAULT_END = 18 * MINUTES_PER_HOUR;
+
+/** Session lengths offered for a routine you start by hand. */
+const DURATION_OPTIONS_MS = [10, 20, 25, 45, 60].map((minutes) => minutes * MINUTE);
 
 /** What "Termina" says when the schedule runs until the user ends it. */
 const OPEN_END = 'Hasta que lo termines';
 
+/** Timed routines start on their own; manual ones wait for you. */
+type Kind = 'timed' | 'manual';
+
+const KIND_SEGMENTS = [
+  { value: 'timed', label: 'A una hora' },
+  { value: 'manual', label: 'Cuando quieras' },
+] as const;
+
 type Picking = 'start' | 'end' | null;
 
 /**
- * Add or edit a schedule: name, start and end (chips, no native picker), the mode it
- * turns on, the days it repeats, and a warning when it crosses an enabled schedule.
+ * Add or edit a routine: name, whether it runs at an hour or when you want, the mode
+ * it turns on, and then either start, end and days (chips, no native picker) with a
+ * warning when it crosses an enabled routine, or a session length.
  */
 export default function ScheduleEditScreen() {
   const router = useRouter();
@@ -50,35 +68,44 @@ export default function ScheduleEditScreen() {
 
   const existing = schedules.find((schedule) => schedule.id === id) ?? null;
 
-  // The draft. Seeded once from the schedule being edited; the store is not touched
-  // until Guardar.
+  // The draft. Seeded once from the routine being edited; the store is not touched
+  // until Guardar. A manual routine keeps sensible timed defaults in reserve so that
+  // switching the segment does not land on an empty form.
+  const [kind, setKind] = useState<Kind>(existing?.startMinutes === null ? 'manual' : 'timed');
   const [name, setName] = useState(existing?.name ?? '');
   const [startMinutes, setStartMinutes] = useState(existing?.startMinutes ?? DEFAULT_START);
   const [endMinutes, setEndMinutes] = useState<number | null>(
-    existing === null ? DEFAULT_END : existing.endMinutes,
+    existing === null || existing.startMinutes === null ? DEFAULT_END : existing.endMinutes,
   );
+  const [durationMs, setDurationMs] = useState(existing?.durationMs ?? MANUAL_DEFAULT_MS);
   const [modeId, setModeId] = useState(existing?.modeId ?? activeModeId);
-  const [days, setDays] = useState<boolean[]>(existing?.days ?? DEFAULT_DAYS);
+  const [days, setDays] = useState<boolean[]>(
+    existing !== null && existing.days.some(Boolean) ? existing.days : DEFAULT_DAYS,
+  );
   const [picking, setPicking] = useState<Picking>(null);
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
 
   const mode = modes.find((candidate) => candidate.id === modeId) ?? null;
   const draft = { startMinutes, endMinutes, days };
+  // Only timed routines can clash; a hand-started one runs when you say so.
   const clash =
-    schedules.find(
-      (other) => other.enabled && other.id !== existing?.id && overlaps(draft, other),
-    ) ?? null;
-  const canSave = name.trim() !== '' && days.some(Boolean) && mode !== null;
+    kind === 'timed'
+      ? schedules.find(
+          (other) => other.enabled && other.id !== existing?.id && overlaps(draft, other),
+        ) ?? null
+      : null;
+  const canSave = name.trim() !== '' && mode !== null && (kind === 'manual' || days.some(Boolean));
 
   const save = () => {
+    const when =
+      kind === 'manual'
+        ? { startMinutes: null, endMinutes: null, days: NO_DAYS, durationMs }
+        : { startMinutes, endMinutes, days, durationMs: null };
     upsertSchedule({
       ...(existing === null ? {} : { id: existing.id }),
       name: name.trim(),
       modeId,
-      startMinutes,
-      durationMs: null,
-      endMinutes,
-      days,
+      ...when,
       enabled: existing?.enabled ?? true,
     });
     router.back();
@@ -130,8 +157,10 @@ export default function ScheduleEditScreen() {
     >
       <PageHeader
         onClose={() => router.back()}
-        title={existing === null ? 'Agregar rutina' : 'Editar rutina'}
+        title={existing === null ? 'Nueva rutina' : 'Editar rutina'}
       />
+
+      <SegmentedControl segments={KIND_SEGMENTS} value={kind} onChange={setKind} />
 
       <FieldRow
         label="Nombre"
@@ -142,27 +171,46 @@ export default function ScheduleEditScreen() {
       />
 
       <ListGroup>
-        <ListRow label="Empieza" value={timeText(startMinutes)} onPress={() => setPicking('start')} />
-        <ListRow
-          label="Termina"
-          value={endMinutes === null ? OPEN_END : timeText(endMinutes)}
-          onPress={() => setPicking('end')}
-        />
+        {kind === 'timed' ? (
+          <ListRow label="Empieza" value={timeText(startMinutes)} onPress={() => setPicking('start')} />
+        ) : null}
+        {kind === 'timed' ? (
+          <ListRow
+            label="Termina"
+            value={endMinutes === null ? OPEN_END : timeText(endMinutes)}
+            onPress={() => setPicking('end')}
+          />
+        ) : null}
         <ListRow label="Modo" value={mode?.name ?? 'Elige uno'} onPress={() => setModeSheetOpen(true)} />
       </ListGroup>
 
-      <Section
-        title="Repetir"
-        right={
-          <Text variant="label" tone="secondary">
-            {daysText(days)}
-          </Text>
-        }
-      >
-        <Card>
-          <DayPicker days={days} onChange={setDays} />
-        </Card>
-      </Section>
+      {kind === 'timed' ? (
+        <Section
+          title="Repetir"
+          right={
+            <Text variant="label" tone="secondary">
+              {daysText(days)}
+            </Text>
+          }
+        >
+          <Card>
+            <DayPicker days={days} onChange={setDays} />
+          </Card>
+        </Section>
+      ) : (
+        <Section title="Duración">
+          <Stack direction="row" wrap gap="sm">
+            {DURATION_OPTIONS_MS.map((option) => (
+              <Chip
+                key={option}
+                label={`${minutesText(option)} min`}
+                selected={option === durationMs}
+                onPress={() => setDurationMs(option)}
+              />
+            ))}
+          </Stack>
+        </Section>
+      )}
 
       {clash === null ? null : (
         <Card tone="muted">
@@ -173,7 +221,7 @@ export default function ScheduleEditScreen() {
                 Rutinas superpuestas
               </Text>
               <Text variant="label" tone="secondary">
-                {`Esta rutina se cruza con '${clash.name}'. Si los dos están encendidos, solo uno corre a la vez.`}
+                {`Esta rutina se cruza con '${clash.name}'. Si las dos están encendidas, solo una corre a la vez.`}
               </Text>
             </Stack>
           </Stack>

@@ -17,14 +17,21 @@ import {
   useAppStore,
   useDayStats,
   useFocusStore,
+  useMode,
+  useModes,
   useRunningSession,
+  useSchedules,
   useSettings,
   useTodayFocusMs,
+  useWeekProgress,
 } from '../../data';
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
+import { focusPillLabel, focusPillText } from '../../features/home/focusPill';
+import { ModePicker } from '../../features/home/ModePicker';
+import { nextRoutineText } from '../../features/home/nextRoutine';
 import { WEEKDAY_INITIALS, gridSummary, recentDayCells } from '../../features/home/recentDays';
 import { DurationSheet } from '../../features/session/DurationSheet';
-import { durationText, minutesText } from '../../lib/format';
+import { minutesText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 
 /**
@@ -35,16 +42,25 @@ export default function FocusScreen() {
   const router = useRouter();
   const now = useNow(15_000);
   const todayMs = useTodayFocusMs(now);
+  const week = useWeekProgress(now);
   const stats = useDayStats();
-  const mode = useActiveMode();
   const session = useRunningSession();
+  const activeMode = useActiveMode();
+  const runningModeId = useFocusStore((state) => state.modeId);
+  const runningMode = useMode(runningModeId ?? undefined);
+  // While a session runs, the page speaks about the mode that is running — a routine
+  // may have picked a different one from the default.
+  const mode = session !== null && runningMode !== null ? runningMode : activeMode;
+  const modes = useModes();
+  const schedules = useSchedules();
   const settings = useSettings();
   const dismissBanner = useAppStore((state) => state.dismissBanner);
+  const setActiveMode = useAppStore((state) => state.setActiveMode);
   const start = useFocusStore((state) => state.start);
   const plannedMs = usePlannedStore((state) => state.plannedMs);
   const [asking, setAsking] = useState(false);
   const cells = recentDayCells(stats, now);
-  const todayText = durationText(todayMs);
+  const routineLine = nextRoutineText(schedules, modes, now);
   const openActivity = () => router.push('/(tabs)/activity');
 
   const begin = (ms: number) => {
@@ -80,12 +96,9 @@ export default function FocusScreen() {
       )}
 
       <Stack align="center">
-        <Card
-          onPress={openActivity}
-          accessibilityLabel={`Hoy: ${todayText} enfocado. Ver la actividad`}
-        >
+        <Card onPress={openActivity} accessibilityLabel={focusPillLabel(todayMs, week)}>
           <Text variant="label" weight="medium">
-            {`${todayText} enfocado hoy`}
+            {focusPillText(todayMs, week)}
           </Text>
         </Card>
       </Stack>
@@ -117,13 +130,21 @@ export default function FocusScreen() {
             </>
           ) : (
             <>
-              <Text variant="heading">{mode.name}</Text>
+              <ModePicker
+                mode={mode}
+                modes={modes}
+                readOnly={session !== null}
+                onSelect={setActiveMode}
+                onManage={() => router.push('/modes')}
+              />
               <Text variant="label" tone="secondary">
                 {modeSummaryText(mode)}
               </Text>
-              {session === null ? (
-                <Button variant="ghost" label="Gestionar modos ›" onPress={() => router.push('/modes')} />
-              ) : null}
+              {routineLine === null ? null : (
+                <Text variant="label" tone="secondary">
+                  {routineLine}
+                </Text>
+              )}
             </>
           )}
         </Stack>

@@ -2,15 +2,21 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
 import { radius, shadow, space } from '../tokens';
+import { IconCircle } from './IconCircle';
 import { Text } from './Text';
 import { Toggle } from './Toggle';
 
 type ScheduleCardProps = {
   title: string;
-  /** Lines under the title: window, mode, crossings. */
+  /** Lines under the title: status, mode, crossings. */
   lines: ReadonlyArray<string>;
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
+  /**
+   * A play button in place of the switch, for a routine you start by hand. `enabled`
+   * still dims the card; it just has no switch to flip.
+   */
+  action?: { label: string; onPress: () => void };
   /** Opens the editor. */
   onPress: () => void;
   /** What VoiceOver reads for the text region; the switch reads the title. */
@@ -18,11 +24,19 @@ type ScheduleCardProps = {
 };
 
 /**
- * A schedule row: the text region opens the editor, the switch flips it. Two sibling
- * accessibility elements on purpose — a pressable card that wraps a switch swallows
- * it for VoiceOver.
+ * A schedule row: the text region opens the editor, the control on the right flips it
+ * or starts it. Two sibling accessibility elements on purpose — a pressable card that
+ * wraps a switch swallows it for VoiceOver.
  */
-export function ScheduleCard({ title, lines, enabled, onToggle, onPress, accessibilityLabel }: ScheduleCardProps) {
+export function ScheduleCard({
+  title,
+  lines,
+  enabled,
+  onToggle,
+  action,
+  onPress,
+  accessibilityLabel,
+}: ScheduleCardProps) {
   const { colors } = useTheme();
   return (
     <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}>
@@ -42,7 +56,11 @@ export function ScheduleCard({ title, lines, enabled, onToggle, onPress, accessi
         ))}
       </Pressable>
       <View style={styles.control}>
-        <Toggle value={enabled} onValueChange={onToggle} accessibilityLabel={title} />
+        {action === undefined ? (
+          <Toggle value={enabled} onValueChange={onToggle} accessibilityLabel={title} />
+        ) : (
+          <IconCircle name="play" onPress={action.onPress} accessibilityLabel={action.label} />
+        )}
       </View>
     </View>
   );
