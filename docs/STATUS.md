@@ -63,6 +63,23 @@ con el visor a 25, 50, 75 y 100 %. Verificado en simulador: la vista abre con `?
 el dibujo avanza con el reloj. No verificado: el rendimiento del trazado con 6.000 puntos
 en una sesión de 90 minutos en un teléfono real.
 
+## Rutinas y Android (2026-09-16)
+
+- **Motor de rutinas** (ADR-0019): una rutina en ventana arranca su sesión; si hay una
+  corriendo, espera; nunca arranca dos veces la misma ventana. Verificado en simulador:
+  a las 16:16 de un miércoles la rutina "Trabajo" arrancó sola con "Trabajo profundo".
+- **Rutinas sin hora** ("Cuando quieras · 20 min") con botón de arranque. Migración 003.
+- **Focus** muestra la próxima rutina, elige el modo desde una hoja, y la píldora lleva
+  la meta semanal.
+- **Android compila y corre** en el emulador Pixel 6 (API 34). La capa de plataforma
+  degrada con razones en español.
+- **Bloqueo en Android, fase 1** (`modules/vesper-blocking/`): selector de apps por
+  intent de lanzador, servicio `specialUse` que lee eventos de uso, escudo superpuesto
+  con actividad de respaldo. Probado por adb en el emulador: el escudo cubrió Ajustes y
+  Reloj, y bajó con "Volver". Pendiente: `endsAt` desde la sesión, detectar servicio
+  muerto, ventanas de rutina con alarmas exactas (fase 2), declaraciones de Play (fase 3).
+- No verificado en teléfonos reales de ningún fabricante.
+
 ## Cómo revisar una pantalla sin tocar
 
 En `src/dev/route.ts` poné `DEV_START_ROUTE = '/modes'` (y `DEV_SESSION = 'running'` para
