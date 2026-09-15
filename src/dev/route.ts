@@ -9,3 +9,5 @@
 export const DEV_START_ROUTE: string | null = null;
 export const DEV_SESSION: 'running' | 'completed' | null = null;
 export const DEV_BLOCK_TEST: string | null = null;
+/** Marks onboarding done on launch, for driving the tabs on a fresh install. */
+export const DEV_SKIP_ONBOARDING = false;

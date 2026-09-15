@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 import { useAppStore, useFocusStore } from '../data';
 import { MINUTE } from '../domain/time';
 import { applyPlan, configureShield } from '../platform/blocking';
-import { DEV_BLOCK_TEST, DEV_SESSION, DEV_START_ROUTE } from './route';
+import { DEV_BLOCK_TEST, DEV_SESSION, DEV_SKIP_ONBOARDING, DEV_START_ROUTE } from './route';
 
 /** Pushes DEV_START_ROUTE on mount, optionally with a fake session. Dev builds only. */
 export function DevJump() {
@@ -27,6 +27,9 @@ export function DevJump() {
     return () => clearTimeout(timer);
   }, []);
   useEffect(() => {
+    if (__DEV__ && DEV_SKIP_ONBOARDING && !useAppStore.getState().settings.onboardingDone) {
+      useAppStore.getState().updateSettings({ onboardingDone: true });
+    }
     if (!__DEV__ || DEV_START_ROUTE === null) {
       return undefined;
     }
