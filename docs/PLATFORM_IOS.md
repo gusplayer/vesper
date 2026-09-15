@@ -110,3 +110,105 @@ responsabilidad, no una reseña mala.
 - No resolver tokens a nombres de apps por OCR ni ningún otro medio. Apple ofusca a
   propósito y circunvalarlo es motivo de rechazo.
 - No usar VPN ni perfiles MDM para bloquear. Es el camino viejo y está cerrado.
+
+## Integración (2026-09)
+
+Lo que hay en el repo desde ADR-0017. Nada de esto se ha podido verificar en un
+teléfono: el entitlement de Family Controls todavía no está aprobado.
+
+### El plugin
+
+`react-native-device-activity` (0.6.x) con su config plugin en `app.json`:
+
+```json
+["react-native-device-activity", { "appleTeamId": "2D3R79CT8F", "appGroup": "group.com.gusplayer.vesper" }]
+```
+
+En `npx expo prebuild --platform ios --clean` el plugin:
+
+- agrega `com.apple.developer.family-controls = true` y el app group a los entitlements
+  de la app principal;
+- escribe `REACT_NATIVE_DEVICE_ACTIVITY_APP_GROUP` en el `Info.plist`;
+- copia las tres extensiones a `targets/` (ya versionadas) y las convierte en targets de
+  Xcode a través de `@kingstinct/expo-apple-targets`.
+
+### Los tres targets de `targets/`
+
+| Carpeta | Tipo | Qué hace |
+|---|---|---|
+| `ActivityMonitorExtension` | `device-activity-monitor` | Recibe `intervalDidStart/End` y `eventDidReachThreshold`. Puede escribir al app group. |
+| `ShieldConfiguration` | `shield-configuration` | Dibuja la pantalla de bloqueo con lo que dejó `updateShield`: título, subtítulo, botón. |
+| `ShieldAction` | `shield-action` | Responde a los botones del shield. Con `behavior: 'close'` solo cierra. |
+
+Cada `expo-target.config.js` llama a `createConfig(<tipo>)`, que pide para la
+extensión los mismos dos entitlements que la app: Family Controls y el app group.
+
+### El app group
+
+`group.com.gusplayer.vesper`. Es el único canal entre la app y las extensiones: la
+librería guarda ahí, en `UserDefaults` compartidos, la blocklist, la whitelist, el modo
+"bloquear todo", la configuración del shield y los ids de selección. La extensión de
+`DeviceActivityReport` no existe en este proyecto (ADR-0004: no persiste nada).
+
+### Las cuatro solicitudes de entitlement
+
+Apple aprueba `com.apple.developer.family-controls` por bundle identifier. Hay que
+pedirlo para:
+
+1. `com.gusplayer.vesper` (la app)
+2. `com.gusplayer.vesper.ActivityMonitorExtension`
+3. `com.gusplayer.vesper.ShieldConfiguration`
+4. `com.gusplayer.vesper.ShieldAction`
+
+Hasta que lleguen, un dev client firmado para dispositivo con estas extensiones falla
+al firmar. El código de `src/platform/blocking.ts` lo sabe y no depende de ello.
+
+### Qué funciona dónde
+
+| Dónde | `status()` | Qué pasa |
+|---|---|---|
+| Android | `solo iPhone` | Nada se carga. Las pantallas no muestran la fila de apps reales. |
+| Simulador iOS | `el simulador no tiene Tiempo de uso` | El módulo existe pero Family Controls no funciona. Onboarding continúa, "Mis reglas" lo dice, `modes/apps?native=1` muestra la razón y "Volver". |
+| iPhone sin entitlement | `falta el entitlement de Family Controls de Apple` | `requestAuthorization()` falla; se recuerda durante el lanzamiento y todo lo demás se apaga. |
+| iPhone, permiso denegado | `el permiso de Tiempo de uso está denegado` | El usuario dijo que no. Se puede cambiar en Ajustes del sistema. |
+| iPhone con entitlement y permiso | disponible | Selección real por modo, shield en cada sesión, filtro de adultos si la regla está activa. |
+
+El módulo se carga con `require` dentro de un `try/catch` y una sola vez
+(`nativeModule()`); ninguna pantalla lo importa directo. `BlockingSelectionView.tsx`
+envuelve `DeviceActivitySelectionView` y devuelve `null` donde no está disponible.
+
+### Cómo una sesión aplica y libera el shield
+
+`src/platform/hooks/useBlockingSync.ts` se suscribe a `useFocusStore` (los stores no
+importan la plataforma):
+
+1. **Empieza una sesión** (`session` pasa de `null` a algo): busca el modo por
+   `modeId`, arma el plan con `blockPlan(mode, settings.rules)` de
+   `src/domain/blocking.ts`, y si `status().available`:
+   - `configureShield(mode.name)` → `updateShield({ title: 'Vesper · <modo>', subtitle,
+     primaryButtonLabel: 'Volver a Vesper' }, { primary: { behavior: 'close' } })`;
+   - `kind === 'block'` → `disableBlockAllMode` + `blockSelection({ activitySelectionToken })`;
+   - `kind === 'allow'` → `enableBlockAllMode` + `addSelectionToWhitelistAndUpdateBlock(...)`;
+   - `blockMature` → `setWebContentFilterPolicy({ type: 'auto' })`.
+2. **Termina** (`session` vuelve a `null`): `release()` → `resetBlocks`,
+   `disableBlockAllMode`, `clearWhitelistAndUpdateBlock`, `clearWebContentFilterPolicy`.
+3. **Al montar con una sesión corriendo**: aplica de nuevo. ManagedSettings sobrevive
+   reinicios, así que casi siempre es idempotente.
+
+Un modo sin `selectionToken` produce `kind: 'none'`: la sesión corre igual y no bloquea
+nada. El token se elige en `modes/edit` → "Apps reales (Tiempo de uso)" →
+`modes/apps?native=1`, y se guarda en `Mode.selectionToken` sin resolverlo nunca a
+nombres.
+
+### Lo que la librería no expone todavía
+
+- `blockInstalls`, `blockPurchases` y `strictMode` corresponden a
+  `ManagedSettingsStore.application.denyAppInstallation`, `.appStore.denyInAppPurchases`
+  y `.application.denyAppRemoval`. No hay función para ellos: quedan como UI y el pie
+  de "Mis reglas" lo dice.
+- El picker inline (`DeviceActivitySelectionView`) no acepta `includeEntireCategory`;
+  solo la variante persistida. Por eso, en un modo "Permitir solo seleccionadas", las
+  categorías elegidas pueden no pasar por la whitelist (la librería avisa por consola).
+- No hay forma de distinguir "sin entitlement" de otros fallos de
+  `requestAuthorization` salvo por el texto del error; cualquier fallo que no sea una
+  cancelación se trata como entitlement ausente.

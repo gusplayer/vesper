@@ -10,14 +10,18 @@ import type {
   Mode,
   ModeIdea,
   Schedule,
+  Session,
   Settings,
   UsageEstimate,
   Website,
 } from './types';
 
 /**
- * Fake data for the prototype. Deterministic: the same numbers every launch, so a
+ * Demo data for the prototype. Deterministic: the same numbers every launch, so a
  * screenshot today matches one tomorrow. Nothing here is real (ADR-0016).
+ *
+ * Since ADR-0017 it is seeded into SQLite once, when the database is empty, and can
+ * be wiped from Ajustes. Catalogues (apps, websites, ideas) stay static.
  */
 
 export const APPS: AppInfo[] = [
@@ -192,23 +196,86 @@ function seededSessions(dayIndex: number, focusMs: number): number {
   return 1 + ((dayIndex * 7) % 3);
 }
 
+/** How many days of history the demo fabricates. */
+export const DEMO_HISTORY_DAYS = 70;
+
+/** Local midnight `offset` days before the day containing `now`. */
+function dayStartBefore(now: number, offset: number): number {
+  const date = new Date(now);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - offset).getTime();
+}
+
+type DemoDay = {
+  /** Local midnight of the day. */
+  dayStart: number;
+  focusMs: number;
+  sessions: number;
+};
+
+/** The shape of one fabricated day: how much focus, split into how many sessions. */
+function demoDay(now: number, offset: number): DemoDay {
+  const dayStart = dayStartBefore(now, offset);
+  const weekday = (new Date(dayStart).getDay() + 6) % 7;
+  const wobble = ((offset * 37) % 11) / 10;
+  const base = WEEKDAY_PATTERN_MS[weekday] ?? 0;
+  const focusMs = offset === 0 ? 0 : Math.round(base * (0.6 + wobble * 0.8));
+  return { dayStart, focusMs, sessions: seededSessions(offset, focusMs) };
+}
+
+/** Where the i-th session of a day starts, as a fraction of the day. */
+function sessionStartFraction(index: number): number {
+  return 0.35 + index * 0.2;
+}
+
 /** Day stats for the last `days` days, today included, oldest first. */
-export function seedDayStats(now: number, days = 70): DayStat[] {
+export function seedDayStats(now: number, days = DEMO_HISTORY_DAYS): DayStat[] {
   const stats: DayStat[] = [];
   for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const at = now - offset * DAY;
-    const weekday = (new Date(at).getDay() + 6) % 7;
-    const wobble = ((offset * 37) % 11) / 10;
-    const base = WEEKDAY_PATTERN_MS[weekday] ?? 0;
-    const focusMs = offset === 0 ? 0 : Math.round(base * (0.6 + wobble * 0.8));
-    const sessions = seededSessions(offset, focusMs);
+    const { dayStart, focusMs, sessions } = demoDay(now, offset);
     const segments = Array.from({ length: sessions }, (_, i) => {
-      const start = 0.35 + i * 0.2;
+      const start = sessionStartFraction(i);
       return { start, end: Math.min(0.98, start + (focusMs / (sessions * DAY)) * 1.4) };
     });
-    stats.push({ dayKey: dayKeyOf(at), focusMs, sessions, segments });
+    stats.push({ dayKey: dayKeyOf(dayStart), focusMs, sessions, segments });
   }
   return stats;
+}
+
+/**
+ * The same history as seedDayStats, as the completed sessions that would produce it,
+ * oldest first. Folded back by day (db/queries/dayStats) it gives the same focus and
+ * session count per day, so the charts look as they did when the stats were seeded
+ * directly. Ids are deterministic so a re-seed writes the same rows.
+ *
+ * activityId is the activity key; the seeder resolves it to the row id.
+ */
+export function seedDemoSessions(now: number, days = DEMO_HISTORY_DAYS): Session[] {
+  const result: Session[] = [];
+  for (let offset = days - 1; offset >= 1; offset -= 1) {
+    const { dayStart, focusMs, sessions } = demoDay(now, offset);
+    if (sessions === 0) {
+      continue;
+    }
+    const perSession = Math.round(focusMs / sessions);
+    for (let i = 0; i < sessions; i += 1) {
+      const startedAt = Math.round(dayStart + sessionStartFraction(i) * DAY);
+      result.push({
+        id: `demo-${dayKeyOf(dayStart)}-${i}`,
+        activityId: 'trabajo',
+        plannedMs: perSession,
+        actualMs: perSession,
+        outcome: 'completed',
+        depth: 'firm',
+        blockProfile: null,
+        intention: null,
+        exitReason: null,
+        interruptions: 0,
+        startedAt,
+        endedAt: startedAt + perSession,
+      });
+    }
+  }
+  return result;
 }
 
 /** Marks for the current week so the habits have some progress. */

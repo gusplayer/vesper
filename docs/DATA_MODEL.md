@@ -12,9 +12,10 @@ columnas de fecha en texto.
 
 ## Esquema
 
-Vive en `src/db/migrations/001_init.ts`, como template literal de TypeScript: Metro no
+Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
-fuentes de verdad. Una migración publicada no se edita: se agrega `002_*.ts`.
+fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
+Hoy hay dos: `001_init.ts` (fase 1) y `002_modes_schedules.ts` (ADR-0017).
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
 
@@ -96,6 +97,65 @@ CREATE TABLE settings (
 );
 ```
 
+```sql
+-- 002_modes_schedules.ts
+
+-- app_ids y website_ids son arrays JSON de ids del catálogo del prototipo, nunca
+-- bundle ids reales (ADR-0004). La selección real vive en selection_token, opaca.
+-- activity_id guarda la *clave* de la actividad ('trabajo'), no el id de la fila:
+-- el editor de modos habla en claves. Se resuelve a id de fila al arrancar la sesión.
+CREATE TABLE modes (
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL,
+  behavior        TEXT NOT NULL,            -- 'block' | 'allow'
+  app_ids         TEXT NOT NULL DEFAULT '[]',
+  website_ids     TEXT NOT NULL DEFAULT '[]',
+  depth           TEXT NOT NULL,            -- 'soft' | 'firm' | 'deep'
+  activity_id     TEXT NOT NULL,
+  selection_token TEXT,                     -- FamilyActivitySelection opaco, NULL sin entitlement
+  created_at      INTEGER NOT NULL
+);
+
+-- days es un array JSON de siete booleanos, lunes primero. end_minutes NULL es
+-- "hasta que lo termines". mode_id no es foreign key a propósito: borrar un modo
+-- apaga sus horarios en vez de borrarlos, y RESTRICT rechazaría el DELETE.
+CREATE TABLE schedules (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  mode_id       TEXT NOT NULL,
+  start_minutes INTEGER NOT NULL,           -- minutos desde medianoche
+  end_minutes   INTEGER,
+  days          TEXT NOT NULL,
+  enabled       INTEGER NOT NULL DEFAULT 1,
+  created_at    INTEGER NOT NULL
+);
+CREATE INDEX idx_schedules_mode ON schedules(mode_id);
+```
+
+### Cómo usa las tablas el prototipo (ADR-0017)
+
+- **Sesiones.** El store de foco (`src/data/stores/focus.ts`) inserta la fila al
+  arrancar y la actualiza al terminar, al escribir la intención y en cada interrupción.
+  `sessions.block_profile` guarda el **id del modo** que corrió la sesión: el modo es
+  lo que decide qué se bloquea, que es exactamente para lo que se reservó la columna.
+  `sessions.activity_id` es el id de fila de `activities`, resuelto desde la clave del
+  modo con `resolveActivityId` (`src/db/boot.ts`).
+- **Estadísticas por día.** No se guardan. `src/db/queries/dayStats.ts` pliega la
+  tabla `sessions` por día local (`loadDayStats(now, days)`): foco, cantidad de
+  sesiones y segmentos como fracciones del día. Una sesión cuenta en el día en que
+  empezó y se recorta a él. La sesión en curso queda fuera: el contador de la portada
+  la suma en vivo desde el store de foco.
+- **Hábitos y marcas.** `habits` y `habit_marks` tal cual. El editor de hábitos habla
+  en claves de actividad; `habits.activity_id` recibe el id de fila resuelto.
+  `replaceHealthMarks` borra todas las marcas `source = 'health'` y escribe las que
+  Salud reporta ahora; las manuales no se tocan.
+- **Datos de demostración.** `bootDatabase` los siembra una sola vez (modos, horarios,
+  hábitos, marcas de la semana y ~10 semanas de sesiones completadas generadas por
+  `seedDemoSessions` en `src/data/seed.ts`). La guarda es la clave `demo_seeded_at`,
+  no "la tabla está vacía": un usuario que borra todos sus modos no los recupera al
+  relanzar. "Borrar todo y reiniciar" (`resetDatabase`) vacía todas las tablas —el
+  esquema queda—, vuelve a sembrar y los stores se rehidratan.
+
 ### Fase 1.5 — salud
 
 ```sql
@@ -156,11 +216,18 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 
 | key | valor | notas |
 |---|---|---|
-| `last_session_config` | JSON | `{activityId, plannedMs, depth, blockProfile}`. `blockProfile` siempre `null` en fase 1. Se valida al leer con `domain/session.resolveSessionConfig`: si la actividad ya no existe o el JSON está roto, vuelve al default |
-| `birth_date` | epoch ms | opt-in: se escribe desde la página de vida |
-| `life_expectancy_years` | número | default 77.6. Se lee; en fase 1 no es editable |
-| `weekly_focus_target_ms` | número | meta semanal. Guarda `0` para "ninguna"; se lee con `settings.getWeeklyTargetMs`, que devuelve `null` en ese caso |
-| `onboarding_completed_at` | epoch ms | se escribe al completar la primera sesión (ADR-0012) |
+| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: onboarding, permisos "concedidos", reglas, notificaciones, desbloqueos de emergencia, fecha de nacimiento, expectativa de vida, meta semanal, banner pendiente y última sincronización de Salud. Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
+| `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
+| `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
+| `last_session_config` | JSON | fase 1. `{activityId, plannedMs, depth, blockProfile}`. Se valida al leer con `domain/session.resolveSessionConfig`. El prototipo no la usa: la duración elegida vive en memoria |
+| `birth_date` | epoch ms | **superseded** por `prototype_settings.birthDate` desde ADR-0017 |
+| `life_expectancy_years` | número | **superseded** por `prototype_settings.lifeExpectancyYears` |
+| `weekly_focus_target_ms` | número | **superseded** por `prototype_settings.weeklyTargetMs` (`null` para "ninguna"). `settings.getWeeklyTargetMs` sigue leyendo la clave vieja para la query de fase 1 |
+| `onboarding_completed_at` | epoch ms | **superseded** por `prototype_settings.onboardingDone`, que el tour escribe al terminar |
+
+Las cuatro claves marcadas como superseded no se escriben ni se leen desde el prototipo:
+una sola fuente de verdad (el JSON) evita mantener dos copias en sincronía. Sus
+accesores en `settings.ts` quedan para la capa de fase 1 y sus tests.
 
 Todo valor se escribe desde el flujo que lo usa (ADR-0007). `life_screen_enabled` existió
 en el papel y se eliminó del código: la página de vida siempre está en el pager y no hay
@@ -181,4 +248,8 @@ onboarding donde declinarla.
    dentro de un índice UNIQUE, y se podrían insertar N marcas manuales el mismo día.
 7. Al arrancar la app, toda sesión con `outcome = 'running'` cuyo `started_at + planned_ms`
    ya pasó se cierra como `expired`. Sin esa recuperación el invariante 1 bloquea la app
-   para siempre si el proceso muere en medio de una sesión.
+   para siempre si el proceso muere en medio de una sesión. Una sesión todavía dentro de
+   su ventana se retoma: el store de foco la hidrata y vuelve a poner el tema oscuro.
+8. Los stores de `src/data/` son una caché de la base, nunca la fuente. Cada acción
+   escribe por su repositorio **antes** de tocar el estado; `hydrate()` los rellena al
+   arrancar y después de un reinicio.

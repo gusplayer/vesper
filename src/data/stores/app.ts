@@ -1,23 +1,30 @@
 import { create } from 'zustand';
 
+import { resolveActivityId } from '../../db/boot';
+import { loadDayStats } from '../../db/queries/dayStats';
+import * as habitsRepo from '../../db/repositories/habits';
+import * as modesRepo from '../../db/repositories/modes';
+import * as schedulesRepo from '../../db/repositories/schedules';
+import * as settingsRepo from '../../db/repositories/settings';
 import { dayKeyOf } from '../../domain/day';
+import { DAY } from '../../domain/time';
 import type { Habit, HabitMark } from '../../domain/types';
 import { uuidv7 } from '../../lib/uuid';
-import {
-  HABITS,
-  MODES,
-  SCHEDULES,
-  SETTINGS,
-  seedDayStats,
-  seedHabitMarks,
-} from '../seed';
+import { SETTINGS } from '../seed';
 import type { DayStat, Mode, NotificationPrefs, Rules, Schedule, Settings } from '../types';
 
 /**
- * The prototype's whole world, in memory, seeded once. Every screen reads from here
- * through the hooks in src/data/index.ts and writes through these actions. Nothing is
- * persisted: relaunching the app resets it (ADR-0016).
+ * The prototype's whole world, cached in memory from SQLite. Every screen reads from
+ * here through the hooks in src/data/index.ts and writes through these actions; each
+ * action writes through its repository first, then updates the cache, so a relaunch
+ * finds everything where it was (ADR-0017).
+ *
+ * Nothing is loaded until `hydrate()` runs. The root layout calls it, synchronously,
+ * before the first render.
  */
+
+/** How far back the day stats and the marks are loaded. A year is cheap and enough. */
+const HISTORY_DAYS = 366;
 
 type AppState = {
   modes: Mode[];
@@ -27,6 +34,9 @@ type AppState = {
   habits: Habit[];
   habitMarks: HabitMark[];
   dayStats: DayStat[];
+
+  /** Reads everything from the database. Called once at boot and after a reset. */
+  hydrate: (now?: number) => void;
 
   // Modes
   upsertMode: (
@@ -58,159 +68,202 @@ type AppState = {
   setHealthMarks: (marks: HabitMark[], syncedAt: number) => void;
 
   // Stats
-  recordFocus: (now: number, focusMs: number) => void;
+  /**
+   * Re-derives the day stats from the sessions table. The focus store calls it after
+   * closing a session; `focusMs` is accepted for compatibility and not needed, since
+   * the closed row is already in the database.
+   */
+  recordFocus: (now: number, focusMs?: number) => void;
 };
 
-const NOW = Date.now();
+function marksWindowFrom(now: number): string {
+  return dayKeyOf(now - HISTORY_DAYS * DAY);
+}
 
-export const useAppStore = create<AppState>((set, get) => ({
-  modes: MODES,
-  activeModeId: MODES[0]?.id ?? '',
-  schedules: SCHEDULES,
-  settings: SETTINGS,
-  habits: HABITS,
-  habitMarks: seedHabitMarks(NOW),
-  dayStats: seedDayStats(NOW),
+export const useAppStore = create<AppState>((set, get) => {
+  /** Writes the whole settings object and caches it. */
+  const saveSettings = (settings: Settings): void => {
+    settingsRepo.setPrototypeSettings(settings, Date.now());
+    set({ settings });
+  };
 
-  upsertMode: (input) => {
-    const existing = input.id === undefined ? undefined : get().modes.find((m) => m.id === input.id);
-    const mode: Mode = {
-      ...input,
-      id: existing?.id ?? uuidv7(Date.now()),
-      createdAt: existing?.createdAt ?? Date.now(),
-      selectionToken: input.selectionToken ?? existing?.selectionToken ?? null,
-    };
-    set((state) => ({
-      modes: existing
-        ? state.modes.map((m) => (m.id === mode.id ? mode : m))
-        : [...state.modes, mode],
-      activeModeId: state.modes.length === 0 ? mode.id : state.activeModeId,
-    }));
-    return mode;
-  },
+  const setActive = (id: string): void => {
+    settingsRepo.setActiveModeId(id, Date.now());
+    set({ activeModeId: id });
+  };
 
-  duplicateMode: (id) => {
-    const source = get().modes.find((m) => m.id === id);
-    if (source === undefined) {
-      return;
-    }
-    const copy: Mode = { ...source, id: uuidv7(Date.now()), name: `${source.name} (1)`, createdAt: Date.now() };
-    set((state) => {
-      const index = state.modes.findIndex((m) => m.id === id);
-      const modes = [...state.modes];
-      modes.splice(index + 1, 0, copy);
-      return { modes };
-    });
-  },
+  return {
+    modes: [],
+    activeModeId: '',
+    schedules: [],
+    settings: SETTINGS,
+    habits: [],
+    habitMarks: [],
+    dayStats: [],
 
-  deleteMode: (id) => {
-    set((state) => {
-      const modes = state.modes.filter((m) => m.id !== id);
-      return {
+    hydrate: (now = Date.now()) => {
+      const modes = modesRepo.list();
+      const stored = settingsRepo.getActiveModeId();
+      const activeModeId =
+        stored !== null && modes.some((m) => m.id === stored) ? stored : (modes[0]?.id ?? '');
+      set({
         modes,
-        // Schedules using this mode are turned off, like Brick warns.
-        schedules: state.schedules.map((s) => (s.modeId === id ? { ...s, enabled: false } : s)),
-        activeModeId: state.activeModeId === id ? (modes[0]?.id ?? '') : state.activeModeId,
+        activeModeId,
+        schedules: schedulesRepo.list(),
+        settings: settingsRepo.getPrototypeSettings(SETTINGS),
+        habits: habitsRepo.listActive(),
+        habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKeyOf(now)),
+        dayStats: loadDayStats(now, HISTORY_DAYS),
+      });
+    },
+
+    upsertMode: (input) => {
+      const existing = input.id === undefined ? undefined : get().modes.find((m) => m.id === input.id);
+      const mode: Mode = {
+        ...input,
+        id: existing?.id ?? uuidv7(Date.now()),
+        createdAt: existing?.createdAt ?? Date.now(),
+        selectionToken: input.selectionToken ?? existing?.selectionToken ?? null,
       };
-    });
-  },
+      modesRepo.upsert(mode);
+      const wasEmpty = get().modes.length === 0;
+      set((state) => ({
+        modes: existing
+          ? state.modes.map((m) => (m.id === mode.id ? mode : m))
+          : [...state.modes, mode],
+      }));
+      if (wasEmpty) {
+        setActive(mode.id);
+      }
+      return mode;
+    },
 
-  setActiveMode: (id) => set({ activeModeId: id }),
+    duplicateMode: (id) => {
+      const source = get().modes.find((m) => m.id === id);
+      if (source === undefined) {
+        return;
+      }
+      const copy: Mode = { ...source, id: uuidv7(Date.now()), name: `${source.name} (1)`, createdAt: Date.now() };
+      modesRepo.upsert(copy);
+      set((state) => {
+        const index = state.modes.findIndex((m) => m.id === id);
+        const modes = [...state.modes];
+        modes.splice(index + 1, 0, copy);
+        return { modes };
+      });
+    },
 
-  setModeSelection: (id, selectionToken) =>
-    set((state) => ({ modes: state.modes.map((m) => (m.id === id ? { ...m, selectionToken } : m)) })),
+    deleteMode: (id) => {
+      modesRepo.remove(id);
+      // Schedules using this mode are turned off, like Brick warns.
+      schedulesRepo.disableByMode(id);
+      const modes = get().modes.filter((m) => m.id !== id);
+      set((state) => ({
+        modes,
+        schedules: state.schedules.map((s) => (s.modeId === id ? { ...s, enabled: false } : s)),
+      }));
+      if (get().activeModeId === id) {
+        setActive(modes[0]?.id ?? '');
+      }
+    },
 
-  upsertSchedule: (input) => {
-    const schedule: Schedule = { ...input, id: input.id ?? uuidv7(Date.now()) };
-    set((state) => ({
-      schedules: state.schedules.some((s) => s.id === schedule.id)
-        ? state.schedules.map((s) => (s.id === schedule.id ? schedule : s))
-        : [...state.schedules, schedule],
-    }));
-    return schedule;
-  },
+    setActiveMode: (id) => setActive(id),
 
-  toggleSchedule: (id, enabled) =>
-    set((state) => ({ schedules: state.schedules.map((s) => (s.id === id ? { ...s, enabled } : s)) })),
+    setModeSelection: (id, selectionToken) => {
+      modesRepo.setSelectionToken(id, selectionToken);
+      set((state) => ({ modes: state.modes.map((m) => (m.id === id ? { ...m, selectionToken } : m)) }));
+    },
 
-  deleteSchedule: (id) => set((state) => ({ schedules: state.schedules.filter((s) => s.id !== id) })),
+    upsertSchedule: (input) => {
+      const schedule: Schedule = { ...input, id: input.id ?? uuidv7(Date.now()) };
+      schedulesRepo.upsert(schedule, Date.now());
+      set((state) => ({
+        schedules: state.schedules.some((s) => s.id === schedule.id)
+          ? state.schedules.map((s) => (s.id === schedule.id ? schedule : s))
+          : [...state.schedules, schedule],
+      }));
+      return schedule;
+    },
 
-  updateSettings: (patch) => set((state) => ({ settings: { ...state.settings, ...patch } })),
+    toggleSchedule: (id, enabled) => {
+      schedulesRepo.setEnabled(id, enabled);
+      set((state) => ({ schedules: state.schedules.map((s) => (s.id === id ? { ...s, enabled } : s)) }));
+    },
 
-  updateRules: (patch) =>
-    set((state) => ({ settings: { ...state.settings, rules: { ...state.settings.rules, ...patch } } })),
+    deleteSchedule: (id) => {
+      schedulesRepo.remove(id);
+      set((state) => ({ schedules: state.schedules.filter((s) => s.id !== id) }));
+    },
 
-  updateNotifications: (patch) =>
-    set((state) => ({
-      settings: { ...state.settings, notifications: { ...state.settings.notifications, ...patch } },
-    })),
+    updateSettings: (patch) => saveSettings({ ...get().settings, ...patch }),
 
-  useEmergency: () =>
-    set((state) => ({
-      settings: { ...state.settings, emergencyLeft: Math.max(0, state.settings.emergencyLeft - 1) },
-    })),
+    updateRules: (patch) => {
+      const current = get().settings;
+      saveSettings({ ...current, rules: { ...current.rules, ...patch } });
+    },
 
-  dismissBanner: () => set((state) => ({ settings: { ...state.settings, pendingBanner: null } })),
+    updateNotifications: (patch) => {
+      const current = get().settings;
+      saveSettings({ ...current, notifications: { ...current.notifications, ...patch } });
+    },
 
-  upsertHabit: (input) => {
-    set((state) => {
-      const existing = input.id === undefined ? undefined : state.habits.find((h) => h.id === input.id);
+    useEmergency: () => {
+      const current = get().settings;
+      saveSettings({ ...current, emergencyLeft: Math.max(0, current.emergencyLeft - 1) });
+    },
+
+    dismissBanner: () => saveSettings({ ...get().settings, pendingBanner: null }),
+
+    upsertHabit: (input) => {
+      const existing = input.id === undefined ? undefined : get().habits.find((h) => h.id === input.id);
       const habit: Habit = {
         ...input,
+        // The editor speaks in activity keys; the habits table holds the row id.
+        activityId: input.activityId === null ? null : resolveActivityId(input.activityId),
         id: existing?.id ?? uuidv7(Date.now()),
         createdAt: existing?.createdAt ?? Date.now(),
         archivedAt: null,
       };
-      return {
+      habitsRepo.upsert(habit);
+      set((state) => ({
         habits: existing
           ? state.habits.map((h) => (h.id === habit.id ? habit : h))
           : [...state.habits, habit],
-      };
-    });
-  },
+      }));
+    },
 
-  archiveHabit: (id) =>
-    set((state) => ({
-      habits: state.habits.map((h) => (h.id === id ? { ...h, archivedAt: Date.now() } : h)),
-    })),
+    archiveHabit: (id) => {
+      const now = Date.now();
+      habitsRepo.archive(id, now);
+      set((state) => ({
+        habits: state.habits.map((h) => (h.id === id ? { ...h, archivedAt: now } : h)),
+      }));
+    },
 
-  toggleHabitToday: (id, now) => {
-    const dayKey = dayKeyOf(now);
-    set((state) => {
-      const existing = state.habitMarks.find(
+    toggleHabitToday: (id, now) => {
+      const dayKey = dayKeyOf(now);
+      const existing = get().habitMarks.find(
         (m) => m.habitId === id && m.dayKey === dayKey && m.source !== 'health',
       );
       if (existing !== undefined) {
-        return { habitMarks: state.habitMarks.filter((m) => m !== existing) };
+        habitsRepo.unmarkManual(id, dayKey);
+        set((state) => ({ habitMarks: state.habitMarks.filter((m) => m !== existing) }));
+        return;
       }
-      return {
-        habitMarks: [
-          ...state.habitMarks,
-          { id: uuidv7(now), habitId: id, dayKey, source: 'manual', sourceRef: '', durationMs: null, markedAt: now },
-        ],
-      };
-    });
-  },
+      habitsRepo.mark({ habitId: id, dayKey, source: 'manual' }, now);
+      // Re-read: the repository generated the id and INSERT OR IGNORE may have kept
+      // a row this cache did not know about.
+      set({ habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKey) });
+    },
 
-  setHealthMarks: (marks, syncedAt) =>
-    set((state) => ({
-      habitMarks: [...state.habitMarks.filter((m) => m.source !== 'health'), ...marks],
-      settings: { ...state.settings, healthSyncedAt: syncedAt },
-    })),
+    setHealthMarks: (marks, syncedAt) => {
+      habitsRepo.replaceHealthMarks(marks);
+      set((state) => ({
+        habitMarks: [...state.habitMarks.filter((m) => m.source !== 'health'), ...marks],
+      }));
+      saveSettings({ ...get().settings, healthSyncedAt: syncedAt });
+    },
 
-  recordFocus: (now, focusMs) => {
-    const dayKey = dayKeyOf(now);
-    set((state) => ({
-      dayStats: state.dayStats.map((d) =>
-        d.dayKey === dayKey
-          ? {
-              ...d,
-              focusMs: d.focusMs + focusMs,
-              sessions: d.sessions + 1,
-              segments: [...d.segments, { start: 0.5, end: 0.5 + focusMs / 86_400_000 }],
-            }
-          : d,
-      ),
-    }));
-  },
-}));
+    recordFocus: (now) => set({ dayStats: loadDayStats(now, HISTORY_DAYS) }),
+  };
+});

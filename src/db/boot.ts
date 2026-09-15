@@ -1,25 +1,128 @@
+import { HABITS, MODES, SCHEDULES, seedDemoSessions, seedHabitMarks } from '../data/seed';
 import { getDb } from './client';
 import * as activities from './repositories/activities';
+import * as habits from './repositories/habits';
+import * as modes from './repositories/modes';
+import * as schedules from './repositories/schedules';
 import * as sessions from './repositories/sessions';
+import * as settings from './repositories/settings';
 
 export type BootResult = {
   activityCount: number;
   /** Sessions that survived a process death and were closed as `expired`. */
   orphansRecovered: number;
+  /** True when this boot wrote the demo data, i.e. the database was empty. */
+  demoSeeded: boolean;
 };
 
 /**
- * Opens the database, applies migrations, seeds the default activities and closes any
- * orphaned session. Synchronous, because op-sqlite is — the app can call it before the
- * first render and know the database is usable when it returns.
+ * The activities row id for an activity key ('trabajo'), or for a row id passed
+ * through unchanged. The prototype's modes and habit editor speak in keys; the
+ * sessions and habits tables carry a foreign key to the row. Falls back to the first
+ * activity rather than failing: a session must never be refused over a label.
+ */
+export function resolveActivityId(keyOrId: string): string {
+  return (
+    activities.findByKey(keyOrId)?.id ??
+    activities.findById(keyOrId)?.id ??
+    activities.listActive()[0]?.id ??
+    keyOrId
+  );
+}
+
+/** Runs `work` inside one transaction, rolling back on any throw. */
+function transaction(work: () => void): void {
+  const db = getDb();
+  db.executeSync('BEGIN');
+  try {
+    work();
+    db.executeSync('COMMIT');
+  } catch (error) {
+    db.executeSync('ROLLBACK');
+    throw error;
+  }
+}
+
+/**
+ * Writes the demo data once. Guarded by a settings key rather than by "is the table
+ * empty", so a user who deletes every mode does not get the demo ones back at the
+ * next launch (ADR-0017).
+ */
+function seedDemoData(now: number): boolean {
+  if (settings.get(settings.SETTING_KEYS.demoSeededAt) !== null) {
+    return false;
+  }
+
+  transaction(() => {
+    for (const mode of MODES) {
+      modes.upsert(mode);
+    }
+    for (const schedule of SCHEDULES) {
+      schedules.upsert(schedule, now);
+    }
+    for (const habit of HABITS) {
+      habits.upsert({
+        ...habit,
+        activityId: habit.activityId === null ? null : resolveActivityId(habit.activityId),
+      });
+    }
+    for (const mark of seedHabitMarks(now)) {
+      habits.mark(mark, now);
+    }
+    for (const session of seedDemoSessions(now)) {
+      sessions.insert({ ...session, activityId: resolveActivityId(session.activityId) });
+    }
+    const firstMode = MODES[0];
+    if (firstMode !== undefined) {
+      settings.setActiveModeId(firstMode.id, now);
+    }
+    settings.setNumber(settings.SETTING_KEYS.demoSeededAt, now, now);
+  });
+
+  return true;
+}
+
+/**
+ * Opens the database, applies migrations, seeds the default activities, closes any
+ * orphaned session and, on a fresh database, writes the demo data. Synchronous,
+ * because op-sqlite is — the app can call it before the first render and know the
+ * database is usable when it returns.
  */
 export function bootDatabase(now: number): BootResult {
   getDb();
   activities.seedDefaults(now);
   const orphansRecovered = sessions.recoverOrphans(now);
+  const demoSeeded = seedDemoData(now);
 
   return {
     activityCount: activities.listActive().length,
     orphansRecovered,
+    demoSeeded,
   };
+}
+
+/** Children before parents, so the foreign keys let every DELETE through. */
+const TABLES_IN_DELETE_ORDER = [
+  'habit_marks',
+  'sessions',
+  'habits',
+  'schedules',
+  'modes',
+  'settings',
+  'activities',
+] as const;
+
+/**
+ * "Borrar todo y reiniciar": empties every table (the schema stays) and puts the
+ * database back the way a first launch finds it, demo data included. The caller
+ * rehydrates the stores afterwards; this function knows nothing about them.
+ */
+export function resetDatabase(now: number): BootResult {
+  const db = getDb();
+  transaction(() => {
+    for (const table of TABLES_IN_DELETE_ORDER) {
+      db.executeSync(`DELETE FROM ${table}`);
+    }
+  });
+  return bootDatabase(now);
 }

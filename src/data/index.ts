@@ -5,6 +5,8 @@ import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import { DAY } from '../domain/time';
 import { weekProgress, type WeekProgress } from '../domain/week';
+import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
+import { useOnboardingDraft } from './onboardingDraft';
 import { ACTIVITIES, APPS, HEALTH, MODE_IDEAS, USAGE, WEBSITES } from './seed';
 import { useAppStore } from './stores/app';
 import { useFocusStore } from './stores/focus';
@@ -12,12 +14,40 @@ import type { AppInfo, DayStat, Mode, Schedule, Website } from './types';
 
 /**
  * The hooks screens use. Each answers one question a screen has, in the shape the
- * screen wants. This is the seam: when real data arrives, these hooks keep their
- * signatures and the stores behind them change (ADR-0016).
+ * screen wants. This is the seam: the hooks kept their signatures when the stores
+ * behind them moved from seeded memory to SQLite (ADR-0016, ADR-0017).
  */
 
 export { useAppStore, useFocusStore };
 export { ACTIVITIES, APPS, MODE_IDEAS, WEBSITES, HEALTH, USAGE };
+
+/** Reads the whole database into both stores. Synchronous: op-sqlite is. */
+function hydrateStores(now: number): void {
+  useAppStore.getState().hydrate(now);
+  useFocusStore.getState().hydrate();
+}
+
+/**
+ * Opens and migrates the database, seeds it when empty, and fills the stores, all
+ * before the first render. Throws on failure; the root layout shows FatalError.
+ */
+export function bootAndHydrate(now: number): BootResult {
+  const result = bootDatabase(now);
+  hydrateStores(now);
+  return result;
+}
+
+/**
+ * "Borrar todo y reiniciar": empties every table, reseeds the demo data and refills
+ * the stores. With `onboardingDone` back to false the root layout's guard sends the
+ * user through onboarding again, so its draft is cleared too.
+ */
+export function resetAndRehydrate(now: number): BootResult {
+  const result = resetDatabase(now);
+  useOnboardingDraft.getState().reset();
+  hydrateStores(now);
+  return result;
+}
 
 export function useApps(): AppInfo[] {
   return APPS;

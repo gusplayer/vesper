@@ -22,6 +22,8 @@ export type ModeDraft = {
   websiteIds: string[];
   depth: Depth;
   activityId: string;
+  /** The real Screen Time selection, when the native picker was used. Null otherwise. */
+  selectionToken: string | null;
 };
 
 type ModeDraftState = ModeDraft & {
@@ -32,6 +34,7 @@ type ModeDraftState = ModeDraft & {
   setBehavior: (behavior: ModeBehavior) => void;
   setDepth: (depth: Depth) => void;
   setActivityId: (activityId: string) => void;
+  setSelectionToken: (selectionToken: string | null) => void;
   /** Adds or removes an app; adding past MAX_SELECTION does nothing. */
   toggleApp: (id: string) => void;
   toggleWebsite: (id: string) => void;
@@ -45,6 +48,7 @@ const EMPTY: ModeDraft = {
   websiteIds: [],
   depth: DEFAULT_DEPTH,
   activityId: 'trabajo',
+  selectionToken: null,
 };
 
 function toggled(ids: string[], id: string): string[] {
@@ -69,6 +73,7 @@ export const useModeDraftStore = create<ModeDraftState>((set) => ({
             websiteIds: [...mode.websiteIds],
             depth: mode.depth,
             activityId: mode.activityId,
+            selectionToken: mode.selectionToken,
           },
     ),
 
@@ -77,14 +82,13 @@ export const useModeDraftStore = create<ModeDraftState>((set) => ({
   setBehavior: (behavior) => set({ behavior }),
   setDepth: (depth) => set({ depth }),
   setActivityId: (activityId) => set({ activityId }),
+  setSelectionToken: (selectionToken) => set({ selectionToken }),
   toggleApp: (id) => set((state) => ({ appIds: toggled(state.appIds, id) })),
   toggleWebsite: (id) => set((state) => ({ websiteIds: toggled(state.websiteIds, id) })),
 }));
 
 /** The draft as upsertMode wants it. The id is only sent while editing. */
-export function draftToMode(
-  draft: ModeDraft,
-): Omit<Mode, 'id' | 'createdAt' | 'selectionToken'> & { id?: string } {
+export function draftToMode(draft: ModeDraft): Omit<Mode, 'id' | 'createdAt'> & { id?: string } {
   const base = {
     name: draft.name.trim(),
     behavior: draft.behavior,
@@ -92,6 +96,7 @@ export function draftToMode(
     websiteIds: draft.websiteIds,
     depth: draft.depth,
     activityId: draft.activityId,
+    selectionToken: draft.selectionToken,
   };
   return draft.id === null ? base : { ...base, id: draft.id };
 }

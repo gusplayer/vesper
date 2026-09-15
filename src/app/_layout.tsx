@@ -4,10 +4,13 @@ import { Outfit_600SemiBold } from '@expo-google-fonts/outfit/600SemiBold';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
 
-import { useAppStore } from '../data';
+import { bootAndHydrate, useAppStore } from '../data';
+import type { BootResult } from '../db/boot';
 import { DevJump } from '../dev/DevJump';
 import { PlatformEffects } from '../platform/PlatformEffects';
+import { FatalError } from '../design/components';
 import { ThemeProvider, useSchemeStore } from '../design/theme';
 import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
 
@@ -18,12 +21,38 @@ import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
  * Two worlds behind guards: onboarding until it is done, the app after. The session
  * routes are full screen and cannot be swiped away (ADR-0009 still holds there).
  *
- * The prototype has no database (ADR-0016): the stores in src/data seed themselves.
+ * The database is opened, migrated and read into the stores here, synchronously,
+ * before anything renders (ADR-0017): op-sqlite is sync, so no screen has to handle
+ * a "not loaded yet" state, and the onboarding guard below sees the persisted flag
+ * on its first pass instead of flashing the wrong world.
  */
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold });
+
+  // A failure here is fatal rather than thrown: this is a local-first app, the database
+  // is the product, and a red box is not an answer we can give a user.
+  const [boot] = useState<BootResult | Error>(() => {
+    try {
+      return bootAndHydrate(Date.now());
+    } catch (caught) {
+      return caught instanceof Error ? caught : new Error(String(caught));
+    }
+  });
+
   const onboardingDone = useAppStore((state) => state.settings.onboardingDone);
   const scheme = useSchemeStore((state) => state.scheme);
+
+  useEffect(() => {
+    if (__DEV__ && !(boot instanceof Error)) {
+      console.log(
+        `db ready · ${boot.activityCount} activities · ${boot.orphansRecovered} orphan(s) recovered · demo ${boot.demoSeeded ? 'seeded' : 'kept'}`,
+      );
+    }
+  }, [boot]);
+
+  if (boot instanceof Error) {
+    return <FatalError message={boot.message} />;
+  }
 
   if (!fontsLoaded) {
     return null;

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 
-import { useLife, useSettings } from '../../data';
+import { resetAndRehydrate, useLife, useSettings } from '../../data';
 import { ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { useNow } from '../../lib/useNow';
 
@@ -25,6 +26,13 @@ export default function SettingsScreen() {
   const life = useLife(now);
 
   const activeRules = Object.values(settings.rules).filter(Boolean).length;
+
+  const confirmReset = () => {
+    Alert.alert('¿Borrar todo y reiniciar?', 'Modos, horarios, sesiones y hábitos se pierden. No hay vuelta atrás.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar todo', style: 'destructive', onPress: () => resetAndRehydrate(Date.now()) },
+    ]);
+  };
 
   return (
     <Screen scroll inTabs>
@@ -79,6 +87,7 @@ export default function SettingsScreen() {
         />
         <ListRow icon="help-circle" label="Centro de ayuda" onPress={() => router.push('/settings/help')} />
         <ListRow icon="info" label="Acerca de Vesper" onPress={() => router.push('/settings/about')} />
+        <ListRow icon="trash-2" label="Borrar todo y reiniciar" tone="danger" onPress={confirmReset} />
       </ListGroup>
 
       <Stack align="center" gap="xs">

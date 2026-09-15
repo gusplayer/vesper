@@ -3,12 +3,18 @@ import { useRouter } from 'expo-router';
 import { useAppStore, useSettings } from '../../data';
 import { PageHeader, Screen, Stack, Text } from '../../design/components';
 import { ToggleCard } from '../../features/settings/ToggleCard';
+import { status as blockingStatus } from '../../platform/blocking';
 
-/** Mis reglas: four switches that make a session harder to leave. Nothing real yet. */
+/**
+ * Mis reglas: four switches that make a session harder to leave. Where Screen Time is
+ * available the adult-content filter applies during a session; the other three are
+ * ManagedSettings the module does not expose yet, and the caption says so.
+ */
 export default function RulesScreen() {
   const router = useRouter();
   const { rules } = useSettings();
   const updateRules = useAppStore((state) => state.updateRules);
+  const blocking = blockingStatus();
 
   return (
     <Screen scroll>
@@ -42,7 +48,9 @@ export default function RulesScreen() {
       </Stack>
 
       <Text variant="caption" tone="tertiary" align="center">
-        En el prototipo esto no bloquea nada de verdad.
+        {blocking.available
+          ? 'Se aplican durante una sesión. Por ahora solo el filtro de contenido adulto llega al sistema.'
+          : `No se aplican: ${blocking.reason}.`}
       </Text>
     </Screen>
   );

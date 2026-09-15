@@ -74,19 +74,34 @@ describe('insert', () => {
 });
 
 describe('update', () => {
-  it('writes the mutable columns, then the id', () => {
+  it('writes the mutable columns, intention included, then the id', () => {
     const closed = aDoneSession(HOUR, T0, {
       outcome: 'cancelled',
       actualMs: HOUR / 2,
       exitReason: 'llamada',
       interruptions: 3,
+      intention: 'leer',
     });
 
     sessions.update(closed);
 
     const call = fake.callMatching(/UPDATE sessions/);
-    expect(call.sql).toMatch(/SET actual_ms = \?, outcome = \?, exit_reason = \?, interruptions = \?, ended_at = \?/);
-    expect(call.params).toEqual([HOUR / 2, 'cancelled', 'llamada', 3, T0 + HOUR, 'session-1']);
+    expect(call.sql).toMatch(
+      /SET actual_ms = \?, outcome = \?, exit_reason = \?, interruptions = \?, ended_at = \?,\s+intention = \?/,
+    );
+    expect(call.params).toEqual([HOUR / 2, 'cancelled', 'llamada', 3, T0 + HOUR, 'leer', 'session-1']);
+  });
+});
+
+describe('countCompleted / countAll', () => {
+  it('read the COUNT and default to zero', () => {
+    expect(sessions.countCompleted()).toBe(0);
+    expect(sessions.countAll()).toBe(0);
+    expect(fake.callMatching(/COUNT\(\*\)/).sql).toContain("outcome = 'completed'");
+
+    fake = createFakeDb();
+    fake.whenSql("outcome = 'completed'", [{ n: 4 }]);
+    expect(sessions.countCompleted()).toBe(4);
   });
 });
 
@@ -139,8 +154,8 @@ describe('recoverOrphans', () => {
 
     const updates = fake.calls.filter((call) => call.sql.includes('UPDATE sessions'));
     expect(updates).toHaveLength(2);
-    expect(updates[0]?.params).toEqual([HOUR, 'expired', null, 2, T0 + HOUR, 's-1']);
-    expect(updates[1]?.params).toEqual([2 * HOUR, 'expired', null, 2, T0 + 3 * HOUR, 's-2']);
+    expect(updates[0]?.params).toEqual([HOUR, 'expired', null, 2, T0 + HOUR, 'leer', 's-1']);
+    expect(updates[1]?.params).toEqual([2 * HOUR, 'expired', null, 2, T0 + 3 * HOUR, 'leer', 's-2']);
   });
 
   it('writes nothing when there is no orphan', () => {

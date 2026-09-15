@@ -13,7 +13,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSSupportsLiveActivities": true
-      }
+      },
+      "appleTeamId": "2D3R79CT8F"
     },
     "android": {
       "package": "com.gusplayer.vesper",

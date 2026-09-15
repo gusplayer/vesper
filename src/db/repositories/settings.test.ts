@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Settings } from '../../data/types';
 import { INIT_SQL } from '../migrations/001_init';
 import { createFakeDb, ddlColumns, insertColumns } from '../testing/fakeDb';
 import * as settings from './settings';
@@ -120,6 +121,106 @@ describe('setWeeklyTargetMs', () => {
     settings.setWeeklyTargetMs(36_000_000, T0);
 
     expect(fake.callMatching(/INSERT INTO settings/).params?.[1]).toBe('36000000');
+  });
+});
+
+const DEFAULTS: Settings = {
+  onboardingDone: false,
+  screenTimeConnected: false,
+  healthConnected: false,
+  notificationsAllowed: false,
+  liveActivities: true,
+  emergencyLeft: 5,
+  emergencyTotal: 5,
+  rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
+  notifications: { coaching: true, updates: true, sessionEnd: true, weeklyClose: true },
+  birthDate: 700_000_000_000,
+  lifeExpectancyYears: 77.6,
+  weeklyTargetMs: 54_000_000,
+  pendingBanner: null,
+  healthSyncedAt: null,
+};
+
+describe('parseSettings', () => {
+  it('returns the defaults for nothing, garbage or a non-object', () => {
+    expect(settings.parseSettings(null, DEFAULTS)).toEqual(DEFAULTS);
+    expect(settings.parseSettings('x', DEFAULTS)).toEqual(DEFAULTS);
+    expect(settings.parseSettings([1], DEFAULTS)).toEqual(DEFAULTS);
+  });
+
+  it('keeps every well-typed field, nested ones included', () => {
+    const stored: Settings = {
+      ...DEFAULTS,
+      onboardingDone: true,
+      emergencyLeft: 2,
+      rules: { ...DEFAULTS.rules, strictMode: true },
+      notifications: { ...DEFAULTS.notifications, coaching: false },
+      birthDate: null,
+      weeklyTargetMs: null,
+      pendingBanner: { title: 'Listo', message: 'Tu horario arrancó' },
+      healthSyncedAt: T0,
+    };
+
+    expect(settings.parseSettings(JSON.parse(JSON.stringify(stored)), DEFAULTS)).toEqual(stored);
+  });
+
+  it('falls back field by field, so one bad field never takes the rest down', () => {
+    const parsed = settings.parseSettings(
+      {
+        onboardingDone: 'yes',
+        emergencyLeft: 'many',
+        lifeExpectancyYears: Number.NaN,
+        rules: { strictMode: true, blockInstalls: 'no' },
+        notifications: 'all',
+        birthDate: 'ayer',
+        pendingBanner: { title: 'sin mensaje' },
+        healthSyncedAt: T0,
+        healthConnected: true,
+      },
+      DEFAULTS,
+    );
+
+    expect(parsed).toEqual({
+      ...DEFAULTS,
+      healthConnected: true,
+      rules: { ...DEFAULTS.rules, strictMode: true },
+      healthSyncedAt: T0,
+    });
+  });
+
+  it('ignores unknown fields instead of carrying them along', () => {
+    const parsed = settings.parseSettings({ ...DEFAULTS, extra: 1 }, DEFAULTS);
+
+    expect(Object.keys(parsed).sort()).toEqual(Object.keys(DEFAULTS).sort());
+  });
+});
+
+describe('getPrototypeSettings / setPrototypeSettings', () => {
+  it('reads the JSON under prototype_settings and validates it', () => {
+    fake.whenSql('SELECT value', [{ value: '{"onboardingDone":true,"emergencyLeft":"x"}' }]);
+
+    expect(settings.getPrototypeSettings(DEFAULTS)).toEqual({ ...DEFAULTS, onboardingDone: true });
+    expect(fake.callMatching('SELECT value').params).toEqual(['prototype_settings']);
+  });
+
+  it('writes the whole object as JSON under that key', () => {
+    settings.setPrototypeSettings(DEFAULTS, T0);
+
+    expect(fake.callMatching(/INSERT INTO settings/).params).toEqual([
+      'prototype_settings',
+      JSON.stringify(DEFAULTS),
+      T0,
+    ]);
+  });
+});
+
+describe('getActiveModeId / setActiveModeId', () => {
+  it('round-trip the id as text under active_mode_id', () => {
+    expect(settings.getActiveModeId()).toBeNull();
+    expect(fake.callMatching('SELECT value').params).toEqual(['active_mode_id']);
+
+    settings.setActiveModeId('mode-1', T0);
+    expect(fake.callMatching(/INSERT INTO settings/).params).toEqual(['active_mode_id', 'mode-1', T0]);
   });
 });
 

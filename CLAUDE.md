@@ -26,7 +26,7 @@ Lee `docs/adr/` antes de proponer cambios de arquitectura.
 5. **Dos esquemas, una paleta de roles.** Claro en la app, oscuro en la sesión. Nunca `#000` ni `#fff`.
 6. **Sin animaciones de spring, escala o parallax.** Fade de 160 ms entre rutas, sin rebote de scroll.
 7. **Local-first.** La app funciona completa sin red y sin cuenta. No agregues backend sin ADR.
-8. **Cero permisos reales en el prototipo.** El onboarding los "concede" cambiando un flag y lo dice. Cuando lleguen los permisos reales, cada uno se pide en su flujo (ADR-0012).
+8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué no (ADR-0012, ADR-0017).
 9. **Nunca sumar tiempo verificado y declarado en una misma métrica.** Ver ADR-0005.
 10. **Nunca persistir datos de `DeviceActivityReport`.** Es técnicamente imposible y arquitectónicamente prohibido. Ver ADR-0004.
 
@@ -44,10 +44,13 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Zustand para estado de UI efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
-- `src/data/`: capa de datos del prototipo. Stores zustand en memoria sembrados desde
-  `seed.ts`, hooks con la forma que tendrá la capa real. La UI solo habla con esto
-- `src/db/` y `src/store/`: la capa SQLite de la fase 1, intacta y testeada, sin conectar
-  a la UI hasta que se reemplace `src/data/`
+- `src/data/`: stores zustand que cachean SQLite. Hidratan al arrancar y escriben a través
+  de `src/db/repositories/`. La UI solo habla con los hooks de `src/data/index.ts`
+- `src/db/`: SQLite con migraciones; `queries/` deriva modelos de lectura (estadísticas por
+  día salen de `sessions`, no se guardan)
+- `src/platform/`: una capa por capacidad nativa (notificaciones, Salud, Live Activity,
+  bloqueo). Cada módulo expone `status()` y degrada sin romper; se suscribe a los stores
+  desde `src/platform/hooks/`, nunca al revés. Ver ADR-0017
 - vitest para `src/domain/`, `src/lib/`, `src/db/` y `src/store/`
 - react-native-health (iOS) / react-native-health-connect (Android) en fase 1.5
 
@@ -87,6 +90,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   las barras y grillas se dibujan con `View`.
 - No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal.
 - No implementes bloqueo de apps real: lo que existe es su UI con datos falsos. Ver ADR-0003 y ADR-0016.
-- No presentes ningún dato del prototipo como real.
+- No presentes como real lo que `src/platform/` reporta como no disponible. Los datos de
+  demostración se siembran una vez y se borran desde Ajustes.
 - No uses `AccessibilityService` en Android bajo ninguna circunstancia. Ver `docs/PLATFORM_ANDROID.md`.
 - No intentes resolver los tokens opacos de iOS a nombres de apps por OCR ni ningún otro medio. Es motivo de rechazo en App Store.

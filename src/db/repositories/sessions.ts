@@ -57,10 +57,12 @@ export function insert(session: Session): void {
   );
 }
 
+/** Writes everything that changes after the start: the clock, the outcome, the intention. */
 export function update(session: Session): void {
   getDb().executeSync(
     `UPDATE sessions
-        SET actual_ms = ?, outcome = ?, exit_reason = ?, interruptions = ?, ended_at = ?
+        SET actual_ms = ?, outcome = ?, exit_reason = ?, interruptions = ?, ended_at = ?,
+            intention = ?
       WHERE id = ?`,
     [
       session.actualMs,
@@ -68,6 +70,7 @@ export function update(session: Session): void {
       session.exitReason,
       session.interruptions,
       session.endedAt,
+      session.intention,
       session.id,
     ],
   );
@@ -79,6 +82,19 @@ export function findRunning(): Session | null {
     getDb().executeSync("SELECT * FROM sessions WHERE outcome = 'running' LIMIT 1"),
   )[0];
   return row === undefined ? null : toSession(row);
+}
+
+/** How many sessions ever ran their timer out. The first one gets its own closing. */
+export function countCompleted(): number {
+  const result = getDb().executeSync("SELECT COUNT(*) AS n FROM sessions WHERE outcome = 'completed'");
+  const n = result.rows[0]?.n;
+  return typeof n === 'number' ? n : 0;
+}
+
+export function countAll(): number {
+  const result = getDb().executeSync('SELECT COUNT(*) AS n FROM sessions');
+  const n = result.rows[0]?.n;
+  return typeof n === 'number' ? n : 0;
 }
 
 export function listBetween(from: number, to: number): Session[] {

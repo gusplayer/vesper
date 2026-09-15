@@ -24,8 +24,9 @@ fases con datos falsos, con la forma de Brick.
 
 ## Empezar
 
-Expo Go no sirve: op-sqlite es un módulo nativo, así que desde el primer día hace falta un
-dev build (ADR-0001).
+Expo Go no sirve: hay cinco módulos nativos (SQLite, notificaciones, Salud, widgets,
+Tiempo de uso), así que hace falta un dev build (ADR-0001, ADR-0017). `postinstall`
+aplica el parche de `patches/` a `react-native-health`.
 
 ```bash
 npm install

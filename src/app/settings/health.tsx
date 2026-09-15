@@ -1,18 +1,19 @@
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 
-import { HEALTH, useAppStore, useSettings } from '../../data';
+import { useAppStore, useSettings } from '../../data';
 import {
   Button,
   Icon,
-  ListGroup,
-  ListRow,
   PageHeader,
   Screen,
   Stack,
   Text,
   type IconName,
 } from '../../design/components';
-import { durationText } from '../../lib/format';
+import { HealthWeekSummary } from '../../features/health/HealthWeekSummary';
+import { requestAuthorization, status } from '../../platform/health';
+import { syncHealth } from '../../platform/hooks/useHealthSync';
 
 type Block = {
   icon: IconName;
@@ -39,13 +40,43 @@ const BLOCKS: Block[] = [
   },
 ];
 
-/** Salud: the pitch and a connect button, or the week's summary and a way out. */
+const DENIED_TEXT = 'Salud no dio permiso. Podés intentarlo de nuevo desde acá.';
+
+/**
+ * Salud: the pitch and a connect button, or the week's summary and a way out.
+ * Connecting asks HealthKit for real; when Health is not available here the button
+ * is disabled and the line under it says why.
+ */
 export default function HealthScreen() {
   const router = useRouter();
   const settings = useSettings();
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const setHealthMarks = useAppStore((state) => state.setHealthMarks);
+  const [busy, setBusy] = useState(false);
+  const [denied, setDenied] = useState(false);
 
+  const health = status();
   const connected = settings.healthConnected;
+
+  const connect = async () => {
+    setBusy(true);
+    setDenied(false);
+    const granted = await requestAuthorization();
+    setBusy(false);
+    if (!granted) {
+      setDenied(true);
+      return;
+    }
+    updateSettings({ healthConnected: true });
+    void syncHealth(true);
+  };
+
+  const disconnect = () => {
+    setHealthMarks([], Date.now());
+    updateSettings({ healthConnected: false, healthSyncedAt: null });
+  };
+
+  const caption = health.reason ?? (denied ? DENIED_TEXT : null);
 
   return (
     <Screen
@@ -53,10 +84,18 @@ export default function HealthScreen() {
       footer={
         connected ? undefined : (
           <>
-            <Button label="Conectar Salud" onPress={() => updateSettings({ healthConnected: true })} />
-            <Text variant="caption" tone="tertiary" align="center">
-              En el prototipo esto no pide permiso de verdad.
-            </Text>
+            <Button
+              label="Conectar Salud"
+              onPress={() => void connect()}
+              disabled={!health.available}
+              busy={busy}
+              busyLabel="Conectando…"
+            />
+            {caption === null ? null : (
+              <Text variant="caption" tone="tertiary" align="center">
+                {caption}
+              </Text>
+            )}
           </>
         )
       }
@@ -65,19 +104,11 @@ export default function HealthScreen() {
 
       {connected ? (
         <>
-          <ListGroup title="esta semana">
-            <ListRow label="Entrenamientos esta semana" value={String(HEALTH.workoutsThisWeek)} />
-            <ListRow label="Pasos hoy" value={HEALTH.stepsToday.toLocaleString('es-CO')} />
-            <ListRow label="Sueño anoche" value={durationText(HEALTH.sleepLastNightMs)} />
-          </ListGroup>
+          <HealthWeekSummary now={Date.now()} onSyncNow={() => void syncHealth(true)} />
           <Text variant="caption" tone="tertiary" align="center">
-            Datos de ejemplo. Nada de esto viene de Salud todavía.
+            Salud se lee al abrir la app y cada 15 minutos. Nada sale del teléfono.
           </Text>
-          <Button
-            label="Desconectar"
-            variant="ghost"
-            onPress={() => updateSettings({ healthConnected: false })}
-          />
+          <Button label="Desconectar" variant="ghost" onPress={disconnect} />
         </>
       ) : (
         <Stack gap="xxl">

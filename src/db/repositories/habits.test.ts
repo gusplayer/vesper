@@ -98,6 +98,69 @@ describe('insert', () => {
   });
 });
 
+describe('upsert', () => {
+  it('writes the whole habit in column order and updates every column but created_at on conflict', () => {
+    habits.upsert({
+      id: 'habit-gym',
+      name: 'gym',
+      activityId: 'activity-gym',
+      weeklyTarget: 4,
+      countMode: 'verified',
+      healthType: 'workout',
+      archivedAt: null,
+      createdAt: T0,
+    });
+
+    const call = fake.callMatching(/INSERT INTO habits/);
+    expect(call.sql).toContain('ON CONFLICT(id) DO UPDATE');
+    expect(call.sql).not.toMatch(/created_at = excluded/);
+    expect(call.params).toEqual(['habit-gym', 'gym', 'activity-gym', 4, 'verified', 'workout', null, T0]);
+  });
+
+  it('enforces nothing: the editor already did', () => {
+    habits.upsert({
+      id: 'h',
+      name: '',
+      activityId: null,
+      weeklyTarget: 1,
+      countMode: 'declared',
+      healthType: null,
+      archivedAt: null,
+      createdAt: T0,
+    });
+
+    expect(fake.calls.some((call) => call.sql.includes('COUNT'))).toBe(false);
+  });
+});
+
+describe('replaceHealthMarks', () => {
+  it('deletes every health mark, then inserts the given ones with their own ids', () => {
+    habits.replaceHealthMarks([
+      {
+        id: 'hk-1',
+        habitId: 'habit-gym',
+        dayKey: '2026-08-17',
+        source: 'health',
+        sourceRef: 'sample-1',
+        durationMs: 1_800_000,
+        markedAt: T0,
+      },
+    ]);
+
+    const [first, second] = fake.calls;
+    expect(first?.sql).toMatch(/DELETE FROM habit_marks WHERE source = 'health'/);
+    expect(second?.sql).toContain('INSERT OR IGNORE INTO habit_marks');
+    expect(second?.params).toEqual(['hk-1', 'habit-gym', '2026-08-17', 'health', 'sample-1', 1_800_000, T0]);
+  });
+
+  it('only deletes when given nothing', () => {
+    habits.replaceHealthMarks([]);
+
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]?.sql).toContain('DELETE');
+  });
+});
+
 describe('rename', () => {
   it('trims the name and re-links the activity', () => {
     fake.whenSql('key = ?', [gymActivityRow]);
@@ -213,9 +276,22 @@ describe('schema', () => {
   it('only inserts columns that exist in the habits and habit_marks tables', () => {
     habits.insert(newHabit, T0);
     habits.mark({ habitId: 'habit-1', dayKey: '2026-08-17', source: 'manual' }, T0);
+    habits.upsert({
+      id: 'h',
+      name: 'gym',
+      activityId: null,
+      weeklyTarget: 1,
+      countMode: 'declared',
+      healthType: null,
+      archivedAt: null,
+      createdAt: T0,
+    });
+    habits.replaceHealthMarks([
+      { id: 'hk', habitId: 'h', dayKey: '2026-08-17', source: 'health', sourceRef: 'r', durationMs: null, markedAt: T0 },
+    ]);
 
     const inserts = fake.calls.filter((call) => call.sql.includes('INSERT'));
-    expect(inserts).toHaveLength(2);
+    expect(inserts).toHaveLength(4);
     for (const call of inserts) {
       const { table, columns } = insertColumns(call.sql);
       const declared = ddlColumns(INIT_SQL, table);

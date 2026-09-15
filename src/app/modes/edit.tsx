@@ -21,6 +21,7 @@ import { ACTIVITIES, appsById, useAppStore, useMode } from '../../data';
 import { draftToMode, useModeDraftStore } from '../../data/modeDraft';
 import type { ModeBehavior } from '../../data/types';
 import { DepthCards } from '../../features/modes/DepthCards';
+import { selectionSummaryText, status as blockingStatus } from '../../platform/blocking';
 
 const BEHAVIORS: ReadonlyArray<{ value: ModeBehavior; label: string }> = [
   { value: 'block', label: 'Bloquear seleccionadas' },
@@ -54,6 +55,8 @@ export default function ModeEditScreen() {
 
   const apps = appsById(draft.appIds);
   const sites = draft.websiteIds.length;
+  // Cheap and synchronous: a few flags, no native call unless the module is loaded.
+  const blocking = blockingStatus();
 
   const save = () => {
     upsertMode(draftToMode(draft));
@@ -114,6 +117,17 @@ export default function ModeEditScreen() {
             onPress={() => router.push({ pathname: '/modes/apps', params: { draft: '1' } })}
           />
           {apps.length > 0 ? <AppIconStack apps={apps} max={6} /> : null}
+          {blocking.available ? (
+            <>
+              <Divider />
+              <ListRow
+                label="Apps reales (Tiempo de uso)"
+                icon="shield"
+                value={selectionSummaryText(draft.selectionToken)}
+                onPress={() => router.push({ pathname: '/modes/apps', params: { native: '1' } })}
+              />
+            </>
+          ) : null}
           <Divider />
           <ListRow
             label="Sitios"

@@ -116,6 +116,37 @@ export function insert(habit: NewHabit, now: number): Habit {
   return created;
 }
 
+/**
+ * Inserts or replaces a whole habit by id. The store builds the Habit — id, activity
+ * link and all — so this is the one write the prototype's editor and the demo seed
+ * both use. Unlike `insert`, it enforces nothing: the editor already refuses a sixth
+ * habit and an empty name before it gets here.
+ */
+export function upsert(habit: Habit): void {
+  getDb().executeSync(
+    `INSERT INTO habits
+       (id, name, activity_id, weekly_target, count_mode, health_type, archived_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name,
+       activity_id = excluded.activity_id,
+       weekly_target = excluded.weekly_target,
+       count_mode = excluded.count_mode,
+       health_type = excluded.health_type,
+       archived_at = excluded.archived_at`,
+    [
+      habit.id,
+      habit.name,
+      habit.activityId,
+      habit.weeklyTarget,
+      habit.countMode,
+      habit.healthType,
+      habit.archivedAt,
+      habit.createdAt,
+    ],
+  );
+}
+
 export function rename(habitId: string, name: string): void {
   const trimmed = name.trim();
   if (trimmed.length === 0) {
@@ -200,6 +231,24 @@ export function unmarkManual(habitId: string, dayKey: DayKey): void {
     "DELETE FROM habit_marks WHERE habit_id = ? AND day_key = ? AND source != 'health'",
     [habitId, dayKey],
   );
+}
+
+/**
+ * Replaces every Health-sourced mark with what Health says now. Manual marks stay.
+ * The ids come from the caller so a re-sync writes the same rows; INSERT OR IGNORE
+ * keeps the (habit, day, sample) uniqueness of invariant 6.
+ */
+export function replaceHealthMarks(marks: ReadonlyArray<HabitMark>): void {
+  const db = getDb();
+  db.executeSync("DELETE FROM habit_marks WHERE source = 'health'");
+  for (const item of marks) {
+    db.executeSync(
+      `INSERT OR IGNORE INTO habit_marks
+         (id, habit_id, day_key, source, source_ref, duration_ms, marked_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [item.id, item.habitId, item.dayKey, 'health', item.sourceRef, item.durationMs, item.markedAt],
+    );
+  }
 }
 
 export function listMarksBetween(fromDayKey: DayKey, toDayKey: DayKey): HabitMark[] {

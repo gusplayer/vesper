@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
+import { useState } from 'react';
 
 import { useAppStore } from '../../data';
-import { Button } from '../../design/components';
+import { Button, Text } from '../../design/components';
 import { PermissionPage, type PermissionBlock } from '../../features/onboarding/PermissionPage';
+import { requestAuthorization, status } from '../../platform/health';
 
 const BLOCKS: ReadonlyArray<PermissionBlock> = [
   {
@@ -22,14 +24,26 @@ const BLOCKS: ReadonlyArray<PermissionBlock> = [
   },
 ];
 
-/** Health. Optional: "Ahora no" moves on without flipping the flag. */
+/**
+ * Health. Optional: "Ahora no" moves on without flipping the flag. Where Health does
+ * not exist (Android, an iPad, a build without it) the only button moves on and the
+ * line under it says why.
+ */
 export default function HealthScreen() {
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const [busy, setBusy] = useState(false);
+
+  const health = status();
 
   const next = () => router.push('/onboarding/routine');
 
-  const connect = () => {
-    updateSettings({ healthConnected: true });
+  const connect = async () => {
+    setBusy(true);
+    const granted = await requestAuthorization();
+    setBusy(false);
+    if (granted) {
+      updateSettings({ healthConnected: true });
+    }
     next();
   };
 
@@ -39,10 +53,24 @@ export default function HealthScreen() {
       blocks={BLOCKS}
       onBack={() => router.back()}
       footer={
-        <>
-          <Button label="Conectar Salud" onPress={connect} />
-          <Button label="Ahora no" variant="ghost" onPress={next} />
-        </>
+        health.available ? (
+          <>
+            <Button
+              label="Conectar Salud"
+              onPress={() => void connect()}
+              busy={busy}
+              busyLabel="Conectando…"
+            />
+            <Button label="Ahora no" variant="ghost" onPress={next} />
+          </>
+        ) : (
+          <>
+            <Button label="Continuar sin Salud" onPress={next} />
+            <Text variant="caption" tone="tertiary" align="center">
+              {health.reason}
+            </Text>
+          </>
+        )
       }
     />
   );
