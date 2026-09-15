@@ -49,3 +49,4 @@ export { FlipDigit } from './FlipDigit';
 export { StippleCanvas } from './StippleCanvas';
 export { HeatGrid, type HeatCell } from './HeatGrid';
 export { ScheduleCard } from './ScheduleCard';
+export { HoldButton } from './HoldButton';

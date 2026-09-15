@@ -9,7 +9,7 @@ type ToggleProps = {
   accessibilityLabel?: string;
 };
 
-/** The native switch in the accent blue. */
+/** The native switch, in ink: the only saturated color left is gone from the palette. */
 export function Toggle({ value, onValueChange, disabled = false, accessibilityLabel }: ToggleProps) {
   const { colors } = useTheme();
   return (
@@ -17,7 +17,7 @@ export function Toggle({ value, onValueChange, disabled = false, accessibilityLa
       value={value}
       onValueChange={onValueChange}
       disabled={disabled}
-      trackColor={{ true: colors.accent, false: colors.cardMuted }}
+      trackColor={{ true: colors.ink, false: colors.cardMuted }}
       thumbColor={colors.card}
       ios_backgroundColor={colors.cardMuted}
       accessibilityLabel={accessibilityLabel}

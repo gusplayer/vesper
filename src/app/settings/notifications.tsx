@@ -125,7 +125,7 @@ export default function NotificationsScreen() {
       <ListGroup title="general">
         <ListRow
           label="Acompañamiento"
-          description="Aviso cuando empieza un horario"
+          description="Aviso cuando empieza una rutina"
           right={
             <Toggle
               value={notifications.coaching}

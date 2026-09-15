@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   HeatGrid,
+  HoldButton,
   Screen,
   Spacer,
   Stack,
@@ -23,7 +24,7 @@ import {
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
 import { WEEKDAY_INITIALS, gridSummary, recentDayCells } from '../../features/home/recentDays';
 import { DurationSheet } from '../../features/session/DurationSheet';
-import { durationText } from '../../lib/format';
+import { durationText, minutesText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 
 /**
@@ -59,10 +60,11 @@ export default function FocusScreen() {
     session !== null ? (
       <Button label="Seguir" onPress={() => router.push('/session/active')} />
     ) : (
-      <Button
-        label="Toca o mantén para enfocar"
+      <HoldButton
+        label="Mantén para enfocar"
+        hint={`${minutesText(plannedMs)} min · toca para cambiar`}
+        onHold={() => begin(plannedMs)}
         onPress={() => setAsking(true)}
-        onLongPress={() => begin(plannedMs)}
         disabled={mode === null}
       />
     );

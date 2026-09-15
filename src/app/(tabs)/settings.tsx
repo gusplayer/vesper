@@ -30,7 +30,7 @@ export default function SettingsScreen() {
   const activeRules = Object.values(settings.rules).filter(Boolean).length;
 
   const confirmReset = () => {
-    Alert.alert('¿Borrar todo y reiniciar?', 'Modos, horarios, sesiones y hábitos se pierden. No hay vuelta atrás.', [
+    Alert.alert('¿Borrar todo y reiniciar?', 'Modos, rutinas, sesiones y hábitos se pierden. No hay vuelta atrás.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Borrar todo', style: 'destructive', onPress: () => resetAndRehydrate(Date.now()) },
     ]);
@@ -101,7 +101,7 @@ export default function SettingsScreen() {
           <ListRow icon="trash-2" label="Borrar todo y reiniciar" tone="danger" kind="action" onPress={confirmReset} />
         </ListGroup>
         <Text variant="caption" tone="secondary">
-          Modos, horarios, sesiones y hábitos se pierden.
+          Modos, rutinas, sesiones y hábitos se pierden.
         </Text>
       </Stack>
 

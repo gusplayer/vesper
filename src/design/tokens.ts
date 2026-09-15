@@ -145,4 +145,8 @@ export const shadow = {
 /** Transitions are short. Nothing bounces. */
 export const motion = {
   fadeMs: 160,
+  /** The tab indicator and anything that slides into place. */
+  slideMs: 220,
+  /** Holding the focus button: how long until it starts. */
+  holdMs: 900,
 } as const;

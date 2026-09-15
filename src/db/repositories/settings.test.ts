@@ -159,7 +159,7 @@ describe('parseSettings', () => {
       notifications: { ...DEFAULTS.notifications, coaching: false },
       birthDate: null,
       weeklyTargetMs: null,
-      pendingBanner: { title: 'Listo', message: 'Tu horario arrancó' },
+      pendingBanner: { title: 'Listo', message: 'Tu rutina arrancó' },
       healthSyncedAt: T0,
     };
 

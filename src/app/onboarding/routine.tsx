@@ -41,7 +41,7 @@ export default function RoutineScreen() {
       <PageHeader onBack={() => router.back()} />
       <Text variant="title">{`¿Hacemos ${modeName || 'tu modo'} una rutina?`}</Text>
       <Text variant="label" tone="secondary">
-        La gente con horarios sostiene el hábito 2,5 veces más.
+        La gente con rutinas sostiene el hábito 2,5 veces más.
       </Text>
 
       <ListGroup>

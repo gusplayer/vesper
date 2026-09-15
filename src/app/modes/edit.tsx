@@ -68,7 +68,7 @@ export default function ModeEditScreen() {
       return;
     }
     const modeId = draft.id;
-    Alert.alert(`¿Eliminar "${draft.name}"?`, 'Los horarios que usen este modo se apagarán.', [
+    Alert.alert(`¿Eliminar "${draft.name}"?`, 'Las rutinas que usen este modo se apagarán.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',

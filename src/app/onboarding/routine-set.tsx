@@ -5,7 +5,7 @@ import { Button, Card, PageHeader, Screen, Stack, Text, Toggle } from '../../des
 import { commitOnboarding } from '../../features/onboarding/commit';
 import { windowText } from '../../features/schedules/format';
 
-/** A preview of the schedule card as the Horarios tab will show it, then save. */
+/** A preview of the schedule card as the Rutinas tab will show it, then save. */
 export default function RoutineSetScreen() {
   const modeName = useOnboardingDraft((state) => state.modeName);
   const schedule = useOnboardingDraft((state) => state.schedule);
@@ -20,8 +20,8 @@ export default function RoutineSetScreen() {
       scroll
       footer={
         <>
-          <Button label="Guardar horario" onPress={save} />
-          <Button label="Editar horario" variant="ghost" onPress={() => router.back()} />
+          <Button label="Guardar rutina" onPress={save} />
+          <Button label="Editar rutina" variant="ghost" onPress={() => router.back()} />
         </>
       }
     >
@@ -31,7 +31,7 @@ export default function RoutineSetScreen() {
         <Stack direction="row" align="center" justify="space-between" gap="md">
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              {`${modeName} · horario`}
+              {`${modeName} · rutina`}
             </Text>
             <Text variant="label" tone="secondary">
               {windowText(schedule)}
@@ -41,13 +41,13 @@ export default function RoutineSetScreen() {
             </Text>
           </Stack>
           {/* A preview: the toggle is drawn on and does nothing yet. */}
-          <Toggle value onValueChange={() => undefined} accessibilityLabel="horario activo" />
+          <Toggle value onValueChange={() => undefined} accessibilityLabel="rutina activa" />
         </Stack>
       </Card>
 
       <Text variant="title">Tu rutina está lista</Text>
       <Text variant="label" tone="secondary">
-        Puedes editarla cuando quieras en la pestaña Horarios.
+        Puedes editarla cuando quieras en la pestaña Rutinas.
       </Text>
     </Screen>
   );

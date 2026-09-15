@@ -31,7 +31,7 @@ export default function ModesScreen() {
 
   const confirmDelete = (mode: Mode) => {
     setMenuFor(null);
-    Alert.alert(`¿Eliminar "${mode.name}"?`, 'Los horarios que usen este modo se apagarán.', [
+    Alert.alert(`¿Eliminar "${mode.name}"?`, 'Las rutinas que usen este modo se apagarán.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: () => deleteMode(mode.id) },
     ]);

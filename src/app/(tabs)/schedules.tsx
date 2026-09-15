@@ -20,13 +20,13 @@ import { overlapNames, windowText } from '../../features/schedules/format';
 /** How long the "not during a session" bubble stays up. */
 const TOOLTIP_MS = 2500;
 
-const RUNNING_MESSAGE = 'No se pueden agregar horarios durante una sesión activa';
+const RUNNING_MESSAGE = 'No se pueden agregar rutinas durante una sesión activa';
 
 /** The line that names the mode on a card. A deleted mode says so instead of hiding. */
 const MISSING_MODE_LINE = 'Modo eliminado · apagado';
 
 /**
- * The Horarios tab: one card per schedule with its toggle, and a plus in the header
+ * The Rutinas tab: one card per schedule with its toggle, and a plus in the header
  * to add one. While a session runs, the plus only explains itself.
  */
 export default function SchedulesScreen() {
@@ -72,8 +72,8 @@ export default function SchedulesScreen() {
   return (
     <Screen scroll inTabs>
       <PageHeader
-        title="Horarios"
-        right={<IconCircle name="plus" tone="card" onPress={create} accessibilityLabel="Crear horario" />}
+        title="Rutinas"
+        right={<IconCircle name="plus" tone="card" onPress={create} accessibilityLabel="Crear rutina" />}
       />
 
       {tipVisible ? <Tooltip message={RUNNING_MESSAGE} /> : null}
@@ -81,7 +81,7 @@ export default function SchedulesScreen() {
       {schedules.length === 0 ? (
         <Card tone="muted">
           <Text variant="body" tone="secondary">
-            Todavía no hay horarios. Un horario enciende un modo solo, a la hora que elijas.
+            Todavía no hay rutinas. Una rutina enciende un modo sola, a la hora que elijas.
           </Text>
         </Card>
       ) : (

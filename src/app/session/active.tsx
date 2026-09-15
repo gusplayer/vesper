@@ -4,9 +4,9 @@ import { AppState } from 'react-native';
 
 import {
   Button,
-  FieldRow,
   FlipClock,
   HeroObject,
+  IconCircle,
   ProgressBar,
   Screen,
   Spacer,
@@ -14,7 +14,7 @@ import {
   Text,
 } from '../../design/components';
 import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
-import { countText, modeRunningText } from '../../data/modes';
+import { countText } from '../../data/modes';
 import { elapsed, isDue, sessionProgress } from '../../domain/session';
 import { EmergencySheet } from '../../features/session/EmergencySheet';
 import { FocusArt } from '../../features/session/FocusArt';
@@ -35,7 +35,6 @@ export default function ActiveSessionScreen() {
   const mode = useMode(modeId ?? undefined);
   const emergencyLeft = useSettings().emergencyLeft;
   const finish = useFocusStore((state) => state.finish);
-  const setIntention = useFocusStore((state) => state.setIntention);
   const registerInterruption = useFocusStore((state) => state.registerInterruption);
   const spendEmergency = useAppStore((state) => state.useEmergency);
   const now = useNow(1000);
@@ -48,7 +47,6 @@ export default function ActiveSessionScreen() {
       return () => lockPortrait();
     }, []),
   );
-  const [intention, setIntentionText] = useState(session?.intention ?? '');
   const [askingEmergency, setAskingEmergency] = useState(false);
   // The drawing view (ADR-0018). A view, not a state: exit rules do not change.
   // `?art=1` opens it directly, for links and for reviewing.
@@ -89,11 +87,6 @@ export default function ActiveSessionScreen() {
     setAskingEmergency(false);
     finish('cancelled', Date.now(), reason);
     router.dismissTo('/(tabs)');
-  };
-
-  const onIntention = (text: string) => {
-    setIntentionText(text);
-    setIntention(text);
   };
 
   const endButton =
@@ -197,22 +190,10 @@ export default function ActiveSessionScreen() {
       </Stack>
       <Spacer />
 
-      <Stack align="center" gap="xs">
+      <Stack direction="row" align="center" justify="center" gap="sm">
         <Text variant="heading">{mode?.name ?? 'Sesión'}</Text>
-        {mode === null ? null : (
-          <Text variant="label" tone="secondary">
-            {modeRunningText(mode)}
-          </Text>
-        )}
-        <Button variant="ghost" label="Ver modos ›" onPress={() => router.push('/modes')} />
+        <IconCircle name="edit-2" onPress={() => router.push('/modes')} accessibilityLabel="Cambiar de modo" />
       </Stack>
-
-      <FieldRow
-        label="Intención"
-        value={intention}
-        onChangeText={onIntention}
-        placeholder="¿Qué vas a hacer?"
-      />
 
       <Stack gap="sm">
         <ProgressBar progress={sessionProgress(session, now)} />

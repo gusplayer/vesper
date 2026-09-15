@@ -17,7 +17,7 @@ Lee `docs/adr/` antes de proponer cambios de arquitectura.
 
 ## Reglas duras (no negociables sin un ADR nuevo)
 
-1. **Cuatro pestañas de solo texto**: Foco, Horarios, Actividad, Ajustes. La sesión activa
+1. **Cuatro pestañas de solo texto**: Focus, Rutinas, Actividad, Ajustes. La sesión activa
    y su cierre son rutas a pantalla completa sin gesto de volver (ADR-0016, ADR-0009).
 2. **Un botón primario por pantalla**, pinneado abajo. Lo secundario es `ghost` o una fila.
 3. **Ningún color ni tamaño literal fuera de `src/design/tokens.ts`.** Las pantallas no

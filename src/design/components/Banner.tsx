@@ -11,7 +11,7 @@ type BannerProps = {
   onDismiss: () => void;
 };
 
-/** The dark strip at the top of the home page: 'Cumpliste. Completaste tu primer horario.' */
+/** The dark strip at the top of the home page: 'Cumpliste. Completaste tu primera rutina.' */
 export function Banner({ title, message, onDismiss }: BannerProps) {
   const { colors } = useTheme();
   return (

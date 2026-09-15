@@ -87,7 +87,7 @@ export default function ScheduleEditScreen() {
     if (existing === null) {
       return;
     }
-    Alert.alert('¿Eliminar este horario?', 'No se puede deshacer.', [
+    Alert.alert('¿Eliminar esta rutina?', 'No se puede deshacer.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar',
@@ -120,16 +120,16 @@ export default function ScheduleEditScreen() {
       scroll
       footer={
         <>
-          <Button label="Guardar horario" onPress={save} disabled={!canSave} />
+          <Button label="Guardar rutina" onPress={save} disabled={!canSave} />
           {existing === null ? null : (
-            <Button label="Eliminar horario" variant="ghost" onPress={remove} />
+            <Button label="Eliminar rutina" variant="ghost" onPress={remove} />
           )}
         </>
       }
     >
       <PageHeader
         onClose={() => router.back()}
-        title={existing === null ? 'Agregar horario' : 'Editar horario'}
+        title={existing === null ? 'Agregar rutina' : 'Editar rutina'}
       />
 
       <FieldRow
@@ -169,10 +169,10 @@ export default function ScheduleEditScreen() {
             <Icon name="info" size="md" tone="secondary" />
             <Stack grow gap="xs">
               <Text variant="body" weight="medium">
-                Horarios superpuestos
+                Rutinas superpuestas
               </Text>
               <Text variant="label" tone="secondary">
-                {`Este horario se cruza con '${clash.name}'. Si los dos están encendidos, solo uno corre a la vez.`}
+                {`Esta rutina se cruza con '${clash.name}'. Si los dos están encendidos, solo uno corre a la vez.`}
               </Text>
             </Stack>
           </Stack>
