@@ -41,25 +41,29 @@ function svg(path: string): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}"><rect width="${SIZE}" height="${SIZE}" fill="#191919"/><path fill="#F2F1EE" d="${path}"/></svg>`;
 }
 
-for (const artwork of await works()) {
-  if (only !== undefined && artwork.id !== only) {
-    continue;
-  }
-  const dots = stipple(artwork, dotBudget(25 * 60_000), 1);
-  const stages: Array<[string, number]> = [
-    ['', dots.length],
-    ['-25', Math.floor(dots.length * 0.25)],
-    ['-50', Math.floor(dots.length * 0.5)],
-    ['-75', Math.floor(dots.length * 0.75)],
-  ];
-  for (const [suffix, visible] of stages) {
-    const file = join(outDir, `${artwork.id}${suffix}.svg`);
-    writeFileSync(file, svg(dotsPath(dots, visible, SIZE)));
-    try {
-      execSync(`qlmanage -t -s ${SIZE} -o "${outDir}" "${file}"`, { stdio: 'ignore' });
-    } catch {
-      // Not macOS: the SVG is still there.
+async function main(): Promise<void> {
+  for (const artwork of await works()) {
+    if (only !== undefined && artwork.id !== only) {
+      continue;
     }
+    const dots = stipple(artwork, dotBudget(25 * 60_000), 1);
+    const stages: Array<[string, number]> = [
+      ['', dots.length],
+      ['-25', Math.floor(dots.length * 0.25)],
+      ['-50', Math.floor(dots.length * 0.5)],
+      ['-75', Math.floor(dots.length * 0.75)],
+    ];
+    for (const [suffix, visible] of stages) {
+      const file = join(outDir, `${artwork.id}${suffix}.svg`);
+      writeFileSync(file, svg(dotsPath(dots, visible, SIZE)));
+      try {
+        execSync(`qlmanage -t -s ${SIZE} -o "${outDir}" "${file}"`, { stdio: 'ignore' });
+      } catch {
+        // Not macOS: the SVG is still there.
+      }
+    }
+    console.log(`${artwork.id}: ${dots.length} dots → ${outDir}/${artwork.id}.svg.png`);
   }
-  console.log(`${artwork.id}: ${dots.length} dots → ${outDir}/${artwork.id}.svg.png`);
 }
+
+void main();
