@@ -13,8 +13,8 @@ import {
   Text,
 } from '../../design/components';
 import {
-  BREATH_CYCLES,
   EXIT_SENTENCE,
+  breathCyclesFor,
   breathState,
   exitStepsFor,
   sentenceMatches,
@@ -33,9 +33,10 @@ const PHASE_WORD: Record<BreathPhase, string> = {
 };
 
 /**
- * The conscious exit (domain/exitRitual). Steps depend on the depth: soft breathes
- * and confirms; firm also types a sentence and says why. Every step's primary button
- * is "Seguir enfocado"; leaving is always the quiet option underneath.
+ * The conscious exit (domain/exitRitual), kept short so it never costs the time it
+ * protects. Soft: one round of breathing, then the way out on the same screen. Firm:
+ * two rounds, then the sentence and an optional why. Every screen's big button is
+ * "Seguir enfocado"; leaving is the quiet option underneath.
  *
  * A full-screen route without a back gesture: the ritual is the way out.
  */
@@ -54,82 +55,84 @@ export default function ExitScreen() {
   }
 
   const steps = exitStepsFor(session.depth);
-  const step = steps[index] ?? 'confirm';
-  const breath = breathState(now - openedAt);
-  const next = () => setIndex((current) => Math.min(current + 1, steps.length - 1));
+  const step = steps[index] ?? 'breathe';
+  const cycles = breathCyclesFor(session.depth);
+  const breath = breathState(now - openedAt, cycles);
   const stay = () => router.back();
   const leave = () => {
     finish('cancelled', Date.now(), emptyToNull(reason));
     router.dismissTo('/(tabs)');
   };
+  const served = durationText(elapsed(session, now));
 
-  const body =
-    step === 'breathe' ? (
-      <Stack align="center" gap="sm">
-        <Text variant="label" tone="secondary">
-          Antes de decidir, respira.
-        </Text>
-        <Text variant="hero">{breath.done ? 'Listo' : PHASE_WORD[breath.phase]}</Text>
-        <Text variant="title" tone="secondary">
-          {breath.done ? '' : String(breath.secondsLeft)}
-        </Text>
-        <Text variant="caption" tone="tertiary">
-          {breath.done ? 'Tres rondas. Ahora sí.' : `Ronda ${breath.cycle} de ${BREATH_CYCLES}`}
-        </Text>
-      </Stack>
-    ) : step === 'type' ? (
-      <Stack gap="md">
-        <Text variant="title">Escribe la frase.</Text>
-        <Card tone="muted">
-          <Text variant="heading" align="center">
-            {EXIT_SENTENCE}
+  if (step === 'breathe') {
+    const last = steps.length === 1;
+    return (
+      <Screen
+        footer={
+          <>
+            <Button label="Seguir enfocado" onPress={stay} />
+            <Button
+              variant="ghost"
+              label={last ? `Terminar · llevas ${served}` : 'Quiero terminar'}
+              onPress={last ? leave : () => setIndex(1)}
+              disabled={!breath.done}
+            />
+          </>
+        }
+      >
+        <Spacer />
+        <Stack align="center" gap="sm">
+          <Text variant="label" tone="secondary">
+            Antes de decidir, respira.
           </Text>
-        </Card>
-        <FieldRow label="Frase" value={typed} onChangeText={setTyped} placeholder="Tal cual" autoFocus />
-        <Text variant="caption" tone="tertiary">
-          Sin autocompletar: es para que lo digas tú.
-        </Text>
-      </Stack>
-    ) : step === 'why' ? (
-      <Stack gap="md">
-        <Text variant="title">¿Por qué terminas?</Text>
-        <FieldRow label="Motivo" value={reason} onChangeText={setReason} placeholder="Una línea alcanza" autoFocus />
-        <Text variant="caption" tone="tertiary">
-          Queda guardado con la sesión. Nadie más lo ve.
-        </Text>
-      </Stack>
-    ) : (
-      <Stack gap="md">
-        <Text variant="title">Terminar la sesión.</Text>
-        <Text variant="body" tone="secondary">
-          {`Llevas ${durationText(elapsed(session, now))} enfocado. Lo hecho queda contado; lo que falta, no.`}
-        </Text>
-      </Stack>
+          <Text variant="hero">{breath.done ? 'Listo' : PHASE_WORD[breath.phase]}</Text>
+          <Text variant="title" tone="secondary">
+            {breath.done ? '' : String(breath.secondsLeft)}
+          </Text>
+          <Text variant="caption" tone="secondary">
+            {breath.done
+              ? 'Lo hecho queda contado; lo que falta, no.'
+              : cycles === 1
+                ? 'Una ronda.'
+                : `Ronda ${breath.cycle} de ${cycles}`}
+          </Text>
+        </Stack>
+        <Spacer />
+        <ProgressBar progress={breath.progress} />
+      </Screen>
     );
+  }
 
-  const canContinue =
-    step === 'breathe' ? breath.done : step === 'type' ? sentenceMatches(typed) : true;
-
-  const footer = (
-    <>
-      <Button label="Seguir enfocado" onPress={stay} />
-      {step === 'confirm' ? (
-        <Button variant="ghost" label="Terminar de verdad" onPress={leave} />
-      ) : (
-        <Button variant="ghost" label="Quiero terminar" onPress={next} disabled={!canContinue} />
-      )}
-    </>
-  );
-
+  const ready = sentenceMatches(typed);
   return (
-    <Screen footer={footer}>
+    <Screen
+      footer={
+        <>
+          <Button label="Seguir enfocado" onPress={stay} />
+          <Button variant="ghost" label={`Terminar · llevas ${served}`} onPress={leave} disabled={!ready} />
+        </>
+      }
+    >
       <Spacer />
-      {body}
+      <Stack gap="lg">
+        <Stack gap="md">
+          <Text variant="title">Escribe la frase.</Text>
+          <Card tone="muted">
+            <Text variant="heading" align="center">
+              {EXIT_SENTENCE}
+            </Text>
+          </Card>
+          <FieldRow label="Frase" value={typed} onChangeText={setTyped} placeholder="Tal cual" autoFocus />
+        </Stack>
+        <Stack gap="xs">
+          <FieldRow label="Motivo" value={reason} onChangeText={setReason} placeholder="Opcional" />
+          <Text variant="caption" tone="secondary">
+            Queda guardado con la sesión. Nadie más lo ve.
+          </Text>
+        </Stack>
+      </Stack>
       <Spacer />
-      {step === 'breathe' ? <ProgressBar progress={breath.progress} /> : null}
-      <Text variant="caption" tone="tertiary" align="center">
-        {`Paso ${Math.min(index + 1, steps.length)} de ${steps.length}`}
-      </Text>
     </Screen>
   );
 }

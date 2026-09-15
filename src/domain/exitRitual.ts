@@ -18,11 +18,16 @@ export const BREATH_PHASES: ReadonlyArray<{ phase: BreathPhase; seconds: number 
   { phase: 'exhale', seconds: 6 },
 ];
 
-export const BREATH_CYCLES = 3;
+/** Rounds of breathing before the way out opens. Firm asks for one more than soft. */
+export function breathCyclesFor(depth: Depth): number {
+  return depth === 'firm' ? 2 : 1;
+}
 
-const CYCLE_MS = BREATH_PHASES.reduce((total, step) => total + step.seconds, 0) * SECOND;
+export const CYCLE_MS = BREATH_PHASES.reduce((total, step) => total + step.seconds, 0) * SECOND;
 
-export const BREATH_TOTAL_MS = CYCLE_MS * BREATH_CYCLES;
+export function breathTotalMs(cycles: number): number {
+  return CYCLE_MS * cycles;
+}
 
 export type BreathState = {
   phase: BreathPhase;
@@ -35,10 +40,11 @@ export type BreathState = {
   done: boolean;
 };
 
-export function breathState(elapsedMs: number): BreathState {
+export function breathState(elapsedMs: number, cycles = 1): BreathState {
   const clamped = Math.max(0, elapsedMs);
-  if (clamped >= BREATH_TOTAL_MS) {
-    return { phase: 'exhale', cycle: BREATH_CYCLES, secondsLeft: 0, progress: 1, done: true };
+  const total = breathTotalMs(cycles);
+  if (clamped >= total) {
+    return { phase: 'exhale', cycle: cycles, secondsLeft: 0, progress: 1, done: true };
   }
   const cycle = Math.floor(clamped / CYCLE_MS) + 1;
   let inCycle = clamped % CYCLE_MS;
@@ -49,28 +55,31 @@ export function breathState(elapsedMs: number): BreathState {
         phase: step.phase,
         cycle,
         secondsLeft: Math.ceil((stepMs - inCycle) / SECOND),
-        progress: clamped / BREATH_TOTAL_MS,
+        progress: clamped / total,
         done: false,
       };
     }
     inCycle -= stepMs;
   }
   // Unreachable: the loop covers the whole cycle. Kept for the type checker.
-  return { phase: 'exhale', cycle, secondsLeft: 1, progress: clamped / BREATH_TOTAL_MS, done: false };
+  return { phase: 'exhale', cycle, secondsLeft: 1, progress: clamped / total, done: false };
 }
 
-export type ExitStep = 'breathe' | 'type' | 'why' | 'confirm';
+export type ExitStep = 'breathe' | 'commit';
 
 /**
- * What each depth asks before letting go. Deep asks nothing because deep cannot be
- * left: the timer is the only way out (and the emergency unlock, which is not this).
+ * What each depth asks before letting go. Soft breathes once and the way out opens on
+ * that same screen. Firm breathes twice, then types the sentence (and may say why).
+ * Deep asks nothing because deep cannot be left: the timer is the only way out (and
+ * the emergency unlock, which is not this). Short on purpose: the ritual must not
+ * cost the time it protects.
  */
 export function exitStepsFor(depth: Depth): ExitStep[] {
   switch (depth) {
     case 'soft':
-      return ['breathe', 'confirm'];
+      return ['breathe'];
     case 'firm':
-      return ['breathe', 'type', 'why', 'confirm'];
+      return ['breathe', 'commit'];
     case 'deep':
       return [];
   }

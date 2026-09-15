@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  BREATH_CYCLES,
-  BREATH_TOTAL_MS,
+  CYCLE_MS,
   EXIT_SENTENCE,
+  breathCyclesFor,
   breathState,
+  breathTotalMs,
   exitStepsFor,
   normalizeSentence,
   sentenceMatches,
@@ -21,7 +22,7 @@ describe('breathState', () => {
     expect(breathState(4_000).phase).toBe('hold');
     expect(breathState(8_000).phase).toBe('exhale');
     expect(breathState(13_999).phase).toBe('exhale');
-    expect(breathState(14_000)).toMatchObject({ phase: 'inhale', cycle: 2 });
+    expect(breathState(14_000, 2)).toMatchObject({ phase: 'inhale', cycle: 2 });
   });
 
   it('counts seconds down to 1, never 0, while a phase runs', () => {
@@ -30,22 +31,31 @@ describe('breathState', () => {
     expect(breathState(3_999).secondsLeft).toBe(1);
   });
 
-  it('is done after three cycles and clamps beyond', () => {
-    expect(BREATH_TOTAL_MS).toBe(42 * SECOND);
-    expect(breathState(BREATH_TOTAL_MS)).toMatchObject({ done: true, progress: 1, cycle: BREATH_CYCLES });
-    expect(breathState(BREATH_TOTAL_MS + 5_000).done).toBe(true);
+  it('is done after its cycles and clamps beyond', () => {
+    expect(CYCLE_MS).toBe(14 * SECOND);
+    expect(breathTotalMs(2)).toBe(28 * SECOND);
+    expect(breathState(14 * SECOND, 1)).toMatchObject({ done: true, progress: 1, cycle: 1 });
+    expect(breathState(28 * SECOND, 2)).toMatchObject({ done: true, progress: 1, cycle: 2 });
+    expect(breathState(40 * SECOND, 2).done).toBe(true);
     expect(breathState(-5).phase).toBe('inhale');
   });
 
   it('reports progress over the whole step', () => {
-    expect(breathState(21 * SECOND).progress).toBeCloseTo(0.5, 5);
+    expect(breathState(7 * SECOND, 1).progress).toBeCloseTo(0.5, 5);
+    expect(breathState(14 * SECOND, 2).progress).toBeCloseTo(0.5, 5);
+  });
+
+  it('asks one round in soft and two in firm', () => {
+    expect(breathCyclesFor('soft')).toBe(1);
+    expect(breathCyclesFor('firm')).toBe(2);
+    expect(breathCyclesFor('deep')).toBe(1);
   });
 });
 
 describe('exitStepsFor', () => {
   it('asks more the deeper the mode, and nothing at all in deep', () => {
-    expect(exitStepsFor('soft')).toEqual(['breathe', 'confirm']);
-    expect(exitStepsFor('firm')).toEqual(['breathe', 'type', 'why', 'confirm']);
+    expect(exitStepsFor('soft')).toEqual(['breathe']);
+    expect(exitStepsFor('firm')).toEqual(['breathe', 'commit']);
     expect(exitStepsFor('deep')).toEqual([]);
   });
 });

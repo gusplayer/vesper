@@ -25,6 +25,9 @@ type HeatGridProps = {
 const CELL = 28;
 const GAP = 6;
 const RING = 3;
+/** Breathing room between the ring and the tinted square. */
+const RING_GAP = 1;
+const OUTER_RADIUS = CELL * 0.28;
 
 /** Four levels read as levels; a continuous ramp reads as mud. Empty is an outline. */
 function levelOpacity(intensity: number): number {
@@ -70,12 +73,14 @@ export function HeatGrid({ cells, columns = 7, columnLabels, onPress, accessibil
               key={cell.key}
               style={[
                 styles.slot,
-                cell.today ? { borderColor: colors.ink, borderWidth: RING } : null,
+                cell.today ? { borderColor: colors.ink, borderWidth: RING, padding: RING_GAP } : null,
               ]}
             >
               <View
                 style={[
                   styles.cell,
+                  // Concentric corners: the inner radius is the outer minus what sits between.
+                  { borderRadius: cell.today ? Math.max(2, OUTER_RADIUS - RING - RING_GAP) : OUTER_RADIUS },
                   opacity === 0
                     ? { borderWidth: 1, borderColor: colors.inkTertiary }
                     : { backgroundColor: colors.ink, opacity },
@@ -122,12 +127,10 @@ const styles = StyleSheet.create({
   slot: {
     width: CELL,
     height: CELL,
-    borderRadius: CELL * 0.28,
+    borderRadius: OUTER_RADIUS,
     padding: 0,
-    overflow: 'hidden',
   },
   cell: {
     flex: 1,
-    borderRadius: CELL * 0.25,
   },
 });
