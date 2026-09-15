@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
+import { getStrings } from '../../i18n';
 import { endFocus, startFocus, status, updateFocus, type FocusInput } from '../liveActivity';
 
 /**
@@ -17,9 +18,6 @@ import { endFocus, startFocus, status, updateFocus, type FocusInput } from '../l
 /** The native clock ticks alone; this only refreshes the 'quedan Xm' line. */
 const REFRESH_MS = 60_000;
 
-/** A session whose mode was deleted meanwhile still needs a name. */
-const FALLBACK_MODE_NAME = 'Foco';
-
 function currentInput(): FocusInput | null {
   const { session, modeId } = useFocusStore.getState();
   if (session === null) {
@@ -27,7 +25,8 @@ function currentInput(): FocusInput | null {
   }
   const mode = useAppStore.getState().modes.find((m) => m.id === modeId);
   return {
-    modeName: mode?.name ?? FALLBACK_MODE_NAME,
+    // A session whose mode was deleted meanwhile still needs a name.
+    modeName: mode?.name ?? getStrings().session.liveActivity.fallbackModeName,
     startedAt: session.startedAt,
     endsAt: session.startedAt + session.plannedMs,
   };
