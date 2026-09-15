@@ -1,63 +1,147 @@
 /**
- * Design tokens. Values come from docs/DESIGN_SYSTEM.md — do not invent new ones here.
+ * Design tokens. The one place a color, size, radius or shadow is written down.
+ * Components read them through `useTheme()`; screens never import this file.
  *
- * These are the only place literal colors and sizes are allowed to exist. Screens in
- * src/app/ must not import this module: layout belongs to design/components/.
+ * Two schemes: light is the page, dark is the active session (ADR-0016). Both are
+ * warm greys, never pure black or white.
  */
 
-/** Four tones. There is no fifth. Never #000000 or #FFFFFF. */
-export const color = {
-  /** Primary text, thick rules, filled boxes. */
-  ink: '#1B1A18',
-  /** Labels, secondary text. ~4.8:1 on paper — only for 12px and up. */
-  ink60: '#6E6C66',
-  /** Thin rules and empty boxes. Never carries text. */
-  ink30: '#C9C6BE',
-  /** Background. Slightly warm on purpose. Do not cool it down. */
-  paper: '#F2F0EA',
-} as const;
+export type Scheme = 'light' | 'dark';
 
-/**
- * Serif everywhere. In React Native a custom font is addressed by family name per
- * weight, not by numeric weight, so the two loaded faces are named here.
- */
+export type Colors = {
+  /** Page background. */
+  bg: string;
+  /** Slightly lifted areas: tab bar, sheets. */
+  bgElevated: string;
+  /** Cards. */
+  card: string;
+  /** A card inside a card, chips, inactive segments. */
+  cardMuted: string;
+  /** Primary text and the primary button. */
+  ink: string;
+  inkSecondary: string;
+  inkTertiary: string;
+  /** Hairlines between rows. */
+  line: string;
+  /** Text on top of `ink`. */
+  onInk: string;
+  /** Toggles and links. The only saturated color. */
+  accent: string;
+  /** The check on the active mode. */
+  success: string;
+  /** Destructive text actions. */
+  danger: string;
+  /** Shadow color for cards and the hero object. */
+  shadow: string;
+};
+
+export const colors: Record<Scheme, Colors> = {
+  light: {
+    bg: '#E8E6E2',
+    bgElevated: '#EEECE8',
+    card: '#F8F7F5',
+    cardMuted: '#E3E1DC',
+    ink: '#1C1B1A',
+    inkSecondary: '#6E6C68',
+    inkTertiary: '#A6A39E',
+    line: '#DCD9D3',
+    onInk: '#F8F7F5',
+    accent: '#2F7BF6',
+    success: '#3B7A4A',
+    danger: '#C0392B',
+    shadow: '#1C1B1A',
+  },
+  dark: {
+    bg: '#191919',
+    bgElevated: '#202020',
+    card: '#262626',
+    cardMuted: '#303030',
+    ink: '#F2F1EE',
+    inkSecondary: '#A9A7A2',
+    inkTertiary: '#6F6D69',
+    line: '#343434',
+    onInk: '#191919',
+    accent: '#3B84F5',
+    success: '#5FA46F',
+    danger: '#E06B5E',
+    shadow: '#000000',
+  },
+};
+
+/** Outfit, a geometric sans. Three weights, addressed by family name per weight. */
 export const font = {
   family: {
-    regular: 'Literata_400Regular',
-    medium: 'Literata_500Medium',
+    regular: 'Outfit_400Regular',
+    medium: 'Outfit_500Medium',
+    semibold: 'Outfit_600SemiBold',
   },
   size: {
-    /** Session duration, weeks remaining. */
-    display: 44,
-    /** Session timer only. */
-    timer: 50,
-    title: 26,
-    body: 15,
-    label: 12,
-    caption: 10,
+    /** The counter during a session, the big stat. */
+    hero: 44,
+    /** Onboarding and page titles. */
+    title: 30,
+    /** Section titles, the mode name on the home page. */
+    heading: 22,
+    body: 16,
+    label: 14,
+    caption: 12,
   },
-  /** Hierarchy comes from size and tone, never from weight. Two weights only. */
-  letterSpacing: {
-    display: -1,
-    timer: -2,
-    normal: 0,
+  lineHeight: {
+    hero: 50,
+    title: 36,
+    heading: 28,
+    body: 22,
+    label: 20,
+    caption: 16,
   },
 } as const;
 
-export const space = { xs: 4, sm: 8, md: 14, lg: 18, xl: 24 } as const;
+export const space = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+} as const;
 
-/** Max 4px. Rounder corners are iOS language, not paper. */
-export const radius = { box: 4 } as const;
-
-export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
+export const radius = {
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 28,
+  pill: 999,
+} as const;
 
 export const layout = {
-  /** Side margins. Vertical margins are generous, like a page. */
-  pageMargin: 16,
-  /** Minimum tappable height for anything that responds — ADR-0011. */
+  pageMargin: 20,
   touchTarget: 44,
-  /** Reaches the touch target around tappable text without growing its box. */
-  textHitSlop: { top: 16, bottom: 16, left: 8, right: 8 },
-  /** Between the squares of the week grid. */
-  gridGap: 1,
+  tabBarHeight: 56,
+  /** Feather icon sizes. */
+  icon: { sm: 16, md: 20, lg: 24 },
+  /** The centered object on the home page. */
+  hero: 132,
+  appIcon: { sm: 24, md: 40, lg: 56 },
+} as const;
+
+/** Soft, wide shadows. iOS reads them; Android gets `elevation`. */
+export const shadow = {
+  card: {
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 2,
+  },
+  hero: {
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 8,
+  },
+} as const;
+
+/** Transitions are short. Nothing bounces. */
+export const motion = {
+  fadeMs: 160,
 } as const;

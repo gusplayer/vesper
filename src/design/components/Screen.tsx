@@ -1,42 +1,54 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { color, layout, space } from '../tokens';
+import { useTheme } from '../theme';
+import { layout, space } from '../tokens';
 
 type ScreenProps = {
   children: ReactNode;
-  /**
-   * Lets the page scroll. Needed wherever Dynamic Type past 130% can overflow —
-   * DESIGN_SYSTEM.md requires the home screen to scroll at that point.
-   */
+  /** Scrolls when true. Tabs and lists scroll; the home page and the session do not. */
   scroll?: boolean;
+  /** Something pinned to the bottom: a primary button, an onboarding footer. */
+  footer?: ReactNode;
+  /** Drop the side padding, for edge-to-edge content. */
+  flush?: boolean;
+  /** Skip the bottom safe area, for screens that sit above the tab bar. */
+  inTabs?: boolean;
+  contentStyle?: StyleProp<ViewStyle>;
 };
 
-/** Paper background and page margins. Every screen is wrapped in this. */
-export function Screen({ children, scroll = false }: ScreenProps) {
-  if (scroll) {
-    return (
-      <SafeAreaView style={styles.safe}>
+/** Page background, safe areas, side margins and an optional pinned footer. */
+export function Screen({
+  children,
+  scroll = false,
+  footer,
+  flush = false,
+  inTabs = false,
+  contentStyle,
+}: ScreenProps) {
+  const { colors } = useTheme();
+  const padding = flush ? null : styles.padded;
+
+  return (
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: colors.bg }]}
+      edges={inTabs ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']}
+    >
+      {scroll ? (
         <ScrollView
-          contentContainerStyle={styles.page}
+          contentContainerStyle={[styles.content, padding, contentStyle]}
           showsVerticalScrollIndicator={false}
-          // The first tap on a control while the keyboard is up must act, not just
-          // dismiss the keyboard. Otherwise `guardar` needs two taps after typing.
           keyboardShouldPersistTaps="handled"
-          // Overscroll is a spring. DESIGN_SYSTEM.md forbids the bounce.
           bounces={false}
           overScrollMode="never"
         >
           {children}
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.page}>{children}</View>
+      ) : (
+        <View style={[styles.content, padding, contentStyle]}>{children}</View>
+      )}
+      {footer === undefined ? null : <View style={[styles.footer, padding]}>{footer}</View>}
     </SafeAreaView>
   );
 }
@@ -44,13 +56,19 @@ export function Screen({ children, scroll = false }: ScreenProps) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: color.paper,
   },
-  page: {
+  content: {
     flexGrow: 1,
+    paddingTop: space.md,
+    paddingBottom: space.xxl,
+    rowGap: space.lg,
+  },
+  padded: {
     paddingHorizontal: layout.pageMargin,
-    paddingVertical: space.xl,
-    // Screens stack children and never set their own gaps: spacing is decided here.
+  },
+  footer: {
+    paddingTop: space.md,
+    paddingBottom: space.md,
     rowGap: space.md,
   },
 });

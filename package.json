@@ -4,6 +4,8 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/literata": "^0.4.3",
+    "@expo-google-fonts/outfit": "^0.4.3",
+    "@expo/vector-icons": "^15.1.1",
     "@op-engineering/op-sqlite": "^18.1.4",
     "expo": "~57.0.15",
     "expo-constants": "~57.0.13",

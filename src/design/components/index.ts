@@ -1,0 +1,38 @@
+/**
+ * The design system's public surface. Screens import from here and nowhere else in
+ * src/design/, so what a screen can use is exactly this list.
+ */
+export { AppIcon } from './AppIcon';
+export { AppIconStack } from './AppIconStack';
+export { Banner } from './Banner';
+export { BarChart, type Bar } from './BarChart';
+export { Button } from './Button';
+export { Card } from './Card';
+export { Check } from './Check';
+export { Chip } from './Chip';
+export { DayPicker } from './DayPicker';
+export { Divider } from './Divider';
+export { DotGrid } from './DotGrid';
+export { FieldRow } from './FieldRow';
+export { HeroObject } from './HeroObject';
+export { HorizontalBars } from './HorizontalBars';
+export { Icon, type IconName } from './Icon';
+export { IconCircle } from './IconCircle';
+export { ListGroup } from './ListGroup';
+export { ListRow } from './ListRow';
+export { PageHeader } from './PageHeader';
+export { ProgressBar } from './ProgressBar';
+export { ProgressDots } from './ProgressDots';
+export { Screen } from './Screen';
+export { SearchField } from './SearchField';
+export { Section } from './Section';
+export { SegmentedControl } from './SegmentedControl';
+export { Sheet } from './Sheet';
+export { Spacer } from './Spacer';
+export { Stack } from './Stack';
+export { StatCard } from './StatCard';
+export { TabBar } from './TabBar';
+export { Text } from './Text';
+export { Toggle } from './Toggle';
+export { Tooltip } from './Tooltip';
+export { FatalError } from './FatalError';
