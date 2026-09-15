@@ -6,7 +6,7 @@ import { TabBar } from '../../design/components';
 export default function TabsLayout() {
   return (
     <Tabs screenOptions={{ headerShown: false }} tabBar={(props) => <TabBar {...props} />}>
-      <Tabs.Screen name="index" options={{ title: 'Foco' }} />
+      <Tabs.Screen name="index" options={{ title: 'Focus' }} />
       <Tabs.Screen name="schedules" options={{ title: 'Horarios' }} />
       <Tabs.Screen name="activity" options={{ title: 'Actividad' }} />
       <Tabs.Screen name="settings" options={{ title: 'Ajustes' }} />

@@ -47,3 +47,4 @@ export { Columns } from './Columns';
 export { FlipClock } from './FlipClock';
 export { FlipDigit } from './FlipDigit';
 export { StippleCanvas } from './StippleCanvas';
+export { HeatGrid, type HeatCell } from './HeatGrid';

@@ -5,7 +5,7 @@ import {
   Banner,
   Button,
   Card,
-  HeroObject,
+  HeatGrid,
   Screen,
   Spacer,
   Stack,
@@ -14,12 +14,14 @@ import {
 import {
   useActiveMode,
   useAppStore,
+  useDayStats,
   useFocusStore,
   useRunningSession,
   useSettings,
   useTodayFocusMs,
 } from '../../data';
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
+import { WEEKDAY_INITIALS, recentDayCells } from '../../features/home/recentDays';
 import { DurationSheet } from '../../features/session/DurationSheet';
 import { durationText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
@@ -32,6 +34,7 @@ export default function FocusScreen() {
   const router = useRouter();
   const now = useNow(15_000);
   const todayMs = useTodayFocusMs(now);
+  const stats = useDayStats();
   const mode = useActiveMode();
   const session = useRunningSession();
   const settings = useSettings();
@@ -80,8 +83,16 @@ export default function FocusScreen() {
       </Stack>
 
       <Spacer />
-      <Stack align="center">
-        <HeroObject />
+      <Stack align="center" gap="sm">
+        <HeatGrid
+          cells={recentDayCells(stats, now)}
+          columnLabels={WEEKDAY_INITIALS}
+          onPress={() => router.push('/(tabs)/activity')}
+          accessibilityLabel="Últimas cuatro semanas de foco. Toca para ver la actividad"
+        />
+        <Text variant="caption" tone="tertiary">
+          Últimas cuatro semanas
+        </Text>
       </Stack>
       <Spacer />
 

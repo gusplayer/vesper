@@ -43,7 +43,7 @@ export function countText(count: number, singular: string, plural: string): stri
 }
 
 /** The durations offered before a session, in ms. */
-export const PLANNED_OPTIONS_MS: ReadonlyArray<number> = [25, 50, 90, 120].map((m) => m * MINUTE);
+export const PLANNED_OPTIONS_MS: ReadonlyArray<number> = [5, 25, 50, 90, 120].map((m) => m * MINUTE);
 
 /**
  * The duration picked last time, so the long press on the focus button can start
