@@ -71,7 +71,8 @@ export function sessionEndReminder(session: Session): DateSpec {
 
 /** One weekly notice per enabled day, at the schedule's start. Nothing when it is off. */
 export function scheduleReminders(schedule: Schedule, modeName: string): WeeklySpec[] {
-  if (!schedule.enabled) {
+  // A routine you start by hand has no hour to remind about.
+  if (!schedule.enabled || schedule.startMinutes === null) {
     return [];
   }
   const hour = Math.floor(schedule.startMinutes / MINUTES_PER_HOUR);

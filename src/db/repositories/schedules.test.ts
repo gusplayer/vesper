@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Schedule } from '../../data/types';
 import { MODES_SQL } from '../migrations/002_modes_schedules';
+import { ROUTINES_SQL } from '../migrations/003_routines';
 import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
 import * as schedules from './schedules';
 
@@ -20,6 +21,7 @@ const schedule: Schedule = {
   modeId: 'mode-1',
   startMinutes: 9 * 60,
   endMinutes: null,
+  durationMs: null,
   days: [true, true, true, true, true, false, false],
   enabled: true,
 };
@@ -87,6 +89,7 @@ describe('upsert', () => {
       'mode_id',
       'start_minutes',
       'end_minutes',
+      'duration_ms',
       'days',
       'enabled',
       'created_at',
@@ -96,6 +99,7 @@ describe('upsert', () => {
       'Trabajo',
       'mode-1',
       540,
+      null,
       null,
       '[true,true,true,true,true,false,false]',
       1,
@@ -107,7 +111,7 @@ describe('upsert', () => {
   it('writes 0 for a disabled schedule', () => {
     schedules.upsert({ ...schedule, enabled: false }, T0);
 
-    expect(fake.callMatching(/INSERT INTO schedules/).params?.[6]).toBe(0);
+    expect(fake.callMatching(/INSERT INTO schedules/).params?.[7]).toBe(0);
   });
 });
 
@@ -129,7 +133,7 @@ describe('schema', () => {
 
     const { table, columns } = insertColumns(fake.callMatching(/INSERT/).sql);
     expect(table).toBe('schedules');
-    const declared = ddlColumns(MODES_SQL, table);
+    const declared = ddlColumns(MODES_SQL + ROUTINES_SQL, table);
     for (const column of columns) {
       expect(declared).toContain(column);
     }

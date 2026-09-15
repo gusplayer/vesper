@@ -55,10 +55,12 @@ export type Schedule = {
   id: string;
   name: string;
   modeId: string;
-  /** Minutes from midnight. */
-  startMinutes: number;
+  /** Minutes from midnight, or null for a routine you start by hand ("cuando quieras"). */
+  startMinutes: number | null;
   /** Null means "until you end it". */
   endMinutes: number | null;
+  /** Session length for a hand-started routine; also the cap of an open-ended window. */
+  durationMs: number | null;
   /** Monday first. */
   days: boolean[];
   enabled: boolean;
@@ -103,6 +105,8 @@ export type Settings = {
   pendingBanner: { title: string; message: string } | null;
   /** Last time Health was read, epoch ms. Null until the first sync. */
   healthSyncedAt: number | null;
+  /** The routine window the engine last started, so it never starts it twice. */
+  lastRoutineStart: { routineId: string; windowStart: number } | null;
 };
 
 export type DayStat = {

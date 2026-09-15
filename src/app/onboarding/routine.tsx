@@ -47,7 +47,7 @@ export default function RoutineScreen() {
       <ListGroup>
         <ListRow
           label="Empieza"
-          value={timeText(schedule.startMinutes)}
+          value={timeText(schedule.startMinutes ?? 0)}
           onPress={() => setEditing('start')}
         />
         <ListRow

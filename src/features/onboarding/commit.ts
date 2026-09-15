@@ -38,6 +38,7 @@ export function commitOnboarding({ withSchedule }: { withSchedule: boolean }): v
       ...(scheduleId === null ? {} : { id: scheduleId }),
       name: draft.modeName,
       modeId: mode.id,
+      durationMs: null,
       startMinutes: draft.schedule.startMinutes,
       endMinutes: draft.schedule.endMinutes,
       days: [...draft.schedule.days],

@@ -55,11 +55,16 @@ export function ddlColumns(ddl: string, table: string): string[] {
   if (body === undefined) {
     throw new Error(`no CREATE TABLE ${table} in the DDL`);
   }
-  return body
+  const created = body
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith('--') && !line.startsWith('UNIQUE'))
     .map((line) => line.split(/\s+/)[0] ?? '');
+  // Later migrations add columns with ALTER TABLE; they count too.
+  const added = [...ddl.matchAll(new RegExp(`ALTER TABLE ${table} ADD COLUMN (\\w+)`, 'g'))].map(
+    (match) => match[1] ?? '',
+  );
+  return [...created, ...added];
 }
 
 /** The table and column list of an INSERT statement. */

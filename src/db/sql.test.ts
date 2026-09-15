@@ -49,13 +49,13 @@ describe('splitStatements', () => {
     ]);
   });
 
-  it('produces only CREATE statements from the real migrations', () => {
+  it('produces only CREATE and ALTER statements from the real migrations', () => {
     for (const migration of migrations) {
       const statements = splitStatements(migration.sql);
 
       expect(statements.length).toBeGreaterThan(0);
       for (const statement of statements) {
-        expect(statement.startsWith('CREATE ')).toBe(true);
+        expect(statement.startsWith('CREATE ') || statement.startsWith('ALTER TABLE ')).toBe(true);
       }
     }
   });

@@ -138,6 +138,16 @@ function banner(value: unknown, fallback: Settings['pendingBanner']): Settings['
  * Every field is checked one by one and falls back to `defaults` on its own, so a
  * field added later, or a corrupt one, never takes the rest down with it.
  */
+function routineMark(value: unknown, fallback: Settings['lastRoutineStart']): Settings['lastRoutineStart'] {
+  if (value === null) {
+    return null;
+  }
+  if (isRecord(value) && typeof value.routineId === 'string' && typeof value.windowStart === 'number') {
+    return { routineId: value.routineId, windowStart: value.windowStart };
+  }
+  return fallback;
+}
+
 export function parseSettings(raw: unknown, defaults: Settings): Settings {
   const value = isRecord(raw) ? raw : {};
   return {
@@ -157,6 +167,7 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     weeklyTargetMs: numOrNull(value.weeklyTargetMs, defaults.weeklyTargetMs),
     pendingBanner: banner(value.pendingBanner, defaults.pendingBanner),
     healthSyncedAt: numOrNull(value.healthSyncedAt, defaults.healthSyncedAt),
+    lastRoutineStart: routineMark(value.lastRoutineStart, defaults.lastRoutineStart),
   };
 }
 

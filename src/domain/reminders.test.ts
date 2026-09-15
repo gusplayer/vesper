@@ -22,6 +22,7 @@ function aSchedule(overrides: Partial<Schedule> = {}): Schedule {
     id: 'sched-1',
     name: 'Trabajo',
     modeId: 'mode-1',
+    durationMs: null,
     startMinutes: 9 * 60 + 30,
     endMinutes: 18 * 60,
     days: [true, true, true, true, true, false, false],

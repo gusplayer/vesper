@@ -1,5 +1,6 @@
 import { INIT_SQL } from './001_init';
 import { MODES_SQL } from './002_modes_schedules';
+import { ROUTINES_SQL } from './003_routines';
 
 export type Migration = {
   /** Monotonic. Recorded in _migrations so it is applied exactly once. */
@@ -12,4 +13,5 @@ export type Migration = {
 export const migrations: Migration[] = [
   { id: 1, name: 'init', sql: INIT_SQL },
   { id: 2, name: 'modes_schedules', sql: MODES_SQL },
+  { id: 3, name: 'routines', sql: ROUTINES_SQL },
 ];

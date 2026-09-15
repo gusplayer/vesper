@@ -45,7 +45,9 @@ export function daysText(days: ReadonlyArray<boolean>): string {
 }
 
 /** The pieces of a schedule that decide when it runs. The draft on the edit page has these too. */
-export type ScheduleWindow = Pick<Schedule, 'startMinutes' | 'endMinutes' | 'days'>;
+export type ScheduleWindow = Pick<Schedule, 'startMinutes' | 'endMinutes' | 'days'> & {
+  durationMs?: number | null;
+};
 
 /**
  * The end of a window in minutes. A null end means 'until you end it', which for the
@@ -53,14 +55,24 @@ export type ScheduleWindow = Pick<Schedule, 'startMinutes' | 'endMinutes' | 'day
  * midnight, since the prototype has no overnight windows.
  */
 function endOf(window: ScheduleWindow): number {
+  if (window.startMinutes === null) {
+    return 0;
+  }
   if (window.endMinutes === null || window.endMinutes <= window.startMinutes) {
     return MINUTES_PER_DAY;
   }
   return window.endMinutes;
 }
 
-/** '9:00 – 18:00 · Entre semana', or '21:30 · dom, lun' when the schedule has no end. */
+/**
+ * '9:00 – 18:00 · Entre semana', '21:30 · dom, lun' when the schedule has no end, or
+ * 'Cuando quieras · 20 min' for a routine you start by hand.
+ */
 export function windowText(window: ScheduleWindow): string {
+  if (window.startMinutes === null) {
+    const minutes = Math.round((window.durationMs ?? 25 * 60_000) / 60_000);
+    return `Cuando quieras · ${minutes} min`;
+  }
   const range =
     window.endMinutes === null
       ? timeText(window.startMinutes)
@@ -68,8 +80,11 @@ export function windowText(window: ScheduleWindow): string {
   return `${range} · ${daysText(window.days)}`;
 }
 
-/** True when two schedules share a day and their time ranges cross. */
+/** True when two timed schedules share a day and their time ranges cross. */
 export function overlaps(a: ScheduleWindow, b: ScheduleWindow): boolean {
+  if (a.startMinutes === null || b.startMinutes === null) {
+    return false;
+  }
   const shareADay = a.days.some((flag, index) => flag && b.days[index] === true);
   if (!shareADay) {
     return false;

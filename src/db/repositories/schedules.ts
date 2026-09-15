@@ -12,6 +12,7 @@ type ScheduleRow = {
   mode_id: string;
   start_minutes: number;
   end_minutes: number | null;
+  duration_ms: number | null;
   days: string;
   enabled: number;
   created_at: number;
@@ -41,8 +42,10 @@ function toSchedule(row: ScheduleRow): Schedule {
     id: row.id,
     name: row.name,
     modeId: row.mode_id,
-    startMinutes: row.start_minutes,
+    // -1 is how the NOT NULL column spells "no time": a hand-started routine.
+    startMinutes: row.start_minutes < 0 ? null : row.start_minutes,
     endMinutes: row.end_minutes,
+    durationMs: row.duration_ms ?? null,
     days: parseDays(row.days),
     enabled: row.enabled === 1,
   };
@@ -62,21 +65,23 @@ export function list(): Schedule[] {
 export function upsert(schedule: Schedule, now: number): void {
   getDb().executeSync(
     `INSERT INTO schedules
-       (id, name, mode_id, start_minutes, end_minutes, days, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       (id, name, mode_id, start_minutes, end_minutes, duration_ms, days, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        mode_id = excluded.mode_id,
        start_minutes = excluded.start_minutes,
        end_minutes = excluded.end_minutes,
+       duration_ms = excluded.duration_ms,
        days = excluded.days,
        enabled = excluded.enabled`,
     [
       schedule.id,
       schedule.name,
       schedule.modeId,
-      schedule.startMinutes,
+      schedule.startMinutes ?? -1,
       schedule.endMinutes,
+      schedule.durationMs,
       JSON.stringify(schedule.days),
       schedule.enabled ? 1 : 0,
       now,

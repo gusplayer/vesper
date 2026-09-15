@@ -141,6 +141,7 @@ const DEFAULTS: Settings = {
   weeklyTargetMs: 54_000_000,
   pendingBanner: null,
   healthSyncedAt: null,
+  lastRoutineStart: null,
 };
 
 describe('parseSettings', () => {

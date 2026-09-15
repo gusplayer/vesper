@@ -149,6 +149,7 @@ export const SCHEDULES: Schedule[] = [
     modeId: 'mode-deep-work',
     startMinutes: 9 * 60,
     endMinutes: 18 * 60,
+    durationMs: null,
     days: [true, true, true, true, true, false, false],
     enabled: true,
   },
@@ -158,7 +159,18 @@ export const SCHEDULES: Schedule[] = [
     modeId: 'mode-no-socials',
     startMinutes: 21 * 60 + 30,
     endMinutes: null,
+    durationMs: null,
     days: [true, true, true, true, false, false, true],
+    enabled: true,
+  },
+  {
+    id: 'schedule-walk',
+    name: 'Caminar',
+    modeId: 'mode-no-socials',
+    startMinutes: null,
+    endMinutes: null,
+    durationMs: 20 * MINUTE,
+    days: [false, false, false, false, false, false, false],
     enabled: true,
   },
 ];
@@ -180,6 +192,7 @@ export const SETTINGS: Settings = {
   weeklyTargetMs: 15 * HOUR,
   pendingBanner: null,
   healthSyncedAt: null,
+  lastRoutineStart: null,
 };
 
 export const HABITS: Habit[] = [

@@ -76,6 +76,7 @@ export default function ScheduleEditScreen() {
       name: name.trim(),
       modeId,
       startMinutes,
+      durationMs: null,
       endMinutes,
       days,
       enabled: existing?.enabled ?? true,
