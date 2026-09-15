@@ -23,7 +23,7 @@ const TOOLTIP_MS = 2500;
 const RUNNING_MESSAGE = 'No se pueden agregar rutinas durante una sesión activa';
 
 /** The line that names the mode on a card. A deleted mode says so instead of hiding. */
-const MISSING_MODE_LINE = 'Modo eliminado · apagado';
+const MISSING_MODE_LINE = 'Modo eliminado';
 
 /**
  * The Rutinas tab: one card per schedule with its toggle, and a plus in the header
@@ -67,7 +67,7 @@ export default function SchedulesScreen() {
   };
 
   const windowLine = (schedule: Schedule): string =>
-    schedule.enabled ? windowText(schedule) : `${windowText(schedule)} · apagado`;
+    windowText(schedule);
 
   return (
     <Screen scroll inTabs>
