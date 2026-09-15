@@ -1,7 +1,6 @@
-import { close as closeSession, elapsed } from '../../domain/session';
+import { expire } from '../../domain/session';
 import type { Session, SessionOutcome } from '../../domain/types';
-import { uuidv7 } from '../../lib/uuid';
-import { getDb } from '../client';
+import { getDb, rowsAs } from '../client';
 
 type SessionRow = {
   id: string;
@@ -33,14 +32,6 @@ function toSession(row: SessionRow): Session {
     startedAt: row.started_at,
     endedAt: row.ended_at,
   };
-}
-
-function rows(result: { rows: Array<Record<string, unknown>> }): SessionRow[] {
-  return result.rows as unknown as SessionRow[];
-}
-
-export function newId(now: number): string {
-  return uuidv7(now);
 }
 
 export function insert(session: Session): void {
@@ -84,12 +75,14 @@ export function update(session: Session): void {
 
 /** At most one exists at a time — invariant 1. */
 export function findRunning(): Session | null {
-  const row = rows(getDb().executeSync("SELECT * FROM sessions WHERE outcome = 'running' LIMIT 1"))[0];
+  const row = rowsAs<SessionRow>(
+    getDb().executeSync("SELECT * FROM sessions WHERE outcome = 'running' LIMIT 1"),
+  )[0];
   return row === undefined ? null : toSession(row);
 }
 
 export function listBetween(from: number, to: number): Session[] {
-  return rows(
+  return rowsAs<SessionRow>(
     getDb().executeSync(
       'SELECT * FROM sessions WHERE started_at >= ? AND started_at < ? ORDER BY started_at',
       [from, to],
@@ -115,7 +108,7 @@ export function listBetween(from: number, to: number): Session[] {
  * Returns how many were recovered, so the caller can log it during development.
  */
 export function recoverOrphans(now: number): number {
-  const orphans = rows(
+  const orphans = rowsAs<SessionRow>(
     getDb().executeSync(
       "SELECT * FROM sessions WHERE outcome = 'running' AND started_at + planned_ms <= ?",
       [now],
@@ -123,14 +116,8 @@ export function recoverOrphans(now: number): number {
   );
 
   for (const row of orphans) {
-    const session = toSession(row);
-    update(closeSession(session, session.startedAt + session.plannedMs, 'expired'));
+    update(expire(toSession(row)));
   }
 
   return orphans.length;
-}
-
-/** Time served today by a session, whether it is closed or still running. */
-export function servedMs(session: Session, now: number): number {
-  return session.outcome === 'running' ? elapsed(session, now) : session.actualMs;
 }

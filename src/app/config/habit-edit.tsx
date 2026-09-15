@@ -1,18 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 
+import { DEFAULT_HABIT_TARGET, HABIT_TARGET_OPTIONS } from '../../domain/habits';
 import * as habitsRepo from '../../db/repositories/habits';
 import { Caption } from '../../design/components/Caption';
-import { ChipRow } from '../../design/components/ChipRow';
-import { Chip } from '../../design/components/Chip';
 import { Label } from '../../design/components/Label';
+import { OptionChips } from '../../design/components/OptionChips';
 import { PrimaryAction } from '../../design/components/PrimaryAction';
 import { Screen } from '../../design/components/Screen';
 import { ScreenHeader } from '../../design/components/ScreenHeader';
 import { TextAction } from '../../design/components/TextAction';
 import { TextField } from '../../design/components/TextField';
-
-const TARGETS = [2, 4, 6];
+import { emptyToNull } from '../../lib/text';
 
 /**
  * Editing and archiving a habit. Reached by holding a habit row in the day ledger,
@@ -24,13 +23,14 @@ const TARGETS = [2, 4, 6];
 export default function HabitEditScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
-  const habit = habitsRepo.listActive().find((candidate) => candidate.id === params.id) ?? null;
+  // Read once: the row cannot change while this screen is open.
+  const [habit] = useState(() => (params.id === undefined ? null : habitsRepo.findById(params.id)));
 
   const [name, setName] = useState(habit?.name ?? '');
-  const [target, setTarget] = useState(habit?.weeklyTarget ?? 4);
+  const [target, setTarget] = useState<number>(habit?.weeklyTarget ?? DEFAULT_HABIT_TARGET);
   const [confirmingArchive, setConfirmingArchive] = useState(false);
 
-  if (habit === null) {
+  if (habit === null || habit.archivedAt !== null) {
     return (
       <Screen>
         <ScreenHeader left="hábito" right="volver" onPressRight={() => router.back()} />
@@ -40,9 +40,13 @@ export default function HabitEditScreen() {
   }
 
   const { id } = habit;
+  const trimmed = emptyToNull(name);
 
   function save(): void {
-    habitsRepo.rename(id, name.trim());
+    if (trimmed === null) {
+      return;
+    }
+    habitsRepo.rename(id, trimmed);
     habitsRepo.setWeeklyTarget(id, target);
     router.back();
   }
@@ -60,18 +64,13 @@ export default function HabitEditScreen() {
       />
 
       <Label>veces por semana</Label>
-      <ChipRow>
-        {TARGETS.map((option) => (
-          <Chip
-            key={option}
-            label={String(option)}
-            selected={target === option}
-            onPress={() => setTarget(option)}
-          />
-        ))}
-      </ChipRow>
+      <OptionChips
+        options={HABIT_TARGET_OPTIONS.map((option) => ({ value: option }))}
+        selected={target}
+        onSelect={setTarget}
+      />
 
-      <PrimaryAction label="guardar" onPress={save} disabled={name.trim().length === 0} />
+      <PrimaryAction label="guardar" onPress={save} disabled={trimmed === null} />
 
       {confirmingArchive ? (
         <TextAction

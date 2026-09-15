@@ -25,7 +25,6 @@ function done(id: string, activityId: string, ms: number, startedAt: number): Se
     activityId,
     plannedMs: ms,
     depth: 'soft',
-    intention: null,
     blockProfile: null,
   };
   return {
@@ -84,19 +83,19 @@ describe('declared rows', () => {
     );
 
     const declared = ledger.rows.filter((row) => row.provenance === 'declared');
-    expect(declared.map((row) => row.key)).toEqual(['trabajo', 'lectura']);
+    expect(declared.map((row) => row.key)).toEqual(['activity:trabajo', 'activity:lectura']);
     expect(declared[0]?.ms).toBe(2 * HOUR);
   });
 
   it('counts a running session by what it has served so far', () => {
     const running = createSession(
       's-run',
-      { activityId: 'a-work', plannedMs: 2 * HOUR, depth: 'soft', intention: null, blockProfile: null },
+      { activityId: 'a-work', plannedMs: 2 * HOUR, depth: 'soft', blockProfile: null },
       DAY_START,
     );
     const ledger = buildLedger(input({ sessions: [running], now: DAY_START + HOUR }));
 
-    expect(rowMs(ledger, 'trabajo')).toBe(HOUR);
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
   });
 
   it('credits only what a session served, not the wall clock until it was closed', () => {
@@ -107,13 +106,13 @@ describe('declared rows', () => {
     };
     const ledger = buildLedger(input({ sessions: [session] }));
 
-    expect(rowMs(ledger, 'trabajo')).toBe(HOUR);
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
   });
 
   it('leaves out activities with no time today', () => {
     const ledger = buildLedger(input({ sessions: [done('s-1', 'a-work', HOUR, DAY_START)] }));
 
-    expect(ledger.rows.some((row) => row.key === 'lectura')).toBe(false);
+    expect(ledger.rows.some((row) => row.key === 'activity:lectura')).toBe(false);
   });
 });
 
@@ -131,7 +130,7 @@ describe('verified rows', () => {
     const sleep = sample('h-2', 'sleep', DAY_START - 3 * HOUR, DAY_START + 5 * HOUR);
     const ledger = buildLedger(input({ healthSamples: [sleep] }));
 
-    expect(rowMs(ledger, 'sleep')).toBe(5 * HOUR);
+    expect(rowMs(ledger, 'health:sleep')).toBe(5 * HOUR);
   });
 
   it('counts two overlapping samples of the same type once', () => {
@@ -144,7 +143,7 @@ describe('verified rows', () => {
       }),
     );
 
-    expect(rowMs(ledger, 'workout')).toBe(3 * HOUR);
+    expect(rowMs(ledger, 'health:workout')).toBe(3 * HOUR);
   });
 
   it('never counts a sample that lies entirely outside the day', () => {
@@ -186,8 +185,8 @@ describe('sin registrar', () => {
     // The overlapping half hour is inside the session, so the day is covered by 2h.
     expect(rowMs(ledger, 'unknown')).toBe(6 * HOUR);
     // And each row still reports its own real total.
-    expect(rowMs(ledger, 'trabajo')).toBe(2 * HOUR);
-    expect(rowMs(ledger, 'workout')).toBe(30 * 60_000);
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(2 * HOUR);
+    expect(rowMs(ledger, 'health:workout')).toBe(30 * 60_000);
   });
 
   it('subtracts verified sleep, so documented hours are not called unregistered', () => {
@@ -238,7 +237,7 @@ describe('the 6h declared cap', () => {
 
     expect(ledger.declaredCapped).toBe(true);
     expect(ledger.declaredMs).toBe(8 * HOUR);
-    expect(rowMs(ledger, 'lectura')).toBe(8 * HOUR);
+    expect(rowMs(ledger, 'activity:lectura')).toBe(8 * HOUR);
   });
 
   it('no longer shrinks the residual, which is now a partition — see ADR-0010', () => {

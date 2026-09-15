@@ -1,11 +1,13 @@
 import type { Activity } from '../../domain/types';
-import { getDb } from '../client';
+import { getDb, rowsAs } from '../client';
 import { uuidv7 } from '../../lib/uuid';
 
 /**
  * Activities are the chips in session config and the grouping key of the ledger.
- * Keys are stable slugs so a future i18n pass can translate labels without touching
- * stored rows.
+ *
+ * Default activities have stable slug keys so a future i18n pass can translate their
+ * labels without touching stored rows. User-created ones use the label itself as key
+ * (see domain/activities.ts): they are the user's own words and have no translation.
  */
 
 const DEFAULT_ACTIVITIES: ReadonlyArray<{ key: string; label: string }> = [
@@ -38,15 +40,22 @@ function toActivity(row: ActivityRow): Activity {
 }
 
 export function listActive(): Activity[] {
-  const result = getDb().executeSync(
-    'SELECT * FROM activities WHERE archived_at IS NULL ORDER BY created_at',
-  );
-  return (result.rows as unknown as ActivityRow[]).map(toActivity);
+  return rowsAs<ActivityRow>(
+    getDb().executeSync('SELECT * FROM activities WHERE archived_at IS NULL ORDER BY created_at'),
+  ).map(toActivity);
+}
+
+export function findById(id: string): Activity | null {
+  const row = rowsAs<ActivityRow>(
+    getDb().executeSync('SELECT * FROM activities WHERE id = ?', [id]),
+  )[0];
+  return row === undefined ? null : toActivity(row);
 }
 
 export function findByKey(key: string): Activity | null {
-  const result = getDb().executeSync('SELECT * FROM activities WHERE key = ?', [key]);
-  const row = (result.rows as unknown as ActivityRow[])[0];
+  const row = rowsAs<ActivityRow>(
+    getDb().executeSync('SELECT * FROM activities WHERE key = ?', [key]),
+  )[0];
   return row === undefined ? null : toActivity(row);
 }
 

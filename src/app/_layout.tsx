@@ -26,20 +26,16 @@ export default function RootLayout() {
   // is the product, and a red box is not an answer we can give a user.
   const [boot] = useState<BootResult | Error>(() => {
     try {
-      return bootDatabase(Date.now());
+      const result = bootDatabase(Date.now());
+      // Hydrate in the same breath, after orphan recovery: anything still `running` is
+      // a session the user legitimately left open. Doing it in an effect would render
+      // the home screen once with `empezar` before it corrected itself to `seguir`.
+      useSessionStore.getState().hydrate();
+      return result;
     } catch (caught) {
       return caught instanceof Error ? caught : new Error(String(caught));
     }
   });
-  const hydrate = useSessionStore((state) => state.hydrate);
-
-  // Runs after orphan recovery, so anything still `running` is a session the user
-  // legitimately left open by backgrounding the app.
-  useEffect(() => {
-    if (!(boot instanceof Error)) {
-      hydrate();
-    }
-  }, [hydrate, boot]);
 
   useEffect(() => {
     if (__DEV__ && !(boot instanceof Error)) {

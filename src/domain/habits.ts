@@ -1,4 +1,4 @@
-import type { DayKey, Habit, HabitMark } from './types';
+import type { DayKey, Habit, HabitMark, HealthType } from './types';
 
 /**
  * Weekly habit progress. Counts, not time — a habit goal is "4 times this week", and
@@ -6,6 +6,25 @@ import type { DayKey, Habit, HabitMark } from './types';
  *
  * Pure. Give it the habits and the marks of the week.
  */
+
+/** Offered weekly targets. No custom value in phase 1 — docs/SPRINT_01.md. */
+export const HABIT_TARGET_OPTIONS = [2, 4, 6] as const;
+export const DEFAULT_HABIT_TARGET = 4;
+
+/**
+ * Names that map to a health type. Unlocks the verified count mode, which is what
+ * ADR-0005 calls the right moment to ask for the health permission — not the
+ * onboarding. First hint wins.
+ */
+export const HEALTH_HINTS: ReadonlyArray<{ pattern: RegExp; type: HealthType }> = [
+  { pattern: /gym|entrena|pesas|ejercicio|correr|bici/i, type: 'workout' },
+  { pattern: /camin|pasos|andar/i, type: 'steps' },
+  { pattern: /dormir|sueño|sueno/i, type: 'sleep' },
+];
+
+export function healthTypeFor(name: string): HealthType | null {
+  return HEALTH_HINTS.find((hint) => hint.pattern.test(name))?.type ?? null;
+}
 
 export type HabitProgress = {
   habit: Habit;
@@ -21,7 +40,7 @@ export type HabitProgress = {
  * Distinct days, not marks: a day with both a health sample and a manual tap counts
  * once. Without that, a synced habit would race past its target.
  */
-function markedDaysOf(marks: HabitMark[], habitId: string): number {
+function markedDaysOf(marks: ReadonlyArray<HabitMark>, habitId: string): number {
   const days = new Set<DayKey>();
   for (const mark of marks) {
     if (mark.habitId === habitId) {
@@ -31,13 +50,17 @@ function markedDaysOf(marks: HabitMark[], habitId: string): number {
   return days.size;
 }
 
-export function isMarkedOn(marks: HabitMark[], habitId: string, dayKey: DayKey): boolean {
+export function isMarkedOn(
+  marks: ReadonlyArray<HabitMark>,
+  habitId: string,
+  dayKey: DayKey,
+): boolean {
   return marks.some((mark) => mark.habitId === habitId && mark.dayKey === dayKey);
 }
 
 export function weeklyProgress(
-  habits: Habit[],
-  weekMarks: HabitMark[],
+  habits: ReadonlyArray<Habit>,
+  weekMarks: ReadonlyArray<HabitMark>,
   todayKey: DayKey,
 ): HabitProgress[] {
   return habits.map((habit) => {

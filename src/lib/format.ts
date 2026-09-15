@@ -1,11 +1,12 @@
+import type { HabitProgress } from '../domain/habits';
+import { HOUR, MINUTE, SECOND } from '../domain/time';
+import { hasTarget, type WeekProgress } from '../domain/week';
+
 /**
  * Presentation-only formatting. Lives outside domain/ because how a number reads is a
- * UI decision, not a rule of the product.
+ * UI decision, not a rule of the product. Spanish, lowercase, like everything the
+ * user sees.
  */
-
-const SECOND = 1000;
-const MINUTE = 60 * SECOND;
-const HOUR = 60 * MINUTE;
 
 /** 'mm:ss', or 'h:mm:ss' past an hour. Used by the session clock. */
 export function timerText(ms: number): string {
@@ -54,4 +55,45 @@ export function dayText(now: number): string {
   return new Date(now)
     .toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
     .toLowerCase();
+}
+
+/** '4h de 10h'. The progress of a week against its goal. */
+export function focusOfTargetText(week: WeekProgress): string {
+  return hasTarget(week.targetMs)
+    ? `${durationText(week.focusMs)} de ${durationText(week.targetMs)}`
+    : durationText(week.focusMs);
+}
+
+/**
+ * The header line for the weekly goal. Without a target it reports the total and says
+ * nothing about progress: the app does not invent a number to measure you against.
+ * On Sunday it stops counting down and invites the closing — ADR-0013.
+ */
+export function weekSummaryText(week: WeekProgress, closingDay: boolean): string {
+  if (closingDay) {
+    return 'cerrar la semana';
+  }
+  if (!hasTarget(week.targetMs)) {
+    return `${durationText(week.focusMs)} esta semana`;
+  }
+  if (week.met) {
+    return `meta hecha · ${durationText(week.focusMs)}`;
+  }
+  return `${focusOfTargetText(week)} · ${week.daysLeft}d`;
+}
+
+/** What the Sunday closing says under the numbers. */
+export function weekClosingText(week: WeekProgress): string {
+  if (!hasTarget(week.targetMs)) {
+    return 'no había meta esta semana. poné una para la que empieza mañana';
+  }
+  if (week.met) {
+    return 'meta cumplida. la semana que empieza mañana arranca en cero';
+  }
+  return 'la semana que empieza mañana arranca en cero. sin rachas que perder';
+}
+
+/** 'hecho', or '2 de 4'. Done is a word, never a color. */
+export function habitProgressText(progress: HabitProgress): string {
+  return progress.met ? 'hecho' : `${progress.markedDays} de ${progress.habit.weeklyTarget}`;
 }

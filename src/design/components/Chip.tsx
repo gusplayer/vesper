@@ -10,7 +10,8 @@ type ChipProps = {
 
 /**
  * Selectable option. Selection is a 1px ink border and ink text; unselected is a
- * 0.5px ink30 border and ink60 text. No filled backgrounds anywhere.
+ * 0.5px ink30 border and ink60 text. The only fill is the pressed inversion, and it
+ * is gone the moment the finger lifts — ADR-0011.
  */
 export function Chip({ label, selected, onPress }: ChipProps) {
   return (

@@ -9,13 +9,11 @@ const HOUR = 3_600_000;
 function done(ms: number): Session {
   const session = createSession(
     's',
-    { activityId: 'a', plannedMs: ms, depth: 'soft', intention: null, blockProfile: null },
+    { activityId: 'a', plannedMs: ms, depth: 'soft', blockProfile: null },
     0,
   );
   return { ...session, outcome: 'completed', actualMs: ms, endedAt: ms };
 }
-
-const served = (session: Session): number => session.actualMs;
 
 describe('daysLeftInWeek', () => {
   it('is 7 on Monday and 1 on Sunday', () => {
@@ -42,31 +40,27 @@ describe('isClosingDay', () => {
 
 describe('weekProgress', () => {
   it('adds up the focus time served', () => {
-    const progress = weekProgress([done(HOUR), done(2 * HOUR)], served, null, 0);
+    const progress = weekProgress([done(HOUR), done(2 * HOUR)], null, 0);
 
     expect(progress.focusMs).toBe(3 * HOUR);
   });
 
-  it('has no ratio and is never met without a target', () => {
-    const progress = weekProgress([done(HOUR)], served, null, 0);
+  it('is never met without a target', () => {
+    const progress = weekProgress([done(HOUR)], null, 0);
 
-    expect(progress.ratio).toBeNull();
+    expect(progress.targetMs).toBeNull();
     expect(progress.met).toBe(false);
   });
 
   it('is met at the target, not before', () => {
-    expect(weekProgress([done(9 * HOUR)], served, 10 * HOUR, 0).met).toBe(false);
-    expect(weekProgress([done(10 * HOUR)], served, 10 * HOUR, 0).met).toBe(true);
+    expect(weekProgress([done(9 * HOUR)], 10 * HOUR, 0).met).toBe(false);
+    expect(weekProgress([done(10 * HOUR)], 10 * HOUR, 0).met).toBe(true);
   });
 
-  it('clamps the ratio at 1 so a good week does not overflow the bar', () => {
-    expect(weekProgress([done(30 * HOUR)], served, 10 * HOUR, 0).ratio).toBe(1);
-  });
+  it('treats a zero target as no target', () => {
+    const progress = weekProgress([done(HOUR)], 0, 0);
 
-  it('treats a zero target as no target instead of dividing by it', () => {
-    const progress = weekProgress([done(HOUR)], served, 0, 0);
-
-    expect(progress.ratio).toBeNull();
+    expect(progress.targetMs).toBeNull();
     expect(progress.met).toBe(false);
   });
 });

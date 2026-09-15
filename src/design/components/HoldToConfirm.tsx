@@ -30,7 +30,8 @@ type HoldToConfirmProps = {
  * would be decoration.
  */
 export function HoldToConfirm({ label, onConfirm, holdMs, enabled = true }: HoldToConfirmProps) {
-  const progress = useRef(new Animated.Value(0)).current;
+  // Lazy: `useRef(new Animated.Value())` would allocate a value on every render.
+  const [progress] = useState(() => new Animated.Value(0));
   const animation = useRef<Animated.CompositeAnimation | null>(null);
   const [screenReader, setScreenReader] = useState(false);
 

@@ -18,7 +18,6 @@ const config: SessionConfig = {
   activityId: 'act-1',
   plannedMs: 25 * MINUTE,
   depth: 'soft',
-  intention: 'terminar el esquema',
   blockProfile: null,
 };
 

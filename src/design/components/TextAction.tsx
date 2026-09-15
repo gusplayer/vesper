@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { color, font, rule } from '../tokens';
+import { color, font, layout, rule } from '../tokens';
 
 type TextActionProps = {
   label: string;
@@ -26,7 +26,7 @@ export function TextAction({ label, onPress, size = 'label', accessibilityLabel 
       // hitSlop rather than a minimum height: this often sits in a header row, and
       // growing the box there pushed the thick rule away from the title. The touch
       // area reaches the 44pt of ADR-0011 without the layout knowing.
-      hitSlop={{ top: 16, bottom: 16, left: 8, right: 8 }}
+      hitSlop={layout.textHitSlop}
     >
       {({ pressed }) => (
         <View>

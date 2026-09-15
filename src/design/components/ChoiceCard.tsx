@@ -7,19 +7,31 @@ type ChoiceCardProps = {
   description: string;
   selected: boolean;
   onPress: () => void;
+  /**
+   * An option that cannot be chosen right now. It keeps its place and its sentence
+   * (the sentence says why), but does not invert or respond.
+   */
+  disabled?: boolean;
 };
 
 /** An option that needs a sentence to be understood: depth levels, habit types. */
-export function ChoiceCard({ title, description, selected, onPress }: ChoiceCardProps) {
+export function ChoiceCard({
+  title,
+  description,
+  selected,
+  onPress,
+  disabled = false,
+}: ChoiceCardProps) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
       style={({ pressed }) => [
         styles.card,
         selected ? styles.selected : styles.unselected,
-        pressed ? styles.pressed : null,
+        pressed && !disabled ? styles.pressed : null,
       ]}
     >
       {({ pressed }) => (
@@ -28,12 +40,12 @@ export function ChoiceCard({ title, description, selected, onPress }: ChoiceCard
             style={[
               styles.title,
               selected ? styles.inkText : styles.mutedText,
-              pressed ? styles.paperText : null,
+              pressed && !disabled ? styles.paperText : null,
             ]}
           >
             {title}
           </Text>
-          <Text style={[styles.description, pressed ? styles.paperText : null]}>
+          <Text style={[styles.description, pressed && !disabled ? styles.paperText : null]}>
             {description}
           </Text>
         </>

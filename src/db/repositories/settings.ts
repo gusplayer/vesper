@@ -11,7 +11,6 @@ export const SETTING_KEYS = {
   lastSessionConfig: 'last_session_config',
   birthDate: 'birth_date',
   lifeExpectancyYears: 'life_expectancy_years',
-  lifeScreenEnabled: 'life_screen_enabled',
   weeklyFocusTargetMs: 'weekly_focus_target_ms',
   onboardingCompletedAt: 'onboarding_completed_at',
 } as const;
@@ -45,12 +44,17 @@ export function setNumber(key: string, value: number, now: number): void {
   set(key, String(value), now);
 }
 
-export function getBoolean(key: string): boolean {
-  return get(key) === 'true';
+/**
+ * The weekly goal, or null when there is none. Stored as 0 for "none" because the
+ * table holds text and a missing row and an explicit choice should read the same.
+ */
+export function getWeeklyTargetMs(): number | null {
+  const stored = getNumber(SETTING_KEYS.weeklyFocusTargetMs);
+  return stored === null || stored <= 0 ? null : stored;
 }
 
-export function setBoolean(key: string, value: boolean, now: number): void {
-  set(key, value ? 'true' : 'false', now);
+export function setWeeklyTargetMs(targetMs: number | null, now: number): void {
+  setNumber(SETTING_KEYS.weeklyFocusTargetMs, targetMs ?? 0, now);
 }
 
 /**

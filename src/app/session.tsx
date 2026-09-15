@@ -1,14 +1,22 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { AppState, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { dayBounds } from '../domain/day';
-import { FIRM_WAIT_MS, HOLD_MS, canGiveUp, elapsed, isDue, remaining } from '../domain/session';
+import {
+  FIRM_WAIT_MS,
+  HOLD_MS,
+  canGiveUp,
+  isDue,
+  remaining,
+  sessionProgress,
+} from '../domain/session';
 import type { Session } from '../domain/types';
 import * as activitiesRepo from '../db/repositories/activities';
 import * as sessionsRepo from '../db/repositories/sessions';
 import { Body } from '../design/components/Body';
 import { Caption } from '../design/components/Caption';
+import { FieldGroup } from '../design/components/FieldGroup';
 import { HoldToConfirm } from '../design/components/HoldToConfirm';
 import { Label } from '../design/components/Label';
 import { ProgressRule } from '../design/components/ProgressRule';
@@ -18,14 +26,10 @@ import { TextAction } from '../design/components/TextAction';
 import { TextField } from '../design/components/TextField';
 import { Timer } from '../design/components/Timer';
 import { timerText } from '../lib/format';
+import { GIVE_UP_LABEL } from '../lib/labels';
+import { emptyToNull } from '../lib/text';
 import { useNow } from '../lib/useNow';
 import { useSessionStore } from '../store/session';
-
-const GIVE_UP_LABEL: Record<'soft' | 'firm' | 'deep', string> = {
-  soft: 'mantén pulsado para terminar',
-  firm: 'mantén pulsado para terminar',
-  deep: 'profundo · solo el timer termina',
-};
 
 /**
  * The active session. A route and not a pager page, so no swipe can abandon it —
@@ -53,6 +57,15 @@ export default function SessionScreen() {
   const [exitReason, setExitReason] = useState('');
   /** The completed session, kept here after the store has let go of it. */
   const [closed, setClosed] = useState<Session | null>(null);
+  /** Guards `router.back()`: effects keep running for a tick after it, and once is enough. */
+  const left = useRef(false);
+
+  function leave(): void {
+    if (!left.current) {
+      left.current = true;
+      router.back();
+    }
+  }
 
   // Leaving the app counts as an interruption in firm and deep. It never cancels.
   useEffect(() => {
@@ -75,43 +88,31 @@ export default function SessionScreen() {
   // The firm wait elapsed: the user gets to leave, with whatever they wrote.
   useEffect(() => {
     if (exitStartedAt !== null && now - exitStartedAt >= FIRM_WAIT_MS) {
-      finish('cancelled', now, exitReason.trim() === '' ? null : exitReason.trim());
-      router.back();
+      finish('cancelled', now, emptyToNull(exitReason));
+      leave();
     }
-  }, [exitStartedAt, now, exitReason, finish, router]);
+    // `leave` is stable by construction: it only touches a ref and the router.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exitStartedAt, now, exitReason, finish]);
 
-  const { dayStart, dayEnd } = dayBounds(now);
-  const ordinal = sessionsRepo.listBetween(dayStart, dayEnd).length;
   const shown = closed ?? session;
-  const activityLabel =
-    activitiesRepo.listActive().find((activity) => activity.id === shown?.activityId)?.label ?? '';
 
-  if (closed !== null) {
+  // Two reads that do not change during a session, and the route renders every second.
+  const { ordinal, activityLabel } = useMemo(() => {
+    const { dayStart, dayEnd } = dayBounds(now);
+    return {
+      ordinal: sessionsRepo.listBetween(dayStart, dayEnd).length,
+      activityLabel:
+        shown === null ? '' : (activitiesRepo.findById(shown.activityId)?.label ?? ''),
+    };
+    // Only the identity of the session matters, not the tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown?.id]);
+
+  if (shown === null) {
     return (
       <Screen>
-        <ScreenHeader left={activityLabel} right={`sesión ${ordinal} de hoy`} />
-
-        <Timer value={timerText(closed.actualMs)} />
-        <ProgressRule progress={1} />
-
-        {closed.intention === null ? (
-          <Caption>sin intención escrita</Caption>
-        ) : (
-          <Body>{closed.intention}</Body>
-        )}
-
-        <TextAction label="volver" onPress={() => router.back()} />
-        {closed.interruptions === 0 ? null : (
-          <Caption>{`${closed.interruptions} interrupción(es)`}</Caption>
-        )}
-      </Screen>
-    );
-  }
-
-  if (session === null) {
-    return (
-      <Screen>
-        <ScreenHeader left="sesión" right="volver" onPressRight={() => router.back()} />
+        <ScreenHeader left="sesión" right="volver" onPressRight={leave} />
         <Caption>no hay ninguna sesión corriendo</Caption>
       </Screen>
     );
@@ -126,7 +127,7 @@ export default function SessionScreen() {
       return;
     }
     finish('cancelled', Date.now());
-    router.back();
+    leave();
   }
 
   const waitLeft =
@@ -136,19 +137,38 @@ export default function SessionScreen() {
     <Screen>
       <ScreenHeader left={activityLabel} right={`sesión ${ordinal} de hoy`} />
 
-      <Timer value={timerText(remaining(session, now))} />
-      <ProgressRule progress={elapsed(session, now) / session.plannedMs} />
+      <Timer
+        value={closed !== null ? timerText(closed.actualMs) : timerText(remaining(shown, now))}
+      />
+      <ProgressRule progress={closed !== null ? 1 : sessionProgress(shown, now)} />
 
-      {exitStartedAt === null ? (
-        <TextField
-          value={intentionDraft}
-          onChangeText={setIntentionDraft}
-          onEndEditing={() => setIntention(intentionDraft)}
-          placeholder="intención"
-          accessibilityLabel="intención de esta sesión"
-        />
+      {closed !== null ? (
+        <>
+          {closed.intention === null ? (
+            <Caption>sin intención escrita</Caption>
+          ) : (
+            <Body>{closed.intention}</Body>
+          )}
+          <TextAction label="volver" onPress={leave} />
+        </>
+      ) : exitStartedAt === null ? (
+        <>
+          <TextField
+            value={intentionDraft}
+            onChangeText={setIntentionDraft}
+            onEndEditing={() => setIntention(intentionDraft)}
+            placeholder="intención"
+            accessibilityLabel="intención de esta sesión"
+          />
+          <HoldToConfirm
+            label={GIVE_UP_LABEL[shown.depth]}
+            holdMs={HOLD_MS}
+            enabled={canGiveUp(shown.depth)}
+            onConfirm={onHoldConfirmed}
+          />
+        </>
       ) : (
-        <View>
+        <FieldGroup>
           <Label>¿por qué?</Label>
           <TextField
             value={exitReason}
@@ -162,17 +182,11 @@ export default function SessionScreen() {
             onPress={() => setExitStartedAt(null)}
             accessibilityLabel="seguir en la sesión"
           />
-        </View>
+        </FieldGroup>
       )}
 
-      <HoldToConfirm
-        label={GIVE_UP_LABEL[session.depth]}
-        holdMs={HOLD_MS}
-        enabled={canGiveUp(session.depth) && exitStartedAt === null}
-        onConfirm={onHoldConfirmed}
-      />
-      {session.interruptions === 0 ? null : (
-        <Caption>{`${session.interruptions} interrupción(es)`}</Caption>
+      {shown.interruptions === 0 ? null : (
+        <Caption>{`${shown.interruptions} interrupción(es)`}</Caption>
       )}
     </Screen>
   );

@@ -56,4 +56,8 @@ export const layout = {
   pageMargin: 16,
   /** Minimum tappable height for anything that responds — ADR-0011. */
   touchTarget: 44,
+  /** Reaches the touch target around tappable text without growing its box. */
+  textHitSlop: { top: 16, bottom: 16, left: 8, right: 8 },
+  /** Between the squares of the week grid. */
+  gridGap: 1,
 } as const;

@@ -7,9 +7,15 @@ import {
   type HealthType,
   type MarkSource,
 } from '../../domain/types';
+import { activityKeyOf } from '../../domain/activities';
 import { uuidv7 } from '../../lib/uuid';
-import { getDb } from '../client';
+import { getDb, rowsAs } from '../client';
 import { findByKey } from './activities';
+
+/**
+ * Habits and their marks. Two tables, one repository: a mark has no meaning without
+ * its habit, and the week is read as a unit.
+ */
 
 type HabitRow = {
   id: string;
@@ -36,10 +42,14 @@ function toHabit(row: HabitRow): Habit {
 }
 
 export function listActive(): Habit[] {
-  const result = getDb().executeSync(
-    'SELECT * FROM habits WHERE archived_at IS NULL ORDER BY created_at',
-  );
-  return (result.rows as unknown as HabitRow[]).map(toHabit);
+  return rowsAs<HabitRow>(
+    getDb().executeSync('SELECT * FROM habits WHERE archived_at IS NULL ORDER BY created_at'),
+  ).map(toHabit);
+}
+
+export function findById(id: string): Habit | null {
+  const row = rowsAs<HabitRow>(getDb().executeSync('SELECT * FROM habits WHERE id = ?', [id]))[0];
+  return row === undefined ? null : toHabit(row);
 }
 
 export function countActive(): number {
@@ -80,7 +90,7 @@ export function insert(habit: NewHabit, now: number): Habit {
   const created: Habit = {
     id: uuidv7(now),
     name,
-    activityId: findByKey(name.toLowerCase())?.id ?? null,
+    activityId: findByKey(activityKeyOf(name))?.id ?? null,
     weeklyTarget: habit.weeklyTarget,
     countMode: habit.countMode,
     healthType: habit.healthType,
@@ -114,7 +124,7 @@ export function rename(habitId: string, name: string): void {
   // Re-links the activity: renaming 'leer' to 'gym' should follow the name.
   getDb().executeSync('UPDATE habits SET name = ?, activity_id = ? WHERE id = ?', [
     trimmed,
-    findByKey(trimmed.toLowerCase())?.id ?? null,
+    findByKey(activityKeyOf(trimmed))?.id ?? null,
     habitId,
   ]);
 }
@@ -193,9 +203,10 @@ export function unmarkManual(habitId: string, dayKey: DayKey): void {
 }
 
 export function listMarksBetween(fromDayKey: DayKey, toDayKey: DayKey): HabitMark[] {
-  const result = getDb().executeSync(
-    'SELECT * FROM habit_marks WHERE day_key >= ? AND day_key <= ? ORDER BY day_key',
-    [fromDayKey, toDayKey],
-  );
-  return (result.rows as unknown as MarkRow[]).map(toMark);
+  return rowsAs<MarkRow>(
+    getDb().executeSync(
+      'SELECT * FROM habit_marks WHERE day_key >= ? AND day_key <= ? ORDER BY day_key',
+      [fromDayKey, toDayKey],
+    ),
+  ).map(toMark);
 }

@@ -1,28 +1,31 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
 
-import type { SessionConfig } from '../../domain/session';
-import type { Depth } from '../../domain/types';
+import { activityKeyOf } from '../../domain/activities';
+import {
+  PLANNED_MINUTES_MAX,
+  PLANNED_MINUTES_MIN,
+  PRESET_MINUTES,
+  type SessionConfig,
+} from '../../domain/session';
+import { MINUTE } from '../../domain/time';
+import { DEPTHS } from '../../domain/types';
 import * as activitiesRepo from '../../db/repositories/activities';
 import * as sessionConfigRepo from '../../db/repositories/sessionConfig';
 import { Caption } from '../../design/components/Caption';
 import { ChoiceCard } from '../../design/components/ChoiceCard';
-import { Chip } from '../../design/components/Chip';
+import { FieldGroup } from '../../design/components/FieldGroup';
 import { Label } from '../../design/components/Label';
+import { OptionChips } from '../../design/components/OptionChips';
 import { Screen } from '../../design/components/Screen';
 import { ScreenHeader } from '../../design/components/ScreenHeader';
 import { TextField } from '../../design/components/TextField';
-import { ChipRow } from '../../design/components/ChipRow';
+import { DEPTH_DESCRIPTION, DEPTH_LABEL } from '../../lib/labels';
+import { digitsOnly, emptyToNull, parsePlannedMinutes } from '../../lib/text';
+import { useRevision } from '../../lib/useRevision';
 
-const MINUTE = 60_000;
-const PRESET_MINUTES = [25, 50, 90];
-
-const DEPTHS: ReadonlyArray<{ value: Depth; title: string; description: string }> = [
-  { value: 'soft', title: 'suave', description: 'mantener pulsado termina de inmediato' },
-  { value: 'firm', title: 'firme', description: 'te pregunta por qué y espera 15 segundos' },
-  { value: 'deep', title: 'profundo', description: 'no responde. solo el timer termina' },
-];
+const CUSTOM = 'otra';
+const NEW_ACTIVITY = 'otra';
 
 /**
  * Session config. Opened by tapping the big number on the home screen, which is its
@@ -36,12 +39,12 @@ const DEPTHS: ReadonlyArray<{ value: Depth; title: string; description: string }
 export default function SessionConfigScreen() {
   const router = useRouter();
   // Re-read after creating one, so the new chip appears immediately.
-  const [activityRevision, setActivityRevision] = useState(0);
+  const [activityRevision, bumpActivities] = useRevision();
   const activities = useMemo(() => activitiesRepo.listActive(), [activityRevision]);
   const [config, setConfig] = useState<SessionConfig | null>(() =>
     sessionConfigRepo.loadOrDefault(),
   );
-  const [customMinutes, setCustomMinutes] = useState('');
+  const [customMinutes, setCustomMinutes] = useState<string | null>(null);
   const [newActivity, setNewActivity] = useState<string | null>(null);
 
   function update(next: SessionConfig): void {
@@ -59,37 +62,54 @@ export default function SessionConfigScreen() {
   }
 
   const minutes = Math.round(config.plannedMs / MINUTE);
-  const isPreset = PRESET_MINUTES.includes(minutes);
+  const isPreset = (PRESET_MINUTES as ReadonlyArray<number>).includes(minutes);
+  // The custom field stays open once opened, even while empty: it closes when a
+  // preset is tapped, never because of a keystroke.
+  const customOpen = customMinutes !== null || !isPreset;
+
+  function createActivity(): void {
+    const label = emptyToNull(newActivity ?? '')?.toLowerCase() ?? null;
+    setNewActivity(null);
+    if (label === null || config === null) {
+      return;
+    }
+    // The key is the name: activities are the user's own vocabulary, and a duplicate
+    // name is a duplicate activity.
+    const key = activityKeyOf(label);
+    const activity = activitiesRepo.findByKey(key) ?? activitiesRepo.insert(key, label, Date.now());
+    update({ ...config, activityId: activity.id });
+    bumpActivities();
+  }
 
   return (
     <Screen scroll>
       <ScreenHeader left="sesión" right="listo" onPressRight={() => router.back()} />
 
       <Label>duración</Label>
-      <ChipRow>
-        {PRESET_MINUTES.map((preset) => (
-          <Chip
-            key={preset}
-            label={String(preset)}
-            selected={minutes === preset}
-            onPress={() => update({ ...config, plannedMs: preset * MINUTE })}
-          />
-        ))}
-        <Chip
-          label="otra"
-          selected={!isPreset}
-          onPress={() => setCustomMinutes(String(minutes))}
-        />
-      </ChipRow>
-      {isPreset && customMinutes === '' ? null : (
-        <View>
+      <OptionChips
+        options={[
+          ...PRESET_MINUTES.map((preset) => ({ value: String(preset) })),
+          { value: CUSTOM },
+        ]}
+        selected={customOpen ? CUSTOM : String(minutes)}
+        onSelect={(value) => {
+          if (value === CUSTOM) {
+            setCustomMinutes(String(minutes));
+            return;
+          }
+          setCustomMinutes(null);
+          update({ ...config, plannedMs: Number(value) * MINUTE });
+        }}
+      />
+      {customOpen ? (
+        <FieldGroup>
           <TextField
-            value={customMinutes}
+            value={customMinutes ?? String(minutes)}
             onChangeText={(text) => {
-              const digits = text.replace(/[^0-9]/g, '');
+              const digits = digitsOnly(text);
               setCustomMinutes(digits);
-              const parsed = Number(digits);
-              if (parsed > 0 && parsed <= 240) {
+              const parsed = parsePlannedMinutes(digits);
+              if (parsed !== null) {
                 update({ ...config, plannedMs: parsed * MINUTE });
               }
             }}
@@ -97,65 +117,52 @@ export default function SessionConfigScreen() {
             keyboardType="number-pad"
             accessibilityLabel="duración en minutos"
           />
-          <Caption>entre 1 y 240 minutos</Caption>
-        </View>
-      )}
+          <Caption>{`entre ${PLANNED_MINUTES_MIN} y ${PLANNED_MINUTES_MAX} minutos`}</Caption>
+        </FieldGroup>
+      ) : null}
 
       <Label>actividad</Label>
-      <ChipRow>
-        {activities.map((activity) => (
-          <Chip
-            key={activity.id}
-            label={activity.label}
-            selected={config.activityId === activity.id}
-            onPress={() => update({ ...config, activityId: activity.id })}
-          />
-        ))}
-        <Chip label="otra" selected={false} onPress={() => setNewActivity('')} />
-      </ChipRow>
+      <OptionChips
+        options={[
+          ...activities.map((activity) => ({ value: activity.id, label: activity.label })),
+          { value: NEW_ACTIVITY },
+        ]}
+        selected={newActivity === null ? config.activityId : NEW_ACTIVITY}
+        onSelect={(value) => {
+          if (value === NEW_ACTIVITY) {
+            setNewActivity('');
+            return;
+          }
+          update({ ...config, activityId: value });
+        }}
+      />
       {newActivity === null ? null : (
-        <View>
+        <FieldGroup>
           <TextField
             value={newActivity}
             onChangeText={setNewActivity}
             placeholder="nombre de la actividad"
             autoFocus
-            onEndEditing={() => {
-              const label = newActivity.trim().toLowerCase();
-              if (label.length === 0) {
-                setNewActivity(null);
-                return;
-              }
-              // The key is the name: activities are the user's own vocabulary, and a
-              // duplicate name is a duplicate activity.
-              const existing = activitiesRepo.findByKey(label);
-              const activity =
-                existing ?? activitiesRepo.insert(label, label, Date.now());
-              update({ ...config, activityId: activity.id });
-              setActivityRevision((current) => current + 1);
-              setNewActivity(null);
-            }}
+            onEndEditing={createActivity}
             accessibilityLabel="nombre de la actividad nueva"
           />
           <Caption>en minúscula, como todo en la app</Caption>
-        </View>
+        </FieldGroup>
       )}
 
       <Label>profundidad</Label>
       {DEPTHS.map((depth) => (
         <ChoiceCard
-          key={depth.value}
-          title={depth.title}
-          description={depth.description}
-          selected={config.depth === depth.value}
-          onPress={() => update({ ...config, depth: depth.value })}
+          key={depth}
+          title={DEPTH_LABEL[depth]}
+          description={DEPTH_DESCRIPTION[depth]}
+          selected={config.depth === depth}
+          onPress={() => update({ ...config, depth })}
         />
       ))}
 
       <Label>bloqueo</Label>
-      <ChipRow>
-        <Chip label="nada" selected onPress={() => undefined} />
-      </ChipRow>
+      <OptionChips options={[{ value: 'nada' }]} selected="nada" onSelect={() => undefined} />
       <Caption>bloquear apps llega en la fase 2</Caption>
     </Screen>
   );

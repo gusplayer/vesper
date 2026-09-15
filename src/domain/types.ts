@@ -13,7 +13,9 @@ export type Millis = number;
  */
 export type DayKey = string;
 
-export type Depth = 'soft' | 'firm' | 'deep';
+/** In order of how hard it is to leave. The union is derived so a guard can iterate it. */
+export const DEPTHS = ['soft', 'firm', 'deep'] as const;
+export type Depth = (typeof DEPTHS)[number];
 
 /**
  * 'expired' is not a surrender: the process died mid-session and nobody closed the row.

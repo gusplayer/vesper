@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { color, font, rule, space } from '../tokens';
@@ -8,7 +9,11 @@ type TextFieldProps = {
   placeholder?: string;
   autoFocus?: boolean;
   keyboardType?: 'default' | 'number-pad';
-  /** Fires when the field loses focus — the right moment to persist a draft. */
+  /**
+   * Fires once when an editing pass ends — the right moment to persist a draft.
+   * iOS and Android disagree on whether that is a blur or an end-editing event, and
+   * often send both, so the field listens to both and reports once.
+   */
   onEndEditing?: () => void;
   accessibilityLabel?: string;
 };
@@ -23,6 +28,15 @@ export function TextField({
   onEndEditing,
   accessibilityLabel,
 }: TextFieldProps) {
+  const editing = useRef(false);
+
+  function settle(): void {
+    if (editing.current) {
+      editing.current = false;
+      onEndEditing?.();
+    }
+  }
+
   return (
     <View>
       <TextInput
@@ -32,8 +46,11 @@ export function TextField({
         placeholderTextColor={color.ink60}
         autoFocus={autoFocus}
         keyboardType={keyboardType}
-        onEndEditing={onEndEditing}
-        onBlur={onEndEditing}
+        onFocus={() => {
+          editing.current = true;
+        }}
+        onEndEditing={settle}
+        onBlur={settle}
         accessibilityLabel={accessibilityLabel ?? placeholder}
         selectionColor={color.ink}
         style={styles.input}

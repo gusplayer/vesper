@@ -18,7 +18,16 @@ export function Screen({ children, scroll = false }: ScreenProps) {
   if (scroll) {
     return (
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.page}
+          showsVerticalScrollIndicator={false}
+          // The first tap on a control while the keyboard is up must act, not just
+          // dismiss the keyboard. Otherwise `guardar` needs two taps after typing.
+          keyboardShouldPersistTaps="handled"
+          // Overscroll is a spring. DESIGN_SYSTEM.md forbids the bounce.
+          bounces={false}
+          overScrollMode="never"
+        >
           {children}
         </ScrollView>
       </SafeAreaView>

@@ -1,7 +1,7 @@
 import { open, type DB } from '@op-engineering/op-sqlite';
 
 import { migrations } from './migrations';
-import { splitStatements } from './sql';
+import { pendingMigrations, splitStatements } from './sql';
 
 /**
  * The single database handle. op-sqlite is synchronous, so there is no pool and no
@@ -44,11 +44,7 @@ function runMigrations(db: DB): void {
     }
   }
 
-  const pending = migrations
-    .filter((migration) => !applied.has(migration.id))
-    .sort((a, b) => a.id - b.id);
-
-  for (const migration of pending) {
+  for (const migration of pendingMigrations(migrations, applied)) {
     db.executeSync('BEGIN');
     try {
       // A migration holds several statements, which executeSync does not split.
@@ -66,6 +62,14 @@ function runMigrations(db: DB): void {
       throw new Error(`migration ${migration.id} (${migration.name}) failed: ${String(error)}`);
     }
   }
+}
+
+/**
+ * The rows of a query, typed by the caller. op-sqlite returns untyped records; the
+ * repositories know their table shape, and this is the one place the cast happens.
+ */
+export function rowsAs<T>(result: { rows: Array<Record<string, unknown>> }): T[] {
+  return result.rows as unknown as T[];
 }
 
 /** Test and debug only. The app never closes the database. */

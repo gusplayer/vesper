@@ -1,38 +1,14 @@
-import { memo, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
-import { color } from '../tokens';
-
-const COLUMNS = 52;
-const GAP = 1;
+import { GRID_COLUMNS, cellSize, weekGridRows } from '../../domain/life';
+import { layout } from '../tokens';
+import { WeekGridRow } from './WeekGridRow';
 
 type WeekGridProps = {
   lived: number;
   total: number;
 };
-
-type RowProps = {
-  /** How many of this row's cells are filled, 0 to COLUMNS. */
-  filled: number;
-  cells: number;
-  size: number;
-};
-
-const Row = memo(function Row({ filled, cells, size }: RowProps) {
-  const squares = [];
-  for (let index = 0; index < cells; index += 1) {
-    squares.push(
-      <View
-        key={index}
-        style={[
-          { width: size, height: size },
-          index < filled ? styles.livedCell : styles.remainingCell,
-        ]}
-      />,
-    );
-  }
-  return <View style={styles.row}>{squares}</View>;
-});
 
 /**
  * One square per week: lived in ink, remaining in ink30.
@@ -40,6 +16,9 @@ const Row = memo(function Row({ filled, cells, size }: RowProps) {
  * This is the only thing in the app that looks like a chart, and it is allowed
  * because the squares are literally the filled boxes of the design language —
  * ADR-0006. It is not a visualization of a number, it is the number.
+ *
+ * The row math is pure and lives in domain/life.ts; this component only measures the
+ * page width so 52 cells always fit it.
  */
 export function WeekGrid({ lived, total }: WeekGridProps) {
   const [width, setWidth] = useState(0);
@@ -48,45 +27,21 @@ export function WeekGrid({ lived, total }: WeekGridProps) {
     setWidth(event.nativeEvent.layout.width);
   }
 
-  // Cells are sized from the available width so 52 of them always fit the page.
-  const size = width === 0 ? 0 : Math.max(1, Math.floor((width - (COLUMNS - 1) * GAP) / COLUMNS));
-  const rowCount = Math.ceil(total / COLUMNS);
-  const livedClamped = Math.min(Math.max(0, lived), total);
-
-  const rows = [];
-  if (size > 0) {
-    for (let row = 0; row < rowCount; row += 1) {
-      const start = row * COLUMNS;
-      rows.push(
-        <Row
-          key={row}
-          cells={Math.min(COLUMNS, total - start)}
-          filled={Math.min(COLUMNS, Math.max(0, livedClamped - start))}
-          size={size}
-        />,
-      );
-    }
-  }
+  const size = cellSize(width, GRID_COLUMNS, layout.gridGap);
 
   return (
     <View onLayout={measure} style={styles.grid}>
-      {rows}
+      {size === 0
+        ? null
+        : weekGridRows(lived, total).map((row, index) => (
+            <WeekGridRow key={index} cells={row.cells} filled={row.filled} size={size} />
+          ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   grid: {
-    rowGap: GAP,
-  },
-  row: {
-    flexDirection: 'row',
-    columnGap: GAP,
-  },
-  livedCell: {
-    backgroundColor: color.ink,
-  },
-  remainingCell: {
-    backgroundColor: color.ink30,
+    rowGap: layout.gridGap,
   },
 });

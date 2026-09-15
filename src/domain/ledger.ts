@@ -1,4 +1,4 @@
-import { elapsed } from './session';
+import { served } from './session';
 import {
   DECLARED_DAILY_CAP_MS,
   type HealthSample,
@@ -66,15 +66,25 @@ function unionMeasure(intervals: Interval[]): number {
  * endedAt past its planned end, and it never gets credit for time it did not serve.
  */
 function sessionInterval(session: Session, now: Millis): Interval {
-  const served = session.outcome === 'running' ? elapsed(session, now) : session.actualMs;
-  return { start: session.startedAt, end: session.startedAt + served };
+  return { start: session.startedAt, end: session.startedAt + served(session, now) };
 }
 
 function sampleInterval(sample: HealthSample): Interval {
   return { start: sample.startedAt, end: sample.endedAt };
 }
 
-const HEALTH_LABELS: Record<string, string> = {
+/**
+ * Row keys are namespaced so a user activity named 'unknown' or 'sleep' can never
+ * collide with the health, usage or unregistered rows. The UI uses them as identity.
+ */
+const ROW_KEY = {
+  activity: (key: string) => `activity:${key}`,
+  health: (type: HealthSample['type']) => `health:${type}`,
+  usage: 'usage',
+  unknown: 'unknown',
+} as const;
+
+const HEALTH_LABELS: Record<HealthSample['type'], string> = {
   workout: 'entrenamiento',
   steps: 'caminata',
   sleep: 'sueño',
@@ -124,12 +134,10 @@ export function buildLedger(input: LedgerInput): Ledger {
       continue;
     }
     verifiedIntervals.push(clipped);
-    const group = verifiedGroups.get(sample.type) ?? {
-      label: HEALTH_LABELS[sample.type] ?? sample.type,
-      intervals: [],
-    };
+    const key = ROW_KEY.health(sample.type);
+    const group = verifiedGroups.get(key) ?? { label: HEALTH_LABELS[sample.type], intervals: [] };
     group.intervals.push(clipped);
-    verifiedGroups.set(sample.type, group);
+    verifiedGroups.set(key, group);
   }
 
   // Rows are keyed by activity key, not id, so the UI has a stable identity.
@@ -137,7 +145,7 @@ export function buildLedger(input: LedgerInput): Ledger {
   for (const activity of input.activities) {
     const group = declaredGroups.get(activity.id);
     if (group !== undefined && group.intervals.length > 0) {
-      declaredByKey.set(activity.key, group);
+      declaredByKey.set(ROW_KEY.activity(activity.key), group);
     }
   }
 
@@ -155,7 +163,7 @@ export function buildLedger(input: LedgerInput): Ledger {
     input.usageEstimateMs > 0
       ? [
           {
-            key: 'usage',
+            key: ROW_KEY.usage,
             label: 'redes',
             ms: input.usageEstimateMs,
             provenance: 'estimated',
@@ -170,7 +178,7 @@ export function buildLedger(input: LedgerInput): Ledger {
   const rows = [...declared, ...verified, ...estimated];
   if (unknownMs > 0) {
     rows.push({
-      key: 'unknown',
+      key: ROW_KEY.unknown,
       label: 'sin registrar',
       ms: unknownMs,
       provenance: 'unknown',

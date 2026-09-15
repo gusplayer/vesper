@@ -1,23 +1,26 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 
-import { dayBounds, dayKeyOf, weekStart } from '../../domain/day';
-import { weeklyProgress } from '../../domain/habits';
-import { WEEKLY_TARGET_HOURS, isClosingDay, weekProgress } from '../../domain/week';
-import * as habitsRepo from '../../db/repositories/habits';
-import * as sessionsRepo from '../../db/repositories/sessions';
+import { HOUR } from '../../domain/time';
+import { WEEKLY_TARGET_HOURS, hasTarget, isClosingDay, isPresetTarget } from '../../domain/week';
+import { loadWeekSnapshot } from '../../db/queries/week';
 import * as settings from '../../db/repositories/settings';
 import { Caption } from '../../design/components/Caption';
-import { ChipRow } from '../../design/components/ChipRow';
-import { Chip } from '../../design/components/Chip';
 import { Label } from '../../design/components/Label';
 import { LedgerRow } from '../../design/components/LedgerRow';
+import { OptionChips } from '../../design/components/OptionChips';
 import { Rule } from '../../design/components/Rule';
 import { Screen } from '../../design/components/Screen';
 import { ScreenHeader } from '../../design/components/ScreenHeader';
-import { durationText } from '../../lib/format';
+import {
+  durationText,
+  focusOfTargetText,
+  habitProgressText,
+  weekClosingText,
+} from '../../lib/format';
+import { habitTone } from '../../lib/tone';
 
-const HOUR = 3_600_000;
+const NONE = 'ninguna';
 
 /**
  * The weekly focus goal, and on Sunday, the closing of the week.
@@ -32,47 +35,21 @@ const HOUR = 3_600_000;
  */
 export default function WeekConfigScreen() {
   const router = useRouter();
-  const [targetMs, setTargetMs] = useState<number | null>(() =>
-    settings.getNumber(settings.SETTING_KEYS.weeklyFocusTargetMs),
-  );
+  const [targetMs, setTargetMs] = useState<number | null>(() => settings.getWeeklyTargetMs());
 
+  // On Sunday the closing is read against the target being chosen, so it re-reads.
   const closing = useMemo(() => {
     const now = Date.now();
-    if (!isClosingDay(now)) {
-      return null;
-    }
-
-    const { dayEnd } = dayBounds(now);
-    const from = weekStart(now);
-    const sessions = sessionsRepo.listBetween(from, dayEnd);
-    const todayKey = dayKeyOf(now);
-
-    return {
-      week: weekProgress(
-        sessions,
-        (session) => sessionsRepo.servedMs(session, now),
-        targetMs,
-        now,
-      ),
-      habits: weeklyProgress(
-        habitsRepo.listActive(),
-        habitsRepo.listMarksBetween(dayKeyOf(from), todayKey),
-        todayKey,
-      ),
-      sessionCount: sessions.length,
-    };
-    // targetMs on purpose: changing the target re-reads the closing against it.
+    return isClosingDay(now) ? loadWeekSnapshot(now) : null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetMs]);
-
-  const storedIsPreset =
-    targetMs === null ||
-    targetMs <= 0 ||
-    WEEKLY_TARGET_HOURS.some((hours) => hours * HOUR === targetMs);
 
   function update(next: number | null): void {
     setTargetMs(next);
-    settings.setNumber(settings.SETTING_KEYS.weeklyFocusTargetMs, next ?? 0, Date.now());
+    settings.setWeeklyTargetMs(next, Date.now());
   }
+
+  const selected = hasTarget(targetMs) ? String(targetMs / HOUR) : NONE;
 
   return (
     <Screen scroll>
@@ -86,64 +63,37 @@ export default function WeekConfigScreen() {
         <>
           <LedgerRow
             label="foco"
-            value={
-              closing.week.targetMs === null || closing.week.targetMs <= 0
-                ? durationText(closing.week.focusMs)
-                : `${durationText(closing.week.focusMs)} de ${durationText(closing.week.targetMs)}`
-            }
+            value={focusOfTargetText(closing.week)}
             tone={closing.week.met ? 'strong' : 'normal'}
           />
-          <LedgerRow
-            label="sesiones"
-            value={String(closing.sessionCount)}
-            tone="normal"
-          />
+          <LedgerRow label="sesiones" value={String(closing.sessionCount)} tone="normal" />
           {closing.habits.map((progress) => (
             <LedgerRow
               key={progress.habit.id}
               label={progress.habit.name}
-              value={
-                progress.met ? 'hecho' : `${progress.markedDays} de ${progress.habit.weeklyTarget}`
-              }
-              tone={progress.met ? 'strong' : 'normal'}
+              value={habitProgressText(progress)}
+              tone={habitTone(progress)}
             />
           ))}
-          <Caption>
-            {closing.week.targetMs === null || closing.week.targetMs <= 0
-              ? 'no había meta esta semana. poné una para la que empieza mañana'
-              : closing.week.met
-                ? 'meta cumplida. la semana que empieza mañana arranca en cero'
-                : 'la semana que empieza mañana arranca en cero. sin rachas que perder'}
-          </Caption>
+          <Caption>{weekClosingText(closing.week)}</Caption>
           <Rule />
         </>
       )}
 
       <Label>horas de foco por semana</Label>
-      <ChipRow>
-        {WEEKLY_TARGET_HOURS.map((hours) => (
-          <Chip
-            key={hours}
-            label={String(hours)}
-            selected={targetMs === hours * HOUR}
-            onPress={() => update(hours * HOUR)}
-          />
-        ))}
-        {/* A stored target outside the presets still shows as selected instead of
-            leaving every chip unselected, which reads as no goal when there is one. */}
-        {storedIsPreset ? null : (
-          <Chip
-            label={durationText(targetMs ?? 0)}
-            selected
-            onPress={() => undefined}
-          />
-        )}
-        <Chip
-          label="ninguna"
-          selected={targetMs === null || targetMs <= 0}
-          onPress={() => update(null)}
-        />
-      </ChipRow>
+      <OptionChips
+        options={[
+          ...WEEKLY_TARGET_HOURS.map((hours) => ({ value: String(hours) })),
+          // A stored target outside the presets still shows as selected instead of
+          // leaving every chip unselected, which reads as no goal when there is one.
+          ...(isPresetTarget(targetMs) || targetMs === null
+            ? []
+            : [{ value: String(targetMs / HOUR), label: durationText(targetMs) }]),
+          { value: NONE },
+        ]}
+        selected={selected}
+        onSelect={(value) => update(value === NONE ? null : Number(value) * HOUR)}
+      />
 
       <Caption>
         se reinicia el lunes. una meta por semana, no rachas diarias: enfermarse un martes

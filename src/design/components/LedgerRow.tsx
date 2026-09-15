@@ -17,6 +17,13 @@ type LedgerRowProps = {
   accessibilityLabel?: string;
 };
 
+/**
+ * Label on the left, value on the right. The ledger is made of these.
+ *
+ * A row that responds says so with a thin rule underneath, and while held the rule
+ * turns to ink — ADR-0011. The text itself is already ink at rest, so darkening it
+ * would show nothing; the rule is what answers the finger.
+ */
 export function LedgerRow({
   label,
   value,
@@ -38,7 +45,6 @@ export function LedgerRow({
     );
   }
 
-  // A row that responds says so with a rule and darkens while held — ADR-0011.
   return (
     <Pressable
       onPress={onPress}
@@ -49,17 +55,12 @@ export function LedgerRow({
       {({ pressed }) => (
         <View>
           <View style={[styles.row, styles.tappableRow]}>
-            <Text
-              style={[styles.text, textStyle, pressed ? styles.pressedText : null]}
-              numberOfLines={1}
-            >
+            <Text style={[styles.text, textStyle]} numberOfLines={1}>
               {label}
             </Text>
-            <Text style={[styles.text, textStyle, pressed ? styles.pressedText : null]}>
-              {value}
-            </Text>
+            <Text style={[styles.text, textStyle]}>{value}</Text>
           </View>
-          <View style={styles.rule} />
+          <View style={pressed ? styles.rulePressed : styles.rule} />
         </View>
       )}
     </Pressable>
@@ -93,11 +94,12 @@ const styles = StyleSheet.create({
     minHeight: layout.touchTarget,
     alignItems: 'center',
   },
-  pressedText: {
-    color: color.ink,
-  },
   rule: {
     height: rule.thin,
     backgroundColor: color.ink30,
+  },
+  rulePressed: {
+    height: rule.thin,
+    backgroundColor: color.ink,
   },
 });
