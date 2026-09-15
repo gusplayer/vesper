@@ -20,3 +20,5 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0011 | El toque se acusa invirtiendo la caja; el texto tocable lleva regla | aceptada |
 | 0012 | La fase 1 no tiene onboarding: tiene una primera vez | aceptada |
 | 0013 | El cierre del domingo no es una pantalla nueva | aceptada |
+| 0014 | La sesión activa se ve distinta porque está en tinta | aceptada |
+| 0015 | Cuando el timer termina, la sesión se cierra en la misma ruta | aceptada |

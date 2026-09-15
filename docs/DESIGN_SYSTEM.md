@@ -81,14 +81,20 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 - **Prohibido:** spring, escala, rebote, parallax, skeleton shimmer.
 - El único movimiento continuo permitido es la barra de progreso de la sesión y la de "mantener pulsado".
 
-## Componentes (18, escritos a mano)
+## Cuadros rellenos
+
+Solo dos cosas se rellenan de tinta de forma persistente: las semanas vividas de `WeekGrid`
+y el `Timer` de la sesión. Dicen lo mismo: el tiempo que ya es tuyo está en tinta. Todo
+otro relleno es el estado de pulsado de ADR-0011, y desaparece al soltar.
+
+## Componentes (19, escritos a mano)
 
 | Componente | Descripción |
 |---|---|
 | `Screen` | Contenedor con fondo papel y márgenes de página |
 | `ScreenHeader` | Fila de etiquetas + regla gruesa debajo |
 | `DisplayNumber` | Número grande con sufijo opcional |
-| `Timer` | Número de tiempo grande, centrado |
+| `Timer` | Número de tiempo grande en papel sobre un cuadro relleno de tinta. Ver ADR-0014 |
 | `Rule` | Regla horizontal, `thick` o `thin` |
 | `LedgerRow` | Fila etiqueta ↔ valor. Tocable cuando es un hábito que se marca |
 | `Chip` | Opción seleccionable, borde 0.5 o 1 según estado |
@@ -101,6 +107,7 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 | `TextField` | Campo con regla debajo, sin caja |
 | `Label` | Texto de etiqueta en ink60 |
 | `Caption` | Texto de pista en caption size |
+| `Body` | Texto de lectura en tinta, body size. Solo lo usa el cierre de sesión. Ver ADR-0015 |
 | `TextAction` | Texto tocable: regla fina debajo, se oscurece al presionar. Ver ADR-0011 |
 | `FatalError` | La única pantalla que existe porque algo se rompió |
 

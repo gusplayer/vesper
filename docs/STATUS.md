@@ -1,4 +1,4 @@
-# Estado — 2026-08-24
+# Estado — 2026-09-14
 
 Dónde quedamos, qué está probado y qué falta. Se actualiza al cerrar cada tanda de
 trabajo. Para el plan por fases, `ROADMAP.md`; para las tareas, `SPRINT_01.md`.
@@ -13,7 +13,7 @@ siete días de uso.
 
 | Capa | Estado |
 |---|---|
-| Sistema de diseño | 18 componentes a mano, tokens desde `DESIGN_SYSTEM.md` |
+| Sistema de diseño | 19 componentes a mano, tokens desde `DESIGN_SYSTEM.md` |
 | Dominio | `session`, `ledger`, `life`, `habits`, `week`, `day` — puros, sin React ni DB |
 | Base de datos | op-sqlite, migraciones en TS, 5 tablas, repositorios de 5 entidades |
 | Pantallas | inicio, sesión, vida + 4 rutas de configuración |
@@ -43,6 +43,8 @@ Distinguir el tipo de evidencia importa: `tsc` no prueba que algo funcione.
 ## Qué NO está verificado
 
 - **Dispositivo físico.** Ni iOS ni Android. Requiere hardware y firma.
+- **El cierre de sesión (ADR-0015) y el timer en tinta (ADR-0014)** solo por typecheck.
+  Nadie vio todavía el cuadro negro en pantalla ni tocó `volver`.
 - **El modo `firme` y el `profundo`** end to end: la espera de 15 segundos y la ausencia
   de respuesta se probaron por typecheck y por tests del dominio, no con el dedo.
 - **`WeekGrid` con rendimiento medido.** Dibuja 4049 cuadros y se ve bien, pero nadie
@@ -61,6 +63,8 @@ Los ADR 0001 a 0007 venían de antes. Los siguientes se decidieron construyendo:
 | 0011 | El toque invierte la caja; el texto tocable lleva regla |
 | 0012 | La fase 1 no tiene onboarding: tiene una primera vez |
 | 0013 | El cierre del domingo no es una pantalla nueva |
+| 0014 | El timer de sesión es un cuadro relleno de tinta: la sesión tiene marca de estado |
+| 0015 | Al vencer el timer, la ruta de sesión muestra el cierre y lee la intención |
 
 ## Qué falta
 
