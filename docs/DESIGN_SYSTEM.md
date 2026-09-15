@@ -1,156 +1,96 @@
 # Sistema de diseño — Vesper
 
-Estética de tinta electrónica. La referencia es un Kindle, no una app de iOS.
+Desde ADR-0016 la referencia es **Brick** (iOS). Tarjetas claras de radio grande sobre un
+gris cálido, un botón pastilla oscuro, listas con chevron, toggles azules, pestañas de
+solo texto. Durante la sesión activa el tema se invierte a oscuro.
+
+El sistema vive entero en `src/design/`: `tokens.ts` (valores), `theme.tsx` (esquema
+activo y `useTheme`), `components/` (32 componentes) y `components/index.ts` (lo único
+que una pantalla puede importar).
 
 ## Principio
 
-Una pantalla de e-ink refresca lento y no tiene color. Eso empuja hacia una UI que es
-**texto, reglas horizontales y cuadros rellenos.** Nada más entra.
+> Una pantalla no conoce un color ni un número. Conoce componentes.
 
-> Si un elemento no es texto, una regla horizontal o un cuadrado relleno, no va.
+Si una pantalla necesita un `View` con estilo, falta un componente.
 
 ## Color
 
-Cuatro tonos. No hay un quinto.
+Dos esquemas con la misma paleta de roles. Nunca negro ni blanco puros.
 
-```ts
-export const color = {
-  ink:      '#1B1A18',  // texto principal, reglas gruesas, cuadros llenos
-  ink60:    '#6E6C66',  // etiquetas, texto secundario
-  ink30:    '#C9C6BE',  // reglas finas, cuadros vacíos
-  paper:    '#F2F0EA',  // fondo
-} as const;
-```
+| Rol | Claro | Oscuro | Para qué |
+|---|---|---|---|
+| `bg` | `#E8E6E2` | `#191919` | fondo de página |
+| `bgElevated` | `#EEECE8` | `#202020` | barra de pestañas, hojas |
+| `card` | `#F8F7F5` | `#262626` | tarjetas |
+| `cardMuted` | `#E3E1DC` | `#303030` | tarjeta dentro de tarjeta, chips, segmento inactivo |
+| `ink` | `#1C1B1A` | `#F2F1EE` | texto principal y botón primario |
+| `inkSecondary` | `#6E6C68` | `#A9A7A2` | texto secundario |
+| `inkTertiary` | `#A6A39E` | `#6F6D69` | placeholders, pistas |
+| `line` | `#DCD9D3` | `#343434` | separadores |
+| `onInk` | `#F8F7F5` | `#191919` | texto sobre `ink` |
+| `accent` | `#2F7BF6` | `#3B84F5` | toggles. El único color saturado |
+| `success` | `#3B7A4A` | `#5FA46F` | el check del modo activo |
+| `danger` | `#C0392B` | `#E06B5E` | acciones destructivas |
 
-Reglas:
-- Nunca `#000000` ni `#FFFFFF`. El e-ink real no los alcanza y su uso delata la imitación.
-- El papel es ligeramente cálido. No lo enfríes.
-- Cero color de acento. El estado "hecho" se comunica con la palabra, no con verde.
-- Modo oscuro: no existe en v1. Cuando llegue, será papel `#1C1B19` / tinta `#D8D5CD`, nunca invertido a negro puro.
+El esquema lo decide `useSchemeStore`: `light` en la app, `dark` mientras hay sesión.
+`ForcedTheme` fija un esquema para un subárbol (bienvenida y tour son oscuros).
 
 ## Tipografía
 
-Serif en toda la app. Es el 70% del efecto.
+Outfit, tres pesos: 400, 500, 600. Se direcciona por familia por peso
+(`Outfit_400Regular`, etc.).
 
-```ts
-export const font = {
-  family: {
-    regular: 'Literata_400Regular',
-    medium:  'Literata_500Medium',
-  },
-  size: {
-    display: 44,   // número de duración, semanas restantes
-    timer:   50,   // solo el timer de sesión
-    title:   26,
-    body:    15,
-    label:   12,
-    caption: 10,
-  },
-  letterSpacing: {
-    display: -1,
-    timer:   -2,
-    normal:   0,
-  },
-} as const;
-```
+| Variante | Tamaño / interlínea | Uso |
+|---|---|---|
+| `hero` | 44 / 50 | el tiempo de la sesión, la cifra grande |
+| `title` | 30 / 36 | títulos de onboarding y de página |
+| `heading` | 22 / 28 | nombre del modo, títulos de sección |
+| `body` | 16 / 22 | texto |
+| `label` | 14 / 20 | secundario, filas |
+| `caption` | 12 / 16 | pistas, pies |
 
-- **Dos pesos únicamente.** Nunca 600 ni 700. Literata; alternativas: Newsreader,
-  Source Serif 4.
-- En React Native la fuente se direcciona por nombre de familia por peso, no por número:
-  por eso no hay `weight` y `tokens.ts` expone `font.family.regular` y
-  `font.family.medium` en vez de un solo `family: 'Literata'`.
-- La jerarquía la da el tamaño y el tono, no el peso.
-- `letterSpacing.display` en display, `letterSpacing.timer` en timer. El resto en `normal`.
-- Números en el mismo serif. No uses una mono para el timer — rompe la coherencia.
-- Todo en minúscula excepto nombres propios. Nunca mayúsculas completas.
+Todo el texto pasa por `Text` con `variant` y `tone`. Sin mayúsculas completas salvo
+`VESPER` y las etiquetas de `StatCard`.
 
-## Espaciado y forma
+## Espaciado, forma, sombra
 
-```ts
-export const space = { xs: 4, sm: 8, md: 14, lg: 18, xl: 24 } as const;
-export const radius = { box: 4 } as const;
-export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
+- `space`: 4, 8, 12, 16, 20, 24, 32.
+- `radius`: 10, 14, 20, 28, pastilla.
+- `layout`: margen de página 20, objetivo táctil 44, objeto central 132, icono de app 24/40/56.
+- `shadow.card` suave y ancha; `shadow.hero` para el objeto central. En Android, `elevation`.
+- Movimiento: fade de 160 ms entre rutas. Sin springs, sin rebote de scroll.
 
-export const layout = {
-  pageMargin: 16,                                        // márgenes laterales
-  touchTarget: 44,                                       // altura mínima de lo que responde
-  textHitSlop: { top: 16, bottom: 16, left: 8, right: 8 }, // llega a 44pt sin crecer la caja
-  gridGap: 1,                                            // entre cuadros de WeekGrid
-} as const;
-```
+## Componentes
 
-- Radio máximo 4px. Las esquinas muy redondeadas son lenguaje de iOS, no de papel.
-- Márgenes laterales de `layout.pageMargin`. Márgenes verticales generosos, como una página.
-- Regla **gruesa en tinta** separa el encabezado. Reglas **finas en ink30** separan secciones.
-- `rule.progress` son los 3px de `ProgressRule` y `HoldToConfirm`. Es el único grosor
-  que no separa nada: mide.
-- Cero sombras, cero degradados, cero blur, cero elevación.
-
-## Movimiento
-
-- Transiciones instantáneas por defecto.
-- Fade de 120ms como máximo, solo para cambios de pantalla.
-- **Prohibido:** spring, escala, rebote, parallax, skeleton shimmer.
-- Sin rebote de scroll: `Screen` apaga `bounces` en iOS y el overscroll en Android. El
-  rebote es un spring.
-- El único movimiento continuo permitido es la barra de progreso de la sesión y la de "mantener pulsado".
-
-## Cuadros rellenos
-
-Solo dos cosas se rellenan de tinta de forma persistente: las semanas vividas de `WeekGrid`
-y el `Timer` de la sesión. Dicen lo mismo: el tiempo que ya es tuyo está en tinta. Todo
-otro relleno es el estado de pulsado de ADR-0011, y desaparece al soltar.
-
-## Componentes (23, escritos a mano)
-
-| Componente | Descripción |
+| Componente | Qué es |
 |---|---|
-| `Screen` | Contenedor con fondo papel y márgenes de página. Con `scroll`, sin rebote |
-| `ScreenHeader` | Fila de etiquetas + regla gruesa debajo |
-| `Pager` | El swipe horizontal entre inicio y vida. Paginación nativa, arranca en la primera página. Ver ADR-0009 |
-| `DisplayNumber` | Número grande con sufijo opcional |
-| `Timer` | Número de tiempo grande en papel sobre un cuadro relleno de tinta. Ver ADR-0014 |
-| `Rule` | Regla horizontal, `thick` o `thin` |
-| `LedgerRow` | Fila etiqueta ↔ valor. Tocable cuando es un hábito: al presionar, la regla de abajo pasa a tinta; mantener pulsado abre la edición del hábito |
-| `Chip` | Opción seleccionable, borde 0.5 o 1 según estado |
-| `ChipRow` | Fila de chips que envuelve. Existe porque las pantallas no importan tokens |
-| `OptionChips` | Fila de opciones excluyentes sobre `Chip`: duraciones, metas, actividades. Una seleccionada como máximo |
-| `ChoiceCard` | Opción con título y descripción (profundidad, tipo de hábito). Tiene estado `disabled`: conserva su lugar y su frase, pero no se invierte ni responde |
-| `PrimaryAction` | Bloque con borde de tinta y texto centrado. Deshabilitado: borde fino `ink30`, texto `ink60`, y no se invierte |
-| `HoldToConfirm` | Botón de mantener pulsado con barra de progreso |
-| `WeekGrid` | Cuadrícula de cuadros de tinta. Mide el ancho; las filas las calcula `domain/life` |
-| `WeekGridRow` | Una fila de la cuadrícula, memoizada: hay ~78 y no cambian |
-| `ProgressRule` | Barra de progreso de 3px |
-| `TextField` | Campo con regla debajo, sin caja. `onEndEditing` dispara una sola vez por edición |
-| `FieldGroup` | Un campo y la línea que lo explica, con gap más apretado que entre secciones |
-| `Label` | Texto de etiqueta en ink60 |
-| `Caption` | Texto de pista en caption size |
-| `Body` | Texto de lectura en tinta, body size. Solo lo usa el cierre de sesión. Ver ADR-0015 |
-| `TextAction` | Texto tocable: regla fina debajo, se oscurece al presionar. Ver ADR-0011 |
+| `Screen` | Fondo, safe area, márgenes, scroll opcional, `footer` pinneado |
+| `Stack`, `Section`, `Spacer`, `Divider` | Layout: gaps, títulos de sección, empuje, hairline |
+| `Text` | Todo el texto: `variant` × `tone` × `weight` |
+| `PageHeader` | Back o cerrar, título centrado, acción derecha |
+| `TabBar` | Cuatro pestañas de texto con punto |
+| `Button` | Pastilla: `primary` (tinta), `secondary` (tarjeta), `ghost` (texto) |
+| `IconCircle`, `Icon` | Botón redondo con icono Feather; icono suelto |
+| `Card` | Superficie: `default`, `muted`, `ink` |
+| `ListGroup`, `ListRow` | Tarjeta de filas con hairline; fila con icono, valor, control o chevron |
+| `Toggle` | Switch nativo en `accent` |
+| `SegmentedControl` | Dos o tres pastillas, la elegida en tinta |
+| `Check` | Radio o checkbox, `ink` o `success` |
+| `Chip` | Pastilla de opción |
+| `FieldRow` | "Nombre …… valor" con input a la derecha |
+| `SearchField` | Buscador en pastilla con cancelar |
+| `DayPicker` | Siete círculos, lunes a domingo |
+| `Sheet` | Hoja inferior con título y cerrar |
+| `Banner`, `Tooltip` | Aviso oscuro arriba; burbuja que explica un no |
+| `ProgressDots`, `ProgressBar` | Puntos del onboarding; barra fina, con segmentos |
+| `AppIcon`, `AppIconStack` | Tile con letra que hace de icono de app; pila "+N" |
+| `HeroObject` | El objeto central: tile con la grilla de semanas |
+| `StatCard` | Etiqueta, cifra grande, frase |
+| `BarChart`, `HorizontalBars`, `DotGrid` | Barras verticales con guías y promedio; barras horizontales; grilla de cuadros |
 | `FatalError` | La única pantalla que existe porque algo se rompió |
 
-Estados seleccionados: borde `1px ink` y texto `ink`.
-Estados no seleccionados: borde `0.5px ink30` y texto `ink60`.
-La selección se comunica **solo con el grosor del borde**. No hay fondo relleno persistente.
+## Cómo se escribe una pantalla
 
-**Estado de pulsado (ADR-0011).** Los controles con caja se **invierten** mientras el dedo
-está encima: fondo `ink`, texto `paper`. Instantáneo al presionar y al soltar, así que no
-puede confundirse con una selección. Es lo que hace un Kindle con lo que tocás. Un control
-deshabilitado no se invierte: no hay nada que acusar.
-
-El texto tocable lleva **regla fina debajo** y pasa de `ink60` a `ink` al presionarlo. Sin
-esa regla no había forma de saber qué texto responde, y la regla 3 apoya el producto entero
-en ese tipo de control. En las filas del libro mayor lo que responde es la **regla**, que
-pasa a tinta, no el texto: el texto de un renglón ya está en tinta en reposo y oscurecerlo
-no mostraría nada.
-
-**Área tocable mínima: 44pt.** En chips y filas es altura; en texto tocable es `hitSlop`,
-para no deformar la fila del encabezado.
-
-## Accesibilidad
-
-- El contraste ink/paper es ~13:1. Suficiente.
-- ink60 sobre paper es ~4.8:1 — úsalo solo para texto de 12px o mayor.
-- ink30 nunca lleva texto, solo reglas y cuadros.
-- Respeta `Dynamic Type` hasta un 130%. Más allá, la pantalla de inicio debe permitir scroll.
-- `HoldToConfirm` necesita alternativa accesible: doble tap con VoiceOver activo.
+Ver `docs/PROTOTYPE_GUIDE.md`. Resumen: importa de `src/design/components`, `src/data` y
+`src/lib`/`src/domain`; un botón primario en el `footer`; español en voseo y en oración.

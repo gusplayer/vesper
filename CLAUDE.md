@@ -4,24 +4,29 @@ Instrucciones para Claude Code trabajando en **Vesper**.
 
 ## Qué es Vesper
 
-App móvil de foco y asignación de tiempo con estética de tinta electrónica.
-Pomodoro + hábitos + conciencia del tiempo de vida. Bloqueo de apps llega en fase 2.
+App móvil de foco y asignación de tiempo. Modos que bloquean apps, sesiones con
+profundidad, hábitos, meta semanal y conciencia del tiempo de vida. Desde ADR-0016 la UI
+sigue de cerca a Brick (iOS) y el repo contiene un **prototipo navegable de todas las
+fases con datos falsos** sobre una capa de datos en memoria (`src/data/`).
 
 Lee `docs/STATUS.md` para saber dónde quedó todo antes de empezar.
 Lee `docs/PRD.md` antes de tomar cualquier decisión de producto.
 Lee `docs/DESIGN_SYSTEM.md` antes de escribir cualquier componente de UI.
+Lee `docs/PROTOTYPE_GUIDE.md` antes de escribir cualquier pantalla.
 Lee `docs/adr/` antes de proponer cambios de arquitectura.
 
 ## Reglas duras (no negociables sin un ADR nuevo)
 
-1. **Sin pantalla de ajustes.** Toda configuración vive en el flujo donde se usa.
-2. **Máximo 3 pantallas** en la navegación principal: inicio, sesión, vida. Swipe horizontal entre inicio y vida, sin tab bar; la sesión es una ruta (ADR-0009).
-3. **Un control primario por pantalla.** Todo lo demás es texto tocable.
+1. **Cuatro pestañas de solo texto**: Foco, Horarios, Actividad, Ajustes. La sesión activa
+   y su cierre son rutas a pantalla completa sin gesto de volver (ADR-0016, ADR-0009).
+2. **Un botón primario por pantalla**, pinneado abajo. Lo secundario es `ghost` o una fila.
+3. **Ningún color ni tamaño literal fuera de `src/design/tokens.ts`.** Las pantallas no
+   importan tokens ni tema: solo componentes de `src/design/components`.
 4. **Máximo 5 hábitos** por usuario. Es una decisión de producto, no una limitación técnica.
-5. **Cuatro colores en toda la app.** Ver `docs/DESIGN_SYSTEM.md`. Nunca `#000` ni `#fff`.
-6. **Sin animaciones de spring, escala o parallax.** Transiciones instantáneas o fade de 120ms máximo.
+5. **Dos esquemas, una paleta de roles.** Claro en la app, oscuro en la sesión. Nunca `#000` ni `#fff`.
+6. **Sin animaciones de spring, escala o parallax.** Fade de 160 ms entre rutas, sin rebote de scroll.
 7. **Local-first.** La app funciona completa sin red y sin cuenta. No agregues backend sin ADR.
-8. **Cero permisos requeridos para la primera sesión.** En fase 1 no hay onboarding: hay una línea que desaparece al completar la primera sesión. Ver ADR-0012.
+8. **Cero permisos reales en el prototipo.** El onboarding los "concede" cambiando un flag y lo dice. Cuando lleguen los permisos reales, cada uno se pide en su flujo (ADR-0012).
 9. **Nunca sumar tiempo verificado y declarado en una misma métrica.** Ver ADR-0005.
 10. **Nunca persistir datos de `DeviceActivityReport`.** Es técnicamente imposible y arquitectónicamente prohibido. Ver ADR-0004.
 
@@ -38,6 +43,11 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - op-sqlite para persistencia
 - Zustand para estado de UI efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
+- Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
+- `src/data/`: capa de datos del prototipo. Stores zustand en memoria sembrados desde
+  `seed.ts`, hooks con la forma que tendrá la capa real. La UI solo habla con esto
+- `src/db/` y `src/store/`: la capa SQLite de la fase 1, intacta y testeada, sin conectar
+  a la UI hasta que se reemplace `src/data/`
 - vitest para `src/domain/`, `src/lib/`, `src/db/` y `src/store/`
 - react-native-health (iOS) / react-native-health-connect (Android) en fase 1.5
 
@@ -45,7 +55,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 
 - Componentes funcionales con hooks. Sin clases.
 - Un componente por archivo. Nombre del archivo = nombre del componente.
-- Estilos con `StyleSheet.create`, tokens importados de `src/design/tokens.ts`. **Nunca colores literales en componentes.**
+- Estilos con `StyleSheet.create` solo en `src/design/components/`, colores vía `useTheme()`. **Nunca colores literales en componentes.**
 - Toda escritura a la base de datos pasa por `src/db/repositories/`. Los componentes no ejecutan SQL.
 - Toda lectura compuesta para una pantalla vive en `src/db/queries/`. Las queries nunca escriben.
 - Los tipos de dominio viven en `src/domain/types.ts` y son la fuente de verdad.
@@ -56,10 +66,12 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - **Código en inglés, UI en español.** Identificadores, comentarios, nombres de archivo y
   mensajes de commit en inglés. Los strings que ve el usuario, en español y hardcodeados:
   no hay i18n en fase 1 (`docs/ARCHITECTURE.md`).
-- **Los tokens solo se importan en `src/design/`.** Las pantallas de `src/app/` y
-  `src/screens/` no conocen
-  `space` ni `color`: todo el layout vive en componentes de `design/components/`. Si una
-  pantalla necesita un token, falta un componente.
+- **Los tokens solo se importan en `src/design/`.** Las pantallas de `src/app/` y las
+  piezas de `src/features/` no conocen `space` ni `colors`: todo el layout vive en
+  componentes de `design/components/`. Si una pantalla necesita un token, falta un componente.
+- Piezas compartidas por varias pantallas de un área van en `src/features/<área>/`, nunca
+  dentro de `src/app/` (expo-router convierte cada archivo en ruta).
+- Copy en español, en voseo y en oración: "Tocá para enfocar". Sin mayúsculas completas.
 - Commits convencionales: `feat:`, `fix:`, `chore:`, `docs:`.
 
 ## Cómo trabajar
@@ -71,9 +83,10 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 
 ## Qué NO hacer
 
-- No agregues librerías de UI (NativeBase, Tamagui, gluestack). Los componentes son 23 y se escriben a mano.
-- No agregues gráficos, charts ni visualizaciones. Ver ADR-0006.
+- No agregues librerías de UI ni de gráficos. Los componentes son 32 y se escriben a mano;
+  las barras y grillas se dibujan con `View`.
 - No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal.
-- No implementes bloqueo de apps hasta que la fase 1 esté cerrada. Ver ADR-0003.
+- No implementes bloqueo de apps real: lo que existe es su UI con datos falsos. Ver ADR-0003 y ADR-0016.
+- No presentes ningún dato del prototipo como real.
 - No uses `AccessibilityService` en Android bajo ninguna circunstancia. Ver `docs/PLATFORM_ANDROID.md`.
 - No intentes resolver los tokens opacos de iOS a nombres de apps por OCR ni ningún otro medio. Es motivo de rechazo en App Store.
