@@ -25,3 +25,8 @@ y prebuild continuo.
   así que la solicitud se manda el día 1 (ver `docs/ROADMAP.md`, fase 0).
 - A cambio: expo-router, expo-font, expo-notifications y el ecosistema de módulos
   ahorran semanas frente a RN puro.
+
+## Nota (2026-09)
+
+El dev client se construye sin el entitlement mientras no existan las extensiones: el
+bloqueo sigue en `docs/ROADMAP.md`, fase 2. La solicitud sigue siendo el paso 1 de la fase 0.

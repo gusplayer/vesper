@@ -39,3 +39,9 @@ Cuando el nombre coincide con una actividad existente, el repositorio autovincul
   Con tope de 5 hábitos es un problema que el usuario ve y arregla solo.
 - Si el teclado en el modal resulta demasiada fricción, agregar chips de actividad como
   sugerencias encima del campo es aditivo y no requiere migración. No al revés.
+
+## Nota (2026-09)
+
+El autovínculo por nombre se guarda en `activity_id`, pero el libro mayor todavía no lo usa
+para mostrar un solo renglón, y la corrección manual del tipo no está implementada: el
+nombre desbloquea `verified` y declarado sigue siendo el default. Ver `docs/STATUS.md`.

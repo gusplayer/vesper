@@ -75,11 +75,13 @@ $ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
 ## Tests
 
 ```bash
-npm test             # unit tests de src/domain/ y src/db/sql.ts
-npm run typecheck    # obligatorio antes de cerrar cualquier tarea
+npm test                     # unit tests de src/domain/, src/lib/, src/db/ y src/store/
+npx vitest run --coverage    # lo mismo, con cobertura; falla bajo el 80%
+npm run typecheck            # obligatorio antes de cerrar cualquier tarea
 ```
 
-Los módulos puros se testean con vitest. Todo lo que toca op-sqlite o React se verifica
+Los módulos puros se testean con vitest; los repositorios y el store, contra un handle
+falso de base de datos, sin módulo nativo. Las pantallas y los componentes se verifican
 corriendo la app.
 
 ## Estado

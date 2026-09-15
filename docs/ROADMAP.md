@@ -16,7 +16,7 @@ notificaciones: el timer solo avisa con la app abierta. La notificación de fin 
 entra en fase 1.75, donde hay una razón real para pedir el permiso.
 
 - Sistema de diseño e-ink completo
-- Tres pantallas con swipe
+- Tres pantallas; swipe entre inicio y vida (ADR-0009)
 - Configuración de sesión inline
 - Hábitos declarados (máximo 5)
 - Libro mayor del día con renglón `sin registrar`

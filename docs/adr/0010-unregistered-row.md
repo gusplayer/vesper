@@ -66,3 +66,9 @@ como cifra exacta. Un número que nunca es exacto no puede entrar en una partici
   cuesta código, y la única que no deja deuda conceptual.
 - Una sesión `running` aporta el intervalo `[startedAt, now]`, coherente con que el libro
   mayor sea una vista viva del día y no un informe escrito a medianoche.
+
+## Nota (2026-09)
+
+`LedgerInput` sí necesitó un dato nuevo: `activities`, para etiquetar los renglones sin
+que el ledger resuelva ids por su cuenta. Las claves de renglón llevan espacio de nombres
+(`activity:`, `health:`, `usage`, `unknown`). Ver `docs/ARCHITECTURE.md`.

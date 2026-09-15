@@ -15,7 +15,7 @@ Lee `docs/adr/` antes de proponer cambios de arquitectura.
 ## Reglas duras (no negociables sin un ADR nuevo)
 
 1. **Sin pantalla de ajustes.** Toda configuración vive en el flujo donde se usa.
-2. **Máximo 3 pantallas** en la navegación principal: inicio, sesión, vida. Swipe horizontal, sin tab bar.
+2. **Máximo 3 pantallas** en la navegación principal: inicio, sesión, vida. Swipe horizontal entre inicio y vida, sin tab bar; la sesión es una ruta (ADR-0009).
 3. **Un control primario por pantalla.** Todo lo demás es texto tocable.
 4. **Máximo 5 hábitos** por usuario. Es una decisión de producto, no una limitación técnica.
 5. **Cuatro colores en toda la app.** Ver `docs/DESIGN_SYSTEM.md`. Nunca `#000` ni `#fff`.
@@ -38,7 +38,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - op-sqlite para persistencia
 - Zustand para estado de UI efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
-- vitest para los tests de `src/domain/`
+- vitest para `src/domain/`, `src/lib/`, `src/db/` y `src/store/`
 - react-native-health (iOS) / react-native-health-connect (Android) en fase 1.5
 
 ## Convenciones de código
@@ -47,7 +47,10 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Un componente por archivo. Nombre del archivo = nombre del componente.
 - Estilos con `StyleSheet.create`, tokens importados de `src/design/tokens.ts`. **Nunca colores literales en componentes.**
 - Toda escritura a la base de datos pasa por `src/db/repositories/`. Los componentes no ejecutan SQL.
+- Toda lectura compuesta para una pantalla vive en `src/db/queries/`. Las queries nunca escriben.
 - Los tipos de dominio viven en `src/domain/types.ts` y son la fuente de verdad.
+- Las palabras en español que necesita el dominio viven en `src/lib/labels.ts`, `format.ts`
+  y `tone.ts`. El dominio habla en identificadores.
 - Fechas siempre en epoch ms (`number`), nunca strings. Conversión a local solo en la capa de UI.
   La única excepción es `habit_marks.day_key`, y está justificada en `docs/DATA_MODEL.md`.
 - **Código en inglés, UI en español.** Identificadores, comentarios, nombres de archivo y
@@ -68,7 +71,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 
 ## Qué NO hacer
 
-- No agregues librerías de UI (NativeBase, Tamagui, gluestack). Los componentes son ~15 y se escriben a mano.
+- No agregues librerías de UI (NativeBase, Tamagui, gluestack). Los componentes son 23 y se escriben a mano.
 - No agregues gráficos, charts ni visualizaciones. Ver ADR-0006.
 - No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal.
 - No implementes bloqueo de apps hasta que la fase 1 esté cerrada. Ver ADR-0003.

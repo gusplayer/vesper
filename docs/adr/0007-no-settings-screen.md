@@ -36,3 +36,10 @@ pregunta dos veces lo mismo.
 - Cosas que normalmente viven en ajustes y aquí no existen: tema, idioma, unidades,
   sonidos, exportar datos, cuenta. Si alguna se vuelve necesaria, requiere un ADR que
   supere a este.
+
+## Nota (2026-09)
+
+Las rutas son seis: `index`, `session` y cuatro de configuración (`config/session`,
+`config/habit`, `config/week`, `config/habit-edit`), todas con fade, ninguna modal.
+`habit-edit` no tiene ADR propio: es el "se editan desde el libro mayor" de esta decisión,
+alcanzado con un toque largo. Ver `docs/ARCHITECTURE.md`.

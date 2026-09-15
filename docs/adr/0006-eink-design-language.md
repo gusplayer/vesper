@@ -34,3 +34,8 @@ Estética de tinta electrónica, con las restricciones tomadas literalmente:
   invertido a negro puro.
 - Riesgo aceptado: se lee como "app sin diseño" para parte del público. Es un filtro
   de audiencia deliberado.
+
+## Nota (2026-09)
+
+Los "~15 componentes" son 23, todos escritos a mano. La lista vive en
+`docs/DESIGN_SYSTEM.md`.

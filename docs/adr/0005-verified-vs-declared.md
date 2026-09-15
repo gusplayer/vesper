@@ -37,3 +37,9 @@ Cada renglón del libro mayor lleva su procedencia: `verified` | `declared` | `e
 - El hábito con `count_mode = 'verified'` se ofrece por defecto cuando el nombre es
   mapeable a un tipo de salud. Es el momento correcto para pedir el permiso, no el
   onboarding.
+
+## Nota (2026-09)
+
+Desde ADR-0010 el tope de 6h es una advertencia (`declaredCapped`), no una resta. En fase 1
+el tipo verificado solo se desbloquea por el nombre: declarado sigue siendo el default
+hasta que exista Health (fase 1.5). Ver `docs/PRD.md`, hábitos.

@@ -29,3 +29,8 @@ El bloqueo entra en fase 2, condicionado a que fase 1 pase su criterio de salida
   `nada` como única disponible. La UI no cambia de forma en fase 2.
 - Riesgo aceptado: un usuario de prueba puede decir "esto no bloquea nada". Es
   información útil, no un defecto.
+
+## Nota (2026-09)
+
+La migración es `001_init.ts`, no `.sql`. El campo `block_profile` sigue `NULL` y la
+configuración de sesión sigue mostrando `nada` como única opción. Ver `docs/DATA_MODEL.md`.

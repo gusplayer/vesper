@@ -57,3 +57,8 @@ en profundidad `profundo` la ausencia de respuesta es la funcionalidad.
   lenguaje hecho de reglas horizontales eso es densidad, no ruido — pero si la pantalla
   de inicio se siente rayada, la regla se reserva para las acciones y las filas la
   pierden, con un ADR nuevo.
+
+## Nota (2026-09)
+
+En las filas de hábito del libro mayor lo que responde al dedo es la regla fina, que pasa
+a tinta, no el texto: ese texto ya está en tinta en reposo. Ver `docs/DESIGN_SYSTEM.md`.

@@ -34,7 +34,10 @@ Serif en toda la app. Es el 70% del efecto.
 
 ```ts
 export const font = {
-  family: 'Literata',        // alternativas: Newsreader, Source Serif 4
+  family: {
+    regular: 'Literata_400Regular',
+    medium:  'Literata_500Medium',
+  },
   size: {
     display: 44,   // número de duración, semanas restantes
     timer:   50,   // solo el timer de sesión
@@ -43,19 +46,21 @@ export const font = {
     label:   12,
     caption: 10,
   },
-  weight: {
-    regular: '400',
-    medium:  '500',
+  letterSpacing: {
+    display: -1,
+    timer:   -2,
+    normal:   0,
   },
 } as const;
 ```
 
-- **Dos pesos únicamente.** Nunca 600 ni 700.
+- **Dos pesos únicamente.** Nunca 600 ni 700. Literata; alternativas: Newsreader,
+  Source Serif 4.
 - En React Native la fuente se direcciona por nombre de familia por peso, no por número:
-  `Literata_400Regular` y `Literata_500Medium`. Por eso `tokens.ts` expone
-  `font.family.regular` y `font.family.medium` en vez de un solo `family: 'Literata'`.
+  por eso no hay `weight` y `tokens.ts` expone `font.family.regular` y
+  `font.family.medium` en vez de un solo `family: 'Literata'`.
 - La jerarquía la da el tamaño y el tono, no el peso.
-- `letter-spacing: -1` en display, `-2` en timer. El resto en 0.
+- `letterSpacing.display` en display, `letterSpacing.timer` en timer. El resto en `normal`.
 - Números en el mismo serif. No uses una mono para el timer — rompe la coherencia.
 - Todo en minúscula excepto nombres propios. Nunca mayúsculas completas.
 
@@ -65,10 +70,17 @@ export const font = {
 export const space = { xs: 4, sm: 8, md: 14, lg: 18, xl: 24 } as const;
 export const radius = { box: 4 } as const;
 export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
+
+export const layout = {
+  pageMargin: 16,                                        // márgenes laterales
+  touchTarget: 44,                                       // altura mínima de lo que responde
+  textHitSlop: { top: 16, bottom: 16, left: 8, right: 8 }, // llega a 44pt sin crecer la caja
+  gridGap: 1,                                            // entre cuadros de WeekGrid
+} as const;
 ```
 
 - Radio máximo 4px. Las esquinas muy redondeadas son lenguaje de iOS, no de papel.
-- Márgenes laterales de 16px. Márgenes verticales generosos, como una página.
+- Márgenes laterales de `layout.pageMargin`. Márgenes verticales generosos, como una página.
 - Regla **gruesa en tinta** separa el encabezado. Reglas **finas en ink30** separan secciones.
 - `rule.progress` son los 3px de `ProgressRule` y `HoldToConfirm`. Es el único grosor
   que no separa nada: mide.
@@ -79,6 +91,8 @@ export const rule = { thick: 1, thin: 0.5, progress: 3 } as const;
 - Transiciones instantáneas por defecto.
 - Fade de 120ms como máximo, solo para cambios de pantalla.
 - **Prohibido:** spring, escala, rebote, parallax, skeleton shimmer.
+- Sin rebote de scroll: `Screen` apaga `bounces` en iOS y el overscroll en Android. El
+  rebote es un spring.
 - El único movimiento continuo permitido es la barra de progreso de la sesión y la de "mantener pulsado".
 
 ## Cuadros rellenos
@@ -87,24 +101,28 @@ Solo dos cosas se rellenan de tinta de forma persistente: las semanas vividas de
 y el `Timer` de la sesión. Dicen lo mismo: el tiempo que ya es tuyo está en tinta. Todo
 otro relleno es el estado de pulsado de ADR-0011, y desaparece al soltar.
 
-## Componentes (19, escritos a mano)
+## Componentes (23, escritos a mano)
 
 | Componente | Descripción |
 |---|---|
-| `Screen` | Contenedor con fondo papel y márgenes de página |
+| `Screen` | Contenedor con fondo papel y márgenes de página. Con `scroll`, sin rebote |
 | `ScreenHeader` | Fila de etiquetas + regla gruesa debajo |
+| `Pager` | El swipe horizontal entre inicio y vida. Paginación nativa, arranca en la primera página. Ver ADR-0009 |
 | `DisplayNumber` | Número grande con sufijo opcional |
 | `Timer` | Número de tiempo grande en papel sobre un cuadro relleno de tinta. Ver ADR-0014 |
 | `Rule` | Regla horizontal, `thick` o `thin` |
-| `LedgerRow` | Fila etiqueta ↔ valor. Tocable cuando es un hábito que se marca |
+| `LedgerRow` | Fila etiqueta ↔ valor. Tocable cuando es un hábito: al presionar, la regla de abajo pasa a tinta; mantener pulsado abre la edición del hábito |
 | `Chip` | Opción seleccionable, borde 0.5 o 1 según estado |
 | `ChipRow` | Fila de chips que envuelve. Existe porque las pantallas no importan tokens |
-| `ChoiceCard` | Opción con título y descripción (profundidad, tipo de hábito) |
-| `PrimaryAction` | Bloque con borde de tinta y texto centrado |
+| `OptionChips` | Fila de opciones excluyentes sobre `Chip`: duraciones, metas, actividades. Una seleccionada como máximo |
+| `ChoiceCard` | Opción con título y descripción (profundidad, tipo de hábito). Tiene estado `disabled`: conserva su lugar y su frase, pero no se invierte ni responde |
+| `PrimaryAction` | Bloque con borde de tinta y texto centrado. Deshabilitado: borde fino `ink30`, texto `ink60`, y no se invierte |
 | `HoldToConfirm` | Botón de mantener pulsado con barra de progreso |
-| `WeekGrid` | Cuadrícula de cuadros de tinta |
+| `WeekGrid` | Cuadrícula de cuadros de tinta. Mide el ancho; las filas las calcula `domain/life` |
+| `WeekGridRow` | Una fila de la cuadrícula, memoizada: hay ~78 y no cambian |
 | `ProgressRule` | Barra de progreso de 3px |
-| `TextField` | Campo con regla debajo, sin caja |
+| `TextField` | Campo con regla debajo, sin caja. `onEndEditing` dispara una sola vez por edición |
+| `FieldGroup` | Un campo y la línea que lo explica, con gap más apretado que entre secciones |
 | `Label` | Texto de etiqueta en ink60 |
 | `Caption` | Texto de pista en caption size |
 | `Body` | Texto de lectura en tinta, body size. Solo lo usa el cierre de sesión. Ver ADR-0015 |
@@ -117,11 +135,14 @@ La selección se comunica **solo con el grosor del borde**. No hay fondo relleno
 
 **Estado de pulsado (ADR-0011).** Los controles con caja se **invierten** mientras el dedo
 está encima: fondo `ink`, texto `paper`. Instantáneo al presionar y al soltar, así que no
-puede confundirse con una selección. Es lo que hace un Kindle con lo que tocás.
+puede confundirse con una selección. Es lo que hace un Kindle con lo que tocás. Un control
+deshabilitado no se invierte: no hay nada que acusar.
 
 El texto tocable lleva **regla fina debajo** y pasa de `ink60` a `ink` al presionarlo. Sin
 esa regla no había forma de saber qué texto responde, y la regla 3 apoya el producto entero
-en ese tipo de control.
+en ese tipo de control. En las filas del libro mayor lo que responde es la **regla**, que
+pasa a tinta, no el texto: el texto de un renglón ya está en tinta en reposo y oscurecerlo
+no mostraría nada.
 
 **Área tocable mínima: 44pt.** En chips y filas es altura; en texto tocable es `hitSlop`,
 para no deformar la fila del encabezado.

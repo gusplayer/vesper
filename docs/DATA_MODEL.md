@@ -12,8 +12,33 @@ columnas de fecha en texto.
 
 ## Esquema
 
+Vive en `src/db/migrations/001_init.ts`, como template literal de TypeScript: Metro no
+empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
+fuentes de verdad. Una migración publicada no se edita: se agrega `002_*.ts`.
+
+Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
+
 ```sql
--- 001_init.sql
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+```
+
+Y lleva el registro de migraciones aplicadas en una tabla propia, que no es parte del
+esquema de producto:
+
+```sql
+CREATE TABLE IF NOT EXISTS _migrations (
+  id          INTEGER PRIMARY KEY,
+  name        TEXT NOT NULL,
+  applied_at  INTEGER NOT NULL
+);
+```
+
+Cada migración corre en su propia transacción: si falla a mitad, la base queda en la
+última versión buena.
+
+```sql
+-- 001_init.ts
 
 CREATE TABLE activities (
   id           TEXT PRIMARY KEY,
@@ -131,12 +156,15 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 
 | key | valor | notas |
 |---|---|---|
-| `last_session_config` | JSON | duración, actividad, profundidad, perfil |
-| `birth_date` | epoch ms | opt-in |
-| `life_expectancy_years` | número | default 77.6, editable |
-| `life_screen_enabled` | `'true'` / `'false'` | default `'false'` |
-| `weekly_focus_target_ms` | número | meta semanal |
-| `onboarding_completed_at` | epoch ms | |
+| `last_session_config` | JSON | `{activityId, plannedMs, depth, blockProfile}`. `blockProfile` siempre `null` en fase 1. Se valida al leer con `domain/session.resolveSessionConfig`: si la actividad ya no existe o el JSON está roto, vuelve al default |
+| `birth_date` | epoch ms | opt-in: se escribe desde la página de vida |
+| `life_expectancy_years` | número | default 77.6. Se lee; en fase 1 no es editable |
+| `weekly_focus_target_ms` | número | meta semanal. Guarda `0` para "ninguna"; se lee con `settings.getWeeklyTargetMs`, que devuelve `null` en ese caso |
+| `onboarding_completed_at` | epoch ms | se escribe al completar la primera sesión (ADR-0012) |
+
+Todo valor se escribe desde el flujo que lo usa (ADR-0007). `life_screen_enabled` existió
+en el papel y se eliminó del código: la página de vida siempre está en el pager y no hay
+onboarding donde declinarla.
 
 ## Invariantes
 

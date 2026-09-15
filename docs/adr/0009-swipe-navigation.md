@@ -49,3 +49,9 @@ Siguen siendo tres pantallas y dos modales: la regla 2 de `CLAUDE.md` no se toca
 - Una dependencia nativa nueva (`react-native-pager-view`). Se justifica: es el mismo
   módulo que usaría la opción 2, sin las dos capas de JS encima.
 - El pager arranca en `inicio` siempre. Nunca en `vida` — el PRD lo exige.
+
+## Nota (2026-09)
+
+`life_screen_enabled` se eliminó del código: el pager siempre tiene dos páginas y vida se
+muestra siempre, con una invitación cuando no hay fecha de nacimiento. La variante de una
+sola página no está implementada y ocultar vida es una decisión pendiente en `docs/STATUS.md`.
