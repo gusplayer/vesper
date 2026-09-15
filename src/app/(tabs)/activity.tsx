@@ -1,3 +1,4 @@
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 
 import { useDayStats } from '../../data';
@@ -15,7 +16,11 @@ import { useNow } from '../../lib/useNow';
 export default function ActivityScreen() {
   const now = useNow(60_000);
   const stats = useDayStats();
-  const [view, setView] = useState<ActivityView>('week');
+  // `?view=lifetime` opens a view directly, for links and for reviewing screens.
+  const params = useLocalSearchParams<{ view?: string }>();
+  const [view, setView] = useState<ActivityView>(() =>
+    params.view === 'month' || params.view === 'lifetime' ? params.view : 'week',
+  );
 
   return (
     <Screen scroll inTabs>

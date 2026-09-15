@@ -43,3 +43,4 @@ export { ExplainerBlock } from './ExplainerBlock';
 export { PeriodStrip } from './PeriodStrip';
 export { ThemeScope } from './ThemeScope';
 export { NativeHost } from './NativeHost';
+export { Columns } from './Columns';

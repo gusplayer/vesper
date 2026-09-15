@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { useAppStore, useHabitsWeek, useSettings } from '../../data';
-import { Check, ListGroup, ListRow, Section, Sheet, Text, Tooltip } from '../../design/components';
+import { Chip, ListGroup, ListRow, Section, Sheet, Text, Tooltip } from '../../design/components';
 import type { HabitProgress } from '../../domain/habits';
 import { MAX_HABITS } from '../../domain/types';
 import { habitProgressText } from '../../lib/format';
@@ -77,7 +77,19 @@ export function HabitsSection({ now }: HabitsSectionProps) {
             label={progress.habit.name}
             description={progress.habit.countMode === 'verified' ? verifiedText : 'declarado'}
             value={habitProgressText(progress)}
-            right={<Check shape="box" checked={progress.markedToday} />}
+            right={
+              lockedByHealth(progress) ? (
+                <Text variant="caption" tone={progress.markedToday ? 'primary' : 'tertiary'}>
+                  {progress.markedToday ? 'hoy ✓' : 'hoy –'}
+                </Text>
+              ) : (
+                <Chip
+                  label={progress.markedToday ? 'hoy ✓' : 'hoy'}
+                  selected={progress.markedToday}
+                  onPress={() => press(progress)}
+                />
+              )
+            }
             onPress={() => press(progress)}
             accessibilityLabel={accessibilityLabelFor(progress)}
           />
@@ -89,6 +101,11 @@ export function HabitsSection({ now }: HabitsSectionProps) {
           <ListRow label="Agregar hábito" icon="plus" onPress={() => router.push('/habits/new')} />
         )}
       </ListGroup>
+      <Text variant="caption" tone="tertiary">
+        {settings.healthConnected
+          ? '“hoy” marca el día de hoy. El número es cuántos días llevás esta semana. Los verificados los marca Salud sola.'
+          : '“hoy” marca el día de hoy. El número es cuántos días llevás esta semana.'}
+      </Text>
       {full ? (
         <Text variant="caption" tone="tertiary">
           Cinco es el máximo, a propósito.

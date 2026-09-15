@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import type { DayStat } from '../../data/types';
-import { DotGrid, Stack, StatCard, Text } from '../../design/components';
+import { Columns, DotGrid, Stack, StatCard, Text } from '../../design/components';
 import { durationText } from '../../lib/format';
 import { capitalize, monthLabel } from './dates';
 import { HabitsSection } from './HabitsSection';
@@ -22,39 +22,37 @@ type LifetimeViewProps = {
  */
 export function LifetimeView({ stats, now }: LifetimeViewProps) {
   const totals = useMemo(() => lifetimeTotals(stats), [stats]);
-  const months = useMemo(() => recentMonths(stats, now, 3), [stats, now]);
+  const months = useMemo(() => recentMonths(stats, now, 4), [stats, now]);
 
   return (
     <Stack gap="lg">
       <StatCard
         tone="ink"
-        label="HORAS ENFOCADO"
+        label="ENFOCADO EN TOTAL"
         value={hoursText(totals.totalMs)}
         description={
           totals.bestDayMs > 0
-            ? `Tiempo que moldeaste con intención. Tu mejor día sumó ${durationText(totals.bestDayMs)}.`
-            : 'Tiempo que moldeaste con intención. Tu primera sesión todavía no llegó.'
+            ? `Tu mejor día: ${durationText(totals.bestDayMs)}.`
+            : 'Tu primera sesión todavía no llegó.'
         }
       />
       <StatCard
-        label="DÍAS ENFOCADO"
+        label="DÍAS CON FOCO"
         value={daysText(totals.daysFocused)}
         description={
-          totals.firstAt === null
-            ? 'Todavía no hay días enfocados.'
-            : `Desde ${monthLabel(totals.firstAt)}`
+          totals.firstAt === null ? 'Todavía ninguno.' : `Desde ${monthLabel(totals.firstAt)}.`
         }
       >
-        <Stack gap="md">
+        <Columns count={2}>
           {months.map((month) => (
             <Stack key={month.key} gap="xs">
               <Text variant="caption" tone="secondary">
                 {capitalize(month.label)}
               </Text>
-              <DotGrid cells={month.cells} columns={7} size={14} />
+              <DotGrid cells={month.cells} columns={7} fill />
             </Stack>
           ))}
-        </Stack>
+        </Columns>
       </StatCard>
       <WeeklyGoalSection now={now} />
       <HabitsSection now={now} />
