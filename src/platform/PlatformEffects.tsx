@@ -3,6 +3,7 @@ import { useHealthSync } from './hooks/useHealthSync';
 import { useLiveActivitySync } from './hooks/useLiveActivitySync';
 import { useNotificationSync } from './hooks/useNotificationSync';
 import { useRoutineSync } from './hooks/useRoutineSync';
+import { useRoutineWindowsSync } from './hooks/useRoutineWindowsSync';
 
 /**
  * Mounts every platform side effect once, under the root layout. Each hook watches a
@@ -14,5 +15,6 @@ export function PlatformEffects() {
   useLiveActivitySync();
   useBlockingSync();
   useRoutineSync();
+  useRoutineWindowsSync();
   return null;
 }

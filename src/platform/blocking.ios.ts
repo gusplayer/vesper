@@ -1,6 +1,9 @@
 import type * as DeviceActivity from 'react-native-device-activity';
 
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode } from '../domain/blocking';
+import { ACTIVITY_PREFIX, routineIdFromActivityName, routineIdsFromActivityNames, windowIntervals } from '../domain/routineWindows';
+import { getStrings } from '../i18n';
+import type { RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, isDevice, type CapabilityStatus } from './capabilities';
 
 /**
@@ -159,8 +162,13 @@ export function applyMode(mode: BlockableMode, rules: BlockRules = NO_RULES): vo
   applyPlan(blockPlan(mode, rules));
 }
 
-/** Applies a plan from src/domain/blocking. Nothing happens where the capability is missing. */
-export function applyPlan(plan: BlockPlan): void {
+/**
+ * Applies a plan from src/domain/blocking. Nothing happens where the capability is
+ * missing. `endsAt` is part of the shared contract (Android times its own release);
+ * iOS ignores it, because ManagedSettings has no timer and useBlockingSync calls
+ * release() when the session ends.
+ */
+export function applyPlan(plan: BlockPlan, _endsAt?: number): void {
   const mod = nativeModule();
   if (mod === null || !status().available || isEmptyPlan(plan)) {
     return;
@@ -203,7 +211,7 @@ export function configureShield(modeName: string): void {
   if (mod === null || !status().available) {
     return;
   }
-  const copy = shieldCopy(modeName);
+  const copy = shieldCopy(modeName, getStrings().session.shield);
   safe(() =>
     mod.updateShield(
       { title: copy.title, subtitle: copy.subtitle, primaryButtonLabel: copy.primaryButtonLabel },
@@ -220,6 +228,142 @@ export function isShielding(): boolean {
     return false;
   }
   return safe(() => mod.isShieldActive()) ?? false;
+}
+
+// ---------------------------------------------------------------------------------
+// Routine windows (ADR-0019): DeviceActivity schedules the shield while the app is
+// closed. See docs/PLATFORM_IOS.md, "Ventanas de rutina".
+// ---------------------------------------------------------------------------------
+
+/**
+ * Registers a routine window with DeviceActivity: one repeating schedule per weekday
+ * the routine is on (or one daily schedule when it is on every day), with the
+ * selection stored under the routine's id so the monitor extension can block and
+ * unblock it without the app. Whatever this routine had scheduled before is replaced.
+ * Resolves, never rejects.
+ */
+export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
+  const mod = nativeModule();
+  if (mod === null || !status().available) {
+    return;
+  }
+  const intervals = windowIntervals(spec);
+  if (intervals.length === 0 || spec.token.trim() === '') {
+    return;
+  }
+  const key = windowKey(spec.id);
+  // Days or hours may have changed: the old activities of this routine go first.
+  stopWindow(mod, spec.id);
+  safe(() => mod.setFamilyActivitySelectionId({ id: key, familyActivitySelection: spec.token }));
+  safe(() =>
+    mod.updateShieldWithId(
+      { title: spec.shieldTitle, subtitle: spec.shieldSubtitle, primaryButtonLabel: spec.shieldButton },
+      { primary: { behavior: 'close' } },
+      key,
+    ),
+  );
+  for (const interval of intervals) {
+    safe(() =>
+      mod.configureActions({
+        activityName: interval.activityName,
+        callbackName: 'intervalDidStart',
+        actions: windowStartActions(spec.kind, key),
+      }),
+    );
+    safe(() =>
+      mod.configureActions({
+        activityName: interval.activityName,
+        callbackName: 'intervalDidEnd',
+        actions: windowEndActions(spec.kind, key),
+      }),
+    );
+    await safeAsync(() =>
+      mod.startMonitoring(
+        interval.activityName,
+        { intervalStart: interval.start, intervalEnd: interval.end, repeats: true },
+        [],
+      ),
+    );
+  }
+}
+
+/** Stops every schedule of a routine and forgets its actions. Resolves, never rejects. */
+export async function cancelWindow(id: string): Promise<void> {
+  const mod = nativeModule();
+  if (mod === null || !status().available) {
+    return;
+  }
+  stopWindow(mod, id);
+}
+
+/** The routines DeviceActivity currently holds a window for. */
+export async function listWindowIds(): Promise<string[]> {
+  const mod = nativeModule();
+  if (mod === null || !status().available) {
+    return [];
+  }
+  return routineIdsFromActivityNames(safe(() => mod.getActivities()) ?? []);
+}
+
+/**
+ * The Android backend needs exact alarms, a notification channel, a living service and
+ * a way out of battery optimisation. iOS needs none of that: the system runs the
+ * schedule. These exist so the shared hooks can call them on both platforms.
+ */
+export async function requestExactAlarms(): Promise<boolean> {
+  return true;
+}
+
+export async function requestNotifications(): Promise<boolean> {
+  return true;
+}
+
+/** True when the system is in a position to run our schedules. */
+export function serviceAlive(): boolean {
+  return status().available;
+}
+
+/** Nothing to open on iOS. */
+export async function openBatterySettings(): Promise<boolean> {
+  return false;
+}
+
+/** Selection id, shield id and action prefix of a routine, all the same string. */
+function windowKey(id: string): string {
+  return `${ACTIVITY_PREFIX}${id}`;
+}
+
+function stopWindow(mod: Module, id: string): void {
+  const names = (safe(() => mod.getActivities()) ?? []).filter((name) => routineIdFromActivityName(name) === id);
+  // An empty list tells the module to stop *every* activity, so it never gets one.
+  if (names.length > 0) {
+    safe(() => mod.stopMonitoring(names));
+  }
+  safe(() => mod.cleanUpAfterActivity(windowKey(id)));
+}
+
+/**
+ * What the monitor extension does when the interval starts. 'block' shields the
+ * selection under the routine's shield copy; 'allow' whitelists the selection first
+ * and then shields everything else (the extension applies the whitelist inside
+ * enableBlockAllMode).
+ */
+function windowStartActions(kind: RoutineWindowSpec['kind'], key: string): DeviceActivity.Action[] {
+  if (kind === 'block') {
+    return [{ type: 'blockSelection', familyActivitySelectionId: key, shieldId: key }];
+  }
+  return [
+    { type: 'addSelectionToWhitelist', familyActivitySelection: { activitySelectionId: key } },
+    { type: 'enableBlockAllMode', shieldId: key },
+  ];
+}
+
+/** What the extension does when the interval ends: undo exactly what it did. */
+function windowEndActions(kind: RoutineWindowSpec['kind'], key: string): DeviceActivity.Action[] {
+  if (kind === 'block') {
+    return [{ type: 'unblockSelection', familyActivitySelectionId: key }];
+  }
+  return [{ type: 'disableBlockAllMode' }, { type: 'clearWhitelistAndUpdateBlock' }];
 }
 
 function authorizationStatus(mod: Module): DeviceActivity.AuthorizationStatusType {
@@ -239,6 +383,19 @@ function safe<T>(call: () => T): T | undefined {
       console.warn('[blocking]', errorMessage(error));
     }
     return undefined;
+  }
+}
+
+/** The async twin of `safe`: true when the call resolved. */
+async function safeAsync(call: () => Promise<void>): Promise<boolean> {
+  try {
+    await call();
+    return true;
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[blocking]', errorMessage(error));
+    }
+    return false;
   }
 }
 

@@ -59,12 +59,17 @@ export function isEmptyPlan(plan: BlockPlan): boolean {
 }
 
 /** 'Vesper · Sin redes' on the shield. An empty mode name leaves just 'Vesper'. */
-export function shieldCopy(modeName: string): ShieldCopy {
+/** The two lines the shield says, in the app's language (src/i18n, session.shield). */
+export type ShieldStrings = { subtitle: string; back: string };
+
+const SHIELD_ES: ShieldStrings = { subtitle: 'Estás enfocado. Esta app espera.', back: 'Volver a Vesper' };
+
+export function shieldCopy(modeName: string, t: ShieldStrings = SHIELD_ES): ShieldCopy {
   const name = modeName.trim();
   return {
     title: name === '' ? 'Vesper' : `Vesper · ${name}`,
-    subtitle: 'Estás enfocado. Esta app espera.',
-    primaryButtonLabel: 'Volver a Vesper',
+    subtitle: t.subtitle,
+    primaryButtonLabel: t.back,
   };
 }
 

@@ -212,3 +212,64 @@ nombres.
 - No hay forma de distinguir "sin entitlement" de otros fallos de
   `requestAuthorization` salvo por el texto del error; cualquier fallo que no sea una
   cancelación se trata como entitlement ausente.
+
+### Ventanas de rutina (ADR-0019)
+
+Una rutina con hora también se programa en el sistema, para que el shield suba y baje
+aunque la app esté cerrada. `src/platform/hooks/useRoutineWindowsSync.ts` se suscribe a
+`useAppStore` (rutinas y modos) y, con 500 ms de espera para que un guardado en ráfaga
+se asiente, reconcilia: cada rutina activa con hora cuyo modo tiene `selectionToken`
+pasa por `routineWindowPlans` (`src/domain/routineWindows.ts`) y se entrega a
+`scheduleWindow`; las que el sistema todavía tiene y ya nadie quiere se cancelan con
+`cancelWindow`. Una rutina cuyo spec no cambió no se vuelve a programar. Sin
+`status().available` no se toca nada.
+
+Lo que `scheduleWindow` hace por rutina, en `blocking.ios.ts`:
+
+1. `setFamilyActivitySelectionId({ id: 'routine-<id>', familyActivitySelection: token })`
+   guarda el token en el app group para que la extensión lo lea sin la app.
+2. `updateShieldWithId({ title, subtitle, primaryButtonLabel }, { primary: { behavior: 'close' } }, 'routine-<id>')`
+   guarda la copia del shield bajo el mismo id.
+3. Por cada intervalo, `configureActions` para `intervalDidStart` e `intervalDidEnd`:
+   - `block`: `blockSelection { familyActivitySelectionId, shieldId }` → `unblockSelection`;
+   - `allow`: `addSelectionToWhitelist` + `enableBlockAllMode { shieldId }` →
+     `disableBlockAllMode` + `clearWhitelistAndUpdateBlock`.
+4. `startMonitoring(nombre, schedule, [])`.
+
+El schedule es un `DeviceActivitySchedule` con `repeats: true`:
+
+| Días de la rutina | Actividades | `intervalStart` | `intervalEnd` |
+|---|---|---|---|
+| Los siete | 1: `routine-<id>-daily` | `{ hour, minute }` | `{ hour, minute }` |
+| Algunos | 1 por día: `routine-<id>-<0..6>` (lunes = 0) | `{ hour, minute, weekday }` | `{ hour, minute, weekday }` |
+
+`weekday` es el de Apple (domingo = 1, sábado = 7) y llega al `DateComponents`
+nativo: la librería lo copia tal cual (`convertToSwiftDateComponents`), aunque su README
+no lo documente. Con `weekday` en ambos extremos el intervalo se repite cada semana en
+ese día; una ventana que cruza la medianoche (21:30 → 06:30) termina con el `weekday`
+del día siguiente. Una ventana abierta termina en `start + cap` (la duración de la
+rutina, o 8 h); si el resultado queda antes del inicio, es del día siguiente.
+
+Límites honestos:
+
+- **Presupuesto de actividades.** iOS acepta ~20 `DeviceActivityName` a la vez
+  (ver "Presupuesto de schedules"). Una rutina de todos los días cuesta 1; una de
+  algunos días cuesta uno por día, así que tres rutinas de lunes a viernes son 15. Al
+  pasarse, `startMonitoring` falla en silencio para las que sobran: `safe` lo traga y
+  `__DEV__` lo avisa por consola. No hay agrupación de días consecutivos: un
+  `DateComponents` lleva un solo `weekday`.
+- **Mínimo de 15 minutos.** Apple rechaza intervalos más cortos; `windowEnd` estira la
+  ventana a 15 minutos en vez de dejarla sin shield.
+- **La sesión manda.** Cuando el motor de la app arranca la sesión de esa rutina,
+  `useBlockingSync` aplica el mismo token en primer plano y, al terminar la sesión,
+  `release()` hace `resetBlocks`: el shield que puso la ventana también cae. Terminar
+  antes fue una decisión (ADR-0019), y el sistema no lo vuelve a subir hasta el
+  siguiente `intervalDidStart`.
+- **Nada de esto se puede probar sin el entitlement.** El simulador no tiene Tiempo de
+  uso y el device sin Family Controls falla en `requestAuthorization`; las cuatro
+  funciones (`scheduleWindow`, `cancelWindow`, `listWindowIds` y las acciones de la
+  extensión) están escritas contra las typings y el Swift de la librería, no contra un
+  teléfono. La aritmética de intervalos sí tiene tests en `src/domain/routineWindows.test.ts`.
+- `requestExactAlarms`, `requestNotifications`, `serviceAlive` y `openBatterySettings`
+  existen en iOS solo para que los hooks compartidos compilen en ambas plataformas:
+  devuelven `true`, `true`, `status().available` y `false`.

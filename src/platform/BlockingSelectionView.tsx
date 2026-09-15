@@ -8,6 +8,7 @@ import { ListRow } from '../design/components/ListRow';
 import { SearchField } from '../design/components/SearchField';
 import { Text } from '../design/components/Text';
 import { packageNamesFromToken, tokenFromPackageNames } from '../domain/packageSelection';
+import { useStrings } from '../i18n';
 import { listLaunchableApps } from './androidApps';
 import type { LaunchableApp } from '../../modules/vesper-blocking';
 import { nativeModule, status } from './blocking';
@@ -68,6 +69,7 @@ type AndroidSelectionViewProps = {
  * column as the iOS token. Built from the design system, one row per app.
  */
 function AndroidSelectionView({ style, familyActivitySelection, onSelectionChange }: AndroidSelectionViewProps) {
+  const t = useStrings();
   const [apps, setApps] = useState<LaunchableApp[] | null>(null);
   const [query, setQuery] = useState('');
   const selected = useMemo(() => packageNamesFromToken(familyActivitySelection), [familyActivitySelection]);
@@ -99,7 +101,7 @@ function AndroidSelectionView({ style, familyActivitySelection, onSelectionChang
   return (
     <View style={[styles.android, style]}>
       <View style={styles.search}>
-        <SearchField value={query} onChangeText={setQuery} placeholder="Buscar apps" />
+        <SearchField value={query} onChangeText={setQuery} placeholder={t.modes.apps.search} />
       </View>
       <ScrollView nestedScrollEnabled contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
         {apps === null ? (

@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
 import { plannedNotifications } from '../../domain/reminders';
+import { getStrings, useLocaleStore } from '../../i18n';
 import { hasPermission, status, syncScheduled } from '../notifications';
 
 /**
@@ -20,13 +21,17 @@ async function syncNow(): Promise<void> {
   const app = useAppStore.getState();
   const focus = useFocusStore.getState();
   const allowed = app.settings.notificationsAllowed && (await hasPermission());
-  const specs = plannedNotifications({
-    session: focus.session,
-    schedules: app.schedules,
-    modes: app.modes,
-    prefs: app.settings.notifications,
-    allowed,
-  });
+  const specs = plannedNotifications(
+    {
+      session: focus.session,
+      schedules: app.schedules,
+      modes: app.modes,
+      prefs: app.settings.notifications,
+      allowed,
+    },
+    // The reminders speak the language the app is in right now.
+    getStrings().notifications,
+  );
   await syncScheduled(specs);
 }
 
@@ -59,6 +64,8 @@ export function useNotificationSync(): void {
         schedule();
       }
     });
+    // A language change rewrites every pending reminder.
+    const unsubscribeLocale = useLocaleStore.subscribe(() => schedule());
     const unsubscribeFocus = useFocusStore.subscribe((state, previous) => {
       // Only the session's identity matters: editing its intention changes nothing here.
       if (state.session?.id !== previous.session?.id) {
@@ -68,6 +75,7 @@ export function useNotificationSync(): void {
 
     return () => {
       unsubscribeApp();
+      unsubscribeLocale();
       unsubscribeFocus();
       if (timer !== null) {
         clearTimeout(timer);
