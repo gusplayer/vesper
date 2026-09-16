@@ -114,3 +114,26 @@ El costo de esperar es una tabla que hoy se llena desde el seed y mañana desde 
   procedencia. La comparación de redes es entre estimaciones y se dice.
 - Queda pendiente para un ADR posterior: el backend, la identidad real, el sync de
   `member_weeks`, y qué pasa con los datos de alguien que sale del círculo.
+
+## Adenda 2026-09-16 — link, QR y el código como solicitud
+
+Tres ajustes a la invitación, después de ver la primera versión:
+
+- **El código es una solicitud, no una llave.** Quien usa tu código (o tu link) queda
+  como "pendiente" de tu lado y tú aceptas, igual que una invitación recibida. Así un
+  link reenviado no mete a un desconocido en tu círculo. "Generar código nuevo" sube
+  `codeGeneration` en el perfil y el código anterior deja de coincidir; quien ya está,
+  se queda.
+- **El link es solo transporte del código.** `vesper://circle/join?code=ABC234` hoy;
+  un link `https` universal cuando haya dominio, con el mismo código adentro. Compartir
+  envía texto con el código y el link. El link cae en `circle/join`, que pide entrar con
+  un toque, o manda a crear el perfil primero.
+- **El QR codifica ese link.** La cámara nativa del teléfono lo abre en Vesper, así que
+  no hay escáner dentro de la app ni permiso de cámara. El codificador es propio
+  (`src/lib/qr.ts`: byte, nivel M, versiones 1 a 5) y se dibuja con `react-native-svg`,
+  que ya estaba; sin dependencia nueva. Se verificó decodificando su salida con Vision
+  de macOS en las cinco versiones, y sus patrones de función coinciden módulo a módulo
+  con `CIQRCodeGenerator`.
+- En la pantalla, el código ajeno vive en su propia sección ("¿Te dieron un código?")
+  para que no se lea como un segundo código propio.
+

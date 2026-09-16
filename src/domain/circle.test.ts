@@ -9,7 +9,9 @@ import {
   dayKeyStart,
   DEFAULT_SHARE_PREFS,
   endWeekKeyFor,
+  codeFromInviteLink,
   inviteCodeFor,
+  inviteLinkFor,
   kudosGivenToday,
   kudosReceivedInWeek,
   kudosSenderNames,
@@ -28,7 +30,7 @@ const WEEK = '2026-08-17';
 const LAST_WEEK = '2026-08-10';
 const TODAY = '2026-08-19';
 
-const profile: Profile = { id: 'profile-1', name: 'Gus', handle: 'gus', createdAt: 0 };
+const profile: Profile = { id: 'profile-1', name: 'Gus', handle: 'gus', codeGeneration: 0, createdAt: 0 };
 
 function member(id: string, name: string, status: Member['status'] = 'member'): Member {
   return { id, name, handle: id, status, joinedAt: status === 'member' ? 1 : null, createdAt: 1 };
@@ -316,7 +318,7 @@ describe('invite codes', () => {
   it('is six symbols from the alphabet, always the same for the same profile', () => {
     const code = inviteCodeFor(profile);
 
-    expect(code).toMatch(/^[A-Z2-9]{6}$/);
+    expect(code).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
     expect(inviteCodeFor({ ...profile, name: 'Otro', createdAt: 99 })).toBe(code);
   });
 
@@ -325,6 +327,29 @@ describe('invite codes', () => {
 
     expect(codes.size).toBe(5);
     expect(codes.has(inviteCodeFor(profile))).toBe(false);
+  });
+
+  it('changes with the code generation and nothing else', () => {
+    const code = inviteCodeFor(profile);
+    const next = inviteCodeFor({ ...profile, codeGeneration: 1 });
+
+    expect(next).toMatch(/^[A-HJ-NP-Z2-9]{6}$/);
+    expect(next).not.toBe(code);
+    expect(inviteCodeFor({ ...profile, codeGeneration: 0 })).toBe(code);
+  });
+
+  it('builds the invite link around the code and reads the code back out of text', () => {
+    const code = inviteCodeFor(profile);
+    const link = inviteLinkFor(code);
+
+    expect(link).toBe(`vesper://circle/join?code=${code}`);
+    expect(codeFromInviteLink(link)).toBe(code);
+    expect(codeFromInviteLink(`Únete a mi círculo. Toca ${link} o escribe el código ${code}.`)).toBe(code);
+    expect(codeFromInviteLink(`vesper://circle/join?code=${code.toLowerCase()}`)).toBe(code);
+    expect(codeFromInviteLink('vesper://circle/join?code=ABC0O1')).toBeNull();
+    expect(codeFromInviteLink('vesper://circle/join?code=ABCDEFG')).toBeNull();
+    expect(codeFromInviteLink('vesper://circle/join')).toBeNull();
+    expect(codeFromInviteLink('')).toBeNull();
   });
 
   it('normalizes what the user typed and rejects anything that is not a code', () => {
@@ -337,6 +362,8 @@ describe('invite codes', () => {
     expect(normalizeInviteCode('ABCDEFG')).toBeNull();
     expect(normalizeInviteCode('ABC 23')).toBeNull();
     expect(normalizeInviteCode('ABC01O')).toBeNull();
+    expect(normalizeInviteCode('ABCI23')).toBeNull();
+    expect(normalizeInviteCode('ABCO23')).toBeNull();
     expect(normalizeInviteCode('ábc234')).toBeNull();
   });
 });

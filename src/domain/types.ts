@@ -150,6 +150,8 @@ export type Profile = {
   name: string;
   /** Short, written by the user, unique inside a circle: 'ana', 'gus'. Lowercase. */
   handle: string;
+  /** Bumped by "Generar código nuevo": the invite code derives from id and this. */
+  codeGeneration: number;
   createdAt: Millis;
 };
 

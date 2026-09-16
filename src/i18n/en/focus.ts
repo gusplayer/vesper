@@ -5,7 +5,6 @@ export const focus: typeof shape = {
     resume: 'Resume',
     holdToFocus: 'Hold to focus',
     holdHint: (minutes) => `${minutes} min · tap to change`,
-    seeActivity: 'See activity ›',
     noModes: 'No modes',
     noModesHint: 'A mode says what gets blocked while you focus',
     createFirstMode: 'Create your first mode ›',

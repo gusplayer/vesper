@@ -114,7 +114,6 @@ export default function FocusScreen() {
             onPress={openActivity}
             accessibilityLabel={gridSummary(cells, t.focus.recentDays)}
           />
-          <Button variant="ghost" label={t.focus.home.seeActivity} onPress={openActivity} />
         </Stack>
 
         <Stack align="center" gap="xs">

@@ -266,9 +266,9 @@ export function challengeStandings(
 // --- Invite codes ------------------------------------------------------------------
 
 /** No 0, O, 1 or I: a code is read out loud or typed from a screenshot. */
-const CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789';
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
-const CODE_PATTERN = /^[A-Z2-9]{6}$/;
+const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 
 /** FNV-1a, 32 bits. Enough to spread a UUID over six symbols; not a secret. */
 function hash32(text: string, seed: number): number {
@@ -281,17 +281,36 @@ function hash32(text: string, seed: number): number {
 }
 
 /**
- * The user's invite code: six symbols, always the same for the same profile, so it
- * can be shown before any server exists. When the backend arrives the server will
- * hand one out and this becomes a fallback.
+ * The user's invite code: six symbols, always the same for the same profile and
+ * generation, so it can be shown before any server exists. "Generar código nuevo"
+ * bumps the generation and the old code stops matching. When the backend arrives the
+ * server will hand one out and this becomes a fallback.
  */
 export function inviteCodeFor(profile: Profile): string {
+  const source = `${profile.id}:${profile.codeGeneration}`;
   let code = '';
   for (let i = 0; i < CODE_LENGTH; i += 1) {
-    const index = hash32(profile.id, i * 0x9e3779b9) % CODE_ALPHABET.length;
+    const index = hash32(source, i * 0x9e3779b9) % CODE_ALPHABET.length;
     code += CODE_ALPHABET[index] ?? 'A';
   }
   return code;
+}
+
+/**
+ * The link that carries a code: the app's own scheme, so the phone camera and any
+ * messenger open Vesper on it. A universal https link replaces this once there is a
+ * domain; the code inside stays the same.
+ */
+export const INVITE_LINK_PREFIX = 'vesper://circle/join?code=';
+
+export function inviteLinkFor(code: string): string {
+  return `${INVITE_LINK_PREFIX}${code}`;
+}
+
+/** The code inside an invite link, or inside plain text that holds one. Null otherwise. */
+export function codeFromInviteLink(text: string): string | null {
+  const match = /code=([A-Za-z0-9]{6})(?![A-Za-z0-9])/.exec(text);
+  return match === null ? null : normalizeInviteCode(match[1] ?? '');
 }
 
 /** What the user typed, cleaned up: trimmed and uppercased. Null unless it is a code. */

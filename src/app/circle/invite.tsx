@@ -5,26 +5,30 @@ import { Alert, Share } from 'react-native';
 import { useCircleMembers, useCircleStore, useInviteCode, usePendingInvites } from '../../data';
 import {
   Button,
+  Card,
   Chip,
   FieldRow,
   ListGroup,
   ListRow,
   PageHeader,
+  QrCode,
   Screen,
   Section,
   Stack,
-  StatCard,
   Text,
 } from '../../design/components';
+import { codeFromInviteLink, inviteLinkFor } from '../../domain/circle';
 import { MAX_CIRCLE, type Member } from '../../domain/types';
 import { useStrings } from '../../i18n';
 
 type InviteResult = 'ok' | 'invalid' | 'full' | 'self';
 
 /**
- * Invitar: the user's code to share, a field for someone else's, the invitations
- * waiting for an answer, and who is already in. There is no server yet, so sending
- * an invitation only adds an 'invited' row here; the last line says so.
+ * Invitar. Two directions, kept apart on purpose: your code (with its QR and a share
+ * sheet that sends the link too), and someone else's code, which asks to join their
+ * circle. A code is a request, not a key: whoever uses yours waits until you accept
+ * (ADR-0021). There is no server yet, so a request only adds an 'invited' row here;
+ * the last line says so.
  */
 export default function InviteScreen() {
   const router = useRouter();
@@ -37,6 +41,7 @@ export default function InviteScreen() {
   const acceptInvite = useCircleStore((state) => state.acceptInvite);
   const declineInvite = useCircleStore((state) => state.declineInvite);
   const removeMember = useCircleStore((state) => state.removeMember);
+  const regenerateInviteCode = useCircleStore((state) => state.regenerateInviteCode);
 
   const [codeText, setCodeText] = useState('');
   const [result, setResult] = useState<InviteResult | null>(null);
@@ -44,16 +49,25 @@ export default function InviteScreen() {
 
   const inCircle = members.filter((member) => member.status === 'member' || member.status === 'invited');
   const memberCount = members.filter((member) => member.status === 'member').length;
+  const link = code === null ? null : inviteLinkFor(code);
 
   const share = () => {
-    if (code === null) {
+    if (code === null || link === null) {
       return;
     }
-    void Share.share({ message: copy.shareMessage(code) });
+    void Share.share({ message: copy.shareMessage(code, link) });
   };
 
+  const confirmNewCode = () => {
+    Alert.alert(copy.newCodeQuestion, copy.newCodeMessage, [
+      { text: t.common.cancel, style: 'cancel' },
+      { text: copy.newCodeConfirm, onPress: () => regenerateInviteCode(Date.now()) },
+    ]);
+  };
+
+  // A pasted link works as well as a typed code.
   const send = () => {
-    const outcome = invite(codeText, Date.now());
+    const outcome = invite(codeFromInviteLink(codeText) ?? codeText, Date.now());
     setResult(outcome);
     if (outcome === 'ok') {
       setCodeText('');
@@ -75,25 +89,24 @@ export default function InviteScreen() {
     <Screen scroll footer={<Button label={copy.share} onPress={share} disabled={code === null} />}>
       <PageHeader onBack={() => router.back()} title={copy.title} />
 
-      <StatCard label={copy.yourCode} value={code ?? t.common.empty} description={copy.yourCodeHint} />
-
-      <Stack gap="sm">
-        <FieldRow
-          label={copy.codeField}
-          value={codeText}
-          onChangeText={(text) => {
-            setCodeText(text);
-            setResult(null);
-          }}
-          placeholder={copy.codePlaceholder}
-        />
-        <Button label={copy.send} variant="ghost" onPress={send} disabled={codeText.trim() === ''} />
-        {result === null ? null : (
-          <Text variant="label" tone={result === 'ok' ? 'secondary' : 'danger'} align="center">
-            {copy.result[result]}
+      <Card>
+        <Stack gap="md" align="center">
+          <Stack gap="xs" align="center">
+            <Text variant="caption" tone="secondary">
+              {copy.yourCode}
+            </Text>
+            <Text variant="title">{code ?? t.common.empty}</Text>
+          </Stack>
+          {link === null || code === null ? null : <QrCode value={link} accessibilityLabel={copy.qrA11y(code)} />}
+          <Text variant="label" tone="secondary" align="center">
+            {copy.yourCodeHint}
           </Text>
-        )}
-      </Stack>
+          <Text variant="caption" tone="tertiary" align="center">
+            {copy.qrHint}
+          </Text>
+        </Stack>
+      </Card>
+      <Button label={copy.newCode} variant="ghost" onPress={confirmNewCode} disabled={code === null} />
 
       {pending.length === 0 ? null : (
         <Section title={copy.pending}>
@@ -119,6 +132,22 @@ export default function InviteScreen() {
           ) : null}
         </Section>
       )}
+
+      <Section title={copy.enterTitle}>
+        <FieldRow
+          label={copy.codeField}
+          value={codeText}
+          onChangeText={(text) => {
+            setCodeText(text);
+            setResult(null);
+          }}
+          placeholder={copy.codePlaceholder}
+        />
+        <Button label={copy.send} variant="secondary" onPress={send} disabled={codeText.trim() === ''} />
+        <Text variant="label" tone={result === null ? 'tertiary' : result === 'ok' ? 'secondary' : 'danger'}>
+          {result === null ? copy.enterHint : copy.result[result]}
+        </Text>
+      </Section>
 
       <Section
         title={copy.members}

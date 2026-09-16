@@ -10,7 +10,6 @@ export const focus = {
     holdToFocus: 'Mantén para enfocar',
     /** '25 min · toca para cambiar', under the hold button. */
     holdHint: (minutes: string) => `${minutes} min · toca para cambiar`,
-    seeActivity: 'Ver actividad ›',
     noModes: 'Sin modos',
     noModesHint: 'Un modo dice qué se bloquea mientras enfocas',
     createFirstMode: 'Crea tu primer modo ›',

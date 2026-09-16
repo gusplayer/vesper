@@ -204,14 +204,17 @@ export function parseProfile(raw: unknown): Profile | null {
   if (!isRecord(raw)) {
     return null;
   }
-  const { id, name, handle, createdAt } = raw;
+  const { id, name, handle, createdAt, codeGeneration } = raw;
   if (typeof id !== 'string' || id.length === 0 || typeof name !== 'string' || typeof handle !== 'string') {
     return null;
   }
   if (typeof createdAt !== 'number' || !Number.isFinite(createdAt)) {
     return null;
   }
-  return { id, name, handle, createdAt };
+  // A profile written before codes could be regenerated is generation 0.
+  const generation =
+    typeof codeGeneration === 'number' && Number.isInteger(codeGeneration) && codeGeneration >= 0 ? codeGeneration : 0;
+  return { id, name, handle, codeGeneration: generation, createdAt };
 }
 
 /** The circle profile, or null while the user has not created one (ADR-0021). */

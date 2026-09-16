@@ -64,6 +64,8 @@ type CircleState = {
   // Identity
   createProfile: (input: { name: string; handle: string }, now: number) => void;
   updateProfile: (patch: Partial<Pick<Profile, 'name' | 'handle'>>, now: number) => void;
+  /** Invalidates the current invite code: the next one derives from a new generation. */
+  regenerateInviteCode: (now: number) => void;
   updateShare: (patch: Partial<SharePrefs>, now: number) => void;
 
   // People
@@ -159,7 +161,13 @@ export const useCircleStore = create<CircleState>((set, get) => {
 
     createProfile: (input, now) => {
       saveProfile(
-        { id: uuidv7(now), name: input.name.trim(), handle: normalizeHandle(input.handle), createdAt: now },
+        {
+          id: uuidv7(now),
+          name: input.name.trim(),
+          handle: normalizeHandle(input.handle),
+          codeGeneration: 0,
+          createdAt: now,
+        },
         now,
       );
     },
@@ -177,6 +185,14 @@ export const useCircleStore = create<CircleState>((set, get) => {
         },
         now,
       );
+    },
+
+    regenerateInviteCode: (now) => {
+      const current = get().profile;
+      if (current === null) {
+        return;
+      }
+      saveProfile({ ...current, codeGeneration: current.codeGeneration + 1 }, now);
     },
 
     updateShare: (patch, now) => {

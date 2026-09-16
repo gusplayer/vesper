@@ -97,6 +97,7 @@ export default function RootLayout() {
           <Stack.Screen name="habits/new" />
           <Stack.Screen name="circle/index" />
           <Stack.Screen name="circle/invite" />
+          <Stack.Screen name="circle/join" />
           <Stack.Screen name="circle/challenge" />
           <Stack.Screen name="circle/challenge-new" />
         </Stack.Protected>

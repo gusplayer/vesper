@@ -136,7 +136,16 @@ dos semanas de números, un reto "Leer", dos ánimos.
   otro; aceptar la invitación de Mateo lo pasa al círculo (4 de 12); Ajustes › Círculo
   con perfil y los tres interruptores; la sección "Tu círculo" al final de Actividad ›
   Semanal; todo en inglés y en español cambiando el idioma en caliente.
-- No verificado: la hoja de compartir el código (`Share.share`), "Salir del círculo",
+- **Invitación por link y QR (2026-09-16)**: el código es una solicitud (quien lo usa
+  queda pendiente hasta que aceptas), "Generar código nuevo" invalida el anterior, la
+  hoja de compartir lleva código y link `vesper://circle/join?code=…`, y la tarjeta
+  muestra un QR con ese link generado por `src/lib/qr.ts` (sin librería). Verificado:
+  la salida del codificador decodificada con Vision de macOS en las versiones 1 a 5;
+  en el simulador, el QR leído por Vision desde la propia captura de pantalla, antes y
+  después de "Generar código nuevo"; el deep link abierto con `simctl openurl` cae en
+  `circle/join`; la hoja de compartir con el mensaje. No verificado: que la cámara de un
+  iPhone real abra el link (necesita el dev client instalado en ese teléfono).
+- No verificado: "Salir del círculo",
   "Quitar" a alguien, el tope de 12 y de 5 hábitos desde la UI (los cubren los tests), la
   línea de ánimo en el cierre de sesión.
 - `tsc` limpio, 588 tests en 46 archivos (71 nuevos).

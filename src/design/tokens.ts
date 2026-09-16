@@ -124,6 +124,8 @@ export const layout = {
   /** The centered object on the home page. */
   hero: 132,
   appIcon: { sm: 24, md: 40, lg: 56 },
+  /** The invite QR code, quiet zone included. */
+  qr: 168,
 } as const;
 
 /** Soft, wide shadows. iOS reads them; Android gets `elevation`. */

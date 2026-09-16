@@ -264,7 +264,7 @@ describe('clearAll', () => {
 });
 
 describe('profile in settings', () => {
-  const profile = { id: 'p-1', name: 'Gus', handle: 'gus', createdAt: T0 };
+  const profile = { id: 'p-1', name: 'Gus', handle: 'gus', codeGeneration: 0, createdAt: T0 };
 
   it('reads a well-formed profile from circle_profile', () => {
     fake.whenSql('SELECT value', [{ value: JSON.stringify(profile) }]);

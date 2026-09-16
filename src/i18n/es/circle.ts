@@ -121,34 +121,56 @@ export const circle = {
   invite: {
     title: 'Invitar',
     yourCode: 'TU CÓDIGO',
-    yourCodeHint: 'Quien lo escriba en su Vesper entra a tu círculo.',
-    share: 'Compartir código',
-    /** What the share sheet sends. */
-    shareMessage: (code: string) => `Únete a mi círculo en Vesper con el código ${code}.`,
+    yourCodeHint: 'Quien lo use te pide entrar a tu círculo. Tú decides si aceptas.',
+    qrHint: 'Con la cámara del teléfono, apuntando a este código, se abre Vesper.',
+    qrA11y: (code: string) => `Código QR de tu invitación, ${code}`,
+    share: 'Compartir invitación',
+    /** What the share sheet sends: the code for typing, the link for tapping. */
+    shareMessage: (code: string, link: string) =>
+      `Únete a mi círculo en Vesper. Toca ${link} o escribe el código ${code}.`,
+    newCode: 'Generar código nuevo',
+    newCodeQuestion: '¿Generar un código nuevo?',
+    newCodeMessage: 'El anterior deja de funcionar. Quien ya está en tu círculo se queda.',
+    newCodeConfirm: 'Generar',
+    enterTitle: '¿Te dieron un código?',
+    enterHint: 'Escríbelo aquí, o toca el link que te enviaron.',
     codeField: 'Código',
-    codePlaceholder: 'ABC123',
-    send: 'Enviar invitación',
+    codePlaceholder: 'seis letras o números',
+    send: 'Pedir entrar a su círculo',
     result: {
-      ok: 'Invitación enviada.',
+      ok: 'Solicitud enviada. Cuando acepte, aparece en tu círculo.',
       invalid: 'Ese código no existe. Son seis letras o números.',
       full: 'Tu círculo está lleno. Doce es el máximo, a propósito.',
       self: 'Ese es tu propio código.',
     },
-    pending: 'Invitaciones pendientes',
-    /** Under the name of someone who invited the user. */
-    invitedYou: 'te invitó a su círculo',
+    pending: 'Quieren entrar a tu círculo',
+    /** Under the name of someone who used the user's code. */
+    invitedYou: 'usó tu código',
     accept: 'Aceptar',
     decline: 'Rechazar',
     acceptFull: 'Tu círculo está lleno. Quita a alguien para aceptar.',
     members: 'En tu círculo',
     /** '3 de 12'. */
     count: (members: number, max: number) => `${members} de ${max}`,
-    waiting: 'esperando respuesta',
+    waiting: 'esperando que acepte',
     remove: 'Quitar',
     removeQuestion: (name: string) => `¿Quitar a ${name} de tu círculo?`,
     removeMessage: 'Deja de ver tus números y tú los suyos. Sus marcas en los retos se borran.',
     removeConfirm: 'Quitar',
-    prototypeNote: 'En el prototipo nadie recibe la invitación.',
+    prototypeNote: 'En el prototipo nadie recibe la solicitud.',
+  },
+  /** circle/join: where an invite link lands. */
+  join: {
+    title: 'Entrar a un círculo',
+    /** 'Te invitaron con el código 3C5STM.' */
+    body: (code: string) => `Te invitaron con el código ${code}.`,
+    explain: 'Al pedir entrar, la otra persona ve tu nombre y decide. No compartes nada hasta que acepte.',
+    request: 'Pedir entrar',
+    noCode: 'Este link no trae un código válido.',
+    noProfileTitle: 'Primero crea tu perfil.',
+    noProfileBody: 'Un nombre y un alias, en este teléfono. Luego vuelve a tocar el link.',
+    createProfile: 'Crear tu perfil',
+    goToCircle: 'Ver círculo',
   },
   /** Ajustes › Círculo. */
   settings: {
