@@ -76,8 +76,22 @@ en una sesión de 90 minutos en un teléfono real.
 - **Bloqueo en Android, fase 1** (`modules/vesper-blocking/`): selector de apps por
   intent de lanzador, servicio `specialUse` que lee eventos de uso, escudo superpuesto
   con actividad de respaldo. Probado por adb en el emulador: el escudo cubrió Ajustes y
-  Reloj, y bajó con "Volver". Pendiente: `endsAt` desde la sesión, detectar servicio
-  muerto, ventanas de rutina con alarmas exactas (fase 2), declaraciones de Play (fase 3).
+  Reloj, y bajó con "Volver".
+- **Bloqueo en Android, fase 2**: cada rutina con hora son dos alarmas (`AlarmManager`,
+  exactas si el usuario lo permite, con diez minutos de margen si no) que suben y bajan
+  el escudo con la app cerrada; `BootReceiver` las rearma tras reiniciar; el plan lleva
+  `endsAt` y el servicio se apaga solo al minuto aunque JS haya muerto; `START_STICKY`
+  lo revive si lo matan. Verificado en el emulador: ventana abierta con el proceso
+  muerto, escudo sobre Reloj, cierre al minuto; alarmas de vuelta tras `adb reboot`;
+  servicio revivido tras `kill -9`. `docs/PLATFORM_ANDROID.md`, fase 2.
+- **Bloqueo en Android, fase 3**: `docs/PLAY_DECLARATIONS.md` (servicio `specialUse`,
+  permisos sensibles, seguridad de datos, notas al revisor), `docs/STORE_LISTING.md` y
+  el video `docs/media/vesper-android-demo.mp4` (67 s, flujo completo por la UI real).
+- **Ventanas de rutina en iOS**: cada rutina con hora es un `DeviceActivity` por día de
+  la semana (uno diario si corre todos los días) con la selección y el texto del escudo
+  del modo; `useRoutineWindowsSync` las reconcilia desde el store. Límites: unas 20
+  actividades, ventanas de 15 minutos mínimo. Sin verificar: falta el entitlement de
+  Family Controls (lo pide el dueño de la cuenta) y un iPhone real.
 - No verificado en teléfonos reales de ningún fabricante.
 
 ## Cómo revisar una pantalla sin tocar
@@ -87,7 +101,12 @@ la sesión) y relanzá la app. Volvé a dejarlo en `null` antes de commitear.
 
 ## Qué falta
 
-- Android: compilar y decidir bloqueo (UsageStatsManager + overlay, sin AccessibilityService).
+- Pedir el entitlement de Family Controls (distribución) en el portal de Apple y
+  probar las ventanas de rutina en un iPhone real.
+- Probar el bloqueo de Android en teléfonos reales (Samsung, Xiaomi: optimización de
+  batería) y la ruta de alarmas inexactas.
+- Pantalla de divulgación destacada antes de pedir el acceso de uso (Play la exige);
+  subir el video y poner la URL en `docs/PLAY_DECLARATIONS.md`.
 - Persistir la duración elegida en la hoja de sesión (`usePlannedStore`, en memoria).
 - Verificar en dispositivo cada capacidad y anotar acá qué se vio.
 - Historia de sesiones: la intención ahora persiste, pero solo se lee en el cierre.
