@@ -4,6 +4,7 @@
  */
 export { AppIcon } from './AppIcon';
 export { AppIconStack } from './AppIconStack';
+export { Avatar } from './Avatar';
 export { Banner } from './Banner';
 export { BarChart, type Bar } from './BarChart';
 export { Button } from './Button';

@@ -1,4 +1,6 @@
 import type { NotificationPrefs, Rules, Settings } from '../../data/types';
+import { DEFAULT_SHARE_PREFS } from '../../domain/circle';
+import type { Profile, SharePrefs } from '../../domain/types';
 import { getDb } from '../client';
 
 /**
@@ -22,6 +24,10 @@ export const SETTING_KEYS = {
   demoSeededAt: 'demo_seeded_at',
   /** 'auto' | 'es' | 'en' — Ajustes › Idioma (ADR-0020). Missing reads as 'auto'. */
   language: 'language',
+  /** The user's circle identity as one JSON value; absent until they create it (ADR-0021). */
+  circleProfile: 'circle_profile',
+  /** What the user shares with the circle, JSON. Missing reads as the defaults. */
+  circleShare: 'circle_share',
 } as const;
 
 export const DEFAULT_LIFE_EXPECTANCY_YEARS = 77.6;
@@ -188,4 +194,50 @@ export function getActiveModeId(): string | null {
 
 export function setActiveModeId(id: string, now: number): void {
   set(SETTING_KEYS.activeModeId, id, now);
+}
+
+/**
+ * A stored profile, or null. There is no partial profile: a row missing its id or
+ * name is no identity at all, and the flow that creates one runs again.
+ */
+export function parseProfile(raw: unknown): Profile | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const { id, name, handle, createdAt } = raw;
+  if (typeof id !== 'string' || id.length === 0 || typeof name !== 'string' || typeof handle !== 'string') {
+    return null;
+  }
+  if (typeof createdAt !== 'number' || !Number.isFinite(createdAt)) {
+    return null;
+  }
+  return { id, name, handle, createdAt };
+}
+
+/** The circle profile, or null while the user has not created one (ADR-0021). */
+export function getProfile(): Profile | null {
+  return parseProfile(getJson<unknown>(SETTING_KEYS.circleProfile));
+}
+
+export function setProfile(profile: Profile, now: number): void {
+  setJson(SETTING_KEYS.circleProfile, profile, now);
+}
+
+/** Each switch falls back on its own, so one corrupt flag never flips the others. */
+export function parseSharePrefs(raw: unknown, defaults: SharePrefs = DEFAULT_SHARE_PREFS): SharePrefs {
+  const value = isRecord(raw) ? raw : {};
+  return {
+    focus: bool(value.focus, defaults.focus),
+    habits: bool(value.habits, defaults.habits),
+    social: bool(value.social, defaults.social),
+  };
+}
+
+/** What the user shares with the circle, validated switch by switch. */
+export function getSharePrefs(defaults: SharePrefs = DEFAULT_SHARE_PREFS): SharePrefs {
+  return parseSharePrefs(getJson<unknown>(SETTING_KEYS.circleShare), defaults);
+}
+
+export function setSharePrefs(prefs: SharePrefs, now: number): void {
+  setJson(SETTING_KEYS.circleShare, prefs, now);
 }

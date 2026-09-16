@@ -10,10 +10,14 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { useFocusStore, useMode } from '../../data';
+import { useFocusStore, useKudosReceived, useMode } from '../../data';
 import { appsTitleText } from '../../data/modes';
 import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
+import { useNow } from '../../lib/useNow';
+
+/** The kudos line only needs to know which week it is. */
+const CLOCK_MS = 60_000;
 
 /** Brick's 'First tap complete': the object, a line, and a card of what happened. */
 export default function SessionCompleteScreen() {
@@ -25,6 +29,9 @@ export default function SessionCompleteScreen() {
   const modeId = useFocusStore((state) => state.modeId);
   const mode = useMode(modeId ?? undefined);
   const first = completedCount === 1;
+  const now = useNow(CLOCK_MS);
+  // The one place outside Actividad the circle speaks, and it is a line, not a notice (ADR-0021).
+  const kudos = useKudosReceived(now);
 
   return (
     <Screen footer={<Button label={strings.common.continue} onPress={() => router.dismissTo('/(tabs)')} />}>
@@ -52,6 +59,11 @@ export default function SessionCompleteScreen() {
           <ListRow label={t.intention} value={closed.intention} />
         )}
       </ListGroup>
+      {kudos.count > 0 ? (
+        <Text variant="caption" tone="secondary" align="center">
+          {strings.circle.kudos.received(kudos.names)}
+        </Text>
+      ) : null}
     </Screen>
   );
 }

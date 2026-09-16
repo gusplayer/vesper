@@ -13,6 +13,7 @@ import {
 import { PeriodStrip } from '../../design/components';
 import { useLocale, useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
+import { CircleWeekSection } from '../circle/CircleWeekSection';
 import { dayLabel } from './dates';
 import {
   deltaVsPrevious,
@@ -76,6 +77,7 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
           <DayCard key={day.dayKey} day={day} />
         ))}
       </Stack>
+      {offset === 0 ? <CircleWeekSection now={now} /> : null}
     </Stack>
   );
 }

@@ -15,3 +15,5 @@ export const DEV_BLOCK_TEST: string | null = null;
 export const DEV_WINDOW_TEST: string | null = null;
 /** Marks onboarding done on launch, for driving the tabs on a fresh install. */
 export const DEV_SKIP_ONBOARDING = false;
+/** Creates a circle profile on launch when there is none, for reviewing circle/ screens. */
+export const DEV_CIRCLE_PROFILE = false;

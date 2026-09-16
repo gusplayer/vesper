@@ -89,6 +89,11 @@ export const settings = {
     disabled: 'Desactivadas',
     healthConnected: 'Conectada',
     healthNotConnected: 'Sin conectar',
+    circle: 'Círculo',
+    circleNoProfile: 'Sin perfil',
+    /** 'Solo tú', '1 persona', '3 personas'. */
+    circleValue: (members: number) =>
+      members === 0 ? 'Solo tú' : members === 1 ? '1 persona' : `${members} personas`,
     noBirthDate: 'Sin fecha',
     reset: 'Borrar todo y reiniciar',
     resetCaption: 'Modos, rutinas, sesiones y hábitos se pierden.',

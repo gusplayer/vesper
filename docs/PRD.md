@@ -138,12 +138,30 @@ El **cierre del domingo** vive en la misma ruta de la meta: ese día el encabeza
 `cerrar la semana` y la ruta muestra primero cómo cerró, y debajo la meta de la que empieza.
 No es una cuarta pantalla. Ver ADR-0013.
 
+## Círculo (ADR-0021)
+
+Las metas en compañía se cumplen más que a solas. El círculo es la respuesta de Vesper
+a eso, con la condición de no convertirse en lo que combate:
+
+- **Personas, no seguidores.** Hasta 12, por invitación. Sin perfiles públicos ni feed.
+- **Silencio.** El círculo nunca notifica. Se ve en Actividad › Semanal y en `circle/`.
+- **Sin ranking.** La semana ordena por horas de foco y nada más. Un reto muestra quién
+  cumplió y quién no, sin puntos ni premios.
+- **Tú decides qué se ve**, métrica por métrica: foco, hábitos y retos, uso estimado de
+  redes (apagado por defecto y siempre presentado como piso estimado, aparte).
+- **Ánimo, no likes.** Un gesto de persona a persona, una vez al día, sin contador.
+- **Retos**: un hábito con testigos. Nombre, veces por semana, 1, 2 o 4 semanas, quiénes.
+  Unirse vincula (o crea) un hábito tuyo, y el máximo de 5 sigue valiendo.
+
+El perfil vive en el teléfono; el backend y la identidad real son un ADR posterior. En
+el prototipo el círculo es de demostración y las pantallas lo dicen.
+
 ## Fuera de alcance en v1
 
 - Bloqueo de apps (fase 2)
-- Cuenta de usuario, sync, backend
+- Sync y backend (el círculo tiene su capa de datos, pero nada viaja todavía)
 - Gráficos y estadísticas complejas
-- Rachas, badges, leaderboards, social
+- Rachas, badges, leaderboards, feed, seguidores, notificaciones sociales
 - Modo oscuro
 - Tablet / iPad
 - Widgets y Live Activities (fase 1.5)

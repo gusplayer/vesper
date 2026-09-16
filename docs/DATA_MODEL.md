@@ -15,7 +15,8 @@ columnas de fecha en texto.
 Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
 fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
-Hoy hay dos: `001_init.ts` (fase 1) y `002_modes_schedules.ts` (ADR-0017).
+Hoy hay cuatro: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
+`003_routines.ts` (duración de rutinas) y `004_circle.ts` (ADR-0021).
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
 
@@ -156,6 +157,103 @@ CREATE INDEX idx_schedules_mode ON schedules(mode_id);
   relanzar. "Borrar todo y reiniciar" (`resetDatabase`) vacía todas las tablas —el
   esquema queda—, vuelve a sembrar y los stores se rehidratan.
 
+### Círculo (ADR-0021)
+
+Cinco tablas en `004_circle.ts`. Ninguna es fuente de verdad de nada que el usuario
+haga solo: son lo que un servidor entregaría cuando exista. Hoy las llena el seed de
+demostración (`src/data/circleSeed.ts`) y las acciones del store (`src/data/stores/circle.ts`);
+mañana las llenará el sync y nada más cambia.
+
+`week_key` y `day_key` son `'YYYY-MM-DD'` en local del usuario, la misma excepción que
+`habit_marks.day_key` y por la misma razón: una semana y un día son del calendario de
+quien los vive. `week_key` es siempre el lunes.
+
+```sql
+-- 004_circle.ts
+
+-- status: 'member' (está en el círculo), 'invited' (el usuario lo invitó y no ha
+-- respondido), 'pending' (invitó al usuario y espera respuesta). joined_at es NULL
+-- hasta que alguien acepta, del lado que sea.
+CREATE TABLE circle_members (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  handle     TEXT NOT NULL,             -- alias corto en minúsculas: 'ana'
+  status     TEXT NOT NULL,
+  joined_at  INTEGER,
+  created_at INTEGER NOT NULL
+);
+
+-- Una fila por persona y semana: lo que el servidor entregará. social_ms NULL es
+-- "no lo comparte"; cuando existe es un piso estimado y va en su propia línea,
+-- nunca sumado con el foco (ADR-0005).
+CREATE TABLE member_weeks (
+  member_id     TEXT NOT NULL,
+  week_key      TEXT NOT NULL,          -- lunes de esa semana, 'YYYY-MM-DD' local
+  focus_ms      INTEGER NOT NULL DEFAULT 0,
+  social_ms     INTEGER,
+  habits_done   INTEGER NOT NULL DEFAULT 0,
+  habits_target INTEGER NOT NULL DEFAULT 0,
+  updated_at    INTEGER NOT NULL,
+  PRIMARY KEY (member_id, week_key)
+);
+
+-- Ánimo de una persona a otra, una vez al día: el índice UNIQUE es la regla y el
+-- INSERT OR IGNORE hace que un doble toque no sea dos filas. Cualquiera de los dos
+-- lados puede ser 'me', el id que representa al usuario en estas tablas.
+CREATE TABLE kudos (
+  id         TEXT PRIMARY KEY,
+  from_id    TEXT NOT NULL,
+  to_id      TEXT NOT NULL,
+  day_key    TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  UNIQUE(from_id, to_id, day_key)
+);
+CREATE INDEX idx_kudos_day ON kudos(day_key);
+
+-- Un hábito con testigos. participant_ids es un array JSON de 'me' y de ids de
+-- circle_members. start_week_key y end_week_key son lunes, ambos inclusive.
+-- habit_id es el hábito del usuario que cuenta; NULL mientras no se haya unido.
+-- Un reto se archiva, nunca se borra: sus marcas son historia.
+CREATE TABLE challenges (
+  id              TEXT PRIMARY KEY,
+  name            TEXT NOT NULL,
+  weekly_target   INTEGER NOT NULL,     -- veces por semana
+  start_week_key  TEXT NOT NULL,
+  end_week_key    TEXT NOT NULL,
+  created_by      TEXT NOT NULL,        -- 'me' o un id de circle_members
+  participant_ids TEXT NOT NULL DEFAULT '[]',
+  habit_id        TEXT,
+  created_at      INTEGER NOT NULL,
+  archived_at     INTEGER
+);
+
+-- Las marcas de los demás participantes. Nunca 'me': las del usuario son sus
+-- habit_marks de siempre, contadas contra habit_id.
+CREATE TABLE challenge_marks (
+  id           TEXT PRIMARY KEY,
+  challenge_id TEXT NOT NULL,
+  member_id    TEXT NOT NULL,
+  day_key      TEXT NOT NULL,
+  marked_at    INTEGER NOT NULL,
+  UNIQUE(challenge_id, member_id, day_key)
+);
+CREATE INDEX idx_challenge_marks_challenge ON challenge_marks(challenge_id);
+```
+
+Sin foreign keys a propósito: `'me'` participa y da ánimo sin ser fila de
+`circle_members`, las filas de personas llegarán de la red y se reemplazarán enteras, y
+archivar un hábito nunca debe rechazar un DELETE. Quién borra qué lo decide el
+repositorio (`src/db/repositories/circle.ts`) y el store: sacar a alguien del círculo
+borra sus semanas, sus kudos y sus marcas y lo quita de `participant_ids`; "salir del
+círculo" vacía las cuatro tablas de personas y archiva todos los retos, pero conserva el
+perfil y las preferencias de compartir.
+
+El perfil propio y qué se comparte no son tablas: son dos claves JSON en `settings`
+(ver la tabla de abajo). El perfil **no** se siembra con el demo: crearlo es parte del
+flujo. Todo lo demás del círculo (cuatro personas, dos semanas, dos kudos, un reto y
+una invitación pendiente) se siembra con el resto y se borra con "Borrar todo y
+reiniciar".
+
 ### Fase 1.5 — salud
 
 ```sql
@@ -220,6 +318,8 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 | `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
 | `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
 | `language` | `auto` \| `es` \| `en` | Ajustes › Idioma (ADR-0020). Ausente o inválida se lee como `auto`, que sigue el idioma del teléfono. Se borra con todo lo demás en "Borrar todo y reiniciar" |
+| `circle_profile` | JSON | La identidad del usuario en el círculo (ADR-0021): `{id, name, handle, createdAt}`. `id` es UUID v7, `handle` va en minúsculas. Ausente hasta que el usuario crea su perfil; un valor corrupto o incompleto se lee como `null` y el flujo de crear perfil vuelve a correr (`settings.getProfile`). No se siembra |
+| `circle_share` | JSON | Qué comparte el usuario con el círculo: `{focus, habits, social}`. Se valida interruptor por interruptor (`settings.getSharePrefs`); ausente o corrupto vuelve a `{focus: true, habits: true, social: false}`. Lo que está en `false` no sale del teléfono |
 | `last_session_config` | JSON | fase 1. `{activityId, plannedMs, depth, blockProfile}`. Se valida al leer con `domain/session.resolveSessionConfig`. El prototipo no la usa: la duración elegida vive en memoria |
 | `birth_date` | epoch ms | **superseded** por `prototype_settings.birthDate` desde ADR-0017 |
 | `life_expectancy_years` | número | **superseded** por `prototype_settings.lifeExpectancyYears` |

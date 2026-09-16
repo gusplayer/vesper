@@ -129,3 +129,104 @@ export const MAX_HABITS = 5;
 
 /** 6h. Declared time is capped per day so a bogus timer cannot distort the ledger. */
 export const DECLARED_DAILY_CAP_MS = 21_600_000;
+
+// --- Circle (ADR-0021) -------------------------------------------------------------
+
+/** The id that stands for the user in circle tables: kudos, challenge participants. */
+export const ME = 'me';
+
+/** Product decision: a circle is the people you would text, not an audience. */
+export const MAX_CIRCLE = 12;
+
+/** Times per week a challenge can ask for. */
+export const CHALLENGE_TARGET_OPTIONS = [2, 3, 4, 5, 6] as const;
+
+/** How long a challenge runs, in weeks. */
+export const CHALLENGE_WEEK_OPTIONS = [1, 2, 4] as const;
+
+/** The user's own identity inside a circle. Lives on this phone; no server yet. */
+export type Profile = {
+  id: string;
+  name: string;
+  /** Short, written by the user, unique inside a circle: 'ana', 'gus'. Lowercase. */
+  handle: string;
+  createdAt: Millis;
+};
+
+/**
+ * 'member' is in the circle. 'invited' is someone the user invited who has not
+ * answered. 'pending' is someone who invited the user and waits for an answer.
+ */
+export type MemberStatus = 'member' | 'invited' | 'pending';
+
+export type Member = {
+  id: string;
+  name: string;
+  handle: string;
+  status: MemberStatus;
+  /** Null until the invitation is accepted, on either side. */
+  joinedAt: Millis | null;
+  createdAt: Millis;
+};
+
+/** What the user shares with the circle. Off means the number never leaves the phone. */
+export type SharePrefs = {
+  focus: boolean;
+  habits: boolean;
+  social: boolean;
+};
+
+/**
+ * One member's week as the circle sees it: what a server would deliver. The UI derives
+ * everything from these rows and from the user's own stores; there is no other path.
+ */
+export type MemberWeek = {
+  memberId: string;
+  /** The DayKey of that week's Monday. */
+  weekKey: DayKey;
+  focusMs: number;
+  /** Estimated floor, null when the member does not share it. Never summed — ADR-0005. */
+  socialMs: number | null;
+  habitsDone: number;
+  habitsTarget: number;
+  updatedAt: Millis;
+};
+
+/** One person cheering another, once a day at most. Either side can be ME. */
+export type Kudos = {
+  id: string;
+  fromId: string;
+  toId: string;
+  dayKey: DayKey;
+  createdAt: Millis;
+};
+
+/**
+ * A habit with witnesses. The user's own marks are the marks of `habitId`; the other
+ * participants' marks arrive as ChallengeMark rows.
+ */
+export type Challenge = {
+  id: string;
+  name: string;
+  weeklyTarget: number;
+  /** The Monday DayKey of the first and of the last week, inclusive. */
+  startWeekKey: DayKey;
+  endWeekKey: DayKey;
+  /** ME or a member id. */
+  createdBy: string;
+  /** ME and/or member ids. */
+  participantIds: string[];
+  /** The user's habit that counts, or null while the user has not joined. */
+  habitId: string | null;
+  createdAt: Millis;
+  archivedAt: Millis | null;
+};
+
+export type ChallengeMark = {
+  id: string;
+  challengeId: string;
+  /** Never ME: the user's marks are habit marks. */
+  memberId: string;
+  dayKey: DayKey;
+  markedAt: Millis;
+};

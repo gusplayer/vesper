@@ -92,8 +92,13 @@ export default function RootLayout() {
           <Stack.Screen name="settings/life" />
           <Stack.Screen name="settings/help" />
           <Stack.Screen name="settings/about" />
+          <Stack.Screen name="settings/circle" />
           <Stack.Screen name="habits/edit" />
           <Stack.Screen name="habits/new" />
+          <Stack.Screen name="circle/index" />
+          <Stack.Screen name="circle/invite" />
+          <Stack.Screen name="circle/challenge" />
+          <Stack.Screen name="circle/challenge-new" />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>

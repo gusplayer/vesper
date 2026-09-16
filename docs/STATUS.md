@@ -21,7 +21,7 @@ Desde ADR-0017 el prototipo tiene capacidades reales detrás de `src/platform/`:
 | Live Activity | Real con `expo-widgets`: banner, Dynamic Island y cuenta regresiva nativa | El proceso del widget ejecutó en el simulador; no se vio la pantalla bloqueada |
 | Bloqueo de apps | Integrado con `react-native-device-activity`: selector nativo, token por modo, shield al iniciar sesión y liberación al terminar. **No funciona en simulador ni sin el entitlement de Apple** | Solo compila. Las tres extensiones se generan en `targets/` |
 
-Tests: 364 en 30 archivos. `tsc` limpio. Compilación iOS con cuatro targets verificada.
+Tests: 588 en 46 archivos. `tsc` limpio. Compilación iOS con cuatro targets verificada.
 
 ## Qué NO está verificado
 
@@ -119,6 +119,29 @@ es la única fuente del idioma del teléfono y solo se importa en `src/i18n/devi
   `src/i18n` solo queda texto en `FatalError`, a propósito: se muestra antes de que exista
   cualquier store.
 - El reloj de horarios sigue en formato de 24 horas en los dos idiomas.
+
+## Círculo (2026-09-15)
+
+Comunidad pequeña y silenciosa (ADR-0021): hasta 12 personas por invitación, comparación
+semanal sin posiciones, ánimo una vez al día, retos como hábitos con testigos, y tres
+interruptores de qué se comparte. Sin backend: migración 004 con cinco tablas, perfil y
+preferencias en `settings`, `src/platform/circle.ts` reporta `available: false` y las
+pantallas lo dicen. Datos de demostración: Ana, Luis, Sofía, Mateo (invitación pendiente),
+dos semanas de números, un reto "Leer", dos ánimos.
+
+- Verificado en el simulador iPhone 17 Pro tocando con `idb`: `circle/` con la semana
+  ordenada por foco y redes en su propia línea marcada como estimado; dar ánimo cambia a
+  "Enviado"; el reto muestra mis marcas del hábito y las de los demás; "Marcar hoy"
+  escribe en el hábito; crear un reto desde el hábito "gym" con Ana lo vincula sin crear
+  otro; aceptar la invitación de Mateo lo pasa al círculo (4 de 12); Ajustes › Círculo
+  con perfil y los tres interruptores; la sección "Tu círculo" al final de Actividad ›
+  Semanal; todo en inglés y en español cambiando el idioma en caliente.
+- No verificado: la hoja de compartir el código (`Share.share`), "Salir del círculo",
+  "Quitar" a alguien, el tope de 12 y de 5 hábitos desde la UI (los cubren los tests), la
+  línea de ánimo en el cierre de sesión.
+- `tsc` limpio, 588 tests en 46 archivos (71 nuevos).
+- Para revisar las pantallas sin teclear: `DEV_CIRCLE_PROFILE = true` en `src/dev/route.ts`
+  crea un perfil al arrancar. Volver a `false` antes de commitear.
 
 ## Qué falta
 
