@@ -72,6 +72,60 @@
         }
       ],
       "expo-localization"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "ExpoWidgetsTarget",
+                  "bundleIdentifier": "com.gusplayer.vesper.ExpoWidgetsTarget",
+                  "entitlements": {
+                    "com.apple.security.application-groups": [
+                      "group.com.gusplayer.vesper"
+                    ]
+                  }
+                },
+                {
+                  "bundleIdentifier": "com.gusplayer.vesper.ShieldConfiguration",
+                  "targetName": "ShieldConfiguration",
+                  "entitlements": {
+                    "com.apple.developer.family-controls": true,
+                    "com.apple.security.application-groups": [
+                      "group.com.gusplayer.vesper"
+                    ]
+                  }
+                },
+                {
+                  "bundleIdentifier": "com.gusplayer.vesper.ShieldAction",
+                  "targetName": "ShieldAction",
+                  "entitlements": {
+                    "com.apple.developer.family-controls": true,
+                    "com.apple.security.application-groups": [
+                      "group.com.gusplayer.vesper"
+                    ]
+                  }
+                },
+                {
+                  "bundleIdentifier": "com.gusplayer.vesper.ActivityMonitorExtension",
+                  "targetName": "ActivityMonitorExtension",
+                  "entitlements": {
+                    "com.apple.developer.family-controls": true,
+                    "com.apple.security.application-groups": [
+                      "group.com.gusplayer.vesper"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "projectId": "3a18e509-25de-4bc2-b7c1-3f32d5f804b9"
+      }
+    },
+    "owner": "gusplayer"
   }
 }
