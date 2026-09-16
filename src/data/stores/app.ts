@@ -123,7 +123,9 @@ export const useAppStore = create<AppState>((set, get) => {
         ...input,
         id: existing?.id ?? uuidv7(Date.now()),
         createdAt: existing?.createdAt ?? Date.now(),
-        selectionToken: input.selectionToken ?? existing?.selectionToken ?? null,
+        // Null clears the selection on purpose; only an absent field keeps the old one.
+        selectionToken:
+          input.selectionToken === undefined ? (existing?.selectionToken ?? null) : input.selectionToken,
       };
       modesRepo.upsert(mode);
       const wasEmpty = get().modes.length === 0;

@@ -92,10 +92,10 @@ exacto.*
 
 **5. Video link**
 
-> `<<VIDEO_URL>>` — unlisted link to `docs/media/vesper-android-demo.mp4` (0:00 pick the app in the mode, 0:19 hold to start the session, 0:24 the Clock app is opened and shielded, 0:29 "Volver", 0:31 end the session).
+> `<<VIDEO_URL>>` — unlisted link to `docs/media/vesper-android-demo.mp4` (1:07, Pixel 6 emulator, API 34): 0:00 the app's own permission screen, 0:03 "Usage access" granted in Settings, 0:09 "Display over other apps" granted, 0:17 back in the app; 0:26 the Clock app is ticked in the mode's real-app picker and the mode is saved; 0:35 hold to start the session, the persistent notification appears; 0:39 Home, the Clock app is opened and the full-screen reminder covers it; 0:41 "Volver"; 0:45 "Terminar" and one breathing round; 1:00 the session ends; 1:03 the Clock app opens normally again.
 
 *Subir `docs/media/vesper-android-demo.mp4` a YouTube (no listado) o Drive con acceso por
-enlace y pegar la URL. Los tiempos de arriba se ajustan al corte final.*
+enlace y pegar la URL. Los fotogramas clave están en `docs/media/android-*.png`.*
 
 ---
 
