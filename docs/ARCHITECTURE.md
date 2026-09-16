@@ -53,7 +53,6 @@ src/
     fixtures.ts           fábricas para los tests. Ningún código de app la importa
   lib/                    capa de presentación y utilidades con React o nativo
     format.ts             cómo se lee un número: timer, duración, fecha, meta
-    labels.ts             las palabras en español de los valores del dominio
     tone.ts               qué tan fuerte habla un renglón
     text.ts               reglas sobre texto tecleado: vacío, dígitos, minutos
     birthDate.ts          'aaaa-mm-dd' ↔ epoch ms
@@ -101,10 +100,12 @@ design/components
 - **Los componentes no ejecutan SQL.** Nunca. Todo pasa por un repositorio.
 - **`domain/` es puro.** Sin imports de React, sin imports de la base de datos.
   Recibe datos, devuelve datos. No genera ids: el que llama pasa el id.
-- **`lib/` es la capa de presentación del texto.** `labels.ts`, `format.ts` y `tone.ts`
-  tienen toda palabra en español que el dominio necesita; el dominio habla en
-  identificadores (`soft`, `verified`). La excepción son las etiquetas de renglón de
-  `ledger.ts` (`sin registrar`, `redes`, `entrenamiento`), pendientes de i18n.
+- **`i18n/` tiene toda palabra que ve el usuario**, en español y en inglés, un archivo por
+  área; `Strings = typeof es` y `en` lo implementa (ADR-0020). Las pantallas leen
+  `useStrings()`; los stores y `platform/`, `getStrings()`. El dominio habla en
+  identificadores (`soft`, `verified`) y, cuando produce texto, recibe la rebanada del
+  diccionario por parámetro: nunca importa `i18n/index.ts` ni el store. `lib/format.ts`
+  y `lib/tone.ts` siguen siendo la capa de presentación, ya sin español dentro.
 - **`design/components` no conoce el dominio.** Recibe props primitivas.
   `<LedgerRow label="gym" value="hecho" />`, no `<LedgerRow habit={habit} />`.
 - **Los tokens no se importan en `app/` ni en `screens/`.** Solo en `design/`. Si una
@@ -237,4 +238,4 @@ definición de "cuánto cuenta una sesión", y la usan el libro mayor y la meta 
 - No hay capa de API. No hay red.
 - No hay sistema de eventos ni event bus. 3 pantallas no lo justifican.
 - No hay inyección de dependencias. Los repositorios se importan directo.
-- No hay i18n en fase 1. Español hardcodeado, extraído en fase 2.
+- No hay librería de i18n. Dos diccionarios tipados a mano bastan para dos idiomas (ADR-0020).

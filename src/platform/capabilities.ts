@@ -21,6 +21,6 @@ export type CapabilityName = 'notifications' | 'health' | 'liveActivity' | 'bloc
 export type CapabilityStatus = {
   /** The native module exists and the platform supports it here. */
   available: boolean;
-  /** One line for the UI when it is not: why, in Spanish. */
+  /** One line for the UI when it is not: why, in the app's current language. */
   reason: string | null;
 };

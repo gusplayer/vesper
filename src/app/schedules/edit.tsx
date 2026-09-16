@@ -24,6 +24,7 @@ import {
 import { MANUAL_DEFAULT_MS } from '../../domain/routines';
 import { MINUTE } from '../../domain/time';
 import { daysText, overlaps, timeText } from '../../features/schedules/format';
+import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
@@ -39,16 +40,8 @@ const DEFAULT_END = 18 * MINUTES_PER_HOUR;
 /** Session lengths offered for a routine you start by hand. */
 const DURATION_OPTIONS_MS = [10, 20, 25, 45, 60].map((minutes) => minutes * MINUTE);
 
-/** What "Termina" says when the schedule runs until the user ends it. */
-const OPEN_END = 'Hasta que lo termines';
-
 /** Timed routines start on their own; manual ones wait for you. */
 type Kind = 'timed' | 'manual';
-
-const KIND_SEGMENTS = [
-  { value: 'timed', label: 'A una hora' },
-  { value: 'manual', label: 'Cuando quieras' },
-] as const;
 
 type Picking = 'start' | 'end' | null;
 
@@ -59,6 +52,7 @@ type Picking = 'start' | 'end' | null;
  */
 export default function ScheduleEditScreen() {
   const router = useRouter();
+  const t = useStrings();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const schedules = useSchedules();
   const modes = useModes();
@@ -67,6 +61,11 @@ export default function ScheduleEditScreen() {
   const deleteSchedule = useAppStore((state) => state.deleteSchedule);
 
   const existing = schedules.find((schedule) => schedule.id === id) ?? null;
+
+  const kindSegments: ReadonlyArray<{ value: Kind; label: string }> = [
+    { value: 'timed', label: t.routines.edit.kindTimed },
+    { value: 'manual', label: t.routines.edit.kindManual },
+  ];
 
   // The draft. Seeded once from the routine being edited; the store is not touched
   // until Guardar. A manual routine keeps sensible timed defaults in reserve so that
@@ -115,10 +114,10 @@ export default function ScheduleEditScreen() {
     if (existing === null) {
       return;
     }
-    Alert.alert('¿Eliminar esta rutina?', 'No se puede deshacer.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t.routines.deleteAlert.title, t.routines.deleteAlert.message, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: t.routines.deleteAlert.confirm,
         style: 'destructive',
         onPress: () => {
           deleteSchedule(existing.id);
@@ -148,48 +147,52 @@ export default function ScheduleEditScreen() {
       scroll
       footer={
         <>
-          <Button label="Guardar rutina" onPress={save} disabled={!canSave} />
+          <Button label={t.routines.edit.save} onPress={save} disabled={!canSave} />
           {existing === null ? null : (
-            <Button label="Eliminar rutina" variant="ghost" onPress={remove} />
+            <Button label={t.routines.edit.remove} variant="ghost" onPress={remove} />
           )}
         </>
       }
     >
       <PageHeader
         onClose={() => router.back()}
-        title={existing === null ? 'Nueva rutina' : 'Editar rutina'}
+        title={existing === null ? t.routines.edit.newTitle : t.routines.edit.editTitle}
       />
 
-      <SegmentedControl segments={KIND_SEGMENTS} value={kind} onChange={setKind} />
+      <SegmentedControl segments={kindSegments} value={kind} onChange={setKind} />
 
       <FieldRow
-        label="Nombre"
+        label={t.routines.edit.name}
         value={name}
         onChangeText={setName}
-        placeholder="p. ej. Trabajo, Familia"
+        placeholder={t.routines.edit.namePlaceholder}
         autoFocus={existing === null}
       />
 
       <ListGroup>
         {kind === 'timed' ? (
-          <ListRow label="Empieza" value={timeText(startMinutes)} onPress={() => setPicking('start')} />
+          <ListRow label={t.routines.edit.starts} value={timeText(startMinutes)} onPress={() => setPicking('start')} />
         ) : null}
         {kind === 'timed' ? (
           <ListRow
-            label="Termina"
-            value={endMinutes === null ? OPEN_END : timeText(endMinutes)}
+            label={t.routines.edit.ends}
+            value={endMinutes === null ? t.routines.edit.openEnd : timeText(endMinutes)}
             onPress={() => setPicking('end')}
           />
         ) : null}
-        <ListRow label="Modo" value={mode?.name ?? 'Elige uno'} onPress={() => setModeSheetOpen(true)} />
+        <ListRow
+          label={t.routines.edit.mode}
+          value={mode?.name ?? t.routines.edit.pickMode}
+          onPress={() => setModeSheetOpen(true)}
+        />
       </ListGroup>
 
       {kind === 'timed' ? (
         <Section
-          title="Repetir"
+          title={t.routines.edit.repeat}
           right={
             <Text variant="label" tone="secondary">
-              {daysText(days)}
+              {daysText(days, t.format)}
             </Text>
           }
         >
@@ -198,12 +201,12 @@ export default function ScheduleEditScreen() {
           </Card>
         </Section>
       ) : (
-        <Section title="Duración">
+        <Section title={t.routines.edit.duration}>
           <Stack direction="row" wrap gap="sm">
             {DURATION_OPTIONS_MS.map((option) => (
               <Chip
                 key={option}
-                label={`${minutesText(option)} min`}
+                label={t.routines.edit.minutesChip(minutesText(option))}
                 selected={option === durationMs}
                 onPress={() => setDurationMs(option)}
               />
@@ -218,21 +221,21 @@ export default function ScheduleEditScreen() {
             <Icon name="info" size="md" tone="secondary" />
             <Stack grow gap="xs">
               <Text variant="body" weight="medium">
-                Rutinas superpuestas
+                {t.routines.edit.overlapTitle}
               </Text>
               <Text variant="label" tone="secondary">
-                {`Esta rutina se cruza con '${clash.name}'. Si las dos están encendidas, solo una corre a la vez.`}
+                {t.routines.edit.overlapMessage(clash.name)}
               </Text>
             </Stack>
           </Stack>
         </Card>
       )}
 
-      <Sheet visible={picking !== null} title="Elige la hora" onClose={() => setPicking(null)}>
+      <Sheet visible={picking !== null} title={t.routines.edit.pickTime} onClose={() => setPicking(null)}>
         <Stack gap="lg">
           <Stack gap="sm">
             <Text variant="caption" tone="secondary">
-              hora
+              {t.routines.edit.hour}
             </Text>
             <Stack direction="row" wrap gap="sm">
               {HOURS.map((hour) => (
@@ -247,7 +250,7 @@ export default function ScheduleEditScreen() {
           </Stack>
           <Stack gap="sm">
             <Text variant="caption" tone="secondary">
-              minutos
+              {t.routines.edit.minutes}
             </Text>
             <Stack direction="row" wrap gap="sm">
               {MINUTE_STEPS.map((minute) => (
@@ -259,15 +262,15 @@ export default function ScheduleEditScreen() {
                 />
               ))}
               {picking === 'end' ? (
-                <Chip label={OPEN_END} selected={picked === null} onPress={() => setPicked(null)} />
+                <Chip label={t.routines.edit.openEnd} selected={picked === null} onPress={() => setPicked(null)} />
               ) : null}
             </Stack>
           </Stack>
-          <Button label="Listo" onPress={() => setPicking(null)} />
+          <Button label={t.common.done} onPress={() => setPicking(null)} />
         </Stack>
       </Sheet>
 
-      <Sheet visible={modeSheetOpen} title="Modo" onClose={() => setModeSheetOpen(false)}>
+      <Sheet visible={modeSheetOpen} title={t.routines.edit.mode} onClose={() => setModeSheetOpen(false)}>
         <ListGroup>
           {modes.map((candidate) => (
             <ListRow

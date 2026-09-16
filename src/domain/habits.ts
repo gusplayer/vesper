@@ -14,12 +14,17 @@ export const DEFAULT_HABIT_TARGET = 4;
 /**
  * Names that map to a health type. Unlocks the verified count mode, which is what
  * ADR-0005 calls the right moment to ask for the health permission — not the
- * onboarding. First hint wins.
+ * onboarding. First hint wins. Each pattern carries the Spanish and the English
+ * words a user would name the habit with (ADR-0020); a name is data, so it is
+ * matched in both languages whatever the app's language is.
  */
 export const HEALTH_HINTS: ReadonlyArray<{ pattern: RegExp; type: HealthType }> = [
-  { pattern: /gym|entrena|pesas|ejercicio|correr|bici/i, type: 'workout' },
-  { pattern: /camin|pasos|andar/i, type: 'steps' },
-  { pattern: /dormir|sueño|sueno/i, type: 'sleep' },
+  {
+    pattern: /gym|entrena|pesas|ejercicio|correr|bici|workout|exercise|\btrain|weights|\blift|\brun|\bjog|bike|cycl|swim/i,
+    type: 'workout',
+  },
+  { pattern: /camin|pasos|andar|walk|step|hike/i, type: 'steps' },
+  { pattern: /dormir|sueño|sueno|sleep/i, type: 'sleep' },
 ];
 
 export function healthTypeFor(name: string): HealthType | null {

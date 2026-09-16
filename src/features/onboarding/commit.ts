@@ -1,4 +1,4 @@
-import { MODE_IDEAS, useAppStore } from '../../data';
+import { getModeIdeas, useAppStore } from '../../data';
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import type { Depth } from '../../data/types';
 
@@ -15,7 +15,7 @@ export function commitOnboarding({ withSchedule }: { withSchedule: boolean }): v
     return;
   }
 
-  const idea = MODE_IDEAS.find((entry) => entry.id === draft.goalId);
+  const idea = getModeIdeas().find((entry) => entry.id === draft.goalId);
   const depth: Depth = idea?.depth ?? 'firm';
   const activityId = draft.goalId === 'idea-family' ? 'familia' : 'trabajo';
 

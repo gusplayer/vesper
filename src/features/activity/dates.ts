@@ -1,47 +1,19 @@
+import type { Strings } from '../../i18n/es';
+
 /**
  * Calendar arithmetic for the activity views. Local days and months, walked with the
  * Date constructor so a 23- or 25-hour day never slips the count (see domain/day.ts).
- * Labels are hard-coded Spanish, like every string the user sees in phase 1.
+ *
+ * Names come from Intl with the tag of the current language (`useLocale().tag`,
+ * ADR-0020), except the short month, which the dictionary spells by hand because the
+ * period strip needs a fixed width and Intl varies it by region ('sept.', 'Sept').
+ * Spanish names arrive in lowercase and stay so; English keeps its capitals.
  */
 
-const WEEKDAY_SHORT = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const;
-const WEEKDAY_LONG = [
-  'lunes',
-  'martes',
-  'miércoles',
-  'jueves',
-  'viernes',
-  'sábado',
-  'domingo',
-] as const;
-const MONTH_LONG = [
-  'enero',
-  'febrero',
-  'marzo',
-  'abril',
-  'mayo',
-  'junio',
-  'julio',
-  'agosto',
-  'septiembre',
-  'octubre',
-  'noviembre',
-  'diciembre',
-] as const;
-const MONTH_SHORT = [
-  'ene',
-  'feb',
-  'mar',
-  'abr',
-  'may',
-  'jun',
-  'jul',
-  'ago',
-  'sep',
-  'oct',
-  'nov',
-  'dic',
-] as const;
+export type ActivityStrings = Strings['activity'];
+
+/** A known Monday, to name weekdays from an index without touching a real date. */
+const A_MONDAY = new Date(2024, 0, 1);
 
 /** Local midnight of a 'YYYY-MM-DD' key. */
 export function midnightOf(dayKey: string): number {
@@ -75,32 +47,43 @@ export function dayOfMonth(ms: number): number {
   return new Date(ms).getDate();
 }
 
-/** 'lun', 'mar', … for a weekday index. */
-export function weekdayShort(index: number): string {
-  return WEEKDAY_SHORT[index] ?? '';
+function weekdayAt(index: number): Date {
+  return new Date(A_MONDAY.getFullYear(), A_MONDAY.getMonth(), A_MONDAY.getDate() + index);
 }
 
-/** 'lunes', 'martes', … for a weekday index. */
-export function weekdayLong(index: number): string {
-  return WEEKDAY_LONG[index] ?? '';
+/** 'lun', 'mar', … or 'Mon', 'Tue', … for a weekday index, Monday first. */
+export function weekdayShort(index: number, tag: string): string {
+  return weekdayAt(index).toLocaleDateString(tag, { weekday: 'short' });
 }
 
-/** 'domingo 13 de septiembre' — the spoken form of a day, for VoiceOver. */
-export function dayLongLabel(ms: number): string {
-  const date = new Date(ms);
-  return `${weekdayLong(weekdayIndex(ms))} ${date.getDate()} de ${MONTH_LONG[date.getMonth()] ?? ''}`;
+/** 'lunes', 'martes', … or 'Monday', 'Tuesday', … for a weekday index, Monday first. */
+export function weekdayLong(index: number, tag: string): string {
+  return weekdayAt(index).toLocaleDateString(tag, { weekday: 'long' });
 }
 
-/** 'sep 2026'. */
-export function monthLabel(ms: number): string {
-  const date = new Date(ms);
-  return `${MONTH_SHORT[date.getMonth()] ?? ''} ${date.getFullYear()}`;
+/** 'septiembre' or 'September'. */
+export function monthLong(ms: number, tag: string): string {
+  return new Date(ms).toLocaleDateString(tag, { month: 'long' });
 }
 
-/** 'mié, 24 sep'. */
-export function dayLabel(ms: number): string {
-  const date = new Date(ms);
-  return `${weekdayShort(weekdayIndex(ms))}, ${date.getDate()} ${MONTH_SHORT[date.getMonth()] ?? ''}`;
+/** 'sep' or 'Sep', from the dictionary. */
+export function monthShort(ms: number, t: ActivityStrings): string {
+  return t.dates.monthShort[new Date(ms).getMonth()] ?? '';
+}
+
+/** 'domingo 13 de septiembre' or 'Sunday, September 13' — the spoken form of a day, for VoiceOver. */
+export function dayLongLabel(ms: number, t: ActivityStrings, tag: string): string {
+  return t.dates.dayLong(weekdayLong(weekdayIndex(ms), tag), dayOfMonth(ms), monthLong(ms, tag));
+}
+
+/** 'sep 2026' or 'Sep 2026'. */
+export function monthLabel(ms: number, t: ActivityStrings): string {
+  return `${monthShort(ms, t)} ${new Date(ms).getFullYear()}`;
+}
+
+/** 'mié, 24 sep' or 'Wed, Sep 24'. */
+export function dayLabel(ms: number, t: ActivityStrings, tag: string): string {
+  return t.dates.dayShort(weekdayShort(weekdayIndex(ms), tag), dayOfMonth(ms), monthShort(ms, t));
 }
 
 /** 'Sep 2026' — the first letter up, for a caption above a month grid. */

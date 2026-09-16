@@ -6,11 +6,13 @@ import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import { DAY } from '../domain/time';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
+import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
+import { freshInstallLocale, useLocaleStore } from '../i18n/store';
 import { useOnboardingDraft } from './onboardingDraft';
-import { ACTIVITIES, APPS, HEALTH, MODE_IDEAS, USAGE, WEBSITES } from './seed';
+import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
 import { useAppStore } from './stores/app';
 import { useFocusStore } from './stores/focus';
-import type { AppInfo, DayStat, Mode, Schedule, Website } from './types';
+import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
 
 /**
  * The hooks screens use. Each answers one question a screen has, in the shape the
@@ -19,10 +21,33 @@ import type { AppInfo, DayStat, Mode, Schedule, Website } from './types';
  */
 
 export { useAppStore, useFocusStore };
-export { ACTIVITIES, APPS, MODE_IDEAS, WEBSITES, HEALTH, USAGE };
+export { WEBSITES, HEALTH, USAGE };
+
+/**
+ * The catalogues with words in them (apps, activities, mode ideas) follow the current
+ * language (ADR-0020). Built once per language: the dictionary slices are stable
+ * objects, so the arrays are too, and a screen can key effects on them.
+ */
+function perLanguage<T>(build: (demo: Strings['demo']) => T): (demo: Strings['demo']) => T {
+  const cache = new WeakMap<Strings['demo'], T>();
+  return (demo) => {
+    const hit = cache.get(demo);
+    if (hit !== undefined) {
+      return hit;
+    }
+    const built = build(demo);
+    cache.set(demo, built);
+    return built;
+  };
+}
+
+const appsFor = perLanguage(demoApps);
+const activitiesFor = perLanguage(demoActivities);
+const modeIdeasFor = perLanguage(demoModeIdeas);
 
 /** Reads the whole database into both stores. Synchronous: op-sqlite is. */
 function hydrateStores(now: number): void {
+  useLocaleStore.getState().hydrate();
   useAppStore.getState().hydrate(now);
   useFocusStore.getState().hydrate();
 }
@@ -32,7 +57,7 @@ function hydrateStores(now: number): void {
  * before the first render. Throws on failure; the root layout shows FatalError.
  */
 export function bootAndHydrate(now: number): BootResult {
-  const result = bootDatabase(now);
+  const result = bootDatabase(now, stringsFor(freshInstallLocale()).demo);
   hydrateStores(now);
   return result;
 }
@@ -43,18 +68,40 @@ export function bootAndHydrate(now: number): BootResult {
  * user through onboarding again, so its draft is cleared too.
  */
 export function resetAndRehydrate(now: number): BootResult {
-  const result = resetDatabase(now);
+  const result = resetDatabase(now, stringsFor(freshInstallLocale()).demo);
   useOnboardingDraft.getState().reset();
   hydrateStores(now);
   return result;
 }
 
 export function useApps(): AppInfo[] {
-  return APPS;
+  return appsFor(useStrings().demo);
+}
+
+/** For code outside React. Reads the language at call time. */
+export function getApps(): AppInfo[] {
+  return appsFor(getStrings().demo);
+}
+
+export function useActivities(): Activity[] {
+  return activitiesFor(useStrings().demo);
+}
+
+export function getActivities(): Activity[] {
+  return activitiesFor(getStrings().demo);
+}
+
+export function useModeIdeas(): ModeIdea[] {
+  return modeIdeasFor(useStrings().demo);
+}
+
+export function getModeIdeas(): ModeIdea[] {
+  return modeIdeasFor(getStrings().demo);
 }
 
 export function appsById(ids: ReadonlyArray<string>): AppInfo[] {
-  return ids.map((id) => APPS.find((app) => app.id === id)).filter((app): app is AppInfo => app !== undefined);
+  const apps = getApps();
+  return ids.map((id) => apps.find((app) => app.id === id)).filter((app): app is AppInfo => app !== undefined);
 }
 
 export function websitesById(ids: ReadonlyArray<string>): Website[] {

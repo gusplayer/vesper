@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
+import { en } from '../../i18n/en';
+import { es } from '../../i18n/es';
 import { daysText, overlapNames, overlaps, timeText, windowText } from './format';
 
 const WEEKDAYS = [true, true, true, true, true, false, false];
 
 describe('windowText', () => {
   it('joins the range and the days', () => {
-    expect(windowText({ startMinutes: 9 * 60, endMinutes: 18 * 60, days: WEEKDAYS })).toBe(
+    expect(windowText({ startMinutes: 9 * 60, endMinutes: 18 * 60, days: WEEKDAYS }, es.format)).toBe(
       '9:00 – 18:00 · Entre semana',
+    );
+    expect(windowText({ startMinutes: 9 * 60, endMinutes: 18 * 60, days: WEEKDAYS }, en.format)).toBe(
+      '9:00 – 18:00 · Weekdays',
     );
   });
 
   it('shows only the start when the schedule has no end', () => {
     expect(
-      windowText({ startMinutes: 21 * 60 + 30, endMinutes: null, days: [true, true, true, true, false, false, true] }),
+      windowText({ startMinutes: 21 * 60 + 30, endMinutes: null, days: [true, true, true, true, false, false, true] }, es.format),
     ).toBe('21:30 · lun, mar, mié, jue, dom');
   });
 });
@@ -32,17 +37,18 @@ describe('timeText', () => {
 
 describe('daysText', () => {
   it('names the common patterns', () => {
-    expect(daysText(WEEKDAYS)).toBe('Entre semana');
-    expect(daysText([false, false, false, false, false, true, true])).toBe('Fines de semana');
-    expect(daysText([true, true, true, true, true, true, true])).toBe('Todos los días');
+    expect(daysText(WEEKDAYS, es.format)).toBe('Entre semana');
+    expect(daysText([false, false, false, false, false, true, true], es.format)).toBe('Fines de semana');
+    expect(daysText([true, true, true, true, true, true, true], es.format)).toBe('Todos los días');
   });
 
   it('spells out anything else, Monday first', () => {
-    expect(daysText([true, true, true, true, false, false, true])).toBe('lun, mar, mié, jue, dom');
+    expect(daysText([true, true, true, true, false, false, true], es.format)).toBe('lun, mar, mié, jue, dom');
+    expect(daysText([true, true, true, true, false, false, true], en.format)).toBe('Mon, Tue, Wed, Thu, Sun');
   });
 
   it('never goes blank', () => {
-    expect(daysText([false, false, false, false, false, false, false])).toBe('Ningún día');
+    expect(daysText([false, false, false, false, false, false, false], es.format)).toBe('Ningún día');
   });
 });
 

@@ -1,15 +1,14 @@
 import type { Schedule } from '../../data/types';
+import type { FormatStrings } from '../../lib/format';
 
 /**
- * How a schedule reads on a card. Pure: minutes and day flags in, Spanish text out.
- * Lives with the schedules feature because no other screen speaks in these terms.
+ * How a schedule reads on a card. Pure: minutes, day flags and the `format` slice of
+ * the dictionary in, text out (ADR-0020). Lives with the schedules feature because no
+ * other screen speaks in these terms.
  */
 
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
-
-/** Monday first, matching `Schedule.days` and the DayPicker. */
-const SHORT_DAYS = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'] as const;
 
 const WEEKDAYS = [true, true, true, true, true, false, false];
 const WEEKEND = [false, false, false, false, false, true, true];
@@ -30,18 +29,18 @@ function sameDays(a: ReadonlyArray<boolean>, b: ReadonlyArray<boolean>): boolean
  * 'Entre semana', 'Fines de semana', 'Todos los días', or the chosen days spelled out:
  * 'lun, mar, jue'. No day at all reads 'Ningún día' so the card never goes blank.
  */
-export function daysText(days: ReadonlyArray<boolean>): string {
+export function daysText(days: ReadonlyArray<boolean>, t: FormatStrings): string {
   if (days.length === 7 && days.every(Boolean)) {
-    return 'Todos los días';
+    return t.everyDay;
   }
   if (sameDays(days, WEEKDAYS)) {
-    return 'Entre semana';
+    return t.weekdays;
   }
   if (sameDays(days, WEEKEND)) {
-    return 'Fines de semana';
+    return t.weekends;
   }
-  const chosen = SHORT_DAYS.filter((_, index) => days[index] === true);
-  return chosen.length === 0 ? 'Ningún día' : chosen.join(', ');
+  const chosen = t.shortDays.filter((_, index) => days[index] === true);
+  return chosen.length === 0 ? t.noDay : chosen.join(', ');
 }
 
 /** The pieces of a schedule that decide when it runs. The draft on the edit page has these too. */
@@ -68,16 +67,16 @@ function endOf(window: ScheduleWindow): number {
  * '9:00 – 18:00 · Entre semana', '21:30 · dom, lun' when the schedule has no end, or
  * 'Cuando quieras · 20 min' for a routine you start by hand.
  */
-export function windowText(window: ScheduleWindow): string {
+export function windowText(window: ScheduleWindow, t: FormatStrings): string {
   if (window.startMinutes === null) {
     const minutes = Math.round((window.durationMs ?? 25 * 60_000) / 60_000);
-    return `Cuando quieras · ${minutes} min`;
+    return t.whenYouWant(minutes);
   }
   const range =
     window.endMinutes === null
       ? timeText(window.startMinutes)
       : `${timeText(window.startMinutes)} – ${timeText(window.endMinutes)}`;
-  return `${range} · ${daysText(window.days)}`;
+  return `${range} · ${daysText(window.days, t)}`;
 }
 
 /** True when two timed schedules share a day and their time ranges cross. */

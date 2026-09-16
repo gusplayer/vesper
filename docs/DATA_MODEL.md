@@ -219,6 +219,7 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 | `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: onboarding, permisos "concedidos", reglas, notificaciones, desbloqueos de emergencia, fecha de nacimiento, expectativa de vida, meta semanal, banner pendiente y última sincronización de Salud. Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
 | `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
 | `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
+| `language` | `auto` \| `es` \| `en` | Ajustes › Idioma (ADR-0020). Ausente o inválida se lee como `auto`, que sigue el idioma del teléfono. Se borra con todo lo demás en "Borrar todo y reiniciar" |
 | `last_session_config` | JSON | fase 1. `{activityId, plannedMs, depth, blockProfile}`. Se valida al leer con `domain/session.resolveSessionConfig`. El prototipo no la usa: la duración elegida vive en memoria |
 | `birth_date` | epoch ms | **superseded** por `prototype_settings.birthDate` desde ADR-0017 |
 | `life_expectancy_years` | número | **superseded** por `prototype_settings.lifeExpectancyYears` |

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Button, Sheet, Stack, Text } from '../../design/components';
 import { EMERGENCY_WAIT_MS } from '../../domain/exitRitual';
 import { SECOND } from '../../domain/time';
+import { useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 
 type EmergencySheetProps = {
@@ -16,22 +17,22 @@ type EmergencySheetProps = {
  * used, says what it costs, and keeps "Seguir enfocado" as the big button.
  */
 export function EmergencySheet({ left, onStay, onUse }: EmergencySheetProps) {
+  const strings = useStrings().session;
+  const t = strings.emergency;
   const [openedAt] = useState(() => Date.now());
   const now = useNow(SECOND);
   const waitLeft = Math.max(0, openedAt + EMERGENCY_WAIT_MS - now);
   const ready = waitLeft === 0;
 
   return (
-    <Sheet visible title="Desbloqueo de emergencia" onClose={onStay}>
+    <Sheet visible title={t.title} onClose={onStay}>
       <Stack gap="md">
-        <Text variant="body">
-          {`Te quedan ${left} este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.`}
-        </Text>
+        <Text variant="body">{t.body(left)}</Text>
         <Text variant="caption" tone="secondary">
-          {ready ? 'Si de verdad es una emergencia, adelante.' : `Puedes confirmar en ${Math.ceil(waitLeft / SECOND)} s.`}
+          {ready ? t.ready : t.wait(Math.ceil(waitLeft / SECOND))}
         </Text>
-        <Button label="Seguir enfocado" onPress={onStay} />
-        <Button variant="ghost" label="Usar un desbloqueo" onPress={onUse} disabled={!ready} />
+        <Button label={strings.stayFocused} onPress={onStay} />
+        <Button variant="ghost" label={t.use} onPress={onUse} disabled={!ready} />
       </Stack>
     </Sheet>
   );

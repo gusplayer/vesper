@@ -4,6 +4,7 @@ import { Pressable } from 'react-native';
 import { Button, Check, Icon, ListGroup, ListRow, Sheet, Stack, Text } from '../../design/components';
 import { modeSummaryText } from '../../data/modes';
 import type { Mode } from '../../data/types';
+import { useStrings } from '../../i18n';
 
 type ModePickerProps = {
   /** The active mode. */
@@ -12,7 +13,7 @@ type ModePickerProps = {
   /** During a session the mode is read-only: the heading is plain text and no sheet opens. */
   readOnly: boolean;
   onSelect: (id: string) => void;
-  /** 'Gestionar modos ›', the last row of the sheet. */
+  /** 'Manage modes ›', the last row of the sheet. */
   onManage: () => void;
 };
 
@@ -23,6 +24,8 @@ type ModePickerProps = {
  * itself keeps a single line for the mode.
  */
 export function ModePicker({ mode, modes, readOnly, onSelect, onManage }: ModePickerProps) {
+  const strings = useStrings();
+  const t = strings.focus.modePicker;
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
   const heading = <Text variant="heading">{mode.name}</Text>;
@@ -36,7 +39,7 @@ export function ModePicker({ mode, modes, readOnly, onSelect, onManage }: ModePi
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={`Modo: ${mode.name}. Toca para elegir otro`}
+        accessibilityLabel={t.label(mode.name)}
       >
         <Stack direction="row" align="center" gap="xs">
           {heading}
@@ -44,13 +47,13 @@ export function ModePicker({ mode, modes, readOnly, onSelect, onManage }: ModePi
         </Stack>
       </Pressable>
 
-      <Sheet visible={open} title="Modo" onClose={close}>
+      <Sheet visible={open} title={t.title} onClose={close}>
         <ListGroup>
           {modes.map((item) => (
             <ListRow
               key={item.id}
               label={item.name}
-              description={modeSummaryText(item)}
+              description={modeSummaryText(item, strings.modes)}
               right={<Check checked={item.id === mode.id} tone="success" />}
               onPress={() => {
                 onSelect(item.id);
@@ -61,7 +64,7 @@ export function ModePicker({ mode, modes, readOnly, onSelect, onManage }: ModePi
         </ListGroup>
         <Button
           variant="ghost"
-          label="Gestionar modos ›"
+          label={t.manage}
           onPress={() => {
             close();
             onManage();

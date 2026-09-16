@@ -7,8 +7,6 @@ import type { Artwork } from '../types';
  */
 export const dog: Artwork = {
   id: 'dog',
-  name: 'Perro',
-  caption: 'Se sienta y espera contigo.',
   dotRadius: 0.0036,
   jitter: 0.003,
   strokes: [

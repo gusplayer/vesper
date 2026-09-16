@@ -26,12 +26,11 @@ export type Stroke = {
   fill?: boolean;
 };
 
+/** Every work in the gallery. The name and caption per language live in `src/i18n`. */
+export type ArtworkId = 'dog' | 'eiffel' | 'face' | 'liberty' | 'pagoda';
+
 export type Artwork = {
-  id: string;
-  /** Shown under the drawing, sentence case. */
-  name: string;
-  /** One quiet line about the subject, optional. */
-  caption?: string;
+  id: ArtworkId;
   strokes: ReadonlyArray<Stroke>;
   /** Base dot radius in unit space. ~0.004 reads as ink dots on a phone. */
   dotRadius?: number;

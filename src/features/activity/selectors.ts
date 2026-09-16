@@ -11,6 +11,7 @@ import {
   shiftDays,
   weekdayIndex,
   weekdayShort,
+  type ActivityStrings,
 } from './dates';
 
 /**
@@ -19,7 +20,8 @@ import {
  * they can be memoised by the caller and tested without a renderer.
  *
  * `offset` counts periods back from the one containing `now`: 0 is this week (or
- * month), 1 the previous one.
+ * month), 1 the previous one. The selectors that label their output take the Intl
+ * `tag` or the `activity` slice of the dictionary (ADR-0020).
  */
 
 /** Shaped like the design system's `Bar`, without importing it. */
@@ -102,10 +104,15 @@ export function weekDays(stats: ReadonlyArray<DayStat>, now: number, offset = 0)
   return Array.from({ length: 7 }, (_, i) => calendarDay(index, shiftDays(monday, i), now));
 }
 
-export function weekBars(stats: ReadonlyArray<DayStat>, now: number, offset = 0): ChartBar[] {
+export function weekBars(
+  stats: ReadonlyArray<DayStat>,
+  now: number,
+  offset: number,
+  tag: string,
+): ChartBar[] {
   return weekDays(stats, now, offset).map((day, i) => ({
     key: day.dayKey,
-    label: weekdayShort(i),
+    label: weekdayShort(i, tag),
     sublabel: String(dayOfMonth(day.at)),
     value: day.stat.focusMs,
     highlight: day.isToday,
@@ -214,7 +221,7 @@ export function monthTotals(
 }
 
 /** Average focus per weekday over the whole history, Monday first. */
-export function weekdayRhythm(stats: ReadonlyArray<DayStat>): RhythmRow[] {
+export function weekdayRhythm(stats: ReadonlyArray<DayStat>, tag: string): RhythmRow[] {
   const sums = Array.from({ length: 7 }, () => ({ total: 0, count: 0 }));
   for (const stat of stats) {
     if (stat.focusMs <= 0) {
@@ -228,7 +235,7 @@ export function weekdayRhythm(stats: ReadonlyArray<DayStat>): RhythmRow[] {
   }
   return sums.map((bucket, i) => {
     const value = bucket.count === 0 ? 0 : bucket.total / bucket.count;
-    return { key: String(i), label: weekdayShort(i), value, valueText: durationText(value) };
+    return { key: String(i), label: weekdayShort(i, tag), value, valueText: durationText(value) };
   });
 }
 
@@ -253,7 +260,12 @@ export function monthGrid(stats: ReadonlyArray<DayStat>, monthStartMs: number): 
 }
 
 /** The last `count` months with any focus, newest first, each with its day grid. */
-export function recentMonths(stats: ReadonlyArray<DayStat>, now: number, count = 3): MonthGrid[] {
+export function recentMonths(
+  stats: ReadonlyArray<DayStat>,
+  now: number,
+  count: number,
+  t: ActivityStrings,
+): MonthGrid[] {
   const months: MonthGrid[] = [];
   // Walk back month by month; stop past the earliest day with data.
   const first = lifetimeTotals(stats).firstAt;
@@ -267,7 +279,7 @@ export function recentMonths(stats: ReadonlyArray<DayStat>, now: number, count =
     }
     const cells = monthGrid(stats, at);
     if (cells.some(Boolean)) {
-      months.push({ key: dayKeyOf(at), at, label: monthLabel(at), cells });
+      months.push({ key: dayKeyOf(at), at, label: monthLabel(at, t), cells });
     }
   }
   return months;

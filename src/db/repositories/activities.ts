@@ -10,14 +10,6 @@ import { uuidv7 } from '../../lib/uuid';
  * (see domain/activities.ts): they are the user's own words and have no translation.
  */
 
-const DEFAULT_ACTIVITIES: ReadonlyArray<{ key: string; label: string }> = [
-  { key: 'trabajo', label: 'trabajo' },
-  { key: 'lectura', label: 'lectura' },
-  { key: 'aprender', label: 'aprender' },
-  { key: 'gym', label: 'gym' },
-  { key: 'familia', label: 'familia' },
-  { key: 'amigos', label: 'amigos' },
-];
 
 type ActivityRow = {
   id: string;
@@ -82,9 +74,13 @@ export function insert(key: string, label: string, now: number): Activity {
  * Seeds the default activities. Idempotent through the UNIQUE key, so it can run on
  * every boot without a "has it been seeded" flag.
  */
-export function seedDefaults(now: number): void {
+/**
+ * The default activities, labelled in the language of the fresh install (ADR-0020).
+ * `defaults` comes from `demoActivities(t.demo)`: the ids are the keys.
+ */
+export function seedDefaults(now: number, defaults: ReadonlyArray<{ id: string; label: string }>): void {
   const db = getDb();
-  for (const { key, label } of DEFAULT_ACTIVITIES) {
+  for (const { id: key, label } of defaults) {
     db.executeSync(
       `INSERT OR IGNORE INTO activities (id, key, label, is_default, archived_at, created_at)
        VALUES (?, ?, ?, 1, NULL, ?)`,

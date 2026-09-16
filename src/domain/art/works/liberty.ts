@@ -40,8 +40,6 @@ const fold = (points: Point[]): Stroke => ({ points, weight: 0.5, size: 0.9 });
 
 export const liberty: Artwork = {
   id: 'liberty',
-  name: 'Estatua de la Libertad',
-  caption: 'Lleva la antorcha en alto desde 1886. Tú solo sostén esta sesión.',
   strokes: [
     // Ground, the star fort and the pedestal.
     { points: [[0.14, 0.9], [0.86, 0.9]], weight: 0.7, size: 0.9 },

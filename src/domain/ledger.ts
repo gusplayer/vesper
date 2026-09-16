@@ -1,3 +1,4 @@
+import type { LedgerStrings } from '../i18n/es/activity';
 import { served } from './session';
 import {
   DECLARED_DAILY_CAP_MS,
@@ -13,12 +14,14 @@ import {
  * The day ledger. Every row carries where its number came from, and no figure of one
  * provenance is ever added to a figure of another — ADR-0005 and rule 9 in CLAUDE.md.
  *
- * `sin registrar` is the part of the elapsed day that no interval covers. It is a set
+ * The unregistered row ('sin registrar') is the part of the elapsed day that no interval covers. It is a set
  * operation, not a sum, which is how the rule holds literally instead of by exception,
  * and why a verified workout inside a declared session occupies the clock once. See
  * docs/adr/0010-unregistered-row.md.
  *
- * Pure: give it the day window, the activities, the sessions and the samples.
+ * Pure: give it the day window, the activities, the sessions and the samples, plus
+ * the row labels from the dictionary (`t.activity.ledger`, ADR-0020). The domain
+ * never picks a language; the caller does.
  */
 
 type Interval = {
@@ -84,13 +87,6 @@ const ROW_KEY = {
   unknown: 'unknown',
 } as const;
 
-const HEALTH_LABELS: Record<HealthSample['type'], string> = {
-  workout: 'entrenamiento',
-  steps: 'caminata',
-  sleep: 'sueño',
-  exercise_time: 'ejercicio',
-};
-
 function rowsFromGroups(
   groups: Map<string, { label: string; intervals: Interval[] }>,
   provenance: 'declared' | 'verified',
@@ -105,7 +101,7 @@ function rowsFromGroups(
   return rows.sort((a, b) => b.ms - a.ms);
 }
 
-export function buildLedger(input: LedgerInput): Ledger {
+export function buildLedger(input: LedgerInput, t: LedgerStrings): Ledger {
   // The window closes at `now`: the future is not unregistered time. dayEnd bounds it
   // too, because a local day is 23 or 25 hours long twice a year.
   const from = input.dayStart;
@@ -135,7 +131,7 @@ export function buildLedger(input: LedgerInput): Ledger {
     }
     verifiedIntervals.push(clipped);
     const key = ROW_KEY.health(sample.type);
-    const group = verifiedGroups.get(key) ?? { label: HEALTH_LABELS[sample.type], intervals: [] };
+    const group = verifiedGroups.get(key) ?? { label: t.health[sample.type], intervals: [] };
     group.intervals.push(clipped);
     verifiedGroups.set(key, group);
   }
@@ -164,7 +160,7 @@ export function buildLedger(input: LedgerInput): Ledger {
       ? [
           {
             key: ROW_KEY.usage,
-            label: 'redes',
+            label: t.usage,
             ms: input.usageEstimateMs,
             provenance: 'estimated',
           },
@@ -179,7 +175,7 @@ export function buildLedger(input: LedgerInput): Ledger {
   if (unknownMs > 0) {
     rows.push({
       key: ROW_KEY.unknown,
-      label: 'sin registrar',
+      label: t.unknown,
       ms: unknownMs,
       provenance: 'unknown',
     });

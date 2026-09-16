@@ -29,17 +29,19 @@ import { modeSummaryText, usePlannedStore } from '../../data/modes';
 import { focusPillLabel, focusPillText } from '../../features/home/focusPill';
 import { ModePicker } from '../../features/home/ModePicker';
 import { nextRoutineText } from '../../features/home/nextRoutine';
-import { WEEKDAY_INITIALS, gridSummary, recentDayCells } from '../../features/home/recentDays';
+import { gridSummary, recentDayCells } from '../../features/home/recentDays';
 import { DurationSheet } from '../../features/session/DurationSheet';
+import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 
 /**
- * Foco — the Brick home. Today's count on top, the object in the middle, the active
+ * Focus — the Brick home. Today's count on top, the object in the middle, the active
  * mode underneath, one button. A tap asks how long; a hold reuses the last answer.
  */
 export default function FocusScreen() {
   const router = useRouter();
+  const t = useStrings();
   const now = useNow(15_000);
   const todayMs = useTodayFocusMs(now);
   const week = useWeekProgress(now);
@@ -60,7 +62,7 @@ export default function FocusScreen() {
   const plannedMs = usePlannedStore((state) => state.plannedMs);
   const [asking, setAsking] = useState(false);
   const cells = recentDayCells(stats, now);
-  const routineLine = nextRoutineText(schedules, modes, now);
+  const routineLine = nextRoutineText(schedules, modes, now, t.focus.nextRoutine);
   const openActivity = () => router.push('/(tabs)/activity');
 
   const begin = (ms: number) => {
@@ -74,11 +76,11 @@ export default function FocusScreen() {
 
   const footer =
     session !== null ? (
-      <Button label="Seguir" onPress={() => router.push('/session/active')} />
+      <Button label={t.focus.home.resume} onPress={() => router.push('/session/active')} />
     ) : (
       <HoldButton
-        label="Mantén para enfocar"
-        hint={`${minutesText(plannedMs)} min · toca para cambiar`}
+        label={t.focus.home.holdToFocus}
+        hint={t.focus.home.holdHint(minutesText(plannedMs))}
         onHold={() => begin(plannedMs)}
         onPress={() => setAsking(true)}
         disabled={mode === null}
@@ -96,9 +98,9 @@ export default function FocusScreen() {
       )}
 
       <Stack align="center">
-        <Card onPress={openActivity} accessibilityLabel={focusPillLabel(todayMs, week)}>
+        <Card onPress={openActivity} accessibilityLabel={focusPillLabel(todayMs, week, t)}>
           <Text variant="label" weight="medium">
-            {focusPillText(todayMs, week)}
+            {focusPillText(todayMs, week, t)}
           </Text>
         </Card>
       </Stack>
@@ -108,23 +110,23 @@ export default function FocusScreen() {
         <Stack align="center" gap="sm">
           <HeatGrid
             cells={cells}
-            columnLabels={WEEKDAY_INITIALS}
+            columnLabels={t.focus.recentDays.weekdayInitials}
             onPress={openActivity}
-            accessibilityLabel={gridSummary(cells)}
+            accessibilityLabel={gridSummary(cells, t.focus.recentDays)}
           />
-          <Button variant="ghost" label="Ver actividad ›" onPress={openActivity} />
+          <Button variant="ghost" label={t.focus.home.seeActivity} onPress={openActivity} />
         </Stack>
 
         <Stack align="center" gap="xs">
           {mode === null ? (
             <>
-              <Text variant="heading">Sin modos</Text>
+              <Text variant="heading">{t.focus.home.noModes}</Text>
               <Text variant="label" tone="secondary">
-                Un modo dice qué se bloquea mientras enfocas
+                {t.focus.home.noModesHint}
               </Text>
               <Button
                 variant="ghost"
-                label="Crea tu primer modo ›"
+                label={t.focus.home.createFirstMode}
                 onPress={() => router.push('/modes/edit')}
               />
             </>
@@ -138,7 +140,7 @@ export default function FocusScreen() {
                 onManage={() => router.push('/modes')}
               />
               <Text variant="label" tone="secondary">
-                {modeSummaryText(mode)}
+                {modeSummaryText(mode, t.modes)}
               </Text>
               {routineLine === null ? null : (
                 <Text variant="label" tone="secondary">

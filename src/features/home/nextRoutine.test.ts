@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { HOUR } from '../../domain/time';
+import { en } from '../../i18n/en';
+import { es } from '../../i18n/es';
 import { nextRoutineText, type NamedRoutine } from './nextRoutine';
+
+const ES = es.focus.nextRoutine;
+const EN = en.focus.nextRoutine;
 
 // 2026-09-16 is a Wednesday. Noon, so "today" has hours on both sides.
 const NOW = new Date(2026, 8, 16, 12).getTime();
@@ -31,56 +36,59 @@ function routine(overrides: Partial<NamedRoutine> = {}): NamedRoutine {
 
 describe('nextRoutineText', () => {
   it('says nothing with no routines', () => {
-    expect(nextRoutineText([], MODES, NOW)).toBeNull();
+    expect(nextRoutineText([], MODES, NOW, ES)).toBeNull();
   });
 
   it('names the mode and the end of the window while a routine is active', () => {
-    expect(nextRoutineText([routine()], MODES, NOW)).toBe('Trabajo · activa hasta las 18:00');
+    expect(nextRoutineText([routine()], MODES, NOW, ES)).toBe('Trabajo · activa hasta las 18:00');
+    expect(nextRoutineText([routine()], MODES, NOW, EN)).toBe('Trabajo · active until 18:00');
   });
 
   it('caps an open-ended window at its duration', () => {
     const open = routine({ startMinutes: 11 * 60, endMinutes: null, durationMs: 2 * HOUR });
-    expect(nextRoutineText([open], MODES, NOW)).toBe('Trabajo · activa hasta las 13:00');
+    expect(nextRoutineText([open], MODES, NOW, ES)).toBe('Trabajo · activa hasta las 13:00');
   });
 
   it('announces a start later today with minutes padded and no leading zero on the hour', () => {
     const later = routine({ startMinutes: 14 * 60 + 5, endMinutes: 16 * 60 });
-    expect(nextRoutineText([later], MODES, NOW)).toBe('Trabajo empieza a las 14:05');
+    expect(nextRoutineText([later], MODES, NOW, ES)).toBe('Trabajo empieza a las 14:05');
+    expect(nextRoutineText([later], MODES, NOW, EN)).toBe('Trabajo starts at 14:05');
   });
 
   it('says mañana when the next start is tomorrow but less than a day away', () => {
     const morning = routine({ startMinutes: 9 * 60, endMinutes: 11 * 60 });
-    expect(nextRoutineText([morning], MODES, NOW)).toBe('Trabajo empieza mañana a las 9:00');
+    expect(nextRoutineText([morning], MODES, NOW, ES)).toBe('Trabajo empieza mañana a las 9:00');
+    expect(nextRoutineText([morning], MODES, NOW, EN)).toBe('Trabajo starts tomorrow at 9:00');
   });
 
   it('says nothing when the next start is a day or more away', () => {
     const friday = routine({ days: FRIDAY_ONLY });
-    expect(nextRoutineText([friday], MODES, NOW)).toBeNull();
+    expect(nextRoutineText([friday], MODES, NOW, ES)).toBeNull();
     // Exactly 24 h ahead is not "within" a day either: Thursday noon, seen from Wednesday noon.
     const sameTimeTomorrow = routine({ startMinutes: 12 * 60, endMinutes: 13 * 60, days: THURSDAY_ONLY });
-    expect(nextRoutineText([sameTimeTomorrow], MODES, NOW)).toBeNull();
+    expect(nextRoutineText([sameTimeTomorrow], MODES, NOW, ES)).toBeNull();
   });
 
   it('prefers the active routine over one about to start', () => {
     const active = routine({ id: 'a', modeId: 'work' });
     const soon = routine({ id: 'b', modeId: 'rest', startMinutes: 12 * 60 + 30, endMinutes: 13 * 60 });
-    expect(nextRoutineText([soon, active], MODES, NOW)).toBe('Trabajo · activa hasta las 18:00');
+    expect(nextRoutineText([soon, active], MODES, NOW, ES)).toBe('Trabajo · activa hasta las 18:00');
   });
 
   it('picks the soonest of several upcoming starts, whatever the list order', () => {
     const evening = routine({ id: 'a', modeId: 'rest', startMinutes: 20 * 60, endMinutes: 21 * 60 });
     const afternoon = routine({ id: 'b', modeId: 'work', startMinutes: 15 * 60, endMinutes: 16 * 60 });
-    expect(nextRoutineText([evening, afternoon], MODES, NOW)).toBe('Trabajo empieza a las 15:00');
+    expect(nextRoutineText([evening, afternoon], MODES, NOW, ES)).toBe('Trabajo empieza a las 15:00');
   });
 
   it('ignores routines that are off or started by hand', () => {
     const off = routine({ enabled: false });
     const manual = routine({ id: 'm', startMinutes: null, endMinutes: null, durationMs: HOUR });
-    expect(nextRoutineText([off, manual], MODES, NOW)).toBeNull();
+    expect(nextRoutineText([off, manual], MODES, NOW, ES)).toBeNull();
   });
 
   it('falls back to the routine name when its mode is gone', () => {
     const orphan = routine({ modeId: 'deleted' });
-    expect(nextRoutineText([orphan], MODES, NOW)).toBe('Mañanas · activa hasta las 18:00');
+    expect(nextRoutineText([orphan], MODES, NOW, ES)).toBe('Mañanas · activa hasta las 18:00');
   });
 });

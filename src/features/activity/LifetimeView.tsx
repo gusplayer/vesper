@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import type { DayStat } from '../../data/types';
 import { Columns, DotGrid, Stack, StatCard, Text } from '../../design/components';
+import { useLocale, useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { capitalize, monthLabel } from './dates';
 import { HabitsSection } from './HabitsSection';
@@ -21,26 +22,30 @@ type LifetimeViewProps = {
  * today's ledger and the weeks of life.
  */
 export function LifetimeView({ stats, now }: LifetimeViewProps) {
+  const t = useStrings();
+  const { tag } = useLocale();
   const totals = useMemo(() => lifetimeTotals(stats), [stats]);
-  const months = useMemo(() => recentMonths(stats, now, 4), [stats, now]);
+  const months = useMemo(() => recentMonths(stats, now, 4, t.activity), [stats, now, t]);
 
   return (
     <Stack gap="lg">
       <StatCard
         tone="ink"
-        label="ENFOCADO EN TOTAL"
-        value={hoursText(totals.totalMs)}
+        label={t.activity.lifetime.totalFocused}
+        value={hoursText(totals.totalMs, t.activity, tag)}
         description={
           totals.bestDayMs > 0
-            ? `Tu mejor día: ${durationText(totals.bestDayMs)}.`
-            : 'Tu primera sesión todavía no llegó.'
+            ? t.activity.lifetime.bestDay(durationText(totals.bestDayMs))
+            : t.activity.lifetime.noSessionYet
         }
       />
       <StatCard
-        label="DÍAS CON FOCO"
-        value={daysText(totals.daysFocused)}
+        label={t.activity.lifetime.daysWithFocus}
+        value={daysText(totals.daysFocused, t.activity, tag)}
         description={
-          totals.firstAt === null ? 'Todavía ninguno.' : `Desde ${monthLabel(totals.firstAt)}.`
+          totals.firstAt === null
+            ? t.activity.lifetime.noDayYet
+            : t.activity.lifetime.since(monthLabel(totals.firstAt, t.activity))
         }
       >
         <Columns count={2}>

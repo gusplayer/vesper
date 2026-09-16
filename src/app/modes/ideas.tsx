@@ -1,12 +1,15 @@
 import { useRouter } from 'expo-router';
 
 import { Card, IconCircle, PageHeader, Screen, Stack, Text } from '../../design/components';
-import { MODE_IDEAS, useAppStore } from '../../data';
+import { useAppStore, useModeIdeas } from '../../data';
 import type { ModeIdea } from '../../data/types';
+import { useStrings } from '../../i18n';
 
 /** Ready-made modes. The plus creates one and returns to the list. */
 export default function ModeIdeasScreen() {
   const router = useRouter();
+  const t = useStrings();
+  const ideas = useModeIdeas();
   const upsertMode = useAppStore((state) => state.upsertMode);
 
   const add = (idea: ModeIdea) => {
@@ -23,8 +26,8 @@ export default function ModeIdeasScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onClose={() => router.back()} title="Explorar ideas" />
-      {MODE_IDEAS.map((idea) => (
+      <PageHeader onClose={() => router.back()} title={t.modes.ideas.title} />
+      {ideas.map((idea) => (
         <Card key={idea.id}>
           <Stack direction="row" align="center" gap="md">
             <IconCircle name={idea.icon} />
@@ -38,7 +41,7 @@ export default function ModeIdeasScreen() {
               name="plus"
               tone="ink"
               onPress={() => add(idea)}
-              accessibilityLabel={`agregar ${idea.name}`}
+              accessibilityLabel={t.modes.ideas.addA11y(idea.name)}
             />
           </Stack>
         </Card>

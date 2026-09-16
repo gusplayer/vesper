@@ -20,6 +20,8 @@ export const SETTING_KEYS = {
   activeModeId: 'active_mode_id',
   /** Set once the demo data has been seeded, so it is never seeded twice. */
   demoSeededAt: 'demo_seeded_at',
+  /** 'auto' | 'es' | 'en' — Ajustes › Idioma (ADR-0020). Missing reads as 'auto'. */
+  language: 'language',
 } as const;
 
 export const DEFAULT_LIFE_EXPECTANCY_YEARS = 77.6;

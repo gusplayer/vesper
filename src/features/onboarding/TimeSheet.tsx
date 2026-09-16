@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 
 import { Button, Chip, Section, Sheet, Stack } from '../../design/components';
+import { useStrings } from '../../i18n';
 
 type TimeSheetProps = {
   visible: boolean;
   title: string;
   /** Minutes from midnight, or null for "until you end it" when `openEnd` is allowed. */
   value: number | null;
-  /** Offers the "Hasta que lo termines" chip. Only the end of a window can be open. */
+  /** Offers the "until you end it" chip. Only the end of a window can be open. */
   openEnd?: boolean;
   onClose: () => void;
   onDone: (minutes: number | null) => void;
@@ -15,13 +16,13 @@ type TimeSheetProps = {
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const MINUTES = [0, 15, 30, 45];
-const OPEN_END_LABEL = 'Hasta que lo termines';
 
 /**
  * The prototype's time picker: chips for the hour and the quarter, no native wheel
- * (guide: schedules/edit). The choice is local until "Listo".
+ * (guide: schedules/edit). The choice is local until "Done".
  */
 export function TimeSheet({ visible, title, value, openEnd = false, onClose, onDone }: TimeSheetProps) {
+  const t = useStrings();
   const [hour, setHour] = useState(0);
   const [minute, setMinute] = useState(0);
   const [open, setOpen] = useState(false);
@@ -45,9 +46,9 @@ export function TimeSheet({ visible, title, value, openEnd = false, onClose, onD
   return (
     <Sheet visible={visible} title={title} onClose={onClose}>
       {openEnd ? (
-        <Chip label={OPEN_END_LABEL} selected={open} onPress={() => setOpen(true)} />
+        <Chip label={t.onboarding.routine.openEnd} selected={open} onPress={() => setOpen(true)} />
       ) : null}
-      <Section title="Hora">
+      <Section title={t.onboarding.routine.hour}>
         <Stack direction="row" wrap gap="sm">
           {HOURS.map((option) => (
             <Chip
@@ -62,7 +63,7 @@ export function TimeSheet({ visible, title, value, openEnd = false, onClose, onD
           ))}
         </Stack>
       </Section>
-      <Section title="Minutos">
+      <Section title={t.onboarding.routine.minutes}>
         <Stack direction="row" wrap gap="sm">
           {MINUTES.map((option) => (
             <Chip
@@ -77,7 +78,7 @@ export function TimeSheet({ visible, title, value, openEnd = false, onClose, onD
           ))}
         </Stack>
       </Section>
-      <Button label="Listo" onPress={() => onDone(open ? null : hour * 60 + minute)} />
+      <Button label={t.common.done} onPress={() => onDone(open ? null : hour * 60 + minute)} />
     </Sheet>
   );
 }

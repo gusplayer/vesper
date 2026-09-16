@@ -1,12 +1,13 @@
 import { dayKeyOf } from '../../domain/day';
 import { dueRoutine, nextStart, type RoutineLike } from '../../domain/routines';
 import { DAY } from '../../domain/time';
+import type { Strings } from '../../i18n/es';
 
 /**
  * The one line under the mode on the home page: what the routines are doing right
- * now, or what the next one will do, if it is close. Pure: routines, modes and the
- * clock in, Spanish text out. Anything further than a day away says nothing, so the
- * line is news, not a calendar.
+ * now, or what the next one will do, if it is close. Pure: routines, modes, the
+ * clock and the dictionary in, text out. Anything further than a day away says
+ * nothing, so the line is news, not a calendar.
  */
 
 /** What the line needs from a routine: the engine's fields plus its own name. */
@@ -14,6 +15,8 @@ export type NamedRoutine = RoutineLike & { name: string };
 
 /** What the line needs from a mode: enough to name it. */
 export type NamedMode = { id: string; name: string };
+
+export type NextRoutineStrings = Strings['focus']['nextRoutine'];
 
 /** '9:05', '14:30'. Local time, twenty-four hours, no leading zero on the hour. */
 function clockText(at: number): string {
@@ -35,10 +38,11 @@ export function nextRoutineText(
   routines: ReadonlyArray<NamedRoutine>,
   modes: ReadonlyArray<NamedMode>,
   now: number,
+  t: NextRoutineStrings,
 ): string | null {
   const due = dueRoutine(routines, now);
   if (due !== null) {
-    return `${displayName(due.routine, modes)} · activa hasta las ${clockText(due.window.end)}`;
+    return t.activeUntil(displayName(due.routine, modes), clockText(due.window.end));
   }
 
   let soonest: { routine: NamedRoutine; at: number } | null = null;
@@ -55,5 +59,5 @@ export function nextRoutineText(
   const name = displayName(soonest.routine, modes);
   const time = clockText(soonest.at);
   const today = dayKeyOf(soonest.at) === dayKeyOf(now);
-  return today ? `${name} empieza a las ${time}` : `${name} empieza mañana a las ${time}`;
+  return today ? t.startsAt(name, time) : t.startsTomorrowAt(name, time);
 }

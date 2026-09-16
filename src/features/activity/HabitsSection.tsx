@@ -5,6 +5,7 @@ import { useAppStore, useHabitsWeek, useSettings } from '../../data';
 import { Chip, ListGroup, ListRow, Section, Sheet, Text, Tooltip } from '../../design/components';
 import type { HabitProgress } from '../../domain/habits';
 import { MAX_HABITS } from '../../domain/types';
+import { useStrings } from '../../i18n';
 import { habitProgressText } from '../../lib/format';
 import { syncedText } from '../health/format';
 
@@ -13,7 +14,6 @@ type HabitsSectionProps = {
 };
 
 const TOOLTIP_MS = 2500;
-const HEALTH_TIP = 'Este hábito lo marca Salud';
 
 /**
  * This week's habits: a tap marks today, 'Editar hábitos' opens a sheet that leads to
@@ -21,6 +21,7 @@ const HEALTH_TIP = 'Este hábito lo marca Salud';
  * verified habit is Health's to mark: a tap only says so (ADR-0005).
  */
 export function HabitsSection({ now }: HabitsSectionProps) {
+  const t = useStrings();
   const router = useRouter();
   const habits = useHabitsWeek(now);
   const settings = useSettings();
@@ -40,8 +41,8 @@ export function HabitsSection({ now }: HabitsSectionProps) {
   );
 
   const verifiedText = settings.healthConnected
-    ? `verificado por Salud · ${syncedText(settings.healthSyncedAt)}`
-    : 'verificado por Salud';
+    ? t.habits.section.verifiedSynced(syncedText(settings.healthSyncedAt, t.habits))
+    : t.habits.section.verified;
 
   const lockedByHealth = (progress: HabitProgress) =>
     settings.healthConnected && progress.habit.countMode === 'verified';
@@ -60,31 +61,33 @@ export function HabitsSection({ now }: HabitsSectionProps) {
 
   const accessibilityLabelFor = (progress: HabitProgress) => {
     if (lockedByHealth(progress)) {
-      return `${progress.habit.name}, lo marca Salud`;
+      return t.habits.section.markedByHealth(progress.habit.name);
     }
     return progress.markedToday
-      ? `Desmarcar ${progress.habit.name} hoy`
-      : `Marcar ${progress.habit.name} hoy`;
+      ? t.habits.section.unmarkToday(progress.habit.name)
+      : t.habits.section.markToday(progress.habit.name);
   };
 
   return (
-    <Section title="Hábitos esta semana">
-      {tipVisible ? <Tooltip message={HEALTH_TIP} /> : null}
+    <Section title={t.habits.section.title}>
+      {tipVisible ? <Tooltip message={t.habits.section.healthTip} /> : null}
       <ListGroup>
         {habits.map((progress) => (
           <ListRow
             key={progress.habit.id}
             label={progress.habit.name}
-            description={progress.habit.countMode === 'verified' ? verifiedText : 'declarado'}
-            value={habitProgressText(progress)}
+            description={
+              progress.habit.countMode === 'verified' ? verifiedText : t.habits.section.declared
+            }
+            value={habitProgressText(progress, t.format)}
             right={
               lockedByHealth(progress) ? (
                 <Text variant="caption" tone={progress.markedToday ? 'primary' : 'tertiary'}>
-                  {progress.markedToday ? 'hoy ✓' : 'hoy –'}
+                  {progress.markedToday ? t.habits.section.todayMarked : t.habits.section.todayUnmarked}
                 </Text>
               ) : (
                 <Chip
-                  label={progress.markedToday ? 'hoy ✓' : 'hoy'}
+                  label={progress.markedToday ? t.habits.section.todayMarked : t.habits.section.today}
                   selected={progress.markedToday}
                   onPress={() => press(progress)}
                 />
@@ -95,23 +98,21 @@ export function HabitsSection({ now }: HabitsSectionProps) {
           />
         ))}
         {habits.length === 0 ? null : (
-          <ListRow label="Editar hábitos" onPress={() => setEditing(true)} />
+          <ListRow label={t.habits.section.edit} onPress={() => setEditing(true)} />
         )}
         {full ? null : (
-          <ListRow label="Agregar hábito" icon="plus" onPress={() => router.push('/habits/new')} />
+          <ListRow label={t.habits.section.add} icon="plus" onPress={() => router.push('/habits/new')} />
         )}
       </ListGroup>
       <Text variant="caption" tone="tertiary">
-        {settings.healthConnected
-          ? '“hoy” marca el día de hoy. El número es cuántos días llevas esta semana. Los verificados los marca Salud sola.'
-          : '“hoy” marca el día de hoy. El número es cuántos días llevas esta semana.'}
+        {settings.healthConnected ? t.habits.section.helpHealth : t.habits.section.help}
       </Text>
       {full ? (
         <Text variant="caption" tone="tertiary">
-          Cinco es el máximo, a propósito.
+          {t.habits.section.fiveIsMax}
         </Text>
       ) : null}
-      <Sheet visible={editing} title="Editar hábitos" onClose={() => setEditing(false)}>
+      <Sheet visible={editing} title={t.habits.section.edit} onClose={() => setEditing(false)}>
         <ListGroup>
           {habits.map((progress) => (
             <ListRow

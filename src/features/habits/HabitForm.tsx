@@ -1,7 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 
-import { ACTIVITIES } from '../../data';
+import { useActivities } from '../../data';
+import type { Activity } from '../../data/types';
 import {
   Button,
   Card,
@@ -16,6 +17,7 @@ import {
 } from '../../design/components';
 import { DEFAULT_HABIT_TARGET, HABIT_TARGET_OPTIONS, healthTypeFor } from '../../domain/habits';
 import type { CountMode, Habit, HealthType } from '../../domain/types';
+import { useStrings } from '../../i18n';
 
 export type HabitFormValues = {
   name: string;
@@ -37,9 +39,9 @@ type HabitFormProps = {
 };
 
 /** Auto-link the habit to an activity when the name is one (ADR-0008). */
-function activityIdFor(name: string): string | null {
+function activityIdFor(name: string, activities: ReadonlyArray<Activity>): string | null {
   const key = name.toLowerCase();
-  return ACTIVITIES.find((activity) => activity.id === key || activity.label === key)?.id ?? null;
+  return activities.find((activity) => activity.id === key || activity.label === key)?.id ?? null;
 }
 
 /**
@@ -48,7 +50,9 @@ function activityIdFor(name: string): string | null {
  * can confirm the name (domain/habits.ts).
  */
 export function HabitForm({ title, initial, onSubmit, caption, secondary }: HabitFormProps) {
+  const t = useStrings();
   const router = useRouter();
+  const activities = useActivities();
   const [name, setName] = useState(initial?.name ?? '');
   const [weeklyTarget, setWeeklyTarget] = useState(initial?.weeklyTarget ?? DEFAULT_HABIT_TARGET);
   const [countMode, setCountMode] = useState<CountMode>(initial?.countMode ?? 'declared');
@@ -65,7 +69,7 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
       weeklyTarget,
       countMode: effectiveMode,
       healthType: effectiveMode === 'verified' ? healthType : null,
-      activityId: activityIdFor(trimmed),
+      activityId: activityIdFor(trimmed, activities),
     });
   };
 
@@ -74,7 +78,7 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
       scroll
       footer={
         <>
-          <Button label="Guardar" onPress={save} disabled={trimmed === ''} />
+          <Button label={t.common.save} onPress={save} disabled={trimmed === ''} />
           {secondary}
           {caption === undefined ? null : (
             <Text variant="caption" tone="tertiary" align="center">
@@ -86,13 +90,13 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
     >
       <PageHeader title={title} onBack={() => router.back()} />
       <FieldRow
-        label="Nombre"
+        label={t.habits.form.name}
         value={name}
         onChangeText={setName}
-        placeholder="gym, leer, dormir 7h"
+        placeholder={t.habits.form.namePlaceholder}
         autoFocus={initial === undefined}
       />
-      <Section title="Veces por semana">
+      <Section title={t.habits.form.timesPerWeek}>
         <Stack direction="row" gap="sm">
           {HABIT_TARGET_OPTIONS.map((times) => (
             <Chip
@@ -104,26 +108,24 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
           ))}
         </Stack>
       </Section>
-      <Section title="Cómo se cuenta">
+      <Section title={t.habits.form.howCounted}>
         <CountModeCard
-          title="Declarado"
-          description="Lo marcas tú"
+          title={t.habits.form.declared}
+          description={t.habits.form.declaredDescription}
           selected={effectiveMode === 'declared'}
           onPress={() => setCountMode('declared')}
         />
         <CountModeCard
-          title="Verificado"
+          title={t.habits.form.verified}
           description={
-            verifiable
-              ? 'Salud lo confirma solo'
-              : 'Solo para hábitos que Salud puede confirmar: entrenamiento, caminata, sueño'
+            verifiable ? t.habits.form.verifiedDescription : t.habits.form.verifiedUnavailable
           }
           selected={effectiveMode === 'verified'}
           muted={!verifiable}
           onPress={verifiable ? () => setCountMode('verified') : undefined}
         />
         <Text variant="caption" tone="tertiary">
-          En el prototipo Salud no confirma nada de verdad.
+          {t.habits.form.prototypeNote}
         </Text>
       </Section>
     </Screen>

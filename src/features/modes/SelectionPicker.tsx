@@ -13,6 +13,7 @@ import {
 } from '../../design/components';
 import { AppRow } from '../../design/components';
 import { MAX_SELECTION } from '../../data/modeDraft';
+import { useStrings } from '../../i18n';
 
 export type PickerItem = {
   id: string;
@@ -38,6 +39,7 @@ type SelectionPickerProps = {
   onToggle: (id: string) => void;
   onBack: () => void;
   onDone: () => void;
+  /** Defaults to `common.done`. */
   doneLabel?: string;
 };
 
@@ -64,8 +66,9 @@ export function SelectionPicker({
   onToggle,
   onBack,
   onDone,
-  doneLabel = 'Listo',
+  doneLabel,
 }: SelectionPickerProps) {
+  const t = useStrings();
   const [query, setQuery] = useState('');
   const searching = query.trim() !== '';
   const selected = items.filter((item) => selectedIds.includes(item.id));
@@ -92,14 +95,14 @@ export function SelectionPicker({
   };
 
   return (
-    <Screen scroll footer={<Button label={doneLabel} onPress={onDone} />}>
+    <Screen scroll footer={<Button label={doneLabel ?? t.common.done} onPress={onDone} />}>
       <PageHeader onBack={onBack} title={title} />
       <SearchField value={query} onChangeText={setQuery} placeholder={searchPlaceholder} />
       {searching ? (
-        <Section title="Resultados">
+        <Section title={t.modes.picker.results}>
           {results.length === 0 ? (
             <Text variant="label" tone="secondary">
-              Nada con ese nombre.
+              {t.modes.picker.noResults}
             </Text>
           ) : (
             <ListGroup>{results.map(row)}</ListGroup>
@@ -117,7 +120,7 @@ export function SelectionPicker({
           >
             {selected.length === 0 ? (
               <Text variant="label" tone="secondary">
-                Todavía no elegiste nada.
+                {t.modes.picker.nothingYet}
               </Text>
             ) : (
               <ListGroup>{selected.map(row)}</ListGroup>

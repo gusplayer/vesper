@@ -99,6 +99,27 @@ en una sesión de 90 minutos en un teléfono real.
 En `src/dev/route.ts` poné `DEV_START_ROUTE = '/modes'` (y `DEV_SESSION = 'running'` para
 la sesión) y relanzá la app. Volvé a dejarlo en `null` antes de commitear.
 
+## Idioma: español e inglés (2026-09-15)
+
+La app habla el idioma del teléfono y Ajustes › Idioma lo fuerza (ADR-0020). Todo texto
+visible vive en `src/i18n/es/` y `src/i18n/en/`, un archivo por área; `Strings = typeof es`
+y `en` lo implementa, así que una clave que falte en inglés no compila. `expo-localization`
+es la única fuente del idioma del teléfono y solo se importa en `src/i18n/device.ts`.
+
+- Verificado: `tsc` limpio y 517 tests en 43 archivos, con aserciones en `es` y `en` para
+  cada función que produce texto (formato, recordatorios, libro mayor, expectativa de vida,
+  ritual de salida, datos de demostración, estado de rutinas).
+- **No verificado en simulador.** `expo-localization` es un módulo nativo: hay que regenerar
+  `ios/` y recompilar el dev client (`npx expo prebuild --platform ios --clean && npx expo
+  run:ios`) antes de ver la página de idioma y el cambio en caliente.
+- Los datos de demostración y las actividades por defecto se siembran en el idioma del
+  teléfono en la primera apertura y no cambian después: son datos del usuario.
+- Las notificaciones se replanifican al cambiar el idioma (`useNotificationSync`), el
+  shield de bloqueo, el selector de apps y la Live Activity leen el diccionario. Fuera de
+  `src/i18n` solo queda texto en `FatalError`, a propósito: se muestra antes de que exista
+  cualquier store.
+- El reloj de horarios sigue en formato de 24 horas en los dos idiomas.
+
 ## Qué falta
 
 - Pedir el entitlement de Family Controls (distribución) en el portal de Apple y
@@ -114,7 +135,6 @@ la sesión) y relanzá la app. Volvé a dejarlo en `null` antes de commitear.
 ## Deuda conocida
 
 - `react-native-health` lleva un parche en `patches/` para React Native 0.86.
-- Las etiquetas del libro mayor siguen en `domain/ledger.ts`, pendiente de i18n.
-- `src/lib/labels.ts` está en minúscula; `DepthCards` capitaliza localmente.
+- `t.depth.label` está en minúscula; `DepthCards` capitaliza localmente.
 - `ios/` no se versiona; regenerar con `npx expo prebuild --platform ios --clean` tras
   cambiar plugins. `targets/` y `patches/` sí se versionan.

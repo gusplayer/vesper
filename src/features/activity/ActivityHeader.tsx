@@ -2,20 +2,11 @@ import { useState } from 'react';
 
 import { Check, ListGroup, ListRow, Sheet } from '../../design/components';
 import { DropdownTitle } from '../../design/components';
+import { useStrings } from '../../i18n';
 
 export type ActivityView = 'week' | 'month' | 'lifetime';
 
-const TITLE: Record<ActivityView, string> = {
-  week: 'Actividad semanal',
-  month: 'Actividad mensual',
-  lifetime: 'Actividad de por vida',
-};
-
-const OPTIONS: ReadonlyArray<{ key: ActivityView; label: string }> = [
-  { key: 'week', label: 'Semanal' },
-  { key: 'month', label: 'Mensual' },
-  { key: 'lifetime', label: 'De por vida' },
-];
+const VIEWS: ReadonlyArray<ActivityView> = ['week', 'month', 'lifetime'];
 
 type ActivityHeaderProps = {
   view: ActivityView;
@@ -24,24 +15,25 @@ type ActivityHeaderProps = {
 
 /** The tab's title with a chevron, and the 'Ver' sheet it opens. */
 export function ActivityHeader({ view, onChangeView }: ActivityHeaderProps) {
+  const t = useStrings();
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <DropdownTitle
-        label={TITLE[view]}
+        label={t.activity.header.title[view]}
         onPress={() => setOpen(true)}
-        accessibilityLabel="Elegir qué actividad ver"
+        accessibilityLabel={t.activity.header.chooseView}
       />
-      <Sheet visible={open} title="Ver" onClose={() => setOpen(false)}>
+      <Sheet visible={open} title={t.activity.header.sheetTitle} onClose={() => setOpen(false)}>
         <ListGroup>
-          {OPTIONS.map((option) => (
+          {VIEWS.map((option) => (
             <ListRow
-              key={option.key}
-              label={option.label}
-              right={<Check checked={option.key === view} />}
+              key={option}
+              label={t.activity.header.option[option]}
+              right={<Check checked={option === view} />}
               onPress={() => {
-                onChangeView(option.key);
+                onChangeView(option);
                 setOpen(false);
               }}
             />

@@ -17,16 +17,12 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { ACTIVITIES, appsById, useAppStore, useMode } from '../../data';
+import { appsById, useActivities, useAppStore, useMode } from '../../data';
 import { draftToMode, useModeDraftStore } from '../../data/modeDraft';
 import type { ModeBehavior } from '../../data/types';
 import { DepthCards } from '../../features/modes/DepthCards';
+import { useStrings } from '../../i18n';
 import { selectionSummaryText, status as blockingStatus } from '../../platform/blocking';
-
-const BEHAVIORS: ReadonlyArray<{ value: ModeBehavior; label: string }> = [
-  { value: 'block', label: 'Bloquear seleccionadas' },
-  { value: 'allow', label: 'Permitir solo seleccionadas' },
-];
 
 /**
  * New or existing mode. The form is the draft store, so the app and website pickers
@@ -34,8 +30,10 @@ const BEHAVIORS: ReadonlyArray<{ value: ModeBehavior; label: string }> = [
  */
 export default function ModeEditScreen() {
   const router = useRouter();
+  const t = useStrings();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const mode = useMode(id);
+  const activities = useActivities();
   const upsertMode = useAppStore((state) => state.upsertMode);
   const deleteMode = useAppStore((state) => state.deleteMode);
   const draft = useModeDraftStore();
@@ -53,6 +51,11 @@ export default function ModeEditScreen() {
     return null;
   }
 
+  const behaviors: ReadonlyArray<{ value: ModeBehavior; label: string }> = [
+    { value: 'block', label: t.modes.edit.behaviorBlock },
+    { value: 'allow', label: t.modes.edit.behaviorAllow },
+  ];
+
   const apps = appsById(draft.appIds);
   const sites = draft.websiteIds.length;
   // Cheap and synchronous: a few flags, no native call unless the module is loaded.
@@ -68,10 +71,10 @@ export default function ModeEditScreen() {
       return;
     }
     const modeId = draft.id;
-    Alert.alert(`¿Eliminar "${draft.name}"?`, 'Las rutinas que usen este modo se apagarán.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t.modes.deleteAlert.title(draft.name), t.modes.deleteAlert.message, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Eliminar',
+        text: t.modes.deleteAlert.confirm,
         style: 'destructive',
         onPress: () => {
           deleteMode(modeId);
@@ -83,37 +86,37 @@ export default function ModeEditScreen() {
 
   const footer = (
     <>
-      <Button label="Guardar modo" onPress={save} disabled={draft.name.trim() === ''} />
-      {editing ? <Button variant="ghost" label="Eliminar modo" onPress={confirmDelete} /> : null}
+      <Button label={t.modes.edit.save} onPress={save} disabled={draft.name.trim() === ''} />
+      {editing ? <Button variant="ghost" label={t.modes.edit.remove} onPress={confirmDelete} /> : null}
     </>
   );
 
   return (
     <Screen scroll footer={footer}>
-      <PageHeader onBack={() => router.back()} title={editing ? 'Editar modo' : 'Nuevo modo'} />
+      <PageHeader onBack={() => router.back()} title={editing ? t.modes.edit.editTitle : t.modes.edit.newTitle} />
 
       <FieldRow
-        label="Nombre"
+        label={t.modes.edit.name}
         value={draft.name}
         onChangeText={draft.setName}
-        placeholder="Sin redes"
+        placeholder={t.modes.edit.namePlaceholder}
         autoFocus={!editing}
       />
 
       <Card>
         <Stack gap="md">
           <Stack gap="xs">
-            <Text variant="heading">Comportamiento</Text>
+            <Text variant="heading">{t.modes.edit.behavior}</Text>
             <Text variant="label" tone="secondary">
-              Elige qué se limita mientras estás enfocado
+              {t.modes.edit.behaviorHint}
             </Text>
           </Stack>
-          <SegmentedControl segments={BEHAVIORS} value={draft.behavior} onChange={draft.setBehavior} />
+          <SegmentedControl segments={behaviors} value={draft.behavior} onChange={draft.setBehavior} />
           <Divider />
           <ListRow
-            label="Apps"
+            label={t.modes.edit.apps}
             icon="smartphone"
-            value={apps.length > 0 ? String(apps.length) : 'Ninguna'}
+            value={apps.length > 0 ? String(apps.length) : t.modes.edit.noApps}
             onPress={() => router.push({ pathname: '/modes/apps', params: { draft: '1' } })}
           />
           {apps.length > 0 ? <AppIconStack apps={apps} max={6} /> : null}
@@ -121,7 +124,7 @@ export default function ModeEditScreen() {
             <>
               <Divider />
               <ListRow
-                label="Apps reales (Tiempo de uso)"
+                label={t.modes.edit.realApps}
                 icon="shield"
                 value={selectionSummaryText(draft.selectionToken)}
                 onPress={() => router.push({ pathname: '/modes/apps', params: { native: '1' } })}
@@ -130,21 +133,21 @@ export default function ModeEditScreen() {
           ) : null}
           <Divider />
           <ListRow
-            label="Sitios"
+            label={t.modes.edit.sites}
             icon="globe"
-            value={sites > 0 ? String(sites) : 'Ninguno'}
+            value={sites > 0 ? String(sites) : t.common.none}
             onPress={() => router.push({ pathname: '/modes/websites', params: { draft: '1' } })}
           />
         </Stack>
       </Card>
 
-      <Section title="Profundidad">
+      <Section title={t.modes.edit.depth}>
         <DepthCards value={draft.depth} onChange={draft.setDepth} />
       </Section>
 
-      <Section title="Actividad">
+      <Section title={t.modes.edit.activity}>
         <Stack direction="row" gap="sm" wrap>
-          {ACTIVITIES.map((activity) => (
+          {activities.map((activity) => (
             <Chip
               key={activity.id}
               label={activity.label}
@@ -154,7 +157,7 @@ export default function ModeEditScreen() {
           ))}
         </Stack>
         <Text variant="caption" tone="secondary">
-          A qué se acredita el tiempo de este modo en el día
+          {t.modes.edit.activityHint}
         </Text>
       </Section>
     </Screen>

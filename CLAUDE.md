@@ -62,13 +62,16 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Toda escritura a la base de datos pasa por `src/db/repositories/`. Los componentes no ejecutan SQL.
 - Toda lectura compuesta para una pantalla vive en `src/db/queries/`. Las queries nunca escriben.
 - Los tipos de dominio viven en `src/domain/types.ts` y son la fuente de verdad.
-- Las palabras en español que necesita el dominio viven en `src/lib/labels.ts`, `format.ts`
-  y `tone.ts`. El dominio habla en identificadores.
+- Toda palabra que ve el usuario vive en `src/i18n/es/` y `src/i18n/en/`, un archivo por
+  área, y llega a la UI por `useStrings()` (o `getStrings()` fuera de React). El dominio
+  habla en identificadores y recibe el diccionario por parámetro; nunca importa el store.
 - Fechas siempre en epoch ms (`number`), nunca strings. Conversión a local solo en la capa de UI.
   La única excepción es `habit_marks.day_key`, y está justificada en `docs/DATA_MODEL.md`.
-- **Código en inglés, UI en español.** Identificadores, comentarios, nombres de archivo y
-  mensajes de commit en inglés. Los strings que ve el usuario, en español y hardcodeados:
-  no hay i18n en fase 1 (`docs/ARCHITECTURE.md`).
+- **Código en inglés, UI en español e inglés.** Identificadores, comentarios, nombres de
+  archivo y mensajes de commit en inglés. Ningún string visible se escribe en una pantalla:
+  cada uno se escribe dos veces, en `src/i18n/es/<área>.ts` y `src/i18n/en/<área>.ts`, o
+  `tsc` falla. La app sigue el idioma del teléfono y Ajustes › Idioma lo fuerza (ADR-0020).
+  Fechas y números con `Intl` y la etiqueta de `useLocale().tag`, nunca `'es-CO'` literal.
 - **Los tokens solo se importan en `src/design/`.** Las pantallas de `src/app/` y las
   piezas de `src/features/` no conocen `space` ni `colors`: todo el layout vive en
   componentes de `design/components/`. Si una pantalla necesita un token, falta un componente.
@@ -77,6 +80,9 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - **Copy en español neutro, de tú, en oración**: "Toca para enfocar", "Elige un modo", "Puedes
   cambiarlo". Nunca voseo (tocá, podés, vos), nunca usted, nunca regionalismos. Sin
   mayúsculas completas. Tildes correctas. Números con coma decimal ("77,6").
+- **El inglés tiene la misma voz**: segunda persona directa, oraciones cortas, sentence case,
+  sin signos de exclamación ni tono de marketing ("Tap to focus", "Pick a mode"). Nunca
+  "Let's", nunca emoji. Punto decimal ("77.6").
 - Commits convencionales: `feat:`, `fix:`, `chore:`, `docs:`.
 
 ## Cómo trabajar

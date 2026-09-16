@@ -66,8 +66,6 @@ function square(x: number, y: number, s: number): Point[] {
 
 export const pagoda: Artwork = {
   id: 'pagoda',
-  name: 'Pagoda',
-  caption: 'Cinco techos que suben hacia el silencio.',
   strokes: [
     // Ground: a soft line dipping under the base.
     { points: [[0.08, 0.882], [0.25, 0.868], [0.5, 0.862], [0.75, 0.866], [0.92, 0.879]], weight: 0.8 },

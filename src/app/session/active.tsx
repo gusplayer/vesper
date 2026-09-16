@@ -14,11 +14,11 @@ import {
   Text,
 } from '../../design/components';
 import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
-import { countText } from '../../data/modes';
 import { elapsed, isDue, sessionProgress } from '../../domain/session';
 import { EmergencySheet } from '../../features/session/EmergencySheet';
 import { ModeDetailsSheet } from '../../features/modes/ModeDetailsSheet';
 import { FocusArt } from '../../features/session/FocusArt';
+import { useStrings } from '../../i18n';
 import { timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 import { useOrientation } from '../../lib/useOrientation';
@@ -31,6 +31,8 @@ import { allowRotation, lockPortrait } from '../../platform/orientation';
  */
 export default function ActiveSessionScreen() {
   const router = useRouter();
+  const strings = useStrings().session;
+  const t = strings.active;
   const session = useRunningSession();
   const modeId = useFocusStore((state) => state.modeId);
   const mode = useMode(modeId ?? undefined);
@@ -93,9 +95,9 @@ export default function ActiveSessionScreen() {
 
   const endButton =
     session.depth === 'deep' ? (
-      <Button label="Profundo · solo el timer termina" onPress={() => undefined} disabled />
+      <Button label={t.deepOnlyTimer} onPress={() => undefined} disabled />
     ) : (
-      <Button label="Terminar" onPress={() => router.push('/session/exit')} />
+      <Button label={t.end} onPress={() => router.push('/session/exit')} />
     );
 
   const footer = (
@@ -103,11 +105,7 @@ export default function ActiveSessionScreen() {
       {endButton}
       <Button
         variant="ghost"
-        label={
-          emergencyLeft > 0
-            ? `Desbloqueo de emergencia (${emergencyLeft})`
-            : 'Sin desbloqueos de emergencia'
-        }
+        label={emergencyLeft > 0 ? t.emergencyLeft(emergencyLeft) : t.noEmergencyLeft}
         disabled={emergencyLeft === 0}
         onPress={() => setAskingEmergency(true)}
       />
@@ -125,7 +123,7 @@ export default function ActiveSessionScreen() {
             <Stack justify="center" align="center" gap="sm">
               <FlipClock value={timerText(elapsed(session, now))} scale={0.8} />
               <Text variant="caption" tone="secondary" align="center">
-                {mode === null ? 'Enfocado' : mode.name}
+                {mode === null ? t.focused : mode.name}
               </Text>
             </Stack>
             <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} layout="landscape" />
@@ -140,9 +138,9 @@ export default function ActiveSessionScreen() {
         <Stack align="center" gap="lg">
           <FlipClock value={timerText(elapsed(session, now))} scale={1.6} />
           <Text variant="label" tone="secondary">
-            {mode === null ? 'Enfocado' : mode.name}
+            {mode === null ? t.focused : mode.name}
           </Text>
-          <Button variant="ghost" label="Arte" onPress={() => setShowingArt(true)} />
+          <Button variant="ghost" label={t.art} onPress={() => setShowingArt(true)} />
         </Stack>
         <Spacer />
         <ProgressBar progress={sessionProgress(session, now)} />
@@ -168,7 +166,7 @@ export default function ActiveSessionScreen() {
             onStay={() => setAskingEmergency(false)}
             onUse={() => {
               spendEmergency();
-              leave('desbloqueo de emergencia');
+              leave(strings.emergency.reason);
             }}
           />
         ) : null}
@@ -180,7 +178,7 @@ export default function ActiveSessionScreen() {
     <Screen footer={footer}>
       <Stack align="center" gap="xs">
         <Text variant="label" tone="secondary">
-          Llevas enfocado
+          {t.elapsedLabel}
         </Text>
         <FlipClock value={timerText(elapsed(session, now))} />
       </Stack>
@@ -188,7 +186,7 @@ export default function ActiveSessionScreen() {
       <Spacer />
       <Stack align="center" gap="sm">
         <HeroObject />
-        <Button variant="ghost" label="Arte" onPress={() => setShowingArt(true)} />
+        <Button variant="ghost" label={t.art} onPress={() => setShowingArt(true)} />
       </Stack>
       <Spacer />
 
@@ -197,10 +195,10 @@ export default function ActiveSessionScreen() {
           onPress={() => setShowingMode(true)}
           disabled={mode === null}
           accessibilityRole="button"
-          accessibilityLabel={`${mode?.name ?? 'Sesión'}. Ver qué hace este modo`}
+          accessibilityLabel={t.modeLabel(mode?.name ?? t.fallbackName)}
         >
           <Stack direction="row" align="center" gap="sm">
-            <Text variant="heading">{mode?.name ?? 'Sesión'}</Text>
+            <Text variant="heading">{mode?.name ?? t.fallbackName}</Text>
             {mode === null ? null : <Icon name="info" size="sm" tone="tertiary" />}
           </Stack>
         </Pressable>
@@ -213,7 +211,7 @@ export default function ActiveSessionScreen() {
         <ProgressBar progress={sessionProgress(session, now)} />
         {session.interruptions > 0 ? (
           <Text variant="caption" tone="secondary" align="right">
-            {countText(session.interruptions, 'interrupción', 'interrupciones')}
+            {t.interruptions(session.interruptions)}
           </Text>
         ) : null}
       </Stack>
@@ -224,7 +222,7 @@ export default function ActiveSessionScreen() {
           onStay={() => setAskingEmergency(false)}
           onUse={() => {
             spendEmergency();
-            leave('desbloqueo de emergencia');
+            leave(strings.emergency.reason);
           }}
         />
       ) : null}

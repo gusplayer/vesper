@@ -70,7 +70,8 @@
           "appleTeamId": "2D3R79CT8F",
           "appGroup": "group.com.gusplayer.vesper"
         }
-      ]
+      ],
+      "expo-localization"
     ]
   }
 }

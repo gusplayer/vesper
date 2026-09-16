@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { en } from '../i18n/en';
+import { es } from '../i18n/es';
 import { aDoneSession, anActivity, aRunningSession, T0 } from './fixtures';
-import { buildLedger } from './ledger';
+import { buildLedger as build } from './ledger';
 import { HOUR, MINUTE } from './time';
 import {
   DECLARED_DAILY_CAP_MS,
@@ -53,6 +55,11 @@ function input(overrides: Partial<LedgerInput> = {}): LedgerInput {
     usageEstimateMs: 0,
     ...overrides,
   };
+}
+
+/** Every test speaks Spanish unless it is about the labels themselves. */
+function buildLedger(ledgerInput: LedgerInput): ReturnType<typeof build> {
+  return build(ledgerInput, es.activity.ledger);
 }
 
 function rowMs(ledger: ReturnType<typeof buildLedger>, key: string): number | undefined {
@@ -164,6 +171,13 @@ describe('verified rows', () => {
 
     expect(row?.label).toBe('entrenamiento');
     expect(row?.ms).toBe(HOUR);
+  });
+
+  it('take their label from the dictionary they are given', () => {
+    const workout = sample('h-1', 'workout', DAY_START + HOUR, DAY_START + 2 * HOUR);
+    const ledger = build(input({ healthSamples: [workout], usageEstimateMs: HOUR }), en.activity.ledger);
+
+    expect(ledger.rows.map((row) => row.label)).toEqual(['workout', 'social', 'unregistered']);
   });
 
   it('clip a sample that crosses midnight to the day window', () => {

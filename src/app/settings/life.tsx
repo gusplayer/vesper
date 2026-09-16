@@ -18,22 +18,23 @@ import {
 } from '../../design/components';
 import {
   COUNTRIES,
+  countryName,
   expectancySourceText,
-  findCountry,
   resolveExpectancy,
   yearsText as yearsLabel,
   type Sex,
 } from '../../domain/lifeExpectancy';
+import { useLocale, useStrings } from '../../i18n';
 import { formatBirthDate, parseBirthDate } from '../../lib/birthDate';
 import { useNow } from '../../lib/useNow';
 
 /** The weeks counter only needs to move once a minute. */
 const CLOCK_MS = 60_000;
 
-const SEX_OPTIONS: ReadonlyArray<{ value: Sex | null; label: string }> = [
-  { value: 'female', label: 'Mujer' },
-  { value: 'male', label: 'Hombre' },
-  { value: null, label: 'Prefiero no decirlo' },
+const SEX_OPTIONS: ReadonlyArray<{ value: Sex | null; key: 'female' | 'male' | 'undisclosed' }> = [
+  { value: 'female', key: 'female' },
+  { value: 'male', key: 'male' },
+  { value: null, key: 'undisclosed' },
 ];
 
 /**
@@ -48,6 +49,8 @@ export default function LifeScreen() {
   const updateSettings = useAppStore((state) => state.updateSettings);
   const now = useNow(CLOCK_MS);
   const life = useLife(now);
+  const t = useStrings();
+  const { tag } = useLocale();
 
   const [birthText, setBirthText] = useState(
     settings.birthDate === null ? '' : formatBirthDate(settings.birthDate),
@@ -83,76 +86,75 @@ export default function LifeScreen() {
   };
 
   return (
-    <Screen scroll footer={<Button label="Guardar" onPress={save} disabled={!canSave} />}>
-      <PageHeader onBack={() => router.back()} title="Vida" />
+    <Screen scroll footer={<Button label={t.common.save} onPress={save} disabled={!canSave} />}>
+      <PageHeader onBack={() => router.back()} title={t.settings.life.title} />
 
       <FieldRow
-        label="Nacimiento"
+        label={t.settings.life.birth}
         value={birthText}
         onChangeText={setBirthText}
-        placeholder="aaaa-mm-dd"
+        placeholder={t.settings.life.birthPlaceholder}
         keyboardType="number-pad"
       />
 
-      <Section title="Opcional">
+      <Section title={t.settings.life.optional}>
         <ListGroup>
           <ListRow
-            label="País"
-            value={findCountry(country)?.name ?? 'Sin elegir'}
+            label={t.settings.life.country}
+            value={countryName(country, t.settings.lifeExpectancy) ?? t.settings.life.notChosen}
             onPress={() => setChoosingCountry(true)}
           />
         </ListGroup>
         <Stack direction="row" gap="sm" wrap>
           {SEX_OPTIONS.map((option) => (
             <Chip
-              key={option.label}
-              label={option.label}
+              key={option.key}
+              label={t.settings.life.sex[option.key]}
               selected={option.value === sex}
               onPress={() => chooseSex(option.value)}
             />
           ))}
         </Stack>
         <Text variant="caption" tone="tertiary">
-          Solo sirven para afinar la esperanza de vida de referencia. Sin ellos usamos un
-          promedio. No pedimos peso ni altura: no los usamos.
+          {t.settings.life.optionalHint}
         </Text>
       </Section>
 
-      <Section title="Esperanza de vida">
+      <Section title={t.settings.life.expectancy}>
         <FieldRow
-          label="Años"
+          label={t.settings.life.years}
           value={yearsText}
           onChangeText={setYearsText}
-          placeholder="años"
+          placeholder={t.settings.life.yearsPlaceholder}
           keyboardType="number-pad"
         />
         <Text variant="caption" tone="tertiary">
           {manual
-            ? `Sobre ${yearsLabel(years)} años: lo pusiste tú. Cambiar el país o el sexo lo vuelve a calcular.`
-            : expectancySourceText(resolved, sex)}
+            ? t.settings.life.manual(yearsLabel(years, tag))
+            : expectancySourceText(resolved, sex, t.settings.lifeExpectancy, tag)}
         </Text>
       </Section>
 
       <StatCard
-        label="SEMANAS RESTANTES"
-        value={life === null ? '—' : life.left.toLocaleString('es-CO')}
+        label={t.settings.life.weeksLeft}
+        value={life === null ? t.common.empty : life.left.toLocaleString(tag)}
         description={
           life === null
-            ? 'Escribe tu fecha de nacimiento para verlas.'
-            : `${life.lived.toLocaleString('es-CO')} vividas de ${life.total.toLocaleString('es-CO')} en total.`
+            ? t.settings.life.noBirthDate
+            : t.settings.life.livedOfTotal(life.lived.toLocaleString(tag), life.total.toLocaleString(tag))
         }
       />
       <Text variant="caption" tone="tertiary" align="center">
-        Se guarda solo en este teléfono.
+        {t.settings.life.localOnly}
       </Text>
 
-      <Sheet visible={choosingCountry} title="País" onClose={() => setChoosingCountry(false)}>
+      <Sheet visible={choosingCountry} title={t.settings.life.countrySheet} onClose={() => setChoosingCountry(false)}>
         <Stack direction="row" gap="sm" wrap>
-          <Chip label="Sin elegir" selected={country === null} onPress={() => chooseCountry(null)} />
+          <Chip label={t.settings.life.notChosen} selected={country === null} onPress={() => chooseCountry(null)} />
           {COUNTRIES.map((item) => (
             <Chip
               key={item.code}
-              label={item.name}
+              label={t.settings.lifeExpectancy.countries[item.code]}
               selected={item.code === country}
               onPress={() => chooseCountry(item.code)}
             />

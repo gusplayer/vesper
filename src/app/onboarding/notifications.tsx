@@ -12,16 +12,18 @@ import {
   Text,
 } from '../../design/components';
 import { commitOnboarding } from '../../features/onboarding/commit';
+import { useStrings } from '../../i18n';
 import { requestPermission } from '../../platform/notifications';
 
 /**
  * Notifications. Also the point where the mode must exist whether or not the user
  * made a routine, so the commit runs here if routine-set did not.
  *
- * "Permitir" shows the real system prompt and moves on whatever the answer: the
- * flag records what the OS said, and Ajustes › Notificaciones can retry later.
+ * "Allow" shows the real system prompt and moves on whatever the answer: the
+ * flag records what the OS said, and Settings › Notifications can retry later.
  */
 export default function NotificationsScreen() {
+  const t = useStrings();
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [asking, setAsking] = useState(false);
 
@@ -29,6 +31,7 @@ export default function NotificationsScreen() {
     commitOnboarding({ withSchedule: false });
   }, []);
 
+  const copy = t.onboarding.notifications;
   const next = () => router.push('/onboarding/tour');
 
   const allow = async () => {
@@ -44,25 +47,20 @@ export default function NotificationsScreen() {
       scroll
       footer={
         <>
-          <Button
-            label="Permitir notificaciones"
-            onPress={() => void allow()}
-            busy={asking}
-            busyLabel="Pidiendo permiso…"
-          />
-          <Button label="Ahora no" variant="ghost" onPress={next} disabled={asking} />
+          <Button label={copy.allow} onPress={() => void allow()} busy={asking} busyLabel={copy.asking} />
+          <Button label={copy.notNow} variant="ghost" onPress={next} disabled={asking} />
         </>
       }
     >
       <PageHeader onBack={() => router.back()} />
       <Text variant="caption" tone="tertiary" align="center">
-        Sigue en camino
+        {copy.kicker}
       </Text>
       <Text variant="title" align="center">
-        Sácale el jugo a Vesper
+        {copy.title}
       </Text>
       <Text variant="label" tone="secondary" align="center">
-        Permite notificaciones para avisos a tiempo que te ayuden a cumplir.
+        {copy.subtitle}
       </Text>
 
       {/* A fake notification, the way one would land on the lock screen. */}
@@ -71,14 +69,14 @@ export default function NotificationsScreen() {
           <IconCircle name="clock" />
           <Stack grow gap="xs">
             <Text variant="body" weight="medium">
-              El tiempo se escapa
+              {copy.preview.title}
             </Text>
             <Text variant="label" tone="secondary">
-              Vesper lo recupera. Empieza una sesión.
+              {copy.preview.body}
             </Text>
           </Stack>
           <Text variant="caption" tone="tertiary">
-            ahora
+            {copy.preview.when}
           </Text>
         </Stack>
       </Card>

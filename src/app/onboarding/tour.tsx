@@ -15,6 +15,7 @@ import {
   Text,
 } from '../../design/components';
 import { ThemeScope } from '../../design/components';
+import { useStrings, type Strings } from '../../i18n';
 
 type Step = {
   preview: ReactNode;
@@ -22,50 +23,55 @@ type Step = {
   body: string;
 };
 
-const STEPS: ReadonlyArray<Step> = [
-  {
-    preview: (
-      <Stack align="center" gap="md">
-        <HeroObject size="md" />
-        <Text variant="caption" tone="secondary">
-          Toca para enfocar
-        </Text>
-      </Stack>
-    ),
-    title: 'Toca para enfocar. Toca de nuevo para volver.',
-    body: 'Elige un modo, toca el botón y las apps que elegiste quedan en pausa hasta que termines.',
-  },
-  {
-    preview: (
-      <ListGroup>
-        <ListRow label="Mis reglas" />
-        <ListRow label="Desbloqueo de emergencia" value="5" />
-      </ListGroup>
-    ),
-    title: 'Estás cubierto en una emergencia',
-    body: 'Tienes 5 desbloqueos de emergencia. Suficientes para cuando de verdad los necesitas. Los encuentras en Ajustes.',
-  },
-  {
-    preview: (
-      <Stack align="center" gap="md">
-        <HeroObject size="md" />
-        <Text variant="caption" tone="secondary">
-          Todo en tu teléfono
-        </Text>
-      </Stack>
-    ),
-    title: 'Nada sale de tu teléfono',
-    body: 'Sin cuenta ni nube. Lo que inviertes, lo que Salud confirma y lo que consumes se cuentan aparte y nunca se suman.',
-  },
-];
+/** The three pages, built from the dictionary so they follow a language change. */
+function tourSteps(t: Strings['onboarding']['tour']): ReadonlyArray<Step> {
+  return [
+    {
+      preview: (
+        <Stack align="center" gap="md">
+          <HeroObject size="md" />
+          <Text variant="caption" tone="secondary">
+            {t.focus.caption}
+          </Text>
+        </Stack>
+      ),
+      title: t.focus.title,
+      body: t.focus.body,
+    },
+    {
+      preview: (
+        <ListGroup>
+          <ListRow label={t.emergency.rules} />
+          <ListRow label={t.emergency.unlocks} value="5" />
+        </ListGroup>
+      ),
+      title: t.emergency.title,
+      body: t.emergency.body,
+    },
+    {
+      preview: (
+        <Stack align="center" gap="md">
+          <HeroObject size="md" />
+          <Text variant="caption" tone="secondary">
+            {t.local.caption}
+          </Text>
+        </Stack>
+      ),
+      title: t.local.title,
+      body: t.local.body,
+    },
+  ];
+}
 
 /** Three dark pages with a preview each. The last one ends the onboarding. */
 export default function TourScreen() {
+  const t = useStrings();
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [index, setIndex] = useState(0);
 
-  const step = STEPS[index] ?? STEPS[0];
-  const last = index === STEPS.length - 1;
+  const steps = tourSteps(t.onboarding.tour);
+  const step = steps[index] ?? steps[0];
+  const last = index === steps.length - 1;
 
   const next = () => {
     if (!last) {
@@ -91,11 +97,11 @@ export default function TourScreen() {
                 name="arrow-left"
                 tone="card"
                 onPress={() => setIndex(index - 1)}
-                accessibilityLabel="anterior"
+                accessibilityLabel={t.onboarding.tour.previous}
               />
             ) : null}
             <Stack grow>
-              <Button label={last ? 'Listo' : 'Continuar'} onPress={next} />
+              <Button label={last ? t.common.done : t.common.continue} onPress={next} />
             </Stack>
           </Stack>
         }
@@ -109,7 +115,7 @@ export default function TourScreen() {
             </Text>
           </Stack>
         </Stack>
-        <ProgressDots count={STEPS.length} index={index} />
+        <ProgressDots count={steps.length} index={index} />
       </Screen>
     </ThemeScope>
   );

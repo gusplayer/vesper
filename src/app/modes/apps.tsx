@@ -1,12 +1,13 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { APPS, useAppStore } from '../../data';
+import { useApps, useAppStore } from '../../data';
 import { useModeDraftStore } from '../../data/modeDraft';
 import { appsTitleText } from '../../data/modes';
 import { Button, Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { NativeHost } from '../../design/components';
 import { SelectionPicker, type PickerItem } from '../../features/modes/SelectionPicker';
+import { useStrings } from '../../i18n';
 import { SelectionPicker as NativeSelectionPicker } from '../../platform/BlockingSelectionView';
 import {
   isAuthorized,
@@ -14,13 +15,6 @@ import {
   selectionSummaryText,
   status as blockingStatus,
 } from '../../platform/blocking';
-
-const ITEMS: ReadonlyArray<PickerItem> = APPS.map((app) => ({
-  id: app.id,
-  label: app.name,
-  description: app.category,
-  tile: { initial: app.initial, color: app.color },
-}));
 
 /**
  * Picks the apps of the mode draft. From onboarding (`onboarding=1`) it writes into
@@ -32,7 +26,9 @@ const ITEMS: ReadonlyArray<PickerItem> = APPS.map((app) => ({
  */
 export default function ModeAppsScreen() {
   const router = useRouter();
+  const t = useStrings();
   const { onboarding, native } = useLocalSearchParams<{ onboarding?: string; native?: string }>();
+  const catalogue = useApps();
   const behavior = useModeDraftStore((state) => state.behavior);
   const appIds = useModeDraftStore((state) => state.appIds);
   const toggleApp = useModeDraftStore((state) => state.toggleApp);
@@ -42,6 +38,18 @@ export default function ModeAppsScreen() {
   const setModeSelection = useAppStore((state) => state.setModeSelection);
   const fromOnboarding = onboarding === '1';
   const nativePicker = native === '1';
+
+  // The catalogue follows the language; its categories are the row descriptions.
+  const items = useMemo<ReadonlyArray<PickerItem>>(
+    () =>
+      catalogue.map((app) => ({
+        id: app.id,
+        label: app.name,
+        description: app.category,
+        tile: { initial: app.initial, color: app.color },
+      })),
+    [catalogue],
+  );
 
   // The token the native picker is editing. Starts from the draft and is written back
   // on "Listo", like the catalogue's ids are written on each toggle.
@@ -66,16 +74,16 @@ export default function ModeAppsScreen() {
   if (!nativePicker) {
     return (
       <SelectionPicker
-        title={appsTitleText(behavior)}
-        searchPlaceholder="Buscar apps"
-        items={ITEMS}
+        title={appsTitleText(behavior, t.modes)}
+        searchPlaceholder={t.modes.apps.search}
+        items={items}
         selectedIds={appIds}
-        selectedTitle="Seleccionadas"
-        listTitle="Todas"
+        selectedTitle={t.modes.apps.selected}
+        listTitle={t.modes.apps.all}
         onToggle={toggleApp}
         onBack={() => router.back()}
         onDone={() => (fromOnboarding ? router.push('/onboarding/screen-time') : router.back())}
-        doneLabel={fromOnboarding ? 'Continuar' : 'Listo'}
+        doneLabel={fromOnboarding ? t.common.continue : t.common.done}
       />
     );
   }
@@ -92,11 +100,11 @@ export default function ModeAppsScreen() {
 
   if (reason !== null) {
     return (
-      <Screen footer={<Button variant="ghost" label="Volver" onPress={() => router.back()} />}>
-        <PageHeader onBack={() => router.back()} title="Apps reales" />
+      <Screen footer={<Button variant="ghost" label={t.common.back} onPress={() => router.back()} />}>
+        <PageHeader onBack={() => router.back()} title={t.modes.apps.realTitle} />
         <Card>
           <Stack gap="xs">
-            <Text variant="heading">Tiempo de uso no está disponible</Text>
+            <Text variant="heading">{t.modes.apps.unavailable}</Text>
             <Text variant="label" tone="secondary">
               {reason}
             </Text>
@@ -107,11 +115,10 @@ export default function ModeAppsScreen() {
   }
 
   return (
-    <Screen scroll footer={<Button label="Listo" onPress={done} />}>
-      <PageHeader onBack={() => router.back()} title="Apps reales" />
+    <Screen scroll footer={<Button label={t.common.done} onPress={done} />}>
+      <PageHeader onBack={() => router.back()} title={t.modes.apps.realTitle} />
       <Text variant="label" tone="secondary">
-        Elige en Tiempo de uso qué apps, categorías y sitios limita este modo. Vesper guarda
-        la selección sin ver qué hay adentro.
+        {t.modes.apps.realHint}
       </Text>
       <Card padded={false}>
         <NativeHost>
@@ -119,7 +126,7 @@ export default function ModeAppsScreen() {
         </NativeHost>
       </Card>
       <Text variant="caption" tone="tertiary" align="center">
-        {`Seleccionadas: ${selectionSummaryText(token)}`}
+        {t.modes.apps.selectedSummary(selectionSummaryText(token))}
       </Text>
     </Screen>
   );

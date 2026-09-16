@@ -1,5 +1,7 @@
 import { dayKeyOf } from '../domain/day';
 import { DAY, HOUR, MINUTE } from '../domain/time';
+import type { Strings } from '../i18n/es';
+import type { AppCategory } from '../i18n/es/demo';
 import type {
   Activity,
   AppInfo,
@@ -22,24 +24,36 @@ import type {
  *
  * Since ADR-0017 it is seeded into SQLite once, when the database is empty, and can
  * be wiped from Ajustes. Catalogues (apps, websites, ideas) stay static.
+ *
+ * Anything with words in it is a function of the `demo` slice of the dictionary
+ * (ADR-0020): the seeder passes the language of that first boot, the pickers pass the
+ * current one. Ids never depend on the language. This file imports no store.
  */
 
-export const APPS: AppInfo[] = [
-  { id: 'instagram', name: 'Instagram', category: 'Redes', color: '#C13584', initial: 'I' },
-  { id: 'tiktok', name: 'TikTok', category: 'Entretenimiento', color: '#1C1B1A', initial: 'T' },
-  { id: 'youtube', name: 'YouTube', category: 'Entretenimiento', color: '#D6322A', initial: 'Y' },
-  { id: 'x', name: 'X', category: 'Redes', color: '#2B2B2B', initial: 'X' },
-  { id: 'facebook', name: 'Facebook', category: 'Redes', color: '#1877F2', initial: 'f' },
-  { id: 'reddit', name: 'Reddit', category: 'Redes', color: '#FF4500', initial: 'r' },
-  { id: 'netflix', name: 'Netflix', category: 'Entretenimiento', color: '#B20710', initial: 'N' },
-  { id: 'disney', name: 'Disney+', category: 'Entretenimiento', color: '#0E3C8C', initial: 'D' },
-  { id: 'whatsapp', name: 'WhatsApp', category: 'Mensajes', color: '#25A244', initial: 'W' },
-  { id: 'telegram', name: 'Telegram', category: 'Mensajes', color: '#2AABEE', initial: 't' },
-  { id: 'twitch', name: 'Twitch', category: 'Entretenimiento', color: '#8A4BE0', initial: 'T' },
-  { id: 'amazon', name: 'Amazon', category: 'Compras', color: '#E67E22', initial: 'a' },
-  { id: 'mail', name: 'Mail', category: 'Productividad', color: '#3478F6', initial: 'M' },
-  { id: 'slack', name: 'Slack', category: 'Productividad', color: '#4A154B', initial: 'S' },
+type DemoStrings = Strings['demo'];
+
+/** The catalogue without words: the category is a key the dictionary resolves. */
+const APP_CATALOGUE: ReadonlyArray<Omit<AppInfo, 'category'> & { category: AppCategory }> = [
+  { id: 'instagram', name: 'Instagram', category: 'social', color: '#C13584', initial: 'I' },
+  { id: 'tiktok', name: 'TikTok', category: 'entertainment', color: '#1C1B1A', initial: 'T' },
+  { id: 'youtube', name: 'YouTube', category: 'entertainment', color: '#D6322A', initial: 'Y' },
+  { id: 'x', name: 'X', category: 'social', color: '#2B2B2B', initial: 'X' },
+  { id: 'facebook', name: 'Facebook', category: 'social', color: '#1877F2', initial: 'f' },
+  { id: 'reddit', name: 'Reddit', category: 'social', color: '#FF4500', initial: 'r' },
+  { id: 'netflix', name: 'Netflix', category: 'entertainment', color: '#B20710', initial: 'N' },
+  { id: 'disney', name: 'Disney+', category: 'entertainment', color: '#0E3C8C', initial: 'D' },
+  { id: 'whatsapp', name: 'WhatsApp', category: 'messages', color: '#25A244', initial: 'W' },
+  { id: 'telegram', name: 'Telegram', category: 'messages', color: '#2AABEE', initial: 't' },
+  { id: 'twitch', name: 'Twitch', category: 'entertainment', color: '#8A4BE0', initial: 'T' },
+  { id: 'amazon', name: 'Amazon', category: 'shopping', color: '#E67E22', initial: 'a' },
+  { id: 'mail', name: 'Mail', category: 'productivity', color: '#3478F6', initial: 'M' },
+  { id: 'slack', name: 'Slack', category: 'productivity', color: '#4A154B', initial: 'S' },
 ];
+
+/** The app catalogue, with each category in the given language. */
+export function demoApps(t: DemoStrings): AppInfo[] {
+  return APP_CATALOGUE.map((app) => ({ ...app, category: t.appCategory[app.category] }));
+}
 
 export const WEBSITES: Website[] = [
   { id: 'amazon.com', host: 'amazon.com', popular: true },
@@ -54,126 +68,135 @@ export const WEBSITES: Website[] = [
   { id: 'ads-twitter.com', host: 'ads-twitter.com', popular: false },
 ];
 
-export const ACTIVITIES: Activity[] = [
-  { id: 'trabajo', label: 'trabajo' },
-  { id: 'lectura', label: 'lectura' },
-  { id: 'aprender', label: 'aprender' },
-  { id: 'gym', label: 'gym' },
-  { id: 'familia', label: 'familia' },
-  { id: 'amigos', label: 'amigos' },
-];
+/** The default activities. The id is the key the activities table carries, never translated. */
+export function demoActivities(t: DemoStrings): Activity[] {
+  return [
+    { id: 'trabajo', label: t.activity.trabajo },
+    { id: 'lectura', label: t.activity.lectura },
+    { id: 'aprender', label: t.activity.aprender },
+    { id: 'gym', label: t.activity.gym },
+    { id: 'familia', label: t.activity.familia },
+    { id: 'amigos', label: t.activity.amigos },
+  ];
+}
 
-export const MODES: Mode[] = [
-  {
-    id: 'mode-no-socials',
-    name: 'Sin redes',
-    behavior: 'block',
-    appIds: ['instagram', 'tiktok', 'x', 'facebook'],
-    websiteIds: ['instagram.com', 'tiktok.com', 'x.com'],
-    depth: 'firm',
-    activityId: 'trabajo',
-    selectionToken: null,
-    createdAt: 1,
-  },
-  {
-    id: 'mode-family',
-    name: 'Familia',
-    behavior: 'block',
-    appIds: ['instagram', 'tiktok', 'youtube', 'netflix'],
-    websiteIds: [],
-    depth: 'soft',
-    activityId: 'familia',
-    selectionToken: null,
-    createdAt: 2,
-  },
-  {
-    id: 'mode-deep-work',
-    name: 'Trabajo profundo',
-    behavior: 'allow',
-    appIds: ['mail', 'slack', 'whatsapp'],
-    websiteIds: [],
-    depth: 'deep',
-    activityId: 'trabajo',
-    selectionToken: null,
-    createdAt: 3,
-  },
-];
+export function demoModes(t: DemoStrings): Mode[] {
+  return [
+    {
+      id: 'mode-no-socials',
+      name: t.modeName.noSocials,
+      behavior: 'block',
+      appIds: ['instagram', 'tiktok', 'x', 'facebook'],
+      websiteIds: ['instagram.com', 'tiktok.com', 'x.com'],
+      depth: 'firm',
+      activityId: 'trabajo',
+      selectionToken: null,
+      createdAt: 1,
+    },
+    {
+      id: 'mode-family',
+      name: t.modeName.family,
+      behavior: 'block',
+      appIds: ['instagram', 'tiktok', 'youtube', 'netflix'],
+      websiteIds: [],
+      depth: 'soft',
+      activityId: 'familia',
+      selectionToken: null,
+      createdAt: 2,
+    },
+    {
+      id: 'mode-deep-work',
+      name: t.modeName.deepWork,
+      behavior: 'allow',
+      appIds: ['mail', 'slack', 'whatsapp'],
+      websiteIds: [],
+      depth: 'deep',
+      activityId: 'trabajo',
+      selectionToken: null,
+      createdAt: 3,
+    },
+  ];
+}
 
-export const MODE_IDEAS: ModeIdea[] = [
-  {
-    id: 'idea-family',
-    name: 'Familia',
-    description: 'Estar con la gente que importa',
-    icon: 'home',
-    appIds: ['instagram', 'tiktok', 'youtube', 'x'],
-    depth: 'soft',
-  },
-  {
-    id: 'idea-sleep',
-    name: 'Dormir',
-    description: 'Bajar el ritmo sin el scroll',
-    icon: 'moon',
-    appIds: ['instagram', 'tiktok', 'youtube', 'netflix', 'reddit'],
-    depth: 'firm',
-  },
-  {
-    id: 'idea-work',
-    name: 'Trabajo',
-    description: 'Encerrarte sin distracciones',
-    icon: 'briefcase',
-    appIds: ['instagram', 'tiktok', 'youtube', 'x', 'reddit', 'twitch'],
-    depth: 'deep',
-  },
-  {
-    id: 'idea-mindfulness',
-    name: 'Calma',
-    description: 'Teléfono en silencio, mente en silencio',
-    icon: 'wind',
-    appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit', 'youtube', 'whatsapp'],
-    depth: 'firm',
-  },
-  {
-    id: 'idea-no-socials',
-    name: 'Sin redes',
-    description: 'Un paso atrás del feed',
-    icon: 'slash',
-    appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit'],
-    depth: 'firm',
-  },
-];
+export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
+  return [
+    {
+      id: 'idea-family',
+      name: t.ideaName.family,
+      description: t.ideaDescription.family,
+      icon: 'home',
+      appIds: ['instagram', 'tiktok', 'youtube', 'x'],
+      depth: 'soft',
+    },
+    {
+      id: 'idea-sleep',
+      name: t.ideaName.sleep,
+      description: t.ideaDescription.sleep,
+      icon: 'moon',
+      appIds: ['instagram', 'tiktok', 'youtube', 'netflix', 'reddit'],
+      depth: 'firm',
+    },
+    {
+      id: 'idea-work',
+      name: t.ideaName.work,
+      description: t.ideaDescription.work,
+      icon: 'briefcase',
+      appIds: ['instagram', 'tiktok', 'youtube', 'x', 'reddit', 'twitch'],
+      depth: 'deep',
+    },
+    {
+      id: 'idea-mindfulness',
+      name: t.ideaName.mindfulness,
+      description: t.ideaDescription.mindfulness,
+      icon: 'wind',
+      appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit', 'youtube', 'whatsapp'],
+      depth: 'firm',
+    },
+    {
+      id: 'idea-no-socials',
+      name: t.ideaName.noSocials,
+      description: t.ideaDescription.noSocials,
+      icon: 'slash',
+      appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit'],
+      depth: 'firm',
+    },
+  ];
+}
 
-export const SCHEDULES: Schedule[] = [
-  {
-    id: 'schedule-work',
-    name: 'Trabajo',
-    modeId: 'mode-deep-work',
-    startMinutes: 9 * 60,
-    endMinutes: 18 * 60,
-    durationMs: null,
-    days: [true, true, true, true, true, false, false],
-    enabled: true,
-  },
-  {
-    id: 'schedule-sleep',
-    name: 'Hora de dormir',
-    modeId: 'mode-no-socials',
-    startMinutes: 21 * 60 + 30,
-    endMinutes: null,
-    durationMs: null,
-    days: [true, true, true, true, false, false, true],
-    enabled: true,
-  },
-  {
-    id: 'schedule-walk',
-    name: 'Caminar',
-    modeId: 'mode-no-socials',
-    startMinutes: null,
-    endMinutes: null,
-    durationMs: 20 * MINUTE,
-    days: [false, false, false, false, false, false, false],
-    enabled: true,
-  },
-];
+export function demoSchedules(t: DemoStrings): Schedule[] {
+  return [
+    {
+      id: 'schedule-work',
+      name: t.scheduleName.work,
+      modeId: 'mode-deep-work',
+      startMinutes: 9 * 60,
+      endMinutes: 18 * 60,
+      durationMs: null,
+      days: [true, true, true, true, true, false, false],
+      enabled: true,
+    },
+    {
+      id: 'schedule-sleep',
+      name: t.scheduleName.sleep,
+      modeId: 'mode-no-socials',
+      startMinutes: 21 * 60 + 30,
+      endMinutes: null,
+      durationMs: null,
+      days: [true, true, true, true, false, false, true],
+      enabled: true,
+    },
+    {
+      id: 'schedule-walk',
+      name: t.scheduleName.walk,
+      modeId: 'mode-no-socials',
+      startMinutes: null,
+      endMinutes: null,
+      durationMs: 20 * MINUTE,
+      days: [false, false, false, false, false, false, false],
+      enabled: true,
+    },
+  ];
+}
 
 export const SETTINGS: Settings = {
   onboardingDone: false,
@@ -195,11 +218,13 @@ export const SETTINGS: Settings = {
   lastRoutineStart: null,
 };
 
-export const HABITS: Habit[] = [
-  { id: 'habit-gym', name: 'gym', activityId: 'gym', weeklyTarget: 4, countMode: 'verified', healthType: 'workout', archivedAt: null, createdAt: 1 },
-  { id: 'habit-read', name: 'leer', activityId: 'lectura', weeklyTarget: 6, countMode: 'declared', healthType: null, archivedAt: null, createdAt: 2 },
-  { id: 'habit-sleep', name: 'dormir 7h', activityId: null, weeklyTarget: 5, countMode: 'verified', healthType: 'sleep', archivedAt: null, createdAt: 3 },
-];
+export function demoHabits(t: DemoStrings): Habit[] {
+  return [
+    { id: 'habit-gym', name: t.habitName.gym, activityId: 'gym', weeklyTarget: 4, countMode: 'verified', healthType: 'workout', archivedAt: null, createdAt: 1 },
+    { id: 'habit-read', name: t.habitName.read, activityId: 'lectura', weeklyTarget: 6, countMode: 'declared', healthType: null, archivedAt: null, createdAt: 2 },
+    { id: 'habit-sleep', name: t.habitName.sleep, activityId: null, weeklyTarget: 5, countMode: 'verified', healthType: 'sleep', archivedAt: null, createdAt: 3 },
+  ];
+}
 
 /** A shape of focus per weekday, used to fabricate ~10 weeks of history. */
 const WEEKDAY_PATTERN_MS = [3 * HOUR, 2.5 * HOUR, 1 * HOUR, 4 * HOUR, 0, 1.5 * HOUR, 5 * HOUR];

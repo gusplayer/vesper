@@ -13,6 +13,7 @@ import {
   Text,
   Toggle,
 } from '../../design/components';
+import { useStrings } from '../../i18n';
 import { hasPermission, presentNow, requestPermission, status } from '../../platform/notifications';
 
 /**
@@ -25,6 +26,8 @@ export default function NotificationsScreen() {
   const settings = useSettings();
   const updateSettings = useAppStore((state) => state.updateSettings);
   const updateNotifications = useAppStore((state) => state.updateNotifications);
+  const t = useStrings();
+  const page = t.settings.notifications;
 
   const capability = status();
   const { notifications } = settings;
@@ -64,7 +67,7 @@ export default function NotificationsScreen() {
   };
 
   const tryNow = () => {
-    void presentNow('Así se ve un aviso', 'Vesper te va a hablar así. Toca para volver.');
+    void presentNow(t.notifications.test.title, t.notifications.test.body);
   };
 
   return (
@@ -72,25 +75,25 @@ export default function NotificationsScreen() {
       scroll
       footer={
         allowed ? (
-          <Button label="Probar ahora" variant="ghost" onPress={tryNow} />
+          <Button label={page.tryNow} variant="ghost" onPress={tryNow} />
         ) : (
           <Button
-            label="Permitir notificaciones"
+            label={page.allow}
             onPress={() => void allow()}
             busy={asking}
-            busyLabel="Pidiendo permiso…"
+            busyLabel={page.asking}
             disabled={!capability.available}
           />
         )
       }
     >
-      <PageHeader onBack={() => router.back()} title="Notificaciones" />
+      <PageHeader onBack={() => router.back()} title={page.title} />
 
       {!capability.available ? (
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              Aquí no hay notificaciones
+              {page.unavailableTitle}
             </Text>
             <Text variant="label" tone="secondary">
               {capability.reason}
@@ -101,11 +104,10 @@ export default function NotificationsScreen() {
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              El permiso está apagado
+              {page.deniedTitle}
             </Text>
             <Text variant="label" tone="secondary">
-              El sistema no lo vuelve a pedir. Activalo en Ajustes del sistema › Vesper ›
-              Notificaciones y vuelve aquí.
+              {page.deniedBody}
             </Text>
           </Stack>
         </Card>
@@ -113,60 +115,60 @@ export default function NotificationsScreen() {
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              Vesper todavía no puede avisarte
+              {page.pendingTitle}
             </Text>
             <Text variant="label" tone="secondary">
-              Sin permiso no hay aviso al terminar una sesión ni cierre semanal. Se pide una sola vez.
+              {page.pendingBody}
             </Text>
           </Stack>
         </Card>
       )}
 
-      <ListGroup title="general">
+      <ListGroup title={page.generalGroup}>
         <ListRow
-          label="Acompañamiento"
-          description="Aviso cuando empieza una rutina"
+          label={page.coaching.label}
+          description={page.coaching.description}
           right={
             <Toggle
               value={notifications.coaching}
               onValueChange={(coaching) => updateNotifications({ coaching })}
-              accessibilityLabel="Acompañamiento"
+              accessibilityLabel={page.coaching.label}
             />
           }
         />
         <ListRow
-          label="Fin de sesión"
-          description="Aviso cuando el timer termina"
+          label={page.sessionEnd.label}
+          description={page.sessionEnd.description}
           right={
             <Toggle
               value={notifications.sessionEnd}
               onValueChange={(sessionEnd) => updateNotifications({ sessionEnd })}
-              accessibilityLabel="Fin de sesión"
+              accessibilityLabel={page.sessionEnd.label}
             />
           }
         />
         <ListRow
-          label="Cierre semanal"
-          description="El domingo a las 20:00, cómo cerró la semana"
+          label={page.weeklyClose.label}
+          description={page.weeklyClose.description}
           right={
             <Toggle
               value={notifications.weeklyClose}
               onValueChange={(weeklyClose) => updateNotifications({ weeklyClose })}
-              accessibilityLabel="Cierre semanal"
+              accessibilityLabel={page.weeklyClose.label}
             />
           }
         />
       </ListGroup>
 
-      <ListGroup title="sistema">
+      <ListGroup title={page.systemGroup}>
         <ListRow
-          label="Novedades importantes"
-          description="Cambios que vale la pena saber"
+          label={page.updates.label}
+          description={page.updates.description}
           right={
             <Toggle
               value={notifications.updates}
               onValueChange={(updates) => updateNotifications({ updates })}
-              accessibilityLabel="Novedades importantes"
+              accessibilityLabel={page.updates.label}
             />
           }
         />

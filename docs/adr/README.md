@@ -26,3 +26,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0017 | Capacidades reales detrás de una capa de plataforma: persistencia, notificaciones, Salud, Live Activity, bloqueo | aceptada |
 | 0018 | Arte de foco: una ilustración puntillista que se dibuja durante la sesión | aceptada |
 | 0019 | Las rutinas encienden sesiones (esperan si hay una) y Android bloquea sin AccessibilityService | aceptada |
+| 0020 | La app habla el idioma del teléfono: español e inglés, con override en Ajustes | aceptada |

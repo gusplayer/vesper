@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DAY } from '../domain/time';
-import { formatBirthDate, parseBirthDate } from './birthDate';
+import { birthDateText, formatBirthDate, parseBirthDate } from './birthDate';
 
 // 2026-09-14 is a Monday. `now` is that day unless a test says otherwise.
 const TODAY_START = new Date(2026, 8, 14).getTime();
@@ -46,5 +46,19 @@ describe('formatBirthDate', () => {
     expect(parsed).not.toBeNull();
     expect(formatBirthDate(parsed ?? 0)).toBe('1990-02-03');
     expect(parseBirthDate(formatBirthDate(parsed ?? 0), TODAY_END)).toBe(parsed);
+  });
+});
+
+describe('birthDateText', () => {
+  const birthDate = new Date(1990, 1, 3).getTime();
+
+  it('reads the date in the language of the tag', () => {
+    const spanish = birthDateText(birthDate, 'es-CO');
+    const english = birthDateText(birthDate, 'en-US');
+
+    expect(spanish).toMatch(/feb/);
+    expect(spanish).toContain('1990');
+    expect(english).toBe('Feb 3, 1990');
+    expect(spanish).not.toBe(english);
   });
 });

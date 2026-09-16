@@ -2,7 +2,7 @@ import { AppIconStack, ListGroup, ListRow, Sheet, Stack, Text } from '../../desi
 import { appsById, websitesById } from '../../data';
 import { modeSummaryText } from '../../data/modes';
 import type { Mode } from '../../data/types';
-import { DEPTH_DESCRIPTION, DEPTH_LABEL } from '../../lib/labels';
+import { useStrings } from '../../i18n';
 
 type ModeDetailsSheetProps = {
   mode: Mode;
@@ -19,6 +19,7 @@ function sentenceCase(text: string): string {
  * the person chose this before starting, and the session honors it.
  */
 export function ModeDetailsSheet({ mode, visible, onClose }: ModeDetailsSheetProps) {
+  const t = useStrings();
   const apps = appsById(mode.appIds);
   const sites = websitesById(mode.websiteIds);
   return (
@@ -26,27 +27,27 @@ export function ModeDetailsSheet({ mode, visible, onClose }: ModeDetailsSheetPro
       <Stack gap="lg">
         <Stack gap="xs" align="center">
           <Text variant="label" tone="secondary" align="center">
-            {modeSummaryText(mode)}
+            {modeSummaryText(mode, t.modes)}
           </Text>
           {apps.length > 0 ? <AppIconStack apps={apps} max={6} /> : null}
         </Stack>
         <ListGroup>
           <ListRow
-            label="Apps"
-            value={apps.length === 0 ? 'Ninguna' : apps.map((app) => app.name).join(', ')}
+            label={t.modes.edit.apps}
+            value={apps.length === 0 ? t.modes.edit.noApps : apps.map((app) => app.name).join(', ')}
           />
           <ListRow
-            label="Sitios"
-            value={sites.length === 0 ? 'Ninguno' : sites.map((site) => site.host).join(', ')}
+            label={t.modes.edit.sites}
+            value={sites.length === 0 ? t.common.none : sites.map((site) => site.host).join(', ')}
           />
           <ListRow
-            label="Profundidad"
-            description={sentenceCase(DEPTH_DESCRIPTION[mode.depth])}
-            value={sentenceCase(DEPTH_LABEL[mode.depth])}
+            label={t.modes.edit.depth}
+            description={sentenceCase(t.depth.description[mode.depth])}
+            value={sentenceCase(t.depth.label[mode.depth])}
           />
         </ListGroup>
         <Text variant="caption" tone="secondary" align="center">
-          Durante la sesión el modo es de solo lectura.
+          {t.modes.details.readOnlyNotice}
         </Text>
       </Stack>
     </Sheet>

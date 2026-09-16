@@ -12,25 +12,13 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import {
-  EXIT_SENTENCE,
-  breathCyclesFor,
-  breathState,
-  exitStepsFor,
-  sentenceMatches,
-  type BreathPhase,
-} from '../../domain/exitRitual';
+import { breathCyclesFor, breathState, exitStepsFor, sentenceMatches } from '../../domain/exitRitual';
 import { elapsed } from '../../domain/session';
 import { SECOND } from '../../domain/time';
+import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { emptyToNull } from '../../lib/text';
 import { useNow } from '../../lib/useNow';
-
-const PHASE_WORD: Record<BreathPhase, string> = {
-  inhale: 'Inhala',
-  hold: 'Sostén',
-  exhale: 'Exhala',
-};
 
 /**
  * The conscious exit (domain/exitRitual), kept short so it never costs the time it
@@ -42,6 +30,8 @@ const PHASE_WORD: Record<BreathPhase, string> = {
  */
 export default function ExitScreen() {
   const router = useRouter();
+  const strings = useStrings();
+  const t = strings.session.exit;
   const session = useRunningSession();
   const finish = useFocusStore((state) => state.finish);
   const now = useNow(SECOND);
@@ -71,10 +61,10 @@ export default function ExitScreen() {
       <Screen
         footer={
           <>
-            <Button label="Seguir enfocado" onPress={stay} />
+            <Button label={strings.session.stayFocused} onPress={stay} />
             <Button
               variant="ghost"
-              label={last ? `Terminar · llevas ${served}` : 'Quiero terminar'}
+              label={last ? t.endWithServed(served) : t.wantToEnd}
               onPress={last ? leave : () => setIndex(1)}
               disabled={!breath.done}
             />
@@ -84,18 +74,14 @@ export default function ExitScreen() {
         <Spacer />
         <Stack align="center" gap="sm">
           <Text variant="label" tone="secondary">
-            Antes de decidir, respira.
+            {t.breatheFirst}
           </Text>
-          <Text variant="hero">{breath.done ? 'Listo' : PHASE_WORD[breath.phase]}</Text>
+          <Text variant="hero">{breath.done ? strings.common.done : t.phase[breath.phase]}</Text>
           <Text variant="title" tone="secondary">
             {breath.done ? '' : String(breath.secondsLeft)}
           </Text>
           <Text variant="caption" tone="secondary">
-            {breath.done
-              ? 'Lo hecho queda contado; lo que falta, no.'
-              : cycles === 1
-                ? 'Una ronda.'
-                : `Ronda ${breath.cycle} de ${cycles}`}
+            {breath.done ? t.counted : cycles === 1 ? t.oneRound : t.round(breath.cycle, cycles)}
           </Text>
         </Stack>
         <Spacer />
@@ -104,31 +90,42 @@ export default function ExitScreen() {
     );
   }
 
-  const ready = sentenceMatches(typed);
+  const ready = sentenceMatches(typed, t.sentence);
   return (
     <Screen
       footer={
         <>
-          <Button label="Seguir enfocado" onPress={stay} />
-          <Button variant="ghost" label={`Terminar · llevas ${served}`} onPress={leave} disabled={!ready} />
+          <Button label={strings.session.stayFocused} onPress={stay} />
+          <Button variant="ghost" label={t.endWithServed(served)} onPress={leave} disabled={!ready} />
         </>
       }
     >
       <Spacer />
       <Stack gap="lg">
         <Stack gap="md">
-          <Text variant="title">Escribe la frase.</Text>
+          <Text variant="title">{t.typeSentence}</Text>
           <Card tone="muted">
             <Text variant="heading" align="center">
-              {EXIT_SENTENCE}
+              {t.sentence}
             </Text>
           </Card>
-          <FieldRow label="Frase" value={typed} onChangeText={setTyped} placeholder="Tal cual" autoFocus />
+          <FieldRow
+            label={t.sentenceField}
+            value={typed}
+            onChangeText={setTyped}
+            placeholder={t.sentencePlaceholder}
+            autoFocus
+          />
         </Stack>
         <Stack gap="xs">
-          <FieldRow label="Motivo" value={reason} onChangeText={setReason} placeholder="Opcional" />
+          <FieldRow
+            label={t.reasonField}
+            value={reason}
+            onChangeText={setReason}
+            placeholder={t.reasonPlaceholder}
+          />
           <Text variant="caption" tone="secondary">
-            Queda guardado con la sesión. Nadie más lo ve.
+            {t.reasonHint}
           </Text>
         </Stack>
       </Stack>

@@ -2,15 +2,16 @@ import { dayBounds } from '../../domain/day';
 import { MANUAL_DEFAULT_MS, type RoutineStatus } from '../../domain/routines';
 import { MINUTE } from '../../domain/time';
 import type { Millis } from '../../domain/types';
+import type { Strings } from '../../i18n/es';
 import { timeText } from './format';
 
 /**
  * The first line under a routine's name: what it is doing right now, or when it is
- * next. Pure: a status from the engine and the clock in, Spanish text out.
+ * next. Pure: a status from the engine, the clock and the `routines` slice of the
+ * dictionary in, text out (ADR-0020).
  */
 
-/** Indexed by `Date.getDay()`, Sunday first. Lowercase, like everything the user sees. */
-const WEEKDAY_NAMES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'] as const;
+export type RoutinesStrings = Strings['routines'];
 
 export type StatusDetail = {
   /** A session is running for this routine right now. Only matters when active. */
@@ -24,24 +25,23 @@ function minutesOfDay(at: Millis): number {
   return Math.floor((at - dayBounds(at).dayStart) / MINUTE);
 }
 
-/** 'las 9:00', but 'la 1:00': one o'clock is singular in Spanish. */
-function clockText(at: Millis): string {
+/** 'las 9:00' in Spanish, '9:00' in English: the dictionary decides the article. */
+function clockText(at: Millis, t: RoutinesStrings): string {
   const minutes = minutesOfDay(at);
-  const article = Math.floor(minutes / 60) === 1 ? 'la' : 'las';
-  return `${article} ${timeText(minutes)}`;
+  return t.status.clock(timeText(minutes), Math.floor(minutes / 60));
 }
 
 /** 'Hoy', 'Mañana', or 'El lunes' for the day containing `at`, seen from `now`. */
-function dayLabel(at: Millis, now: Millis): string {
+function dayLabel(at: Millis, now: Millis, t: RoutinesStrings): string {
   const today = dayBounds(now);
   const target = dayBounds(at).dayStart;
   if (target === today.dayStart) {
-    return 'Hoy';
+    return t.status.today;
   }
   if (target === today.dayEnd) {
-    return 'Mañana';
+    return t.status.tomorrow;
   }
-  return `El ${WEEKDAY_NAMES[new Date(at).getDay()]}`;
+  return t.status.onWeekday(t.status.weekdays[new Date(at).getDay()] ?? '');
 }
 
 /**
@@ -49,19 +49,26 @@ function dayLabel(at: Millis, now: Millis): string {
  * 21:30', 'Mañana a las 9:00', 'El lunes a las 9:00', 'Cuando quieras · 20 min',
  * 'Sin días elegidos'. Null when the routine is off: the dimmed card already says it.
  */
-export function statusText(status: RoutineStatus, now: Millis, detail: StatusDetail = {}): string | null {
+export function statusText(
+  status: RoutineStatus,
+  now: Millis,
+  t: RoutinesStrings,
+  detail: StatusDetail = {},
+): string | null {
   switch (status.kind) {
     case 'off':
       return null;
     case 'manual': {
       const minutes = Math.round((detail.durationMs ?? MANUAL_DEFAULT_MS) / MINUTE);
-      return `Cuando quieras · ${minutes} min`;
+      return t.status.manual(minutes);
     }
-    case 'active':
-      return `${detail.running === true ? 'En curso' : 'Activa'} · hasta ${clockText(status.until)}`;
+    case 'active': {
+      const clock = clockText(status.until, t);
+      return detail.running === true ? t.status.running(clock) : t.status.active(clock);
+    }
     case 'next':
-      return `${dayLabel(status.at, now)} a ${clockText(status.at)}`;
+      return t.status.next(dayLabel(status.at, now, t), clockText(status.at, t));
     case 'never':
-      return 'Sin días elegidos';
+      return t.status.never;
   }
 }

@@ -93,4 +93,5 @@ Todo el texto pasa por `Text` con `variant` y `tone`. Sin mayúsculas completas 
 ## Cómo se escribe una pantalla
 
 Ver `docs/PROTOTYPE_GUIDE.md`. Resumen: importa de `src/design/components`, `src/data` y
-`src/lib`/`src/domain`; un botón primario en el `footer`; español neutro, de tú, en oración.
+`src/lib`/`src/domain`; un botón primario en el `footer`; todo texto desde `useStrings()`,
+en español neutro de tú y en inglés con la misma voz (ADR-0020).

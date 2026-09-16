@@ -3,12 +3,19 @@ import { describe, expect, it } from 'vitest';
 import type { DayStat } from '../../data/types';
 import { dayKeyOf } from '../../domain/day';
 import { DAY, HOUR, MINUTE } from '../../domain/time';
-import { deltaVsPrevious, weekAverage, weekBars, weekDayCards, weekFocusedDays } from './selectors';
-import { chartSummary, dayCardSummary, deltaText } from './text';
+import { en } from '../../i18n/en';
+import { es } from '../../i18n/es';
+import { DEFAULT_TAG } from '../../i18n/locale';
+import { dayLabel, monthLabel } from './dates';
+import { deltaVsPrevious, weekAverage, weekBars, weekDayCards, weekFocusedDays, weekdayRhythm } from './selectors';
+import { chartSummary, dayCardSummary, deltaText, hoursText } from './text';
 
 // 2026-09-16 is a Wednesday; the week started Monday the 14th.
 const NOW = new Date(2026, 8, 16, 12).getTime();
 const MONDAY = new Date(2026, 8, 14, 12).getTime();
+
+const ES = { t: es.activity, tag: DEFAULT_TAG.es };
+const EN = { t: en.activity, tag: DEFAULT_TAG.en };
 
 function day(at: number, focusMs: number, sessions = focusMs > 0 ? 1 : 0): DayStat {
   return { dayKey: dayKeyOf(at), focusMs, sessions, segments: [] };
@@ -67,17 +74,28 @@ describe('deltaVsPrevious', () => {
 
 describe('deltaText', () => {
   it('carries the direction in words', () => {
-    expect(deltaText({ percent: 30, direction: 'up' })).toBe('30 % más que la semana anterior');
-    expect(deltaText({ percent: 30, direction: 'down' })).toBe('30 % menos que la semana anterior');
-    expect(deltaText({ percent: 0, direction: 'flat' })).toBe('Igual que la semana anterior');
+    expect(deltaText({ percent: 30, direction: 'up' }, ES.t, ES.tag)).toBe('30 % más que la semana anterior');
+    expect(deltaText({ percent: 30, direction: 'down' }, ES.t, ES.tag)).toBe('30 % menos que la semana anterior');
+    expect(deltaText({ percent: 0, direction: 'flat' }, ES.t, ES.tag)).toBe('Igual que la semana anterior');
+  });
+
+  it('speaks English with the English dictionary', () => {
+    expect(deltaText({ percent: 30, direction: 'up' }, EN.t, EN.tag)).toBe('30% more than last week');
+    expect(deltaText({ percent: 0, direction: 'flat' }, EN.t, EN.tag)).toBe('Same as last week');
   });
 });
 
 describe('chartSummary', () => {
   it('reads each bar as a full weekday, its date and its duration', () => {
     const stats = [day(MONDAY, 3 * HOUR + 10 * MINUTE), day(MONDAY + DAY, 2 * HOUR)];
-    const bars = weekBars(stats, NOW, 0).slice(0, 3);
-    expect(chartSummary(bars)).toBe('Lunes 14: 3h 10m, martes 15: 2h, miércoles 16: sin foco');
+    const bars = weekBars(stats, NOW, 0, ES.tag).slice(0, 3);
+    expect(chartSummary(bars, ES.t, ES.tag)).toBe('Lunes 14: 3h 10m, martes 15: 2h, miércoles 16: sin foco');
+  });
+
+  it('names the weekdays in English with the English tag', () => {
+    const stats = [day(MONDAY, 3 * HOUR + 10 * MINUTE)];
+    const bars = weekBars(stats, NOW, 0, EN.tag).slice(0, 2);
+    expect(chartSummary(bars, EN.t, EN.tag)).toBe('Monday 14: 3h 10m, Tuesday 15: no focus');
   });
 });
 
@@ -85,10 +103,38 @@ describe('dayCardSummary', () => {
   it('says Hoy for today and the full date otherwise', () => {
     const stats = [day(NOW, 6 * HOUR + 12 * MINUTE, 3), day(MONDAY, 45 * MINUTE, 1)];
     const cards = weekDayCards(stats, NOW, 0);
-    expect(cards.map(dayCardSummary)).toEqual([
+    expect(cards.map((card) => dayCardSummary(card, ES.t, ES.tag))).toEqual([
       'Hoy, 6h 12m, 3 sesiones',
       'Martes 15 de septiembre, 0m, Sin sesiones',
       'Lunes 14 de septiembre, 45m, 1 sesión',
     ]);
+  });
+
+  it('says Today and the English date otherwise', () => {
+    const stats = [day(NOW, 6 * HOUR + 12 * MINUTE, 3), day(MONDAY, 45 * MINUTE, 1)];
+    const cards = weekDayCards(stats, NOW, 0);
+    expect(cards.map((card) => dayCardSummary(card, EN.t, EN.tag))).toEqual([
+      'Today, 6h 12m, 3 sessions',
+      'Tuesday, September 15, 0m, No sessions',
+      'Monday, September 14, 45m, 1 session',
+    ]);
+  });
+});
+
+describe('labels', () => {
+  it('spell the short weekday from Intl and the short month from the dictionary', () => {
+    expect(weekBars([], NOW, 0, ES.tag).map((bar) => bar.label)).toEqual(['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']);
+    expect(weekBars([], NOW, 0, EN.tag).map((bar) => bar.label)).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+    expect(weekdayRhythm([], ES.tag).map((row) => row.label)).toEqual(['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom']);
+    expect(monthLabel(NOW, ES.t)).toBe('sep 2026');
+    expect(monthLabel(NOW, EN.t)).toBe('Sep 2026');
+    expect(dayLabel(NOW, ES.t, ES.tag)).toBe('mié, 16 sep');
+    expect(dayLabel(NOW, EN.t, EN.tag)).toBe('Wed, Sep 16');
+  });
+
+  it('format big numbers with the tag of the language', () => {
+    expect(hoursText(1234 * HOUR, ES.t, ES.tag)).toBe('1.234 horas');
+    expect(hoursText(1234 * HOUR, EN.t, EN.tag)).toBe('1,234 hours');
+    expect(hoursText(HOUR, EN.t, EN.tag)).toBe('1 hour');
   });
 });

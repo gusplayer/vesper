@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 
 import type { NotificationSpec } from '../domain/reminders';
+import { getStrings } from '../i18n';
 import { isAndroid, isIos, type CapabilityStatus } from './capabilities';
 
 /**
@@ -10,9 +11,10 @@ import { isAndroid, isIos, type CapabilityStatus } from './capabilities';
  * Every native call is wrapped: a failure here is logged and swallowed, never thrown
  * into a screen. When the capability is not available, each function is a no-op that
  * resolves to the "nothing happened" value.
+ *
+ * Words are read from the dictionary at call time (`getStrings()`, ADR-0020), never
+ * cached: the language can change while the app runs.
  */
-
-const REASON_UNAVAILABLE = 'Las notificaciones solo existen en el teléfono.';
 
 /** Android 8+ routes every notification through a channel; one is enough for us. */
 const ANDROID_CHANNEL_ID = 'reminders';
@@ -24,7 +26,9 @@ const DATA_FINGERPRINT = 'fingerprint';
 const available = (isIos || isAndroid) && typeof Notifications.scheduleNotificationAsync === 'function';
 
 export function status(): CapabilityStatus {
-  return available ? { available: true, reason: null } : { available: false, reason: REASON_UNAVAILABLE };
+  return available
+    ? { available: true, reason: null }
+    : { available: false, reason: getStrings().notifications.unavailable };
 }
 
 function report(where: string, error: unknown): void {
@@ -37,6 +41,25 @@ function readString(data: unknown, key: string): string | null {
   }
   const value = (data as Record<string, unknown>)[key];
   return typeof value === 'string' ? value : null;
+}
+
+/**
+ * Creates the Android channel, or renames it: the name is what the system settings
+ * show and it follows the app's language. Called before anything is scheduled or
+ * presented, so a language change reaches the channel with the next sync.
+ */
+async function ensureAndroidChannel(): Promise<void> {
+  if (!isAndroid) {
+    return;
+  }
+  try {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: getStrings().notifications.channelName,
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
+  } catch (error) {
+    report('setNotificationChannelAsync', error);
+  }
 }
 
 // Runs once at module load: how a notification shows while the app is in the
@@ -54,12 +77,7 @@ if (available) {
   } catch (error) {
     report('setNotificationHandler', error);
   }
-  if (isAndroid) {
-    Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-      name: 'Recordatorios',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    }).catch((error: unknown) => report('setNotificationChannelAsync', error));
-  }
+  void ensureAndroidChannel();
 }
 
 export async function hasPermission(): Promise<boolean> {
@@ -143,6 +161,7 @@ export function syncScheduled(specs: ReadonlyArray<NotificationSpec>): Promise<v
 }
 
 async function applyPlan(specs: ReadonlyArray<NotificationSpec>): Promise<void> {
+  await ensureAndroidChannel();
   const existing = await Notifications.getAllScheduledNotificationsAsync();
   const held = new Map<string, string | null>();
   for (const request of existing) {
@@ -178,6 +197,7 @@ export async function presentNow(title: string, body: string): Promise<void> {
   if (!available) {
     return;
   }
+  await ensureAndroidChannel();
   try {
     await Notifications.scheduleNotificationAsync({
       content: { title, body, sound: false, data: { [DATA_KIND]: 'test' } },

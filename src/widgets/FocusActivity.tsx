@@ -19,7 +19,9 @@ import { createLiveActivity, type LiveActivityLayout } from 'expo-widgets';
  * @expo/ui components and modifiers imported here). Two rules follow from that:
  * nothing from the app may be imported into it, and every value it uses must be
  * declared inside the function body, since module-level constants do not survive the
- * stringification. Props cross as JSON, so dates travel as epoch ms.
+ * stringification. Props cross as JSON, so dates travel as epoch ms. The same rule
+ * keeps words out: the widget cannot read the dictionary, so any text it shows is
+ * formatted by src/platform/liveActivity.ts in the current language and sent as a prop.
  */
 
 export type FocusActivityProps = {
@@ -28,6 +30,8 @@ export type FocusActivityProps = {
   endsAt: number;
   /** '21m', already formatted by the app, refreshed every minute while it runs. */
   remainingText: string;
+  /** 'Enfocado · quedan 21m' or 'Focused · 21m left', in the app's language. */
+  statusText: string;
 };
 
 function FocusActivityLayout(props: FocusActivityProps): LiveActivityLayout {
@@ -43,7 +47,6 @@ function FocusActivityLayout(props: FocusActivityProps): LiveActivityLayout {
 
   // SwiftUI counts this down on its own; the app only has to set it once.
   const interval = { lower: new Date(props.startedAt), upper: new Date(props.endsAt) };
-  const subtitle = `Enfocado · quedan ${props.remainingText}`;
 
   // Mode name and status on the left, the big clock on the right. Built by a function
   // rather than shared as one element, since two regions must not hold the same node.
@@ -53,7 +56,7 @@ function FocusActivityLayout(props: FocusActivityProps): LiveActivityLayout {
         <Text modifiers={[font({ size: 17, weight: 'semibold' }), foregroundStyle(ink.text)]}>
           {props.modeName}
         </Text>
-        <Text modifiers={[font({ size: 13 }), foregroundStyle(ink.textSecondary)]}>{subtitle}</Text>
+        <Text modifiers={[font({ size: 13 }), foregroundStyle(ink.textSecondary)]}>{props.statusText}</Text>
       </VStack>
       <Spacer />
       <Text

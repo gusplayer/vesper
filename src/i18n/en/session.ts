@@ -1,0 +1,82 @@
+import type { session as shape } from '../es/session';
+
+export const session: typeof shape = {
+  stayFocused: 'Stay focused',
+  active: {
+    elapsedLabel: 'Focused for',
+    focused: 'Focused',
+    fallbackName: 'Session',
+    modeLabel: (name) => `${name}. See what this mode does`,
+    art: 'Art',
+    end: 'End',
+    deepOnlyTimer: 'Deep · only the timer ends it',
+    emergencyLeft: (count) => `Emergency unlock (${count})`,
+    noEmergencyLeft: 'No emergency unlocks left',
+    interruptions: (count) => (count === 1 ? '1 interruption' : `${count} interruptions`),
+  },
+  duration: {
+    title: 'How long?',
+    minutes: (minutes) => `${minutes} min`,
+    hint: 'Next time, hold the button to start without asking.',
+    start: (minutes) => `Focus ${minutes} min`,
+  },
+  emergency: {
+    title: 'Emergency unlock',
+    body: (left) =>
+      `You have ${left} left this month. It ends the session right now, without the ritual, and counts as cancelled.`,
+    ready: 'If it really is an emergency, go ahead.',
+    wait: (seconds) => `You can confirm in ${seconds} s.`,
+    use: 'Use an unlock',
+    reason: 'emergency unlock',
+  },
+  art: {
+    label: (name, percent) => `${name}, ${percent} percent. Tap to go back to the clock`,
+    works: {
+      dog: { name: 'Dog', caption: 'It sits and waits with you.' },
+      eiffel: { name: 'Eiffel Tower', caption: 'Raised piece by piece, like your session.' },
+      face: { name: 'Face', caption: 'Look inward. The rest can wait.' },
+      liberty: { name: 'Statue of Liberty', caption: 'She has held the torch up since 1886. You only have to hold this session.' },
+      pagoda: { name: 'Pagoda', caption: 'Five roofs rising toward the silence.' },
+    },
+  },
+  exit: {
+    breatheFirst: 'Before you decide, breathe.',
+    phase: {
+      inhale: 'Inhale',
+      hold: 'Hold',
+      exhale: 'Exhale',
+    },
+    counted: 'What you did counts; what is left does not.',
+    oneRound: 'One round.',
+    round: (cycle, cycles) => `Round ${cycle} of ${cycles}`,
+    wantToEnd: 'I want to end',
+    endWithServed: (served) => `End · ${served} so far`,
+    typeSentence: 'Type the sentence.',
+    sentence: 'I choose to leave this now',
+    sentenceField: 'Sentence',
+    sentencePlaceholder: 'As written',
+    reasonField: 'Reason',
+    reasonPlaceholder: 'Optional',
+    reasonHint: 'Saved with the session. Nobody else sees it.',
+  },
+  complete: {
+    firstTitle: 'First session complete.',
+    title: 'Session complete.',
+    subtitle: 'You got your time back.',
+    mode: 'Mode',
+    duration: 'Duration',
+    intention: 'Intention',
+  },
+  liveActivity: {
+    status: (remaining) => `Focused · ${remaining} left`,
+    fallbackModeName: 'Focus',
+    notIos: 'Live Activities only exist on iPhone.',
+    oldIos: 'Live Activities need iOS 16.2 or newer.',
+    noModule: 'This build does not include the Live Activities module. Rebuild the dev client.',
+  },
+  shield: {
+    subtitle: 'You are focused. This app can wait.',
+    back: 'Back to Vesper',
+    home: 'Back',
+  },
+};

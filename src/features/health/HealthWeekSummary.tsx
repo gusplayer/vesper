@@ -5,6 +5,7 @@ import { ListGroup, ListRow } from '../../design/components';
 import { dayKeyOf, weekStart } from '../../domain/day';
 import { healthTypeFor } from '../../domain/habits';
 import type { Habit, HabitMark, HealthType } from '../../domain/types';
+import { useStrings } from '../../i18n';
 import { clockText } from './format';
 
 type HealthWeekSummaryProps = {
@@ -15,11 +16,8 @@ type HealthWeekSummaryProps = {
 
 type Counts = Record<HealthType, number | null>;
 
-const ROWS: ReadonlyArray<{ type: HealthType; label: string }> = [
-  { type: 'workout', label: 'Entrenamientos' },
-  { type: 'steps', label: 'Días con pasos' },
-  { type: 'sleep', label: 'Noches dormidas' },
-];
+/** One row per health type, in the order the page lists them. */
+const ROWS: ReadonlyArray<HealthType> = ['workout', 'steps', 'sleep'];
 
 /**
  * What Health confirmed this week, counted from the marks it produced: distinct days
@@ -54,7 +52,7 @@ function countWeek(
       days[type].add(mark.dayKey);
     }
   }
-  for (const { type } of ROWS) {
+  for (const type of ROWS) {
     if (counts[type] !== null) {
       counts[type] = days[type].size;
     }
@@ -64,28 +62,38 @@ function countWeek(
 
 /** The connected state of the Health page: counts, last sync, and a way to sync again. */
 export function HealthWeekSummary({ now, onSyncNow }: HealthWeekSummaryProps) {
+  const t = useStrings();
   const settings = useSettings();
   const habits = useAppStore((state) => state.habits);
   const marks = useAppStore((state) => state.habitMarks);
   const counts = useMemo(() => countWeek(habits, marks, now), [habits, marks, now]);
+  const labels: Record<HealthType, string> = {
+    workout: t.habits.healthWeek.workouts,
+    steps: t.habits.healthWeek.stepDays,
+    sleep: t.habits.healthWeek.nights,
+  };
 
   return (
-    <ListGroup title="esta semana">
-      {ROWS.map((row) => {
-        const count = counts[row.type];
+    <ListGroup title={t.habits.healthWeek.title}>
+      {ROWS.map((type) => {
+        const count = counts[type];
         return (
           <ListRow
-            key={row.type}
-            label={row.label}
-            value={count === null ? 'sin hábito' : String(count)}
+            key={type}
+            label={labels[type]}
+            value={count === null ? t.habits.healthWeek.noHabit : String(count)}
           />
         );
       })}
       <ListRow
-        label="Última lectura"
-        value={settings.healthSyncedAt === null ? 'todavía no' : clockText(settings.healthSyncedAt)}
+        label={t.habits.healthWeek.lastRead}
+        value={
+          settings.healthSyncedAt === null
+            ? t.habits.healthWeek.notYet
+            : clockText(settings.healthSyncedAt)
+        }
       />
-      <ListRow label="Leer Salud ahora" onPress={onSyncNow} />
+      <ListRow label={t.habits.healthWeek.readNow} onPress={onSyncNow} />
     </ListGroup>
   );
 }

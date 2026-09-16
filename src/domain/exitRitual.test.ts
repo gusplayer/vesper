@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { en } from '../i18n/en';
+import { es } from '../i18n/es';
 import {
   CYCLE_MS,
-  EXIT_SENTENCE,
   breathCyclesFor,
   breathState,
   breathTotalMs,
@@ -61,15 +62,28 @@ describe('exitStepsFor', () => {
 });
 
 describe('sentenceMatches', () => {
+  const ES = es.session.exit.sentence;
+  const EN = en.session.exit.sentence;
+
   it('ignores case, accents, spacing and punctuation but not words', () => {
-    expect(sentenceMatches('elijo dejar esto ahora')).toBe(true);
-    expect(sentenceMatches('  Elijo   dejar esto ahora. ')).toBe(true);
-    expect(sentenceMatches('Elíjo dejár ésto ahorá')).toBe(true);
-    expect(sentenceMatches('Elijo dejar esto')).toBe(false);
-    expect(sentenceMatches('')).toBe(false);
+    expect(sentenceMatches('elijo dejar esto ahora', ES)).toBe(true);
+    expect(sentenceMatches('  Elijo   dejar esto ahora. ', ES)).toBe(true);
+    expect(sentenceMatches('Elíjo dejár ésto ahorá', ES)).toBe(true);
+    expect(sentenceMatches('Elijo dejar esto', ES)).toBe(false);
+    expect(sentenceMatches('', ES)).toBe(false);
+  });
+
+  it('checks the English sentence the same way', () => {
+    expect(sentenceMatches('i choose to leave this now', EN)).toBe(true);
+    expect(sentenceMatches('  I choose   to leave this now! ', EN)).toBe(true);
+    expect(sentenceMatches('I choose to leave this', EN)).toBe(false);
+    // Each language accepts only its own sentence.
+    expect(sentenceMatches(ES, EN)).toBe(false);
+    expect(sentenceMatches(EN, ES)).toBe(false);
   });
 
   it('normalizes the target the same way', () => {
-    expect(normalizeSentence(EXIT_SENTENCE)).toBe('elijo dejar esto ahora');
+    expect(normalizeSentence(ES)).toBe('elijo dejar esto ahora');
+    expect(normalizeSentence(EN)).toBe('i choose to leave this now');
   });
 });

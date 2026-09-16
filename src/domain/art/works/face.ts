@@ -26,8 +26,6 @@ const HAIR_DOT = 0.75;
 
 export const face: Artwork = {
   id: 'face',
-  name: 'Rostro',
-  caption: 'Mira hacia dentro. Lo demás puede esperar.',
   jitter: 0.003,
   strokes: [
     // --- Silhouette -------------------------------------------------------------

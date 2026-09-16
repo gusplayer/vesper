@@ -32,9 +32,12 @@ geométrica (Outfit). Sin rebotes, sin springs.
    paralelo en la pantalla.
 7. **Formato**: `durationText`, `timerText`, `minutesText`, `dayText` de `src/lib/format`.
    Nunca concatenar "h" y "m" a mano.
-8. **Copy en español neutro, de tú, en oración** ("Toca para enfocar", "Elige un modo").
-   Nunca voseo (tocá, podés, vos) ni usted ni regionalismos. Sin
-   mayúsculas completas salvo la palabra VESPER del objeto.
+8. **Ningún string en la pantalla.** `const t = useStrings()` y `t.<área>.<pantalla>.<clave>`;
+   cada clave existe en `src/i18n/es/<área>.ts` y en `src/i18n/en/<área>.ts` (ADR-0020).
+   Copy en español neutro, de tú, en oración ("Toca para enfocar", "Elige un modo"). Nunca
+   voseo (tocá, podés, vos) ni usted ni regionalismos. Sin mayúsculas completas salvo la
+   palabra VESPER del objeto. El inglés con la misma voz: "Tap to focus", "Pick a mode",
+   sin exclamaciones. Fechas y números con `useLocale().tag`.
 9. **Nada es real.** Los permisos (Screen Time, Salud, notificaciones) se "conceden" con
    un botón que cambia un flag en settings. Que la pantalla lo diga en una línea
    pequeña cuando corresponda: "en el prototipo esto no pide permiso de verdad".

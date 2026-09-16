@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { dayKeyOf } from '../../domain/day';
 import { DAY, HOUR } from '../../domain/time';
-import { FULL_DAY_MS, WEEKDAY_INITIALS, gridSummary, recentDayCells } from './recentDays';
+import { en } from '../../i18n/en';
+import { es } from '../../i18n/es';
+import { FULL_DAY_MS, gridSummary, recentDayCells } from './recentDays';
 
 // 2026-09-16 is a Wednesday.
 const NOW = new Date(2026, 8, 16, 12).getTime();
@@ -28,10 +30,14 @@ describe('recentDayCells', () => {
   });
 });
 
-describe('WEEKDAY_INITIALS', () => {
-  it('runs Monday to Sunday with X for miércoles, so every letter is distinct', () => {
-    expect(WEEKDAY_INITIALS).toEqual(['L', 'M', 'X', 'J', 'V', 'S', 'D']);
-    expect(new Set(WEEKDAY_INITIALS).size).toBe(7);
+describe('weekdayInitials', () => {
+  it('runs Monday to Sunday in Spanish with X for miércoles, so every letter is distinct', () => {
+    expect(es.focus.recentDays.weekdayInitials).toEqual(['L', 'M', 'X', 'J', 'V', 'S', 'D']);
+    expect(new Set(es.focus.recentDays.weekdayInitials).size).toBe(7);
+  });
+
+  it('runs Monday to Sunday in English, seven letters', () => {
+    expect(en.focus.recentDays.weekdayInitials).toEqual(['M', 'T', 'W', 'T', 'F', 'S', 'S']);
   });
 });
 
@@ -42,16 +48,22 @@ describe('gridSummary', () => {
       { key: 'b', intensity: 0.05 },
       { key: 'c', intensity: 1 },
     ];
-    expect(gridSummary(cells)).toBe(
+    expect(gridSummary(cells, es.focus.recentDays)).toBe(
       'Últimas cuatro semanas: 2 días con foco. Toca para ver la actividad',
+    );
+    expect(gridSummary(cells, en.focus.recentDays)).toBe(
+      'Last four weeks: 2 days with focus. Tap to see activity',
     );
   });
 
   it('reads the singular and the empty grid', () => {
-    expect(gridSummary([{ key: 'a', intensity: 0.5 }])).toBe(
+    expect(gridSummary([{ key: 'a', intensity: 0.5 }], es.focus.recentDays)).toBe(
       'Últimas cuatro semanas: 1 día con foco. Toca para ver la actividad',
     );
-    expect(gridSummary([])).toBe(
+    expect(gridSummary([{ key: 'a', intensity: 0.5 }], en.focus.recentDays)).toBe(
+      'Last four weeks: 1 day with focus. Tap to see activity',
+    );
+    expect(gridSummary([], es.focus.recentDays)).toBe(
       'Últimas cuatro semanas: 0 días con foco. Toca para ver la actividad',
     );
   });

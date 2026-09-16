@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 import type { LiveActivity, LiveActivityFactory } from 'expo-widgets';
 import { Platform } from 'react-native';
 
+import { getStrings } from '../i18n';
 import { durationText } from '../lib/format';
 import type { FocusActivityProps } from '../widgets/FocusActivity';
 import { isIos, type CapabilityStatus } from './capabilities';
@@ -14,14 +15,13 @@ import { isIos, type CapabilityStatus } from './capabilities';
  * One activity at a time, because there is one session at a time. Every native call
  * is wrapped: a failure is logged and swallowed, never thrown into a screen. When the
  * capability is not available, each function is a no-op.
+ *
+ * The widget extension cannot reach the dictionary, so every word it shows is
+ * computed here with `getStrings()` at call time and travels as a prop.
  */
 
 /** ActivityKit shipped in 16.1; updates from the app need 16.2. */
 const MIN_IOS = 16.2;
-
-const REASON_NOT_IOS = 'Las Live Activities solo existen en iPhone.';
-const REASON_OLD_IOS = 'Las Live Activities necesitan iOS 16.2 o más nuevo.';
-const REASON_NO_MODULE = 'Este build no trae el módulo de Live Activities. Hay que recompilar el dev client.';
 
 /** Tapping the activity lands on the session, not the home page. */
 const SESSION_PATH = '/session/active';
@@ -76,21 +76,24 @@ function loadFactory(): Factory | null {
 }
 
 export function status(): CapabilityStatus {
+  const t = getStrings().session.liveActivity;
   if (!isIos) {
-    return unavailable(REASON_NOT_IOS);
+    return unavailable(t.notIos);
   }
   if (iosVersion() < MIN_IOS) {
-    return unavailable(REASON_OLD_IOS);
+    return unavailable(t.oldIos);
   }
-  return loadFactory() === null ? unavailable(REASON_NO_MODULE) : { available: true, reason: null };
+  return loadFactory() === null ? unavailable(t.noModule) : { available: true, reason: null };
 }
 
 function propsOf(input: FocusInput, now: number): FocusActivityProps {
+  const remainingText = durationText(Math.max(0, input.endsAt - now));
   return {
     modeName: input.modeName,
     startedAt: input.startedAt,
     endsAt: input.endsAt,
-    remainingText: durationText(Math.max(0, input.endsAt - now)),
+    remainingText,
+    statusText: getStrings().session.liveActivity.status(remainingText),
   };
 }
 

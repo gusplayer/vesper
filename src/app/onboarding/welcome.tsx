@@ -2,17 +2,20 @@ import { router } from 'expo-router';
 
 import { Button, HeroObject, Screen, Stack, Text } from '../../design/components';
 import { ThemeScope } from '../../design/components';
+import { useStrings } from '../../i18n';
 
 /** The first thing the app shows: a dark page, the object, and one button. */
 export default function WelcomeScreen() {
+  const t = useStrings();
+
   return (
     <ThemeScope scheme="dark">
       <Screen
         footer={
           <>
-            <Button label="Empezar" onPress={() => router.push('/onboarding/goal')} />
+            <Button label={t.onboarding.welcome.start} onPress={() => router.push('/onboarding/goal')} />
             <Text variant="caption" tone="tertiary" align="center">
-              Al continuar aceptas los Términos y la Privacidad.
+              {t.onboarding.welcome.legal}
             </Text>
           </>
         }
@@ -22,13 +25,13 @@ export default function WelcomeScreen() {
         </Stack>
         <Stack gap="sm" align="center">
           <Text variant="title" align="center">
-            Tu tiempo es tuyo.
+            {t.onboarding.welcome.titleLine1}
           </Text>
           <Text variant="title" align="center">
-            Vuelve a lo que importa.
+            {t.onboarding.welcome.titleLine2}
           </Text>
           <Text variant="label" tone="secondary" align="center">
-            Sin cuenta, sin nube. Todo queda en tu teléfono.
+            {t.onboarding.welcome.subtitle}
           </Text>
         </Stack>
       </Screen>

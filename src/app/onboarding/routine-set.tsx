@@ -4,11 +4,15 @@ import { useOnboardingDraft } from '../../data/onboardingDraft';
 import { Button, Card, PageHeader, Screen, Stack, Text, Toggle } from '../../design/components';
 import { commitOnboarding } from '../../features/onboarding/commit';
 import { windowText } from '../../features/schedules/format';
+import { useStrings } from '../../i18n';
 
-/** A preview of the schedule card as the Rutinas tab will show it, then save. */
+/** A preview of the schedule card as the Routines tab will show it, then save. */
 export default function RoutineSetScreen() {
+  const t = useStrings();
   const modeName = useOnboardingDraft((state) => state.modeName);
   const schedule = useOnboardingDraft((state) => state.schedule);
+
+  const copy = t.onboarding.routineSet;
 
   const save = () => {
     commitOnboarding({ withSchedule: true });
@@ -20,8 +24,8 @@ export default function RoutineSetScreen() {
       scroll
       footer={
         <>
-          <Button label="Guardar rutina" onPress={save} />
-          <Button label="Editar rutina" variant="ghost" onPress={() => router.back()} />
+          <Button label={copy.save} onPress={save} />
+          <Button label={copy.edit} variant="ghost" onPress={() => router.back()} />
         </>
       }
     >
@@ -31,23 +35,23 @@ export default function RoutineSetScreen() {
         <Stack direction="row" align="center" justify="space-between" gap="md">
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              {`${modeName} · rutina`}
+              {copy.cardTitle(modeName)}
             </Text>
             <Text variant="label" tone="secondary">
-              {windowText(schedule)}
+              {windowText(schedule, t.format)}
             </Text>
             <Text variant="label" tone="secondary">
-              {`Modo: ${modeName}`}
+              {copy.modeLine(modeName)}
             </Text>
           </Stack>
           {/* A preview: the toggle is drawn on and does nothing yet. */}
-          <Toggle value onValueChange={() => undefined} accessibilityLabel="rutina activa" />
+          <Toggle value onValueChange={() => undefined} accessibilityLabel={copy.activeLabel} />
         </Stack>
       </Card>
 
-      <Text variant="title">Tu rutina está lista</Text>
+      <Text variant="title">{copy.title}</Text>
       <Text variant="label" tone="secondary">
-        Puedes editarla cuando quieras en la pestaña Rutinas.
+        {copy.subtitle}
       </Text>
     </Screen>
   );

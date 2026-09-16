@@ -4,6 +4,7 @@ import { useActiveMode, useAppStore, useSettings } from '../../data';
 import { Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { MINUTE, SECOND } from '../../domain/time';
 import { ToggleCard } from '../../features/settings/ToggleCard';
+import { useStrings } from '../../i18n';
 import { durationText, timerText } from '../../lib/format';
 import { status } from '../../platform/liveActivity';
 
@@ -21,18 +22,19 @@ export default function LiveActivitiesScreen() {
   const settings = useSettings();
   const activeMode = useActiveMode();
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const t = useStrings();
   const availability = status();
 
-  const modeName = activeMode?.name ?? 'Sin redes';
+  const modeName = activeMode?.name ?? t.settings.liveActivities.previewMode;
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title="Live Activities" />
+      <PageHeader onBack={() => router.back()} title={t.settings.liveActivities.title} />
 
       <Stack gap="sm">
         <ToggleCard
-          title="Live Activities"
-          description="El timer en la pantalla bloqueada y en la Dynamic Island"
+          title={t.settings.liveActivities.toggleTitle}
+          description={t.settings.liveActivities.toggleDescription}
           value={settings.liveActivities}
           onValueChange={(liveActivities) => updateSettings({ liveActivities })}
         />
@@ -51,7 +53,7 @@ export default function LiveActivitiesScreen() {
                 {modeName}
               </Text>
               <Text variant="caption" tone="tertiary">
-                {`Enfocado · quedan ${durationText(PREVIEW_REMAINING_MS)}`}
+                {t.settings.liveActivities.previewStatus(durationText(PREVIEW_REMAINING_MS))}
               </Text>
             </Stack>
             <Text variant="heading" tone="onInk">
@@ -60,7 +62,7 @@ export default function LiveActivitiesScreen() {
           </Stack>
         </Card>
         <Text variant="caption" tone="tertiary" align="center">
-          Así se ve mientras corre una sesión.
+          {t.settings.liveActivities.previewCaption}
         </Text>
       </Stack>
     </Screen>

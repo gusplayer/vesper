@@ -2,12 +2,12 @@ import { dayKeyOf } from '../../domain/day';
 import { DAY, HOUR } from '../../domain/time';
 import type { DayStat } from '../../data/types';
 import type { HeatCell } from '../../design/components';
+import type { Strings } from '../../i18n/es';
 
 /** A day with this much focus is drawn at full ink. Anything past it is still full. */
 export const FULL_DAY_MS = 3 * HOUR;
 
-/** Monday-first weekday initials, for the grid header. X for miércoles, so no two match. */
-export const WEEKDAY_INITIALS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'] as const;
+export type RecentDaysStrings = Strings['focus']['recentDays'];
 
 /**
  * The last `weeks` full weeks up to today, Monday-first, one cell per day. Days after
@@ -33,8 +33,6 @@ export function focusedDayCount(cells: ReadonlyArray<HeatCell>): number {
 }
 
 /** What VoiceOver reads for the grid: the count, then what a tap does. */
-export function gridSummary(cells: ReadonlyArray<HeatCell>): string {
-  const count = focusedDayCount(cells);
-  const days = count === 1 ? '1 día con foco' : `${count} días con foco`;
-  return `Últimas cuatro semanas: ${days}. Toca para ver la actividad`;
+export function gridSummary(cells: ReadonlyArray<HeatCell>, t: RecentDaysStrings): string {
+  return t.gridSummary(focusedDayCount(cells));
 }

@@ -85,10 +85,12 @@ export function exitStepsFor(depth: Depth): ExitStep[] {
   }
 }
 
-/** The sentence typed in 'firm'. Short, in the first person, and not something to autocomplete. */
-export const EXIT_SENTENCE = 'Elijo dejar esto ahora';
-
-/** Case, accents, spacing and trailing punctuation do not count; the words do. */
+/**
+ * The sentence typed in 'firm' lives in the dictionary (`session.exit.sentence`, one
+ * per language) and arrives here as `target`: this module stays pure and knows no
+ * words of its own. Case, accents, spacing and trailing punctuation do not count;
+ * the words do.
+ */
 export function normalizeSentence(text: string): string {
   return text
     .normalize('NFD')
@@ -99,7 +101,8 @@ export function normalizeSentence(text: string): string {
     .trim();
 }
 
-export function sentenceMatches(input: string, target: string = EXIT_SENTENCE): boolean {
+/** True when what was typed is the expected sentence, give or take case, accents and punctuation. */
+export function sentenceMatches(input: string, target: string): boolean {
   return normalizeSentence(input) === normalizeSentence(target);
 }
 

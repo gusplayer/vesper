@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useAppStore, useSettings } from '../../data';
 import { PageHeader, Screen, Stack, Text } from '../../design/components';
 import { ToggleCard } from '../../features/settings/ToggleCard';
+import { useStrings } from '../../i18n';
 import { status as blockingStatus } from '../../platform/blocking';
 
 /**
@@ -14,43 +15,42 @@ export default function RulesScreen() {
   const router = useRouter();
   const { rules } = useSettings();
   const updateRules = useAppStore((state) => state.updateRules);
+  const t = useStrings();
   const blocking = blockingStatus();
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title="Mis reglas" />
+      <PageHeader onBack={() => router.back()} title={t.settings.rules.title} />
 
       <Stack gap="md">
         <ToggleCard
-          title="Modo estricto"
-          description="Impide terminar una sesión borrando la app"
+          title={t.settings.rules.strict.title}
+          description={t.settings.rules.strict.description}
           value={rules.strictMode}
           onValueChange={(strictMode) => updateRules({ strictMode })}
         />
         <ToggleCard
-          title="Bloquear instalaciones"
-          description="Evita instalar apps durante una sesión"
+          title={t.settings.rules.installs.title}
+          description={t.settings.rules.installs.description}
           value={rules.blockInstalls}
           onValueChange={(blockInstalls) => updateRules({ blockInstalls })}
         />
         <ToggleCard
-          title="Bloquear compras dentro de apps"
-          description="Limita compras durante una sesión"
+          title={t.settings.rules.purchases.title}
+          description={t.settings.rules.purchases.description}
           value={rules.blockPurchases}
           onValueChange={(blockPurchases) => updateRules({ blockPurchases })}
         />
         <ToggleCard
-          title="Bloquear contenido adulto"
-          description="Limita contenido adulto en apps y sitios durante una sesión"
+          title={t.settings.rules.mature.title}
+          description={t.settings.rules.mature.description}
           value={rules.blockMature}
           onValueChange={(blockMature) => updateRules({ blockMature })}
         />
       </Stack>
 
       <Text variant="caption" tone="tertiary" align="center">
-        {blocking.available
-          ? 'Se aplican durante una sesión. Por ahora solo el filtro de contenido adulto llega al sistema.'
-          : `No se aplican: ${blocking.reason}.`}
+        {blocking.available ? t.settings.rules.applied : t.settings.rules.notApplied(blocking.reason ?? '')}
       </Text>
     </Screen>
   );

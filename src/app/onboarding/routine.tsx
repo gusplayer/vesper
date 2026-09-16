@@ -14,54 +14,52 @@ import {
 } from '../../design/components';
 import { TimeSheet } from '../../features/onboarding/TimeSheet';
 import { daysText, timeText } from '../../features/schedules/format';
-
-const OPEN_END_LABEL = 'Hasta que lo termines';
+import { useStrings } from '../../i18n';
 
 /** Optional: make the first mode a routine. Start, end and days, then continue or skip. */
 export default function RoutineScreen() {
+  const t = useStrings();
   const modeName = useOnboardingDraft((state) => state.modeName);
   const schedule = useOnboardingDraft((state) => state.schedule);
   const setSchedule = useOnboardingDraft((state) => state.setSchedule);
   const [editing, setEditing] = useState<'start' | 'end' | null>(null);
+
+  const copy = t.onboarding.routine;
 
   return (
     <Screen
       scroll
       footer={
         <>
-          <Button label="Continuar" onPress={() => router.push('/onboarding/routine-set')} />
-          <Button
-            label="Saltar"
-            variant="ghost"
-            onPress={() => router.push('/onboarding/notifications')}
-          />
+          <Button label={t.common.continue} onPress={() => router.push('/onboarding/routine-set')} />
+          <Button label={copy.skip} variant="ghost" onPress={() => router.push('/onboarding/notifications')} />
         </>
       }
     >
       <PageHeader onBack={() => router.back()} />
-      <Text variant="title">{`¿Hacemos ${modeName || 'tu modo'} una rutina?`}</Text>
+      <Text variant="title">{copy.title(modeName || copy.yourMode)}</Text>
       <Text variant="label" tone="secondary">
-        La gente con rutinas sostiene el hábito 2,5 veces más.
+        {copy.subtitle}
       </Text>
 
       <ListGroup>
         <ListRow
-          label="Empieza"
+          label={copy.starts}
           value={timeText(schedule.startMinutes ?? 0)}
           onPress={() => setEditing('start')}
         />
         <ListRow
-          label="Termina"
-          value={schedule.endMinutes === null ? OPEN_END_LABEL : timeText(schedule.endMinutes)}
+          label={copy.ends}
+          value={schedule.endMinutes === null ? copy.openEnd : timeText(schedule.endMinutes)}
           onPress={() => setEditing('end')}
         />
       </ListGroup>
 
       <Section
-        title="Repetir"
+        title={copy.repeat}
         right={
           <Text variant="label" tone="secondary">
-            {daysText(schedule.days)}
+            {daysText(schedule.days, t.format)}
           </Text>
         }
       >
@@ -70,7 +68,7 @@ export default function RoutineScreen() {
 
       <TimeSheet
         visible={editing !== null}
-        title="Elige la hora"
+        title={copy.pickTime}
         value={editing === 'end' ? schedule.endMinutes : schedule.startMinutes}
         openEnd={editing === 'end'}
         onClose={() => setEditing(null)}

@@ -4,8 +4,7 @@ import { dotsPath, stipple, visibleDots } from './stipple';
 import type { Artwork } from './types';
 
 const square: Artwork = {
-  id: 'square',
-  name: 'Cuadrado',
+  id: 'pagoda',
   strokes: [
     { points: [[0.2, 0.2], [0.8, 0.2], [0.8, 0.8], [0.2, 0.8], [0.2, 0.2]] },
     { points: [[0.3, 0.3], [0.7, 0.3], [0.7, 0.7], [0.3, 0.7], [0.3, 0.3]], fill: true, weight: 0.5 },

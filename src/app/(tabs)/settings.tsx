@@ -2,49 +2,40 @@ import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
 import { resetAndRehydrate, useSettings } from '../../data';
-import { countText } from '../../data/modes';
 import { Card, ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
-import { formatBirthDate } from '../../lib/birthDate';
+import { useLocale, useLocaleStore, useStrings } from '../../i18n';
+import { birthDateText } from '../../lib/birthDate';
 
-const VERSION = 'Versión 2026.9.1';
-
-function onOff(flag: boolean): string {
-  return flag ? 'Activadas' : 'Desactivadas';
-}
-
-/** 'Ninguna', '1 activa', '3 activas'. */
-function activeRulesText(count: number): string {
-  return count === 0 ? 'Ninguna' : countText(count, 'activa', 'activas');
-}
-
-/** 'Ninguno', '1 restante', '5 restantes'. */
-function emergencyLeftText(left: number): string {
-  return left === 0 ? 'Ninguno' : countText(left, 'restante', 'restantes');
-}
+const VERSION_NUMBER = '2026.9.1';
 
 /** The Ajustes tab: groups of rows that each open their own page, like Brick. */
 export default function SettingsScreen() {
   const router = useRouter();
   const settings = useSettings();
+  const t = useStrings();
+  const { tag } = useLocale();
+  const preference = useLocaleStore((state) => state.preference);
 
   const activeRules = Object.values(settings.rules).filter(Boolean).length;
+  const onOff = (flag: boolean) => (flag ? t.settings.tab.enabled : t.settings.tab.disabled);
+  const languageValue = preference === 'auto' ? t.settings.language.auto : t.settings.language.names[preference];
 
   const confirmReset = () => {
-    Alert.alert('¿Borrar todo y reiniciar?', 'Modos, rutinas, sesiones y hábitos se pierden. No hay vuelta atrás.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Borrar todo', style: 'destructive', onPress: () => resetAndRehydrate(Date.now()) },
+    Alert.alert(t.settings.tab.resetConfirmTitle, t.settings.tab.resetConfirmMessage, [
+      { text: t.common.cancel, style: 'cancel' },
+      { text: t.settings.tab.resetConfirm, style: 'destructive', onPress: () => resetAndRehydrate(Date.now()) },
     ]);
   };
 
   return (
     <Screen scroll inTabs>
-      <PageHeader title="Ajustes" />
+      <PageHeader title={t.settings.tab.title} />
 
       <Card tone="muted">
         <Stack gap="xs">
-          <Text variant="body">Este teléfono</Text>
+          <Text variant="body">{t.settings.tab.thisPhone}</Text>
           <Text variant="label" tone="secondary">
-            Sin cuenta. Todo queda aquí.
+            {t.settings.tab.noAccount}
           </Text>
         </Stack>
       </Card>
@@ -52,14 +43,14 @@ export default function SettingsScreen() {
       <ListGroup>
         <ListRow
           icon="edit-3"
-          label="Mis reglas"
-          value={activeRulesText(activeRules)}
+          label={t.settings.tab.rules}
+          value={t.settings.tab.activeRules(activeRules)}
           onPress={() => router.push('/settings/rules')}
         />
         <ListRow
           icon="unlock"
-          label="Desbloqueo de emergencia"
-          value={emergencyLeftText(settings.emergencyLeft)}
+          label={t.settings.tab.emergency}
+          value={t.settings.tab.emergencyLeft(settings.emergencyLeft)}
           onPress={() => router.push('/settings/emergency')}
         />
       </ListGroup>
@@ -67,20 +58,26 @@ export default function SettingsScreen() {
       <ListGroup>
         <ListRow
           icon="clock"
-          label="Actividades en vivo"
+          label={t.settings.tab.liveActivities}
           value={onOff(settings.liveActivities)}
           onPress={() => router.push('/settings/live-activities')}
         />
         <ListRow
           icon="bell"
-          label="Notificaciones"
+          label={t.settings.tab.notifications}
           value={onOff(settings.notificationsAllowed)}
           onPress={() => router.push('/settings/notifications')}
         />
         <ListRow
+          icon="globe"
+          label={t.settings.tab.language}
+          value={languageValue}
+          onPress={() => router.push('/settings/language')}
+        />
+        <ListRow
           icon="heart"
-          label="Salud"
-          value={settings.healthConnected ? 'Conectada' : 'Sin conectar'}
+          label={t.settings.tab.health}
+          value={settings.healthConnected ? t.settings.tab.healthConnected : t.settings.tab.healthNotConnected}
           onPress={() => router.push('/settings/health')}
         />
       </ListGroup>
@@ -88,20 +85,20 @@ export default function SettingsScreen() {
       <ListGroup>
         <ListRow
           icon="calendar"
-          label="Vida"
-          value={settings.birthDate === null ? 'Sin fecha' : formatBirthDate(settings.birthDate)}
+          label={t.settings.tab.life}
+          value={settings.birthDate === null ? t.settings.tab.noBirthDate : birthDateText(settings.birthDate, tag)}
           onPress={() => router.push('/settings/life')}
         />
-        <ListRow icon="help-circle" label="Centro de ayuda" onPress={() => router.push('/settings/help')} />
-        <ListRow icon="info" label="Acerca de Vesper" onPress={() => router.push('/settings/about')} />
+        <ListRow icon="help-circle" label={t.settings.tab.help} onPress={() => router.push('/settings/help')} />
+        <ListRow icon="info" label={t.settings.tab.about} onPress={() => router.push('/settings/about')} />
       </ListGroup>
 
       <Stack gap="sm">
         <ListGroup>
-          <ListRow icon="trash-2" label="Borrar todo y reiniciar" tone="danger" kind="action" onPress={confirmReset} />
+          <ListRow icon="trash-2" label={t.settings.tab.reset} tone="danger" kind="action" onPress={confirmReset} />
         </ListGroup>
         <Text variant="caption" tone="secondary">
-          Modos, rutinas, sesiones y hábitos se pierden.
+          {t.settings.tab.resetCaption}
         </Text>
       </Stack>
 
@@ -110,7 +107,7 @@ export default function SettingsScreen() {
           VESPER
         </Text>
         <Text variant="caption" tone="secondary">
-          {VERSION}
+          {t.settings.about.version(VERSION_NUMBER)}
         </Text>
       </Stack>
     </Screen>

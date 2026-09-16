@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 
-import { APPS, appsById } from '../../data';
+import { appsById, useApps } from '../../data';
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import {
   AppIcon,
@@ -16,15 +16,17 @@ import {
   Text,
 } from '../../design/components';
 import { AppRow } from '../../design/components';
+import { useStrings } from '../../i18n';
 
 /** How many apps a mode can block. A product number, same as modes/apps. */
 const MAX_APPS = 50;
 
 /**
  * The apps the first mode blocks. Starts with the idea's suggestion and shows three
- * of them large; "Elegir apps" opens the full picker in place.
+ * of them large; "Pick apps" opens the full picker in place.
  */
 export default function AppsScreen() {
+  const t = useStrings();
   const modeName = useOnboardingDraft((state) => state.modeName);
   const appIds = useOnboardingDraft((state) => state.appIds);
   const setAppIds = useOnboardingDraft((state) => state.setAppIds);
@@ -33,7 +35,8 @@ export default function AppsScreen() {
 
   const featured = appsById(appIds).slice(0, 3);
   const needle = query.trim().toLowerCase();
-  const visible = needle === '' ? APPS : APPS.filter((app) => app.name.toLowerCase().includes(needle));
+  const apps = useApps();
+  const visible = needle === '' ? apps : apps.filter((app) => app.name.toLowerCase().includes(needle));
 
   const toggle = (id: string) => {
     if (appIds.includes(id)) {
@@ -52,20 +55,20 @@ export default function AppsScreen() {
       footer={
         <>
           <Button
-            label="Continuar"
+            label={t.common.continue}
             onPress={() => router.push('/onboarding/screen-time')}
             disabled={appIds.length === 0}
           />
           <Text variant="caption" tone="tertiary" align="center">
-            Bloquea hasta 50 distracciones por modo. Puedes editarlo cuando quieras.
+            {t.onboarding.apps.limit(MAX_APPS)}
           </Text>
         </>
       }
     >
       <PageHeader onBack={() => router.back()} />
-      <Text variant="title">{`Bien, tu primer modo se llama ${modeName}`}</Text>
+      <Text variant="title">{t.onboarding.apps.title(modeName)}</Text>
       <Text variant="label" tone="secondary">
-        Ahora elige las apps a bloquear cuando lo uses.
+        {t.onboarding.apps.subtitle}
       </Text>
 
       <Stack direction="row" justify="center" gap="lg">
@@ -76,9 +79,9 @@ export default function AppsScreen() {
 
       {picking ? (
         <>
-          <SearchField value={query} onChangeText={setQuery} placeholder="Buscar apps" />
+          <SearchField value={query} onChangeText={setQuery} placeholder={t.onboarding.apps.search} />
           <Section
-            title="Seleccionadas"
+            title={t.onboarding.apps.selected}
             right={
               <Text variant="label" tone="secondary">
                 {`${appIds.length} / ${MAX_APPS}`}
@@ -101,7 +104,7 @@ export default function AppsScreen() {
           </Section>
         </>
       ) : (
-        <Button label="Elegir apps" variant="secondary" onPress={() => setPicking(true)} />
+        <Button label={t.onboarding.apps.pickApps} variant="secondary" onPress={() => setPicking(true)} />
       )}
     </Screen>
   );

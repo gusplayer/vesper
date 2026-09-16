@@ -9,16 +9,18 @@ import {
   Stack,
   Text,
 } from '../../design/components';
+import { useStrings } from '../../i18n';
 
-const VERSION = 'Versión 2026.9.1';
+const VERSION_NUMBER = '2026.9.1';
 
 /** Acerca de Vesper: the object, the version, what the product is, and the legal rows. */
 export default function AboutScreen() {
   const router = useRouter();
+  const t = useStrings();
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title="Acerca de Vesper" />
+      <PageHeader onBack={() => router.back()} title={t.settings.about.title} />
 
       <Stack align="center" gap="md">
         <HeroObject size="md" />
@@ -27,24 +29,22 @@ export default function AboutScreen() {
             VESPER
           </Text>
           <Text variant="caption" tone="tertiary">
-            {VERSION}
+            {t.settings.about.version(VERSION_NUMBER)}
           </Text>
         </Stack>
       </Stack>
 
       <Text variant="body" tone="secondary" align="center">
-        Vesper mide el tiempo que inviertes, no el que consumes. Lo que haces con foco, lo que
-        verifica Salud y lo que el teléfono estima viven en columnas distintas y nunca se suman.
-        La idea es que veas tu tiempo como algo que se asigna, no como algo que se pierde.
+        {t.settings.about.body}
       </Text>
 
       <ListGroup>
-        <ListRow label="Términos" />
-        <ListRow label="Privacidad" />
+        <ListRow label={t.settings.about.terms} />
+        <ListRow label={t.settings.about.privacy} />
       </ListGroup>
 
       <Text variant="caption" tone="tertiary" align="center">
-        Prototipo con datos de ejemplo. Nada de lo que ves es real.
+        {t.settings.about.prototypeNote}
       </Text>
     </Screen>
   );

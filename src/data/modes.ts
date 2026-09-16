@@ -2,42 +2,48 @@ import { create } from 'zustand';
 
 import { DEFAULT_PLANNED_MS } from '../domain/session';
 import { MINUTE } from '../domain/time';
+import type { Strings } from '../i18n/es';
 import type { Mode, ModeBehavior } from './types';
 
 /**
  * Small helpers around modes and the focus button that more than one screen needs.
  * Pure text on one side, a tiny store on the other; both sit on top of the stores in
  * src/data/stores and never reach for the UI.
+ *
+ * The text helpers take the `modes` slice of the dictionary (ADR-0020): screens pass
+ * `useStrings().modes`, code outside React passes `getStrings().modes`.
  */
+
+export type ModesStrings = Strings['modes'];
 
 type ModeShape = Pick<Mode, 'behavior' | 'appIds' | 'websiteIds'>;
 
 /** 'Bloquea 4 apps · 3 sitios' or 'Permite solo 3 apps' — the line under a mode name. */
-export function modeSummaryText(mode: ModeShape): string {
-  const apps = mode.appIds.length;
+export function modeSummaryText(mode: ModeShape, t: ModesStrings): string {
+  const apps = t.summary.apps(mode.appIds.length);
   const sites = mode.websiteIds.length;
   if (mode.behavior === 'allow') {
-    return `Permite solo ${countText(apps, 'app', 'apps')}`;
+    return t.summary.allowsOnly(apps);
   }
-  const parts = [`Bloquea ${countText(apps, 'app', 'apps')}`];
+  const parts = [t.summary.blocks(apps)];
   if (sites > 0) {
-    parts.push(countText(sites, 'sitio', 'sitios'));
+    parts.push(t.summary.sites(sites));
   }
   return parts.join(' · ');
 }
 
 /** 'Bloqueando 4 apps' / 'Permitiendo solo 3 apps' — the line under the mode name during a session. */
-export function modeRunningText(mode: ModeShape): string {
-  const apps = countText(mode.appIds.length, 'app', 'apps');
-  return mode.behavior === 'allow' ? `Permitiendo solo ${apps}` : `Bloqueando ${apps}`;
+export function modeRunningText(mode: ModeShape, t: ModesStrings): string {
+  const apps = t.summary.apps(mode.appIds.length);
+  return mode.behavior === 'allow' ? t.summary.allowingOnly(apps) : t.summary.blocking(apps);
 }
 
 /** What the apps row is called for each behavior: what the list means changes. */
-export function appsTitleText(behavior: ModeBehavior): string {
-  return behavior === 'allow' ? 'Apps permitidas' : 'Apps bloqueadas';
+export function appsTitleText(behavior: ModeBehavior, t: ModesStrings): string {
+  return behavior === 'allow' ? t.summary.allowedApps : t.summary.blockedApps;
 }
 
-/** '1 app', '4 apps'. */
+/** '1 app', '4 apps'. Language-neutral: the caller passes the two words. */
 export function countText(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }

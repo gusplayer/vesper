@@ -1,5 +1,6 @@
 import { Button, Chip, Sheet, Stack, Text } from '../../design/components';
 import { PLANNED_OPTIONS_MS, usePlannedStore } from '../../data/modes';
+import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
 
 type DurationSheetProps = {
@@ -13,25 +14,26 @@ type DurationSheetProps = {
  * remembered, so a long press next time skips the question.
  */
 export function DurationSheet({ visible, onClose, onStart }: DurationSheetProps) {
+  const t = useStrings().session.duration;
   const plannedMs = usePlannedStore((state) => state.plannedMs);
   const setPlannedMs = usePlannedStore((state) => state.setPlannedMs);
 
   return (
-    <Sheet visible={visible} title="¿Cuánto tiempo?" onClose={onClose}>
+    <Sheet visible={visible} title={t.title} onClose={onClose}>
       <Stack direction="row" gap="sm" wrap>
         {PLANNED_OPTIONS_MS.map((ms) => (
           <Chip
             key={ms}
-            label={`${minutesText(ms)} min`}
+            label={t.minutes(minutesText(ms))}
             selected={ms === plannedMs}
             onPress={() => setPlannedMs(ms)}
           />
         ))}
       </Stack>
       <Text variant="caption" tone="secondary">
-        La próxima vez, mantén el botón para empezar sin preguntar.
+        {t.hint}
       </Text>
-      <Button label={`Enfocar ${minutesText(plannedMs)} min`} onPress={() => onStart(plannedMs)} />
+      <Button label={t.start(minutesText(plannedMs))} onPress={() => onStart(plannedMs)} />
     </Sheet>
   );
 }

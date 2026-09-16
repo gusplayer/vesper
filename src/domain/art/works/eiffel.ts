@@ -86,8 +86,6 @@ const lattice = (points: Point[], weight = 0.55): Stroke => ({ points, weight, s
 
 export const eiffel: Artwork = {
   id: 'eiffel',
-  name: 'Torre Eiffel',
-  caption: 'Se levantó pieza a pieza, como tu sesión.',
   strokes: [
     // Ground and the four feet as two heavy stubs.
     { points: [[0.15, GROUND], [0.85, GROUND]], weight: 0.8, size: 0.9 },

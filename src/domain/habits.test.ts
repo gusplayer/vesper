@@ -29,8 +29,21 @@ describe('healthTypeFor', () => {
     expect(healthTypeFor('sueno')).toBe('sleep');
   });
 
+  it('recognizes the English words too, whatever the app language', () => {
+    expect(healthTypeFor('Workout')).toBe('workout');
+    expect(healthTypeFor('lift weights')).toBe('workout');
+    expect(healthTypeFor('running')).toBe('workout');
+    expect(healthTypeFor('bike to work')).toBe('workout');
+    expect(healthTypeFor('walk')).toBe('steps');
+    expect(healthTypeFor('10k steps')).toBe('steps');
+    expect(healthTypeFor('sleep 7h')).toBe('sleep');
+  });
+
   it('is null for a name with no hint', () => {
     expect(healthTypeFor('leer')).toBeNull();
+    expect(healthTypeFor('read')).toBeNull();
+    // Short English words only match at a word start: brunch is not a run.
+    expect(healthTypeFor('brunch')).toBeNull();
   });
 
   it('lets the first hint win when several match', () => {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { aHabit } from '../domain/fixtures';
+import { en } from '../i18n/en';
+import { es } from '../i18n/es';
 import { HOUR, MINUTE } from '../domain/time';
 import type { WeekProgress } from '../domain/week';
 import {
@@ -91,59 +93,66 @@ describe('minutesText', () => {
 
 describe('dayText', () => {
   it("reads 'domingo, 23 de agosto' in lowercase", () => {
-    expect(dayText(new Date(2026, 7, 23, 12).getTime())).toBe('domingo, 23 de agosto');
+    expect(dayText(new Date(2026, 7, 23, 12).getTime(), 'es-CO')).toBe('domingo, 23 de agosto');
   });
 
   it('does not zero-pad the first of the month', () => {
-    expect(dayText(new Date(2026, 8, 1, 12).getTime())).toBe('martes, 1 de septiembre');
+    expect(dayText(new Date(2026, 8, 1, 12).getTime(), 'es-CO')).toBe('martes, 1 de septiembre');
+  });
+
+  it('keeps English capitals and follows the region', () => {
+    expect(dayText(new Date(2026, 7, 23, 12).getTime(), 'en-US')).toBe('Sunday, August 23');
+    expect(dayText(new Date(2026, 7, 23, 12).getTime(), 'en-GB')).toBe('Sunday 23 August');
   });
 });
 
 describe('focusOfTargetText', () => {
   it('reads focus of target when there is a goal', () => {
-    expect(focusOfTargetText(aWeek())).toBe('4h de 10h');
+    expect(focusOfTargetText(aWeek(), es.format)).toBe('4h de 10h');
+    expect(focusOfTargetText(aWeek(), en.format)).toBe('4h of 10h');
   });
 
   it('reads only the focus when there is none', () => {
-    expect(focusOfTargetText(aWeek({ targetMs: null }))).toBe('4h');
+    expect(focusOfTargetText(aWeek({ targetMs: null }), es.format)).toBe('4h');
   });
 });
 
 describe('weekSummaryText', () => {
   it('invites the closing on Sunday whatever the numbers say', () => {
-    expect(weekSummaryText(aWeek({ met: true }), true)).toBe('cerrar la semana');
+    expect(weekSummaryText(aWeek({ met: true }), true, es.format)).toBe('cerrar la semana');
   });
 
   it('reports the total without measuring it when there is no goal', () => {
-    expect(weekSummaryText(aWeek({ targetMs: null }), false)).toBe('4h esta semana');
+    expect(weekSummaryText(aWeek({ targetMs: null }), false, es.format)).toBe('4h esta semana');
   });
 
   it('says the goal is done once it is met', () => {
-    expect(weekSummaryText(aWeek({ focusMs: 10 * HOUR, met: true }), false)).toBe(
+    expect(weekSummaryText(aWeek({ focusMs: 10 * HOUR, met: true }), false, es.format)).toBe(
       'meta hecha · 10h',
     );
   });
 
   it('counts down the days while in progress', () => {
-    expect(weekSummaryText(aWeek(), false)).toBe('4h de 10h · 5d');
+    expect(weekSummaryText(aWeek(), false, es.format)).toBe('4h de 10h · 5d');
+    expect(weekSummaryText(aWeek(), false, en.format)).toBe('4h of 10h · 5d');
   });
 });
 
 describe('weekClosingText', () => {
   it('asks for a goal when there was none', () => {
-    expect(weekClosingText(aWeek({ targetMs: null }))).toBe(
+    expect(weekClosingText(aWeek({ targetMs: null }), es.format)).toBe(
       'no había meta esta semana. pon una para la que empieza mañana',
     );
   });
 
   it('celebrates a met goal', () => {
-    expect(weekClosingText(aWeek({ met: true }))).toBe(
+    expect(weekClosingText(aWeek({ met: true }), es.format)).toBe(
       'meta cumplida. la semana que empieza mañana arranca en cero',
     );
   });
 
   it('promises a clean start when the goal was missed', () => {
-    expect(weekClosingText(aWeek())).toBe(
+    expect(weekClosingText(aWeek(), es.format)).toBe(
       'la semana que empieza mañana arranca en cero. sin rachas que perder',
     );
   });
@@ -152,13 +161,16 @@ describe('weekClosingText', () => {
 describe('habitProgressText', () => {
   it("says 'hecho' once the target is met", () => {
     expect(
-      habitProgressText({ habit: aHabit(), markedDays: 4, met: true, markedToday: true }),
+      habitProgressText({ habit: aHabit(), markedDays: 4, met: true, markedToday: true }, es.format),
     ).toBe('hecho');
+    expect(
+      habitProgressText({ habit: aHabit(), markedDays: 4, met: true, markedToday: true }, en.format),
+    ).toBe('done');
   });
 
   it('counts marked days against the target otherwise', () => {
     expect(
-      habitProgressText({ habit: aHabit(), markedDays: 2, met: false, markedToday: false }),
+      habitProgressText({ habit: aHabit(), markedDays: 2, met: false, markedToday: false }, es.format),
     ).toBe('2 de 4');
   });
 });

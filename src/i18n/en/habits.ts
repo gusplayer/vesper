@@ -1,0 +1,71 @@
+import type { habits as shape } from '../es/habits';
+
+export const habits: typeof shape = {
+  section: {
+    title: 'Habits this week',
+    healthTip: 'Health marks this habit',
+    verified: 'verified by Health',
+    verifiedSynced: (synced) => `verified by Health · ${synced}`,
+    declared: 'declared',
+    today: 'today',
+    todayMarked: 'today ✓',
+    todayUnmarked: 'today –',
+    markedByHealth: (name) => `${name}, Health marks it`,
+    markToday: (name) => `Mark ${name} today`,
+    unmarkToday: (name) => `Unmark ${name} today`,
+    edit: 'Edit habits',
+    add: 'Add habit',
+    help: '“today” marks today. The number is how many days you have this week.',
+    helpHealth:
+      '“today” marks today. The number is how many days you have this week. Health marks the verified ones on its own.',
+    fiveIsMax: 'Five is the maximum, on purpose.',
+  },
+  form: {
+    name: 'Name',
+    namePlaceholder: 'gym, read, sleep 7h',
+    timesPerWeek: 'Times per week',
+    howCounted: 'How it is counted',
+    declared: 'Declared',
+    declaredDescription: 'You mark it',
+    verified: 'Verified',
+    verifiedDescription: 'Health confirms it on its own',
+    verifiedUnavailable: 'Only for habits Health can confirm: workouts, walking, sleep',
+    prototypeNote: 'In the prototype Health does not confirm anything for real.',
+  },
+  new: {
+    title: 'New habit',
+    fullTitle: 'You already have five habits.',
+    fullDescription:
+      'Five is the maximum, on purpose: attention does not scale. Archive one to make room.',
+    left: (count) => (count === 1 ? 'You can have 1 more' : `You can have ${count} more`),
+  },
+  edit: {
+    title: 'Edit habit',
+    goneTitle: 'That habit is gone.',
+    goneDescription: 'Go back to activity and pick another.',
+    archiveQuestion: 'Archive this habit?',
+    archiveMessage: 'The marks stay and the habit stops counting.',
+    archive: 'Archive',
+    archiveHabit: 'Archive habit',
+    archiveCaption: 'Archiving deletes nothing: the marks stay and the habit stops counting.',
+  },
+  sync: {
+    never: 'not synced',
+    at: (clock) => `synced ${clock}`,
+  },
+  healthWeek: {
+    title: 'this week',
+    workouts: 'Workouts',
+    stepDays: 'Days with steps',
+    nights: 'Nights slept',
+    noHabit: 'no habit',
+    lastRead: 'Last read',
+    notYet: 'not yet',
+    readNow: 'Read Health now',
+  },
+  healthStatus: {
+    notIos: 'Health only exists on iPhone',
+    notLinked: 'This build does not include Health',
+    notAvailable: 'Health is not available on this device',
+  },
+};

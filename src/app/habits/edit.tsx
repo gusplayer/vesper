@@ -4,9 +4,11 @@ import { Alert } from 'react-native';
 import { useAppStore } from '../../data';
 import { Button, Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { HabitForm } from '../../features/habits/HabitForm';
+import { useStrings } from '../../i18n';
 
 /** Edit a habit, or archive it. Archiving keeps the marks; the habit just stops counting. */
 export default function EditHabitScreen() {
+  const t = useStrings();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const habit = useAppStore((state) => state.habits.find((h) => h.id === id) ?? null);
@@ -16,14 +18,14 @@ export default function EditHabitScreen() {
   if (habit === null) {
     return (
       <Screen>
-        <PageHeader title="Editar hábito" onBack={() => router.back()} />
+        <PageHeader title={t.habits.edit.title} onBack={() => router.back()} />
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
-              Ese hábito ya no está.
+              {t.habits.edit.goneTitle}
             </Text>
             <Text variant="label" tone="secondary">
-              Vuelve a la actividad y elige otro.
+              {t.habits.edit.goneDescription}
             </Text>
           </Stack>
         </Card>
@@ -32,10 +34,10 @@ export default function EditHabitScreen() {
   }
 
   const confirmArchive = () => {
-    Alert.alert('¿Archivar este hábito?', 'Las marcas siguen ahí y el hábito deja de contar.', [
-      { text: 'Cancelar', style: 'cancel' },
+    Alert.alert(t.habits.edit.archiveQuestion, t.habits.edit.archiveMessage, [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Archivar',
+        text: t.habits.edit.archive,
         style: 'destructive',
         onPress: () => {
           archiveHabit(habit.id);
@@ -47,10 +49,10 @@ export default function EditHabitScreen() {
 
   return (
     <HabitForm
-      title="Editar hábito"
+      title={t.habits.edit.title}
       initial={habit}
-      caption="Archivar no borra nada: las marcas siguen ahí y el hábito deja de contar."
-      secondary={<Button variant="ghost" label="Archivar hábito" onPress={confirmArchive} />}
+      caption={t.habits.edit.archiveCaption}
+      secondary={<Button variant="ghost" label={t.habits.edit.archiveHabit} onPress={confirmArchive} />}
       onSubmit={(values) => {
         upsertHabit({ ...values, id: habit.id });
         router.back();

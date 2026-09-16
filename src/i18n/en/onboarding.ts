@@ -1,0 +1,124 @@
+import type { onboarding as shape } from '../es/onboarding';
+
+export const onboarding: typeof shape = {
+  welcome: {
+    start: 'Get started',
+    legal: 'By continuing you accept the Terms and the Privacy policy.',
+    titleLine1: 'Your time is yours.',
+    titleLine2: 'Get back to what matters.',
+    subtitle: 'No account, no cloud. Everything stays on your phone.',
+  },
+  goal: {
+    title: 'What is your first mode for?',
+    subtitle: 'Each mode blocks the apps you pick. You can add more whenever you want.',
+    pickOne: 'Pick one',
+    options: {
+      work: 'Focus on work',
+      mindfulness: 'Be present',
+      family: 'Family time',
+      sleep: 'Sleep better',
+      noSocials: 'Less social media',
+    },
+  },
+  apps: {
+    title: (modeName) => `Good, your first mode is called ${modeName}`,
+    subtitle: 'Now pick the apps to block while you use it.',
+    limit: (max) => `Block up to ${max} distractions per mode. You can edit it whenever you want.`,
+    search: 'Search apps',
+    selected: 'Selected',
+    pickApps: 'Pick apps',
+  },
+  screenTime: {
+    title: 'Connect Vesper to Screen Time',
+    use: {
+      heading: 'How you will use it',
+      body: 'With access you pick which apps to block in your modes. Screen Time pauses them while you are focused.',
+    },
+    privacy: {
+      heading: 'How we use it',
+      body: 'We never see which apps you block or your history. Everything stays on your phone.',
+    },
+    why: {
+      heading: 'Why it matters',
+      body: 'This is how Vesper helps you make time with intention, without deleting apps.',
+    },
+    allow: 'Allow access',
+    asking: 'Asking…',
+    systemPrompt: 'iOS will ask you to confirm. You can change it later in Settings.',
+    continueWithout: (reason) => `You can go on without this: ${reason}.`,
+    connectFailed: 'Could not connect Screen Time',
+  },
+  health: {
+    title: 'Connect Health',
+    automatic: {
+      heading: 'Habits that mark themselves',
+      body: 'Gym, steps and sleep are confirmed with Health. You do not have to touch anything.',
+    },
+    privacy: {
+      heading: 'Never leaves the phone',
+      body: 'What Health shares is read here and goes to no server.',
+    },
+    verified: {
+      heading: 'Verified, not declared',
+      body: 'What Health confirms counts differently from what you declare. They are never added up.',
+    },
+    connect: 'Connect Health',
+    connecting: 'Connecting…',
+    notNow: 'Not now',
+    continueWithout: 'Continue without Health',
+  },
+  routine: {
+    title: (modeName) => `Make ${modeName} a routine?`,
+    yourMode: 'your mode',
+    subtitle: 'People with routines keep the habit 2.5 times longer.',
+    skip: 'Skip',
+    starts: 'Starts',
+    ends: 'Ends',
+    openEnd: 'Until you end it',
+    repeat: 'Repeat',
+    pickTime: 'Pick the time',
+    hour: 'Hour',
+    minutes: 'Minutes',
+  },
+  routineSet: {
+    save: 'Save routine',
+    edit: 'Edit routine',
+    cardTitle: (modeName) => `${modeName} · routine`,
+    modeLine: (modeName) => `Mode: ${modeName}`,
+    activeLabel: 'routine on',
+    title: 'Your routine is ready',
+    subtitle: 'You can edit it whenever you want in the Routines tab.',
+  },
+  notifications: {
+    allow: 'Allow notifications',
+    asking: 'Asking for permission…',
+    notNow: 'Not now',
+    kicker: 'Stay on track',
+    title: 'Get the most out of Vesper',
+    subtitle: 'Allow notifications for timely reminders that help you follow through.',
+    preview: {
+      title: 'Time slips away',
+      body: 'Vesper gets it back. Start a session.',
+      when: 'now',
+    },
+  },
+  tour: {
+    previous: 'previous',
+    focus: {
+      caption: 'Tap to focus',
+      title: 'Tap to focus. Tap again to come back.',
+      body: 'Pick a mode, tap the button and the apps you chose stay paused until you finish.',
+    },
+    emergency: {
+      rules: 'My rules',
+      unlocks: 'Emergency unlock',
+      title: 'You are covered in an emergency',
+      body: 'You have 5 emergency unlocks. Enough for when you really need them. You will find them in Settings.',
+    },
+    local: {
+      caption: 'Everything on your phone',
+      title: 'Nothing leaves your phone',
+      body: 'No account, no cloud. What you invest, what Health confirms and what you consume are counted apart and never added up.',
+    },
+  },
+};

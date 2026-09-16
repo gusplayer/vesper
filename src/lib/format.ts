@@ -1,12 +1,18 @@
 import type { HabitProgress } from '../domain/habits';
 import { HOUR, MINUTE, SECOND } from '../domain/time';
 import { hasTarget, type WeekProgress } from '../domain/week';
+import type { Strings } from '../i18n/es';
 
 /**
  * Presentation-only formatting. Lives outside domain/ because how a number reads is a
- * UI decision, not a rule of the product. Spanish, lowercase, like everything the
- * user sees.
+ * UI decision, not a rule of the product.
+ *
+ * Anything that is words takes the `format` slice of the dictionary (ADR-0020); the
+ * caller gets it from `useStrings().format` or `getStrings().format`. Numbers alone
+ * ('2h 15m', '21:30') read the same in every language and take nothing.
  */
+
+export type FormatStrings = Strings['format'];
 
 /** 'mm:ss', or 'h:mm:ss' past an hour. Used by the session clock. */
 export function timerText(ms: number): string {
@@ -50,17 +56,20 @@ export function minutesText(ms: number): string {
   return String(Math.round(ms / MINUTE));
 }
 
-/** 'domingo, 23 de agosto'. Lowercase, like everything else in the app. */
-export function dayText(now: number): string {
-  return new Date(now)
-    .toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' })
-    .toLowerCase();
+/**
+ * 'domingo, 23 de agosto' or 'Sunday, August 23', in the Intl tag of the current
+ * language (`useLocale().tag`). Spanish reads in lowercase, like the rest of the app;
+ * English keeps the capitals its day and month names carry.
+ */
+export function dayText(now: number, tag: string): string {
+  const text = new Date(now).toLocaleDateString(tag, { weekday: 'long', day: 'numeric', month: 'long' });
+  return tag.toLowerCase().startsWith('es') ? text.toLowerCase() : text;
 }
 
 /** '4h de 10h'. The progress of a week against its goal. */
-export function focusOfTargetText(week: WeekProgress): string {
+export function focusOfTargetText(week: WeekProgress, t: FormatStrings): string {
   return hasTarget(week.targetMs)
-    ? `${durationText(week.focusMs)} de ${durationText(week.targetMs)}`
+    ? t.ofTarget(durationText(week.focusMs), durationText(week.targetMs))
     : durationText(week.focusMs);
 }
 
@@ -69,31 +78,28 @@ export function focusOfTargetText(week: WeekProgress): string {
  * nothing about progress: the app does not invent a number to measure you against.
  * On Sunday it stops counting down and invites the closing — ADR-0013.
  */
-export function weekSummaryText(week: WeekProgress, closingDay: boolean): string {
+export function weekSummaryText(week: WeekProgress, closingDay: boolean, t: FormatStrings): string {
   if (closingDay) {
-    return 'cerrar la semana';
+    return t.closeWeek;
   }
   if (!hasTarget(week.targetMs)) {
-    return `${durationText(week.focusMs)} esta semana`;
+    return t.thisWeek(durationText(week.focusMs));
   }
   if (week.met) {
-    return `meta hecha · ${durationText(week.focusMs)}`;
+    return t.goalMet(durationText(week.focusMs));
   }
-  return `${focusOfTargetText(week)} · ${week.daysLeft}d`;
+  return `${focusOfTargetText(week, t)} · ${t.daysLeft(week.daysLeft)}`;
 }
 
 /** What the Sunday closing says under the numbers. */
-export function weekClosingText(week: WeekProgress): string {
+export function weekClosingText(week: WeekProgress, t: FormatStrings): string {
   if (!hasTarget(week.targetMs)) {
-    return 'no había meta esta semana. pon una para la que empieza mañana';
+    return t.closing.noTarget;
   }
-  if (week.met) {
-    return 'meta cumplida. la semana que empieza mañana arranca en cero';
-  }
-  return 'la semana que empieza mañana arranca en cero. sin rachas que perder';
+  return week.met ? t.closing.met : t.closing.missed;
 }
 
 /** 'hecho', or '2 de 4'. Done is a word, never a color. */
-export function habitProgressText(progress: HabitProgress): string {
-  return progress.met ? 'hecho' : `${progress.markedDays} de ${progress.habit.weeklyTarget}`;
+export function habitProgressText(progress: HabitProgress, t: FormatStrings): string {
+  return progress.met ? t.done : t.ofCount(progress.markedDays, progress.habit.weeklyTarget);
 }

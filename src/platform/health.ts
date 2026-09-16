@@ -7,6 +7,7 @@ import {
 } from '../domain/healthMarks';
 import { DAY } from '../domain/time';
 import type { DayKey, Millis } from '../domain/types';
+import { getStrings } from '../i18n';
 import { isIos, type CapabilityStatus } from './capabilities';
 
 /**
@@ -66,10 +67,6 @@ const READ_PERMISSIONS = ['Workout', 'StepCount', 'SleepAnalysis'] as const;
 /** Sleep stages that count as sleeping. 'INBED' and 'AWAKE' do not. */
 const ASLEEP_VALUES = new Set(['ASLEEP', 'CORE', 'DEEP', 'REM']);
 
-const REASON_NOT_IOS = 'Salud solo existe en iPhone';
-const REASON_NOT_LINKED = 'Este build no incluye Salud';
-const REASON_NOT_AVAILABLE = 'Salud no está disponible en este dispositivo';
-
 /** undefined: not tried yet. null: tried and missing. */
 let kitModule: HealthKitModule | null | undefined;
 
@@ -128,20 +125,22 @@ export function checkAvailability(): Promise<boolean> {
 /**
  * Synchronous, like every capability status. Optimistic while the availability probe
  * is in flight: the module is linked and this is an iPhone, so it almost surely works.
- * The probe corrects it to false on the rare device that has no HealthKit.
+ * The probe corrects it to false on the rare device that has no HealthKit. The reason
+ * is read from the dictionary at call time, so it follows the language (ADR-0020).
  */
 export function status(): CapabilityStatus {
+  const reasons = getStrings().habits.healthStatus;
   if (!isIos) {
-    return { available: false, reason: REASON_NOT_IOS };
+    return { available: false, reason: reasons.notIos };
   }
   if (loadModule() === null) {
-    return { available: false, reason: REASON_NOT_LINKED };
+    return { available: false, reason: reasons.notLinked };
   }
   if (deviceHasHealth === null) {
     void checkAvailability();
   }
   if (deviceHasHealth === false) {
-    return { available: false, reason: REASON_NOT_AVAILABLE };
+    return { available: false, reason: reasons.notAvailable };
   }
   return { available: true, reason: null };
 }

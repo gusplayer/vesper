@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { INIT_SQL } from '../migrations/001_init';
 import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
+import { demoActivities } from '../../data/seed';
+import { en } from '../../i18n/en';
+import { es } from '../../i18n/es';
 import * as activities from './activities';
 
 let fake = createFakeDb();
@@ -83,8 +86,18 @@ describe('insert', () => {
 });
 
 describe('seedDefaults', () => {
+  it('writes the labels of the language it is given, under the same keys', () => {
+    activities.seedDefaults(T0, demoActivities(en.demo));
+
+    const keys = fake.calls.map((call) => call.params?.[1]);
+    const labels = fake.calls.map((call) => call.params?.[2]);
+    expect(keys).toEqual(demoActivities(es.demo).map((activity) => activity.id));
+    expect(labels).toContain('work');
+    expect(labels).not.toContain('trabajo');
+  });
+
   it('issues one INSERT OR IGNORE per default activity', () => {
-    activities.seedDefaults(T0);
+    activities.seedDefaults(T0, demoActivities(es.demo));
 
     expect(fake.calls).toHaveLength(6);
     for (const call of fake.calls) {
@@ -106,7 +119,7 @@ describe('seedDefaults', () => {
 describe('schema', () => {
   it('only inserts columns that exist in the activities table', () => {
     activities.insert('gym', 'gym', T0);
-    activities.seedDefaults(T0);
+    activities.seedDefaults(T0, demoActivities(es.demo));
 
     const declared = ddlColumns(INIT_SQL, 'activities');
     for (const call of fake.calls) {

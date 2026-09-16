@@ -6,6 +6,7 @@ import { artworkFor, dotBudget, seedFor } from '../../domain/art/gallery';
 import { stipple, visibleDots } from '../../domain/art/stipple';
 import { elapsed } from '../../domain/session';
 import type { Session } from '../../domain/types';
+import { useStrings } from '../../i18n';
 
 type FocusArtProps = {
   session: Session;
@@ -21,6 +22,7 @@ type FocusArtProps = {
  * by the session id, computed once; each second only the visible count changes.
  */
 export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusArtProps) {
+  const t = useStrings().session.art;
   const artwork = useMemo(() => artworkFor(session.id), [session.id]);
   const dots = useMemo(
     () => stipple(artwork, dotBudget(session.plannedMs), seedFor(session.id)),
@@ -29,7 +31,9 @@ export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusAr
   const visible = visibleDots(dots.length, elapsed(session, now), session.plannedMs);
   const done = visible >= dots.length;
 
-  const label = `${artwork.name}, ${Math.round((visible / dots.length) * 100)} por ciento. Toca para volver al reloj`;
+  // The drawing is domain data; its name and caption are words, so they come from the dictionary.
+  const words = t.works[artwork.id];
+  const label = t.label(words.name, Math.round((visible / dots.length) * 100));
 
   if (layout === 'landscape') {
     return (
@@ -47,13 +51,11 @@ export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusAr
         {done ? (
           <>
             <Text variant="body" weight="medium">
-              {artwork.name}
+              {words.name}
             </Text>
-            {artwork.caption === undefined ? null : (
-              <Text variant="caption" tone="tertiary" align="center">
-                {artwork.caption}
-              </Text>
-            )}
+            <Text variant="caption" tone="tertiary" align="center">
+              {words.caption}
+            </Text>
           </>
         ) : null}
       </Stack>
