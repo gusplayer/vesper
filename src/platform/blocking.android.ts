@@ -39,9 +39,6 @@ let pendingCopy: ShieldCopy | null = null;
 
 const NO_RULES: BlockRules = { blockInstalls: false, blockPurchases: false, blockMature: false };
 
-/** The Android button goes home, not back to Vesper, so its label says just that. */
-const SHIELD_BUTTON = 'Volver';
-
 /** How long to wait for the app to leave the foreground after opening Settings. */
 const SETTINGS_LEAVE_TIMEOUT_MS = 1500;
 
@@ -220,7 +217,8 @@ export function applyPlan(plan: BlockPlan, endsAt?: number): void {
       ...(endsAt !== undefined && Number.isFinite(endsAt) ? { endsAt } : {}),
       shieldTitle: copy.title,
       shieldSubtitle: copy.subtitle,
-      shieldButton: SHIELD_BUTTON,
+      // The Android button goes home, not back to Vesper, so its label says just that.
+      shieldButton: getStrings().session.shield.home,
     }),
   );
 }
