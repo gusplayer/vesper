@@ -24,7 +24,9 @@ import androidx.core.app.NotificationCompat
  * asks for that, and it says what is happening: the shield title and 'Sesión de foco'.
  *
  * START_STICKY: if the system kills it, it comes back and reads the plan from
- * PlanStore. It stops itself on release() and at `endsAt`.
+ * PlanStore. It stops itself on release() and at `endsAt` (a main-looper callback
+ * while alive; an AlarmReceiver PLAN_END alarm if it was killed before then).
+ * `onStateChanged` tells the module, and through it JS, when it comes and goes.
  */
 class BlockingService : Service() {
   private val main = Handler(Looper.getMainLooper())
@@ -41,6 +43,7 @@ class BlockingService : Service() {
   override fun onCreate() {
     super.onCreate()
     isRunning = true
+    onStateChanged?.invoke(true)
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -69,6 +72,7 @@ class BlockingService : Service() {
 
   override fun onDestroy() {
     isRunning = false
+    onStateChanged?.invoke(false)
     main.removeCallbacks(stopAtEnd)
     watcher?.stop()
     watcher = null
@@ -158,18 +162,34 @@ class BlockingService : Service() {
     var isRunning: Boolean = false
       private set
 
+    /** Set by the module while JS is alive; called on the main thread with `isRunning`. */
+    @Volatile
+    var onStateChanged: ((Boolean) -> Unit)? = null
+
+    /**
+     * Saves the plan and starts the service. From a receiver with the app closed
+     * Android 12+ may refuse a background foreground-service start; the overlay
+     * permission exempts us, and the refusal is logged rather than thrown so an
+     * alarm never crashes the process.
+     */
     fun apply(context: Context, plan: Plan) {
       PlanStore.save(context, plan)
+      plan.endsAt?.let { WindowScheduler.armPlanEnd(context, it) } ?: WindowScheduler.cancelPlanEnd(context)
       val intent = Intent(context, BlockingService::class.java).setAction(ACTION_APPLY)
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        context.startForegroundService(intent)
-      } else {
-        context.startService(intent)
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          context.startForegroundService(intent)
+        } else {
+          context.startService(intent)
+        }
+      } catch (error: Exception) {
+        Log.w(TAG, "service start refused (${error.javaClass.simpleName}): ${error.message}")
       }
     }
 
     fun release(context: Context) {
       PlanStore.clear(context)
+      WindowScheduler.cancelPlanEnd(context)
       Shield.hide()
       context.stopService(Intent(context, BlockingService::class.java))
     }

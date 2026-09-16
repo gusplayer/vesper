@@ -5,9 +5,13 @@
  * ('completed'), for the session screens.
  * DEV_BLOCK_TEST is an Android package name: two seconds after launch the blocking
  * module shields it, so the shield can be checked from adb without tapping.
+ * DEV_WINDOW_TEST is an Android package name: on launch a routine window is
+ * registered with the OS that opens two minutes later and lasts three, so the alarms
+ * can be checked with the app process dead.
  */
 export const DEV_START_ROUTE: string | null = null;
 export const DEV_SESSION: 'running' | 'completed' | null = null;
 export const DEV_BLOCK_TEST: string | null = null;
+export const DEV_WINDOW_TEST: string | null = null;
 /** Marks onboarding done on launch, for driving the tabs on a fresh install. */
 export const DEV_SKIP_ONBOARDING = false;

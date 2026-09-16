@@ -14,6 +14,13 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <!--
+    Routine windows are AlarmManager alarms. Exact ones need this toggle (a Settings
+    page on Android 12+, off by default from 13); without it the alarms are inexact
+    and may land up to ten minutes late. Boot re-arms what a restart forgot.
+  -->
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
   <!--
     Package visibility (Android 11+): the picker lists launchable apps through this
@@ -55,5 +62,22 @@
       android:taskAffinity=""
       android:noHistory="true"
       android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+    <!-- Start and end alarms of routine windows, and the safety net under endsAt. -->
+    <receiver
+      android:name="com.gusplayer.vesper.blocking.AlarmReceiver"
+      android:exported="false" />
+
+    <!-- Re-arms every window after a reboot, an update or a clock change. -->
+    <receiver
+      android:name="com.gusplayer.vesper.blocking.BootReceiver"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIME_SET" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+      </intent-filter>
+    </receiver>
   </application>
 </manifest>

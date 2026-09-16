@@ -1,8 +1,10 @@
 import { AppState, type AppStateStatus } from 'react-native';
 
-import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode } from '../domain/blocking';
+import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { packageNamesFromToken } from '../domain/packageSelection';
+import { getStrings } from '../i18n';
 import type { NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
+import type { RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, type CapabilityStatus } from './capabilities';
 
 /**
@@ -15,6 +17,10 @@ import { isAndroid, type CapabilityStatus } from './capabilities';
  * walks the user through two Settings pages and checks again when the app comes back;
  * and the rules (installs, purchases, adult content) have no Android counterpart yet.
  *
+ * Routine windows (phase 2) are AlarmManager alarms armed by `scheduleWindow`: the
+ * shield rises and falls through the OS with the app closed. Their arithmetic is
+ * src/platform/routineWindows.ts, mirrored in Kotlin.
+ *
  * Every native call is wrapped: a build without the module, or a stale one, must
  * degrade to "no disponible", never to a red screen.
  */
@@ -24,8 +30,12 @@ type Module = VesperBlockingNative;
 /** Undefined until the first load; null when the module cannot be used here. */
 let cached: Module | null | undefined;
 
-/** The copy the next applyPlan sends. Set by configureShield, like the iOS shield. */
-let pendingCopy = shieldCopy('');
+/**
+ * The copy the next applyPlan sends. Set by configureShield, like the iOS shield;
+ * until then the nameless copy in the current language, resolved when first needed
+ * so the strings store is never read at module load.
+ */
+let pendingCopy: ShieldCopy | null = null;
 
 const NO_RULES: BlockRules = { blockInstalls: false, blockPurchases: false, blockMature: false };
 
@@ -34,6 +44,8 @@ const SHIELD_BUTTON = 'Volver';
 
 /** How long to wait for the app to leave the foreground after opening Settings. */
 const SETTINGS_LEAVE_TIMEOUT_MS = 1500;
+
+const NO_STATUS: NativeStatus = { usageAccess: false, overlay: false, running: false, exactAlarm: false, notifications: false };
 
 export type AuthorizationResult = 'approved' | 'denied' | 'unavailable';
 
@@ -117,6 +129,56 @@ export async function requestAuthorization(): Promise<AuthorizationResult> {
   return 'approved';
 }
 
+/**
+ * Exact alarms make a routine window open on the minute. Android 13+ turns the
+ * toggle off by default; this opens its page, waits for the user to come back and
+ * checks again. True when exact alarms are allowed (always, before Android 12).
+ */
+export async function requestExactAlarms(): Promise<boolean> {
+  const mod = nativeModule();
+  if (mod === null) {
+    return false;
+  }
+  if (safe(() => mod.canScheduleExactAlarms()) === true) {
+    return true;
+  }
+  const opened = await safeAsync(() => mod.openExactAlarmSettings());
+  if (!opened) {
+    return false;
+  }
+  await returnedToForeground();
+  return safe(() => mod.canScheduleExactAlarms()) ?? false;
+}
+
+/**
+ * The POST_NOTIFICATIONS dialog (Android 13+), so the session notification is seen.
+ * The service runs without it; this is for the user to know a session is on. True
+ * when notifications are enabled afterwards.
+ */
+export async function requestNotifications(): Promise<boolean> {
+  const mod = nativeModule();
+  if (mod === null) {
+    return false;
+  }
+  try {
+    return await mod.requestNotificationPermission();
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('[blocking]', errorMessage(error));
+    }
+    return false;
+  }
+}
+
+/** The battery-optimisation list, for phones whose makers kill services. */
+export function openBatterySettings(): void {
+  const mod = nativeModule();
+  if (mod === null) {
+    return;
+  }
+  void safeAsync(() => mod.openBatterySettings());
+}
+
 /** How many apps a token holds. Android has no categories or websites. */
 export function selectionSummary(token: string | null): SelectionSummary {
   return { apps: packageNamesFromToken(token).length, categories: 0, websites: 0 };
@@ -135,10 +197,12 @@ export function applyMode(mode: BlockableMode, rules: BlockRules = NO_RULES): vo
 
 /**
  * Applies a plan from src/domain/blocking: starts the foreground service with the
- * package names and the shield copy. The rules do not travel: Android has no
- * ManagedSettings, and nothing here pretends otherwise.
+ * package names and the shield copy. `endsAt` (epoch ms) makes the service stop
+ * itself then, even with JS gone; without it the plan lasts until release(). The
+ * rules do not travel: Android has no ManagedSettings, and nothing here pretends
+ * otherwise.
  */
-export function applyPlan(plan: BlockPlan): void {
+export function applyPlan(plan: BlockPlan, endsAt?: number): void {
   const mod = nativeModule();
   const kind = plan.kind;
   if (mod === null || !status().available || isEmptyPlan(plan) || kind === 'none') {
@@ -148,12 +212,14 @@ export function applyPlan(plan: BlockPlan): void {
   if (packageNames.length === 0) {
     return;
   }
+  const copy = pendingCopy ?? shieldCopy('', getStrings().session.shield);
   void safeAsync(() =>
     mod.applyPlan({
       packageNames,
       mode: kind,
-      shieldTitle: pendingCopy.title,
-      shieldSubtitle: pendingCopy.subtitle,
+      ...(endsAt !== undefined && Number.isFinite(endsAt) ? { endsAt } : {}),
+      shieldTitle: copy.title,
+      shieldSubtitle: copy.subtitle,
       shieldButton: SHIELD_BUTTON,
     }),
   );
@@ -168,9 +234,60 @@ export function release(): void {
   void safeAsync(() => mod.release());
 }
 
+/**
+ * Registers a routine window with AlarmManager, replacing one with the same id. The
+ * OS raises the window's plan at its start and lowers it at its end, app closed or
+ * not. A window whose token holds no package is cancelled instead: there would be
+ * nothing to shield. Needs both permissions, like applyPlan; without them the
+ * window is not registered and status() says why. Resolves, never rejects.
+ */
+export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
+  const mod = nativeModule();
+  if (mod === null) {
+    return;
+  }
+  const packageNames = packageNamesFromToken(spec.token);
+  if (packageNames.length === 0 || !status().available) {
+    await safeAsync(() => mod.cancelWindow(spec.id));
+    return;
+  }
+  await safeAsync(() =>
+    mod.scheduleWindow({
+      id: spec.id,
+      startMinute: spec.startMinute,
+      endMinute: spec.endMinute,
+      capMinutes: spec.capMinutes,
+      days: spec.days.slice(0, 7),
+      packageNames,
+      mode: spec.kind,
+      shieldTitle: spec.shieldTitle,
+      shieldSubtitle: spec.shieldSubtitle,
+      shieldButton: spec.shieldButton,
+    }),
+  );
+}
+
+/** Disarms and forgets a window. A plan it already raised runs until its end. Resolves, never rejects. */
+export async function cancelWindow(id: string): Promise<void> {
+  const mod = nativeModule();
+  if (mod === null) {
+    return;
+  }
+  await safeAsync(() => mod.cancelWindow(id));
+}
+
+/** Ids of the windows the OS currently holds, so a sync can cancel the orphans. */
+export async function listWindowIds(): Promise<string[]> {
+  const mod = nativeModule();
+  if (mod === null) {
+    return [];
+  }
+  return safe(() => mod.listWindows()) ?? [];
+}
+
 /** Remembers what the shield says; the next applyPlan carries it to the service. */
 export function configureShield(modeName: string): void {
-  pendingCopy = shieldCopy(modeName);
+  pendingCopy = shieldCopy(modeName, getStrings().session.shield);
 }
 
 /** True while the shield is covering an app. */
@@ -182,8 +299,33 @@ export function isShielding(): boolean {
   return safe(() => mod.isShielding()) ?? false;
 }
 
+/**
+ * True while the foreground service is alive. False with a plan applied means the
+ * system (or an OEM battery killer) took it down: the UI can say so.
+ */
+export function serviceAlive(): boolean {
+  const mod = nativeModule();
+  if (mod === null) {
+    return false;
+  }
+  return safe(() => mod.serviceAlive()) ?? false;
+}
+
+/**
+ * Calls `listener` when the service starts or stops. Returns the unsubscribe. A
+ * no-op where the module is missing.
+ */
+export function onServiceStateChanged(listener: (running: boolean) => void): () => void {
+  const mod = nativeModule();
+  if (mod === null) {
+    return () => undefined;
+  }
+  const subscription = safe(() => mod.addListener('onServiceStateChanged', (event) => listener(event.running)));
+  return () => subscription?.remove();
+}
+
 function nativeStatus(mod: Module): NativeStatus {
-  return safe(() => mod.getStatus()) ?? { usageAccess: false, overlay: false, running: false };
+  return safe(() => mod.getStatus()) ?? NO_STATUS;
 }
 
 /**
