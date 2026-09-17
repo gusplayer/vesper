@@ -9,9 +9,8 @@ import {
   Stack,
   Text,
 } from '../../design/components';
+import { VERSION_NUMBER } from '../../features/settings/version';
 import { useStrings } from '../../i18n';
-
-const VERSION_NUMBER = '2026.9.1';
 
 /** Acerca de Vesper: the object, the version, what the product is, and the legal rows. */
 export default function AboutScreen() {

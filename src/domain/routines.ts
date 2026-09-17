@@ -1,5 +1,5 @@
-import { dayBounds } from './day';
-import { DAY, HOUR, MINUTE } from './time';
+import { atMinuteOfDay, dayStartShifted } from './day';
+import { HOUR, MINUTE } from './time';
 import type { Millis } from './types';
 
 /**
@@ -17,7 +17,7 @@ export type RoutineLike = {
   /** Null means "until you end it" (capped by OPEN_END_CAP_MS). */
   endMinutes: number | null;
   /** Monday first. Ignored when startMinutes is null. */
-  days: ReadonlyArray<boolean>;
+  days: readonly boolean[];
   enabled: boolean;
   /** Session length for a hand-started routine; also the cap for an open-ended window. */
   durationMs: number | null;
@@ -47,16 +47,16 @@ function windowOnDay(routine: RoutineLike, dayAt: Millis): RoutineWindow | null 
   if (routine.startMinutes === null || !routine.days[weekdayOf(dayAt)]) {
     return null;
   }
-  const { dayStart } = dayBounds(dayAt);
-  const start = dayStart + routine.startMinutes * MINUTE;
+  // Wall-clock minutes, so 21:30 is 21:30 on a DST day too (atMinuteOfDay).
+  const start = atMinuteOfDay(dayAt, routine.startMinutes);
   let end: Millis;
   if (routine.endMinutes === null) {
     end = start + (routine.durationMs ?? OPEN_END_CAP_MS);
   } else if (routine.endMinutes > routine.startMinutes) {
-    end = dayStart + routine.endMinutes * MINUTE;
+    end = atMinuteOfDay(dayAt, routine.endMinutes);
   } else {
     // Crosses midnight: 21:30 → 06:30 ends the next day.
-    end = dayStart + DAY + routine.endMinutes * MINUTE;
+    end = atMinuteOfDay(dayStartShifted(dayAt, 1), routine.endMinutes);
   }
   return { start, end };
 }
@@ -66,8 +66,10 @@ export function activeWindow(routine: RoutineLike, now: Millis): RoutineWindow |
   if (!routine.enabled || isManual(routine)) {
     return null;
   }
-  // A window that crossed midnight may have started yesterday.
-  for (const dayAt of [now - DAY, now]) {
+  // A window that crossed midnight may have started yesterday. Yesterday is found on
+  // the calendar, not as `now - DAY`: on the day after a 23-hour DST day that
+  // subtraction skips a day and the window is missed.
+  for (const dayAt of [dayStartShifted(now, -1), now]) {
     const window = windowOnDay(routine, dayAt);
     if (window !== null && now >= window.start && now < window.end) {
       return window;
@@ -82,7 +84,7 @@ export function nextStart(routine: RoutineLike, now: Millis): Millis | null {
     return null;
   }
   for (let offset = 0; offset < 8; offset += 1) {
-    const window = windowOnDay(routine, now + offset * DAY);
+    const window = windowOnDay(routine, dayStartShifted(now, offset));
     if (window !== null && window.start >= now) {
       return window.start;
     }
@@ -116,7 +118,7 @@ export function routineStatus(routine: RoutineLike, now: Millis): RoutineStatus 
  * List order for the Rutinas tab: what is running first, then what comes soonest,
  * then the ones you start by hand, then the ones that are off.
  */
-export function sortRoutines<T extends RoutineLike>(routines: ReadonlyArray<T>, now: Millis): T[] {
+export function sortRoutines<T extends RoutineLike>(routines: readonly T[], now: Millis): T[] {
   const rank = (routine: T): [number, number] => {
     const status = routineStatus(routine, now);
     switch (status.kind) {
@@ -143,7 +145,7 @@ export function sortRoutines<T extends RoutineLike>(routines: ReadonlyArray<T>, 
  * started most recently wins: the later intention is the current one.
  */
 export function dueRoutine<T extends RoutineLike>(
-  routines: ReadonlyArray<T>,
+  routines: readonly T[],
   now: Millis,
 ): { routine: T; window: RoutineWindow } | null {
   let best: { routine: T; window: RoutineWindow } | null = null;
@@ -177,7 +179,7 @@ export type RoutineDecision =
  *   if its session was ended early. Ending it was a decision.
  */
 export function routineDecision(
-  routines: ReadonlyArray<RoutineLike>,
+  routines: readonly RoutineLike[],
   sessionRunning: boolean,
   lastMark: RoutineMark | null,
   now: Millis,

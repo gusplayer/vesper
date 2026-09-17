@@ -44,8 +44,6 @@ export const focus = {
     startsTomorrowAt: (name: string, time: string) => `${name} empieza mañana a las ${time}`,
   },
   recentDays: {
-    /** Monday-first initials for the grid header. X for miércoles, so no two match. */
-    weekdayInitials: ['L', 'M', 'X', 'J', 'V', 'S', 'D'],
     /** What VoiceOver reads for the grid: the count, then what a tap does. */
     gridSummary: (days: number) =>
       `Últimas cuatro semanas: ${days === 1 ? '1 día' : `${days} días`} con foco. Toca para ver la actividad`,

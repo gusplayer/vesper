@@ -18,8 +18,9 @@ export const DEPTHS = ['soft', 'firm', 'deep'] as const;
 export type Depth = (typeof DEPTHS)[number];
 
 /**
- * 'expired' is not a surrender: the process died mid-session and nobody closed the row.
- * See docs/ARCHITECTURE.md, "Muerte del proceso".
+ * 'completed' is the timer running out, whether or not the app was awake to see it.
+ * 'expired' is an open session reaching its 12 h cap: more likely forgotten than
+ * finished (ADR-0022). 'cancelled' is the user giving up.
  */
 export type SessionOutcome = 'running' | 'completed' | 'cancelled' | 'expired';
 

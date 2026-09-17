@@ -1,5 +1,5 @@
 import type { DayStat } from '../../data/types';
-import { dayBounds, dayKeyOf } from '../../domain/day';
+import { dayBounds, dayKeyOf, dayStartShifted } from '../../domain/day';
 import { served } from '../../domain/session';
 import { DAY } from '../../domain/time';
 import * as sessionsRepo from '../repositories/sessions';
@@ -14,26 +14,22 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
 }
 
-/** Local midnight `offset` days before the day containing `now`. Calendar days, not 24h. */
-function dayStartBefore(now: number, offset: number): number {
-  const date = new Date(now);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - offset).getTime();
-}
-
 /**
  * The stats of every day in the window, empty days included so the charts have a
- * bar for each. A session counts on the day it started and is clipped to it.
+ * bar for each. A session counts whole on the day it started: its focus is credited
+ * there even if it ran past midnight. Only its segment on the bar is clipped to the
+ * day, so the bar never overflows.
  *
  * A running session is left out on purpose: the home counter adds it live from the
  * focus store, and counting it here too would show it twice.
  */
 export function loadDayStats(now: number, days: number): DayStat[] {
-  const from = dayStartBefore(now, days - 1);
+  const from = dayStartShifted(now, -(days - 1));
   const to = dayBounds(now).dayEnd;
 
   const byDay = new Map<string, DayStat>();
   for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const dayKey = dayKeyOf(dayStartBefore(now, offset));
+    const dayKey = dayKeyOf(dayStartShifted(now, -offset));
     byDay.set(dayKey, { dayKey, focusMs: 0, sessions: 0, segments: [] });
   }
 

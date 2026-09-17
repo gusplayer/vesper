@@ -26,6 +26,8 @@ import { MINUTE } from '../../domain/time';
 import { daysText, overlaps, timeText } from '../../features/schedules/format';
 import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
+import { requestExactAlarms } from '../../platform/blocking';
+import { isAndroid } from '../../platform/capabilities';
 
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const MINUTE_STEPS = [0, 15, 30, 45];
@@ -62,7 +64,7 @@ export default function ScheduleEditScreen() {
 
   const existing = schedules.find((schedule) => schedule.id === id) ?? null;
 
-  const kindSegments: ReadonlyArray<{ value: Kind; label: string }> = [
+  const kindSegments: readonly { value: Kind; label: string }[] = [
     { value: 'timed', label: t.routines.edit.kindTimed },
     { value: 'manual', label: t.routines.edit.kindManual },
   ];
@@ -107,6 +109,11 @@ export default function ScheduleEditScreen() {
       ...when,
       enabled: existing?.enabled ?? true,
     });
+    // A timed window needs Android's exact-alarm toggle to open on the minute. This
+    // opens its page only while it is off; iOS resolves at once and does nothing.
+    if (kind === 'timed' && isAndroid) {
+      void requestExactAlarms();
+    }
     router.back();
   };
 
@@ -197,7 +204,7 @@ export default function ScheduleEditScreen() {
           }
         >
           <Card>
-            <DayPicker days={days} onChange={setDays} />
+            <DayPicker days={days} onChange={setDays} letters={t.format.weekdayInitials} labels={t.format.shortDays} />
           </Card>
         </Section>
       ) : (

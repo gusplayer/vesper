@@ -58,6 +58,8 @@ export const modes: typeof shape = {
     results: 'Results',
     noResults: 'Nothing by that name.',
     nothingYet: 'You have not picked anything yet.',
+    count: (selected, max) => `${selected} / ${max}`,
+    loading: 'Loading apps…',
   },
   apps: {
     search: 'Search apps',

@@ -1,5 +1,5 @@
 import type { LedgerStrings } from '../i18n/es/activity';
-import { served } from './session';
+import { occupiedIntervals } from './session';
 import {
   DECLARED_DAILY_CAP_MS,
   type HealthSample,
@@ -7,7 +7,6 @@ import {
   type LedgerInput,
   type LedgerRow,
   type Millis,
-  type Session,
 } from './types';
 
 /**
@@ -63,15 +62,6 @@ function unionMeasure(intervals: Interval[]): number {
   return total + (currentEnd - currentStart);
 }
 
-/**
- * The stretch of clock a session occupies: from its start, for as long as it served.
- * Not `[startedAt, endedAt]` — a session closed on returning from background has an
- * endedAt past its planned end, and it never gets credit for time it did not serve.
- */
-function sessionInterval(session: Session, now: Millis): Interval {
-  return { start: session.startedAt, end: session.startedAt + served(session, now) };
-}
-
 function sampleInterval(sample: HealthSample): Interval {
   return { start: sample.startedAt, end: sample.endedAt };
 }
@@ -113,13 +103,18 @@ export function buildLedger(input: LedgerInput, t: LedgerStrings): Ledger {
   }
 
   const declaredIntervals: Interval[] = [];
+  // A session covers the clock from its start for as long as it served, with its
+  // breaks cut out (occupiedIntervals). Not `[startedAt, endedAt]`: a session closed
+  // late never gets credit for time it did not serve, and a break is not focus.
   for (const session of input.sessions) {
-    const clipped = clip(sessionInterval(session, input.now), from, to);
-    if (clipped === null) {
-      continue;
+    for (const interval of occupiedIntervals(session, input.now)) {
+      const clipped = clip(interval, from, to);
+      if (clipped === null) {
+        continue;
+      }
+      declaredIntervals.push(clipped);
+      declaredGroups.get(session.activityId)?.intervals.push(clipped);
     }
-    declaredIntervals.push(clipped);
-    declaredGroups.get(session.activityId)?.intervals.push(clipped);
   }
 
   const verifiedGroups = new Map<string, { label: string; intervals: Interval[] }>();

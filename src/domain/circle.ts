@@ -1,4 +1,4 @@
-import { dayKeyOf, weekStart } from './day';
+import { dayKeyStart, shiftDayKey, weekDayKeys } from './day';
 import { WEEK } from './time';
 import {
   ME,
@@ -9,7 +9,6 @@ import {
   type Kudos,
   type Member,
   type MemberWeek,
-  type Millis,
   type Profile,
   type SharePrefs,
 } from './types';
@@ -29,27 +28,12 @@ export const DEFAULT_SHARE_PREFS: SharePrefs = { focus: true, habits: true, soci
 
 // --- Week keys ---------------------------------------------------------------------
 
-/** The DayKey of the Monday of the week containing `now`. */
-export function weekKeyOf(now: Millis): DayKey {
-  return dayKeyOf(weekStart(now));
-}
-
-/** Local midnight of a DayKey. The inverse of `dayKeyOf`, for the local zone. */
-export function dayKeyStart(key: DayKey): Millis {
-  const [year = 0, month = 1, day = 1] = key.split('-').map(Number);
-  return new Date(year, month - 1, day).getTime();
-}
-
-/** The DayKey `days` calendar days after `key` (negative goes back). DST-safe. */
-export function shiftDayKey(key: DayKey, days: number): DayKey {
-  const [year = 0, month = 1, day = 1] = key.split('-').map(Number);
-  return dayKeyOf(new Date(year, month - 1, day + days).getTime());
-}
-
-/** The seven DayKeys of a week, Monday first. */
-export function weekDayKeys(weekKey: DayKey): DayKey[] {
-  return Array.from({ length: 7 }, (_, i) => shiftDayKey(weekKey, i));
-}
+/**
+ * The calendar arithmetic lives in ./day with the rest of the day and week
+ * boundaries; it is re-exported here because the circle is where week keys are used
+ * most, and every caller that learned it here keeps working.
+ */
+export { dayKeyStart, shiftDayKey, weekDayKeys, weekKeyOf } from './day';
 
 /** The Monday DayKey of the last week of a challenge that starts on `startWeekKey`. */
 export function endWeekKeyFor(startWeekKey: DayKey, weeks: number): DayKey {
@@ -96,8 +80,8 @@ export type MyWeek = {
  * to know what the user chose.
  */
 export function circleWeek(
-  members: ReadonlyArray<Member>,
-  weeks: ReadonlyArray<MemberWeek>,
+  members: readonly Member[],
+  weeks: readonly MemberWeek[],
   me: { profile: Profile; week: MyWeek },
   weekKey: DayKey,
 ): CircleWeekRow[] {
@@ -140,13 +124,13 @@ export function circleWeek(
 // --- Kudos -------------------------------------------------------------------------
 
 /** Whether the user already cheered `toId` on `dayKey`. Once a day, no more. */
-export function kudosGivenToday(kudos: ReadonlyArray<Kudos>, toId: string, dayKey: DayKey): boolean {
+export function kudosGivenToday(kudos: readonly Kudos[], toId: string, dayKey: DayKey): boolean {
   return kudos.some((k) => k.fromId === ME && k.toId === toId && k.dayKey === dayKey);
 }
 
 /** The kudos the user received between Monday and today, inclusive. */
 export function kudosReceivedInWeek(
-  kudos: ReadonlyArray<Kudos>,
+  kudos: readonly Kudos[],
   weekKey: DayKey,
   todayKey: DayKey,
 ): Kudos[] {
@@ -157,7 +141,7 @@ export function kudosReceivedInWeek(
  * Who sent these kudos, one name per person in the order they first appear. Someone
  * no longer in the circle is left out: the line names people, not ids.
  */
-export function kudosSenderNames(kudos: ReadonlyArray<Kudos>, members: ReadonlyArray<Member>): string[] {
+export function kudosSenderNames(kudos: readonly Kudos[], members: readonly Member[]): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
   for (const k of kudos) {
@@ -225,9 +209,9 @@ export type Standing = {
  */
 export function challengeStandings(
   challenge: Challenge,
-  members: ReadonlyArray<Member>,
-  marks: ReadonlyArray<ChallengeMark>,
-  myMarks: ReadonlyArray<HabitMark>,
+  members: readonly Member[],
+  marks: readonly ChallengeMark[],
+  myMarks: readonly HabitMark[],
   profile: Profile | null,
   weekKey: DayKey,
 ): Standing[] {

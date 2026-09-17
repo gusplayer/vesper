@@ -15,8 +15,10 @@ columnas de fecha en texto.
 Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
 fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
-Hoy hay cuatro: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
-`003_routines.ts` (duración de rutinas) y `004_circle.ts` (ADR-0021).
+Hoy hay cinco: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
+`003_routines.ts` (duración de rutinas, ADR-0019), `004_circle.ts` (ADR-0021) y
+`005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022). El índice está
+en `src/db/migrations/index.ts`; se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
 
@@ -75,11 +77,8 @@ CREATE TABLE sessions (
   exit_reason   TEXT,                     -- texto escrito al rendirse en modo firme
   interruptions INTEGER NOT NULL DEFAULT 0,
   started_at    INTEGER NOT NULL,
-  ended_at      INTEGER,
-  open          INTEGER NOT NULL DEFAULT 0, -- 1 = sin límite; planned_ms es el tope de 12 h (ADR-0022)
-  break_ms      INTEGER NOT NULL DEFAULT 0, -- tiempo en pausas terminadas; nunca es foco
-  break_started_at INTEGER,                 -- la pausa en curso, NULL si no hay
-  next_break_at_ms INTEGER NOT NULL DEFAULT 1500000 -- foco acumulado al que se habilita la próxima pausa
+  ended_at      INTEGER
+  -- más las cuatro columnas de 005, abajo
 );
 CREATE INDEX idx_sessions_started ON sessions(started_at);
 
@@ -137,6 +136,29 @@ CREATE TABLE schedules (
 CREATE INDEX idx_schedules_mode ON schedules(mode_id);
 ```
 
+```sql
+-- 003_routines.ts (ADR-0019)
+
+-- Duración de una rutina sin hora ("cuando quieras"), y tope de una ventana abierta
+-- (end_minutes NULL). NULL deja los valores del motor (8 h para la ventana abierta).
+-- Una rutina sin hora guarda start_minutes = -1 (la columna es NOT NULL); el
+-- repositorio lo lee como null.
+ALTER TABLE schedules ADD COLUMN duration_ms INTEGER;
+```
+
+```sql
+-- 005_open_sessions_breaks.ts (ADR-0022)
+
+-- open: 1 = sin límite. planned_ms guarda entonces el tope de 12 h, no una elección.
+ALTER TABLE sessions ADD COLUMN open INTEGER NOT NULL DEFAULT 0;
+-- break_ms: tiempo en pausas terminadas. Nunca es foco; el reloj lo salta.
+ALTER TABLE sessions ADD COLUMN break_ms INTEGER NOT NULL DEFAULT 0;
+-- break_started_at: la pausa en curso, NULL si no hay.
+ALTER TABLE sessions ADD COLUMN break_started_at INTEGER;
+-- next_break_at_ms: foco acumulado al que se habilita la próxima pausa (25 min al empezar).
+ALTER TABLE sessions ADD COLUMN next_break_at_ms INTEGER NOT NULL DEFAULT 1500000;
+```
+
 ### Cómo usa las tablas el prototipo (ADR-0017)
 
 - **Sesiones.** El store de foco (`src/data/stores/focus.ts`) inserta la fila al
@@ -153,7 +175,7 @@ CREATE INDEX idx_schedules_mode ON schedules(mode_id);
 - **Hábitos y marcas.** `habits` y `habit_marks` tal cual. El editor de hábitos habla
   en claves de actividad; `habits.activity_id` recibe el id de fila resuelto.
   `replaceHealthMarks` borra todas las marcas `source = 'health'` y escribe las que
-  Salud reporta ahora; las manuales no se tocan.
+  Salud reporta ahora; las manuales no se tocan. Solo en iOS: en Android Salud no existe.
 - **Datos de demostración.** `bootDatabase` los siembra una sola vez (modos, horarios,
   hábitos, marcas de la semana y ~10 semanas de sesiones completadas generadas por
   `seedDemoSessions` en `src/data/seed.ts`). La guarda es la clave `demo_seeded_at`,
@@ -258,9 +280,17 @@ flujo. Todo lo demás del círculo (cuatro personas, dos semanas, dos kudos, un 
 una invitación pendiente) se siembra con el resto y se borra con "Borrar todo y
 reiniciar".
 
-### Fase 1.5 — salud
+### Previsto y sin migración: salud, bloqueo y uso
+
+Las tres tablas que siguen **no existen** en `src/db/migrations/`. Quedan como diseño
+para cuando hagan falta. Hoy Salud no guarda muestras: `useHealthSync` lee la semana de
+HealthKit y `domain/healthMarks` la convierte en `habit_marks` con `source = 'health'`
+(ids deterministas `hm-<hábito>-<día>`, reemplazadas enteras en cada lectura). Y el
+bloqueo no tiene perfiles: el modo es el perfil, su selección vive en
+`modes.selection_token` y la sesión guarda el id del modo en `sessions.block_profile`.
 
 ```sql
+-- No existe. Diseño previsto para muestras de Salud.
 CREATE TABLE health_samples (
   id           TEXT PRIMARY KEY,
   external_id  TEXT UNIQUE,               -- uuid de HealthKit / Health Connect
@@ -277,9 +307,8 @@ CREATE INDEX idx_health_started ON health_samples(started_at);
 
 `external_id` con `UNIQUE` es lo que hace idempotente el sync incremental.
 
-### Fase 2 — bloqueo y uso
-
 ```sql
+-- No existen. Diseño previsto para perfiles de bloqueo y eventos de uso (fase 3).
 CREATE TABLE block_profiles (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -318,25 +347,22 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 
 | key | valor | notas |
 |---|---|---|
-| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: onboarding, permisos "concedidos", reglas, notificaciones, desbloqueos de emergencia, fecha de nacimiento, expectativa de vida, meta semanal, banner pendiente y última sincronización de Salud. Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
+| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`), `rules`, `notifications`, `birthDate`, `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `pendingBanner`, `healthSyncedAt` y `lastRoutineStart` (la última ventana de rutina que arrancó, para no arrancarla dos veces). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
 | `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
 | `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
 | `language` | `auto` \| `es` \| `en` | Ajustes › Idioma (ADR-0020). Ausente o inválida se lee como `auto`, que sigue el idioma del teléfono. Se borra con todo lo demás en "Borrar todo y reiniciar" |
-| `circle_profile` | JSON | La identidad del usuario en el círculo (ADR-0021): `{id, name, handle, createdAt}`. `id` es UUID v7, `handle` va en minúsculas. Ausente hasta que el usuario crea su perfil; un valor corrupto o incompleto se lee como `null` y el flujo de crear perfil vuelve a correr (`settings.getProfile`). No se siembra `codeGeneration` (entero, 0 si falta) entra en el código de invitación: subirlo invalida el anterior. |
+| `circle_profile` | JSON | La identidad del usuario en el círculo (ADR-0021): `{id, name, handle, createdAt}`. `id` es UUID v7, `handle` va en minúsculas. Ausente hasta que el usuario crea su perfil; un valor corrupto o incompleto se lee como `null` y el flujo de crear perfil vuelve a correr (`settings.getProfile`). No se siembra. `codeGeneration` (entero, 0 si falta) entra en el código de invitación: subirlo invalida el anterior |
 | `circle_share` | JSON | Qué comparte el usuario con el círculo: `{focus, habits, social}`. Se valida interruptor por interruptor (`settings.getSharePrefs`); ausente o corrupto vuelve a `{focus: true, habits: true, social: false}`. Lo que está en `false` no sale del teléfono |
-| `last_session_config` | JSON | fase 1. `{activityId, plannedMs, depth, blockProfile}`. Se valida al leer con `domain/session.resolveSessionConfig`. El prototipo no la usa: la duración elegida vive en memoria |
-| `birth_date` | epoch ms | **superseded** por `prototype_settings.birthDate` desde ADR-0017 |
-| `life_expectancy_years` | número | **superseded** por `prototype_settings.lifeExpectancyYears` |
-| `weekly_focus_target_ms` | número | **superseded** por `prototype_settings.weeklyTargetMs` (`null` para "ninguna"). `settings.getWeeklyTargetMs` sigue leyendo la clave vieja para la query de fase 1 |
-| `onboarding_completed_at` | epoch ms | **superseded** por `prototype_settings.onboardingDone`, que el tour escribe al terminar |
+Las claves de la fase 1 `last_session_config`, `birth_date`, `life_expectancy_years`,
+`weekly_focus_target_ms` y `onboarding_completed_at` **ya no existen en el código**
+(ADR-0026): sus valores viven en `prototype_settings` desde ADR-0017 y sus accesores se
+borraron con `repositories/sessionConfig.ts`. Una base vieja puede conservar la fila;
+nadie la lee y "Borrar todo y reiniciar" la vacía.
 
-Las cuatro claves marcadas como superseded no se escriben ni se leen desde el prototipo:
-una sola fuente de verdad (el JSON) evita mantener dos copias en sincronía. Sus
-accesores en `settings.ts` quedan para la capa de fase 1 y sus tests.
-
-Todo valor se escribe desde el flujo que lo usa (ADR-0007). `life_screen_enabled` existió
-en el papel y se eliminó del código: la página de vida siempre está en el pager y no hay
-onboarding donde declinarla.
+Todo valor se escribe desde el flujo que lo usa (ADR-0007 en su fondo: Ajustes muestra,
+el flujo escribe). `life_screen_enabled` existió en el papel y se eliminó del código: las
+semanas de vida viven en Actividad › De por vida y la fecha en Ajustes › Vida; sin fecha,
+la tarjeta invita y no cuenta.
 
 ## Invariantes
 
@@ -355,13 +381,15 @@ onboarding donde declinarla.
    dentro de un índice UNIQUE, y se podrían insertar N marcas manuales el mismo día.
 7. Al arrancar la app y al volver al frente, la sesión con `outcome = 'running'` se
    asienta (`domain/session.settle`): una pausa que pasó sus 15 minutos termina en su
-   fin, y una sesión cuyo `started_at + planned_ms + break_ms` ya pasó se cierra como
-   `expired` en ese instante. Sin esa recuperación el invariante 1 bloquea la app para
+   fin, y una sesión cuyo `started_at + planned_ms + break_ms` ya pasó se cierra en ese
+   instante con su veredicto: `completed` si tenía duración elegida, `expired` solo si
+   era sin límite y tocó el tope de 12 h (ADR-0026). `SessionGate` usa el mismo
+   `settle` al volver al frente. Sin esa recuperación el invariante 1 bloquea la app para
    siempre si el proceso muere en medio de una sesión. Una sesión todavía dentro de su
    ventana se retoma: el store de foco la hidrata y vuelve a poner el tema oscuro.
-9. Una sesión sin límite nunca es `deep`: se crea como `firm`. Una pausa solo existe con
+8. Una sesión sin límite nunca es `deep`: se crea como `firm`. Una pausa solo existe con
    `depth` distinto de `deep`, dura 15 minutos como máximo, y hay una nueva cada 25
    minutos de foco (ADR-0022).
-8. Los stores de `src/data/` son una caché de la base, nunca la fuente. Cada acción
+9. Los stores de `src/data/` son una caché de la base, nunca la fuente. Cada acción
    escribe por su repositorio **antes** de tocar el estado; `hydrate()` los rellena al
    arrancar y después de un reinicio.

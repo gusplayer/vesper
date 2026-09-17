@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 
-import { useAppStore } from '../../data';
+import { useAppStore, useSettings } from '../../data';
 import {
   Button,
   Card,
@@ -13,8 +13,7 @@ import {
   Screen,
   Stack,
   Text,
-} from '../../design/components';
-import { ThemeScope } from '../../design/components';
+ ThemeScope } from '../../design/components';
 import { useStrings, type Strings } from '../../i18n';
 
 type Step = {
@@ -24,7 +23,7 @@ type Step = {
 };
 
 /** The three pages, built from the dictionary so they follow a language change. */
-function tourSteps(t: Strings['onboarding']['tour']): ReadonlyArray<Step> {
+function tourSteps(t: Strings['onboarding']['tour'], emergencyTotal: number): readonly Step[] {
   return [
     {
       preview: (
@@ -42,7 +41,7 @@ function tourSteps(t: Strings['onboarding']['tour']): ReadonlyArray<Step> {
       preview: (
         <ListGroup>
           <ListRow label={t.emergency.rules} />
-          <ListRow label={t.emergency.unlocks} value="5" />
+          <ListRow label={t.emergency.unlocks} value={String(emergencyTotal)} />
         </ListGroup>
       ),
       title: t.emergency.title,
@@ -67,9 +66,10 @@ function tourSteps(t: Strings['onboarding']['tour']): ReadonlyArray<Step> {
 export default function TourScreen() {
   const t = useStrings();
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const emergencyTotal = useSettings().emergencyTotal;
   const [index, setIndex] = useState(0);
 
-  const steps = tourSteps(t.onboarding.tour);
+  const steps = tourSteps(t.onboarding.tour, emergencyTotal);
   const step = steps[index] ?? steps[0];
   const last = index === steps.length - 1;
 

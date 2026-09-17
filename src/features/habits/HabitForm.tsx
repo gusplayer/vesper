@@ -39,7 +39,7 @@ type HabitFormProps = {
 };
 
 /** Auto-link the habit to an activity when the name is one (ADR-0008). */
-function activityIdFor(name: string, activities: ReadonlyArray<Activity>): string | null {
+function activityIdFor(name: string, activities: readonly Activity[]): string | null {
   const key = name.toLowerCase();
   return activities.find((activity) => activity.id === key || activity.label === key)?.id ?? null;
 }

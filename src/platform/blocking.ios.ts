@@ -107,7 +107,10 @@ export async function requestAuthorization(): Promise<AuthorizationResult> {
   try {
     await mod.requestAuthorization('individual');
   } catch (error) {
-    if (isCancellation(error)) {
+    // FamilyControls throws when the user says no as well as when the app itself is
+    // refused. The status tells them apart better than the error text: a denial is
+    // recorded there, and must not be mistaken for a missing entitlement.
+    if (isCancellation(error) || authorizationStatus(mod) === mod.AuthorizationStatus.denied) {
       return 'denied';
     }
     // Anything else is the system refusing the app itself: no entitlement, a device
@@ -350,6 +353,11 @@ export function serviceAlive(): boolean {
 /** Nothing to open on iOS. */
 export async function openBatterySettings(): Promise<boolean> {
   return false;
+}
+
+/** iOS has no service to come and go; the listener never fires. Returns the unsubscribe. */
+export function onServiceStateChanged(_listener: (running: boolean) => void): () => void {
+  return () => undefined;
 }
 
 /** Selection id, shield id and action prefix of a routine, all the same string. */

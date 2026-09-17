@@ -15,7 +15,7 @@ const SPAN = GROUND - TIP;
  * tip), in unit space. Real proportions: the base is a little over a third of the
  * height; the first floor sits at 0.18, the second at 0.36, the third at 0.85.
  */
-const PROFILE: ReadonlyArray<Point> = [
+const PROFILE: readonly Point[] = [
   [0.0, 0.18],
   [0.03, 0.158],
   [0.07, 0.138],

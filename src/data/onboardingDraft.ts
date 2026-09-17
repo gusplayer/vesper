@@ -22,8 +22,8 @@ type OnboardingDraft = {
   modeId: string | null;
   scheduleId: string | null;
 
-  setGoal: (goalId: string, modeName: string, appIds: ReadonlyArray<string>) => void;
-  setAppIds: (appIds: ReadonlyArray<string>) => void;
+  setGoal: (goalId: string, modeName: string, appIds: readonly string[]) => void;
+  setAppIds: (appIds: readonly string[]) => void;
   setSchedule: (patch: Partial<DraftSchedule>) => void;
   markCommitted: (modeId: string, scheduleId: string | null) => void;
   reset: () => void;

@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Pressable } from 'react-native';
 
-import { Chip, Icon, Sheet, Stack, Text } from '../../design/components';
+import { Chip, Icon, Sheet, Stack, Tappable, Text } from '../../design/components';
 import { PLANNED_OPTIONS_MS, usePlannedStore } from '../../data/modes';
 import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
@@ -27,14 +26,14 @@ export function DurationPicker() {
 
   return (
     <>
-      <Pressable onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={row.label(current)}>
+      <Tappable onPress={() => setOpen(true)} accessibilityLabel={row.label(current)}>
         <Stack direction="row" align="center" justify="center" gap="xs">
           <Text variant="label" tone="secondary">
             {current}
           </Text>
           <Icon name="chevron-down" size="sm" tone="secondary" />
         </Stack>
-      </Pressable>
+      </Tappable>
 
       <Sheet visible={open} title={t.title} onClose={close}>
         <Stack direction="row" gap="sm" wrap>

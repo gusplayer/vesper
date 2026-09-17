@@ -67,7 +67,7 @@ export function daysLeftInWeek(now: Millis): number {
 }
 
 export function weekProgress(
-  sessions: ReadonlyArray<Session>,
+  sessions: readonly Session[],
   targetMs: number | null,
   now: Millis,
 ): WeekProgress {

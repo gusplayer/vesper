@@ -114,7 +114,7 @@ export type DayStat = {
   focusMs: number;
   sessions: number;
   /** Session windows as fractions of the day, for the segmented bar. */
-  segments: Array<{ start: number; end: number }>;
+  segments: { start: number; end: number }[];
 };
 
 export type UsageEstimate = {
@@ -122,7 +122,7 @@ export type UsageEstimate = {
   todayMs: number;
   weekMs: number;
   /** Per app, today. */
-  byApp: Array<{ appId: string; ms: number }>;
+  byApp: { appId: string; ms: number }[];
 };
 
 export type HealthSummary = {

@@ -95,11 +95,17 @@ export const activity = {
     noDayYet: 'Todavía ninguno.',
     since: (month: string) => `Desde ${month}.`,
   },
+  /** The vertical bar charts: the pill on the average line. */
+  chart: {
+    average: 'PROM',
+  },
   today: {
     title: 'Hoy',
     focused: 'Enfocado',
     social: 'Redes (estimado)',
     socialDescription: 'siempre un piso, nunca exacto',
+    /** '≥ 2h 10m': the social figure is a floor (ADR-0004). */
+    atLeast: (duration: string) => `≥ ${duration}`,
     unregistered: 'Sin registrar',
     footer: 'Tres monedas separadas. Nunca se suman.',
   },

@@ -6,7 +6,7 @@ import { dayKeyOf, weekStart } from '../../domain/day';
 import { healthTypeFor } from '../../domain/habits';
 import type { Habit, HabitMark, HealthType } from '../../domain/types';
 import { useStrings } from '../../i18n';
-import { clockText } from './format';
+import { clockText } from '../../lib/format';
 
 type HealthWeekSummaryProps = {
   now: number;
@@ -17,7 +17,7 @@ type HealthWeekSummaryProps = {
 type Counts = Record<HealthType, number | null>;
 
 /** One row per health type, in the order the page lists them. */
-const ROWS: ReadonlyArray<HealthType> = ['workout', 'steps', 'sleep'];
+const ROWS: readonly HealthType[] = ['workout', 'steps', 'sleep'];
 
 /**
  * What Health confirmed this week, counted from the marks it produced: distinct days
@@ -25,8 +25,8 @@ const ROWS: ReadonlyArray<HealthType> = ['workout', 'steps', 'sleep'];
  * so instead of showing a zero that means nothing.
  */
 function countWeek(
-  habits: ReadonlyArray<Habit>,
-  habitMarks: ReadonlyArray<HabitMark>,
+  habits: readonly Habit[],
+  habitMarks: readonly HabitMark[],
   now: number,
 ): Counts {
   const fromKey = dayKeyOf(weekStart(now));

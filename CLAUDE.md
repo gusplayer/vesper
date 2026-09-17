@@ -4,34 +4,45 @@ Instrucciones para Claude Code trabajando en **Vesper**.
 
 ## Qué es Vesper
 
-App móvil de foco y asignación de tiempo. Modos que bloquean apps, sesiones con
-profundidad, hábitos, meta semanal y conciencia del tiempo de vida. Desde ADR-0016 la UI
-sigue de cerca a Brick (iOS) y el repo contiene un **prototipo navegable de todas las
-fases con datos falsos** sobre una capa de datos en memoria (`src/data/`).
+App móvil de foco y asignación de tiempo. Modos que bloquean apps, rutinas que los
+encienden, sesiones con profundidad, hábitos, meta semanal, conciencia del tiempo de vida
+y un círculo pequeño. Desde ADR-0016 la UI sigue de cerca a Brick (iOS). Desde ADR-0017
+la app es real por dentro: SQLite, notificaciones, Salud, Live Activity y bloqueo detrás
+de `src/platform/`; los datos de demostración se siembran una vez y se borran desde
+Ajustes. Lo único que sigue siendo de demostración es el círculo (sin backend, ADR-0021).
 
-Lee `docs/STATUS.md` para saber dónde quedó todo antes de empezar.
+Lee `docs/STATUS.md` para saber qué existe, qué está verificado y dónde, antes de empezar.
 Lee `docs/PRD.md` antes de tomar cualquier decisión de producto.
+Lee `docs/ARCHITECTURE.md` antes de tocar datos, plataforma o navegación.
 Lee `docs/DESIGN_SYSTEM.md` antes de escribir cualquier componente de UI.
 Lee `docs/PROTOTYPE_GUIDE.md` antes de escribir cualquier pantalla.
-Lee `docs/adr/` antes de proponer cambios de arquitectura.
+Lee `docs/adr/README.md` antes de proponer cambios de arquitectura; ahí dice qué ADR
+sigue vigente y cuál fue superado.
 
 ## Reglas duras (no negociables sin un ADR nuevo)
 
 1. **Cuatro pestañas de solo texto**: Focus, Rutinas, Actividad, Ajustes. La sesión activa
-   y su cierre son rutas a pantalla completa sin gesto de volver (ADR-0016, ADR-0009).
+   y sus salidas (`session/*`) son rutas a pantalla completa sin gesto de volver
+   (ADR-0016, ADR-0009, ADR-0025).
 2. **Un botón primario por pantalla**, pinneado abajo. Lo secundario es `ghost` o una fila.
 3. **Ningún color ni tamaño literal fuera de `src/design/tokens.ts`.** Las pantallas no
    importan tokens ni tema: solo componentes de `src/design/components`.
 4. **Máximo 5 hábitos** por usuario. Es una decisión de producto, no una limitación técnica.
-5. **Dos esquemas, una paleta de roles.** Claro en la app, oscuro en la sesión. Nunca `#000` ni `#fff`.
-6. **Sin animaciones de spring, escala o parallax.** Fade de 160 ms entre rutas, sin rebote de scroll.
+5. **Dos esquemas, una paleta de roles.** Claro en la app, oscuro en la sesión; la pausa
+   vuelve a claro. Nunca `#000` ni `#fff`.
+6. **Sin animaciones de spring, escala o parallax.** Fade de 160 ms entre rutas, sin rebote
+   de scroll. Lo único que se anima es opacidad (disoluciones, grilla, respiración).
 7. **Local-first.** La app funciona completa sin red y sin cuenta. No agregues backend sin ADR.
-8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué no (ADR-0012, ADR-0017).
+8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un
+   permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué
+   no (ADR-0017). El onboarding puede pedirlos, pero nunca los exige (ADR-0026).
 9. **Nunca sumar tiempo verificado y declarado en una misma métrica.** Ver ADR-0005.
 10. **Nunca persistir datos de `DeviceActivityReport`.** Es técnicamente imposible y arquitectónicamente prohibido. Ver ADR-0004.
 11. **El círculo no notifica, no rankea y no tiene feed.** Hasta 12 personas por invitación,
     comparación sin posiciones, ánimo una vez al día, y cada métrica se comparte solo si el
     usuario lo elige. Un reto ocupa un hábito (regla 4). Ver ADR-0021.
+12. **Nada que muestre el sistema con la app cerrada depende de un temporizador de JS.**
+    Relojes nativos en la Live Activity y en la notificación de Android. Ver ADR-0023.
 
 ## Stack
 
@@ -42,20 +53,29 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 
 - Expo SDK con dev client (no Expo Go — ver ADR-0001)
 - TypeScript estricto, sin `any`
-- expo-router para navegación
-- op-sqlite para persistencia
-- Zustand para estado de UI efímero
+- expo-router para navegación (`Stack` con guardas: onboarding o app)
+- op-sqlite para persistencia; migraciones `001`–`005` en `src/db/migrations/`
+- Zustand para las cachés de la base (`src/data/stores/`) y el estado efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
+- `src/app/`: rutas de expo-router. `src/features/<área>/`: piezas compartidas por varias
+  pantallas de un área. `src/dev/`: `DevJump` y las banderas de `route.ts`, solo en dev
 - `src/data/`: stores zustand que cachean SQLite. Hidratan al arrancar y escriben a través
   de `src/db/repositories/`. La UI solo habla con los hooks de `src/data/index.ts`
 - `src/db/`: SQLite con migraciones; `queries/` deriva modelos de lectura (estadísticas por
   día salen de `sessions`, no se guardan)
+- `src/domain/`: puro. Sesión, rutinas, bloqueo, ritual de salida, círculo, arte de foco
 - `src/platform/`: una capa por capacidad nativa (notificaciones, Salud, Live Activity,
-  bloqueo). Cada módulo expone `status()` y degrada sin romper; se suscribe a los stores
-  desde `src/platform/hooks/`, nunca al revés. Ver ADR-0017
-- vitest para `src/domain/`, `src/lib/`, `src/db/` y `src/store/`
-- react-native-health (iOS) / react-native-health-connect (Android) en fase 1.5
+  bloqueo, orientación, círculo). Cada módulo expone `status()` y degrada sin romper; se
+  suscribe a los stores desde `src/platform/hooks/`, montados en `PlatformEffects`. Ver ADR-0017
+- `src/widgets/FocusActivity.tsx`: la Live Activity (expo-widgets). `modules/vesper-blocking/`:
+  módulo Expo local en Kotlin para el bloqueo en Android. `targets/`: las tres extensiones
+  de Screen Time en iOS. `patches/`: parche de `react-native-health`
+- vitest sobre `src/**/*.test.ts`: dominio, lib, db (con handle falso), data, i18n y las
+  funciones puras de features y platform. Sin tests de UI: las pantallas se verifican
+  corriendo la app
+- Salud: `react-native-health` solo en iOS. En Android `status()` dice que no existe;
+  Health Connect no está integrado
 
 ## Convenciones de código
 
@@ -69,7 +89,8 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   área, y llega a la UI por `useStrings()` (o `getStrings()` fuera de React). El dominio
   habla en identificadores y recibe el diccionario por parámetro; nunca importa el store.
 - Fechas siempre en epoch ms (`number`), nunca strings. Conversión a local solo en la capa de UI.
-  La única excepción es `habit_marks.day_key`, y está justificada en `docs/DATA_MODEL.md`.
+  La única excepción es `habit_marks.day_key` (y las `week_key`/`day_key` del círculo), y
+  está justificada en `docs/DATA_MODEL.md`.
 - **Código en inglés, UI en español e inglés.** Identificadores, comentarios, nombres de
   archivo y mensajes de commit en inglés. Ningún string visible se escribe en una pantalla:
   cada uno se escribe dos veces, en `src/i18n/es/<área>.ts` y `src/i18n/en/<área>.ts`, o
@@ -90,19 +111,30 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 
 ## Cómo trabajar
 
-- Antes de implementar una pantalla, verifica que exista en el PRD. Si no existe, pregunta.
+- Antes de implementar una pantalla, verifica que exista en el PRD o en el mapa de
+  `docs/PROTOTYPE_GUIDE.md`. Si no existe, pregunta.
 - Antes de agregar una dependencia, justifícala. El bundle importa.
 - Cuando una decisión tenga más de una opción razonable, escribe un ADR en `docs/adr/` con el siguiente número disponible y pregunta antes de implementar.
-- Corre `npx tsc --noEmit` antes de dar por terminada cualquier tarea.
+- Para revisar una pantalla sin teclear, usa las banderas de `src/dev/route.ts`
+  (`DEV_START_ROUTE`, `DEV_SESSION`, …) y déjalas en `null`/`false` antes de commitear.
+  Un solo agente por simulador o emulador a la vez.
+- Corre `npx tsc --noEmit`, `npm run lint` y `npx vitest run` antes de dar por terminada cualquier
+  tarea. El linter (`eslint.config.js`) codifica las capas: el dominio no importa React ni la
+  base; las pantallas no importan tokens ni SQL; nada suma `n * DAY` a un instante (usa
+  `domain/day.ts`).
+- Al cerrar una tanda, actualiza `docs/STATUS.md`: qué se verificó y dónde.
 
 ## Qué NO hacer
 
-- No agregues librerías de UI ni de gráficos. Los componentes son 32 y se escriben a mano;
-  las barras y grillas se dibujan con `View`.
+- No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
+  `src/design/components/index.ts`, hoy 51) se escriben a mano; las barras, grillas y el QR se
+  dibujan con `View` y `react-native-svg`.
 - No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal. En el
   círculo tampoco: sin puntos, sin medallas, sin contador de ánimos.
-- No implementes bloqueo de apps real: lo que existe es su UI con datos falsos. Ver ADR-0003 y ADR-0016.
-- No presentes como real lo que `src/platform/` reporta como no disponible. Los datos de
-  demostración se siembran una vez y se borran desde Ajustes.
+- No simules una capacidad con un flag. El bloqueo, Salud, las notificaciones y la Live
+  Activity son reales detrás de `src/platform/`; lo que no está disponible lo dice
+  `status().reason` y la pantalla lo muestra. No presentes como verificado lo que
+  `docs/STATUS.md` marca como sin verificar.
 - No uses `AccessibilityService` en Android bajo ninguna circunstancia. Ver `docs/PLATFORM_ANDROID.md`.
 - No intentes resolver los tokens opacos de iOS a nombres de apps por OCR ni ningún otro medio. Es motivo de rechazo en App Store.
+- No edites una migración publicada ni el cuerpo de un ADR aceptado: agrega la siguiente.

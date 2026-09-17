@@ -30,7 +30,7 @@ export type CountryExpectancy = {
 /** Reference when nothing is known. Roughly the OECD average. */
 export const DEFAULT_LIFE_EXPECTANCY_YEARS = 77.6;
 
-export const COUNTRIES: ReadonlyArray<CountryExpectancy> = [
+export const COUNTRIES: readonly CountryExpectancy[] = [
   { code: 'AR', female: 80.0, male: 73.6 },
   { code: 'BO', female: 71.1, male: 65.6 },
   { code: 'BR', female: 79.4, male: 72.6 },

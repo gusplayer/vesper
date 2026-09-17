@@ -11,9 +11,9 @@ import {
   weekKeyOf,
 } from '../../domain/circle';
 import { dayKeyOf } from '../../domain/day';
+import { canAddHabit } from '../../domain/habits';
 import {
   MAX_CIRCLE,
-  MAX_HABITS,
   ME,
   type Challenge,
   type ChallengeMark,
@@ -108,10 +108,12 @@ function linkHabit(name: string, weeklyTarget: number): string | null {
   if (existing !== undefined) {
     return existing.id;
   }
-  if (active.length >= MAX_HABITS) {
+  if (!canAddHabit(active.length)) {
     return null;
   }
-  app.upsertHabit({ name: name.trim(), activityId: null, weeklyTarget, countMode: 'declared', healthType: null });
+  if (!app.upsertHabit({ name: name.trim(), activityId: null, weeklyTarget, countMode: 'declared', healthType: null })) {
+    return null;
+  }
   const created = useAppStore
     .getState()
     .habits.find((h) => h.archivedAt === null && h.name.trim().toLowerCase() === wanted);
@@ -119,7 +121,7 @@ function linkHabit(name: string, weeklyTarget: number): string | null {
 }
 
 /** Seats taken: people in the circle and people the user has invited. */
-function seatsTaken(members: ReadonlyArray<Member>): number {
+function seatsTaken(members: readonly Member[]): number {
   return members.filter((m) => m.status !== 'pending').length;
 }
 
@@ -252,18 +254,16 @@ export const useCircleStore = create<CircleState>((set, get) => {
     },
 
     removeMember: (memberId) => {
-      circleRepo.deleteChallengeMarksByMember(memberId);
-      circleRepo.deleteKudosByMember(memberId);
-      circleRepo.deleteWeeksByMember(memberId);
-      circleRepo.removeMember(memberId);
+      const dropped: Challenge[] = [];
       const challenges = get().challenges.map((c) => {
         if (!c.participantIds.includes(memberId)) {
           return c;
         }
-        const dropped = { ...c, participantIds: c.participantIds.filter((id) => id !== memberId) };
-        circleRepo.upsertChallenge(dropped);
-        return dropped;
+        const without = { ...c, participantIds: c.participantIds.filter((id) => id !== memberId) };
+        dropped.push(without);
+        return without;
       });
+      circleRepo.removeMemberEverywhere(memberId, dropped);
       set((state) => ({
         members: state.members.filter((m) => m.id !== memberId),
         memberWeeks: state.memberWeeks.filter((w) => w.memberId !== memberId),

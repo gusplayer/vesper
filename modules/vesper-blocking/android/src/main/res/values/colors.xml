@@ -2,7 +2,9 @@
 <!--
   A copy of src/design/tokens.ts (colors.light / colors.dark). The native shield cannot
   read TypeScript, so the four warm greys live here too. Keep both files in step.
-  Only the dark scheme is used today: the shield is a session surface (ADR-0016).
+  The shield is a session surface (ADR-0016) and takes the roles of
+  src/design/shieldPalette.ts: light ink as the ground, dark ink for the text, paper
+  (light on_ink) for the button.
 -->
 <resources>
   <!-- light -->

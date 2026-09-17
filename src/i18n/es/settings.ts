@@ -73,7 +73,7 @@ export const settings = {
     noAccount: 'Sin cuenta. Todo queda aquí.',
     rules: 'Mis reglas',
     emergency: 'Desbloqueo de emergencia',
-    liveActivities: 'Actividades en vivo',
+    liveActivities: 'Live Activities',
     notifications: 'Notificaciones',
     health: 'Salud',
     life: 'Vida',
@@ -158,7 +158,7 @@ export const settings = {
       },
       {
         question: '¿Cómo funciona el desbloqueo de emergencia?',
-        answer: 'Termina la sesión en el acto, sin espera. Tienes cinco por mes y se cuentan en Ajustes.',
+        answer: 'Espera diez segundos desde la sesión y la termina sin el ritual. Tienes cinco por mes.',
       },
       {
         question: '¿Vesper sube mis datos?',

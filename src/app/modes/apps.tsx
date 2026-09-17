@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApps, useAppStore } from '../../data';
 import { useModeDraftStore } from '../../data/modeDraft';
 import { appsTitleText } from '../../data/modes';
-import { Button, Card, PageHeader, Screen, Stack, Text } from '../../design/components';
-import { NativeHost } from '../../design/components';
+import { Button, Card, PageHeader, Screen, Stack, Text , NativeHost } from '../../design/components';
 import { SelectionPicker, type PickerItem } from '../../features/modes/SelectionPicker';
 import { useStrings } from '../../i18n';
 import { SelectionPicker as NativeSelectionPicker } from '../../platform/BlockingSelectionView';
@@ -40,7 +39,7 @@ export default function ModeAppsScreen() {
   const nativePicker = native === '1';
 
   // The catalogue follows the language; its categories are the row descriptions.
-  const items = useMemo<ReadonlyArray<PickerItem>>(
+  const items = useMemo<readonly PickerItem[]>(
     () =>
       catalogue.map((app) => ({
         id: app.id,

@@ -42,6 +42,20 @@ beforeEach(() => {
 });
 
 describe('insert', () => {
+  it('refuses a running session while another runs: invariant 1 in the table', () => {
+    fake.whenSql("outcome = 'running'", [runningRow('s-other', T0, HOUR)]);
+
+    expect(() => sessions.insert(aRunningSession())).toThrow(/already running/);
+    expect(fake.calls.some((call) => call.sql.includes('INSERT'))).toBe(false);
+  });
+
+  it('inserts a closed session without looking for a running one', () => {
+    sessions.insert(aDoneSession(HOUR));
+
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]?.sql).toContain('INSERT INTO sessions');
+  });
+
   it('writes the 16 params in column order', () => {
     const session = aRunningSession({ intention: 'leer', blockProfile: null });
 
@@ -121,10 +135,9 @@ describe('update', () => {
   });
 });
 
-describe('countCompleted / countAll', () => {
-  it('read the COUNT and default to zero', () => {
+describe('countCompleted', () => {
+  it('reads the COUNT and defaults to zero', () => {
     expect(sessions.countCompleted()).toBe(0);
-    expect(sessions.countAll()).toBe(0);
     expect(fake.callMatching(/COUNT\(\*\)/).sql).toContain("outcome = 'completed'");
 
     fake = createFakeDb();
@@ -179,7 +192,7 @@ describe('listBetween', () => {
 });
 
 describe('recoverOrphans', () => {
-  it('closes each orphan as expired at its planned end and returns the count', () => {
+  it('completes each chosen-duration orphan at its planned end and returns the count', () => {
     fake.whenSql("outcome = 'running'", [runningRow('s-1', T0, HOUR), runningRow('s-2', T0 + HOUR, 2 * HOUR)]);
 
     const recovered = sessions.recoverOrphans(T0 + 10 * HOUR);
@@ -188,8 +201,16 @@ describe('recoverOrphans', () => {
 
     const updates = fake.calls.filter((call) => call.sql.includes('UPDATE sessions'));
     expect(updates).toHaveLength(2);
-    expect(updates[0]?.params).toEqual([HOUR, 'expired', null, 2, T0 + HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-1']);
-    expect(updates[1]?.params).toEqual([2 * HOUR, 'expired', null, 2, T0 + 3 * HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-2']);
+    expect(updates[0]?.params).toEqual([HOUR, 'completed', null, 2, T0 + HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-1']);
+    expect(updates[1]?.params).toEqual([2 * HOUR, 'completed', null, 2, T0 + 3 * HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-2']);
+  });
+
+  it('expires an open orphan at its 12 h cap: the one case that earns expired', () => {
+    fake.whenSql("outcome = 'running'", [runningRow('s-open', T0, 12 * HOUR, { open: 1 })]);
+
+    expect(sessions.recoverOrphans(T0 + 20 * HOUR)).toBe(1);
+    expect(fake.callMatching(/UPDATE sessions/).params?.slice(0, 2)).toEqual([12 * HOUR, 'expired']);
+    expect(fake.callMatching(/UPDATE sessions/).params?.[4]).toBe(T0 + 12 * HOUR);
   });
 
   it('leaves a session still inside its window alone', () => {

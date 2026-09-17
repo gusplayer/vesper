@@ -115,7 +115,7 @@ export default function InviteScreen() {
               <ListRow
                 key={member.id}
                 label={member.name}
-                description={`@${member.handle} · ${copy.invitedYou}`}
+                description={`${t.circle.member.handle(member.handle)} · ${copy.invitedYou}`}
                 right={
                   <Stack direction="row" gap="sm">
                     <Chip label={copy.accept} selected onPress={() => accept(member)} />
@@ -167,7 +167,11 @@ export default function InviteScreen() {
               <ListRow
                 key={member.id}
                 label={member.name}
-                description={member.status === 'invited' ? `@${member.handle} · ${copy.waiting}` : `@${member.handle}`}
+                description={
+                  member.status === 'invited'
+                    ? `${t.circle.member.handle(member.handle)} · ${copy.waiting}`
+                    : t.circle.member.handle(member.handle)
+                }
                 right={<Chip label={copy.remove} selected={false} onPress={() => confirmRemove(member)} />}
               />
             ))}

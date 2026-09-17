@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useChrome } from '../chrome';
 import { useTheme } from '../theme';
 import { layout, radius, space } from '../tokens';
 import { IconCircle } from './IconCircle';
@@ -17,10 +18,16 @@ type SheetProps = {
 /** A bottom sheet: dimmed page, a rounded card rising from the bottom, a title and a close. */
 export function Sheet({ visible, title, onClose, children }: SheetProps) {
   const { colors } = useTheme();
+  const { close } = useChrome();
   const insets = useSafeAreaInsets();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="cerrar" />
+      <Pressable
+        style={[styles.backdrop, { backgroundColor: colors.scrim }]}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel={close}
+      />
       <View
         style={[
           styles.sheet,
@@ -32,7 +39,7 @@ export function Sheet({ visible, title, onClose, children }: SheetProps) {
           <Text variant="body" weight="medium" align="center" style={styles.title} accessibilityRole="header">
             {title}
           </Text>
-          <IconCircle name="x" onPress={onClose} accessibilityLabel="cerrar" />
+          <IconCircle name="x" onPress={onClose} accessibilityLabel={close} />
         </View>
         {children}
       </View>
@@ -43,7 +50,6 @@ export function Sheet({ visible, title, onClose, children }: SheetProps) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
     borderTopLeftRadius: radius.xl,

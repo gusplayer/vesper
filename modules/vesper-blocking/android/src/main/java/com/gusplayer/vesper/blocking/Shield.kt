@@ -164,15 +164,18 @@ object Shield {
   }
 
   /**
-   * The shield's view tree, built in code so the module ships no layout XML. Dark
-   * scheme from res/values/colors.xml (a copy of src/design/tokens.ts). The root eats
-   * the back key: leaving the shield means pressing its button.
+   * The shield's view tree, built in code so the module ships no layout XML. The
+   * session's ink from res/values/colors.xml (a copy of src/design/tokens.ts), with the
+   * same roles the iOS shield takes in src/design/shieldPalette.ts: the light scheme's
+   * ink as the ground, the dark scheme's ink for the text, and the button in paper. The
+   * root eats the back key: leaving the shield means pressing its button.
    */
   fun build(context: Context, copy: ShieldCopy, releaseLine: String?, onBack: () -> Unit): View {
-    val bg = ContextCompat.getColor(context, R.color.vesper_dark_bg)
+    val bg = ContextCompat.getColor(context, R.color.vesper_light_ink)
     val ink = ContextCompat.getColor(context, R.color.vesper_dark_ink)
     val inkSecondary = ContextCompat.getColor(context, R.color.vesper_dark_ink_secondary)
-    val onInk = ContextCompat.getColor(context, R.color.vesper_dark_on_ink)
+    val buttonBg = ContextCompat.getColor(context, R.color.vesper_light_on_ink)
+    val buttonInk = ContextCompat.getColor(context, R.color.vesper_light_ink)
 
     val root = object : FrameLayout(context) {
       override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -216,7 +219,7 @@ object Shield {
     }
     val button = TextView(context).apply {
       text = copy.button
-      setTextColor(onInk)
+      setTextColor(buttonInk)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
       typeface = mediumTypeface()
       gravity = Gravity.CENTER
@@ -226,7 +229,7 @@ object Shield {
       background = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         cornerRadius = dp(context, 999f).toFloat()
-        setColor(ink)
+        setColor(buttonBg)
       }
       isClickable = true
       isFocusable = true

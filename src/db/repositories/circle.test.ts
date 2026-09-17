@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Challenge, ChallengeMark, Kudos, Member, MemberWeek } from '../../domain/types';
 import { CIRCLE_SQL } from '../migrations/004_circle';
-import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
+import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as circle from './circle';
 import * as settings from './settings';
 
@@ -11,6 +11,7 @@ let fake = createFakeDb();
 vi.mock('../client', () => ({
   getDb: () => fake,
   rowsAs: (result: { rows: FakeRows }) => result.rows,
+  transaction: (work: () => void) => transactionOn(fake)(work),
 }));
 
 const T0 = 1_700_000_000_000;
@@ -351,5 +352,47 @@ describe('schema', () => {
       'challenges',
       'challenge_marks',
     ]);
+  });
+});
+
+describe('removeMemberEverywhere', () => {
+  const challenge: Challenge = {
+    id: 'c-1',
+    name: 'Leer',
+    weeklyTarget: 4,
+    startWeekKey: '2026-08-17',
+    endWeekKey: '2026-08-24',
+    createdBy: 'me',
+    participantIds: ['me'],
+    habitId: null,
+    createdAt: T0,
+    archivedAt: null,
+  };
+
+  it('deletes marks, kudos, weeks and the row, rewrites the challenges, all in one transaction', () => {
+    circle.removeMemberEverywhere('ana', [challenge]);
+
+    const verbs = fake.calls.map((call) => call.sql.trim().split(/\s+/)[0]);
+    expect(verbs).toEqual(['BEGIN', 'DELETE', 'DELETE', 'DELETE', 'DELETE', 'INSERT', 'COMMIT']);
+    expect(fake.calls[1]?.sql).toContain('challenge_marks');
+    expect(fake.calls[2]?.sql).toContain('kudos');
+    expect(fake.calls[3]?.sql).toContain('member_weeks');
+    expect(fake.calls[4]?.sql).toContain('circle_members');
+    expect(fake.calls[5]?.params?.[6]).toBe('["me"]');
+  });
+
+  it('rolls back when a statement throws, so a person is never half removed', () => {
+    const failing = createFakeDb();
+    const original = failing.executeSync;
+    failing.executeSync = (sql, params) => {
+      if (sql.includes('circle_members')) {
+        throw new Error('locked');
+      }
+      return original(sql, params);
+    };
+    fake = failing;
+
+    expect(() => circle.removeMemberEverywhere('ana', [])).toThrow('locked');
+    expect(fake.calls.at(-1)?.sql).toBe('ROLLBACK');
   });
 });

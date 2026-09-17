@@ -22,6 +22,8 @@ export const routines: typeof shape = {
     crossesWith: (name) => `Overlaps with ${name}`,
     start: (name) => `Start ${name}`,
     cardA11y: (name, lines) => `${name}, ${lines}. Edit`,
+    exactAlarmsOff: 'Without exact alarms a routine can start up to ten minutes late.',
+    exactAlarmsTurnOn: 'Turn on',
   },
   edit: {
     newTitle: 'New routine',

@@ -4,7 +4,7 @@ import { Outfit_600SemiBold } from '@expo-google-fonts/outfit/600SemiBold';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { bootAndHydrate, useAppStore } from '../data';
 import type { BootResult } from '../db/boot';
@@ -12,9 +12,11 @@ import { DevJump } from '../dev/DevJump';
 import { SessionGate } from '../features/session/SessionGate';
 import { PlatformEffects } from '../platform/PlatformEffects';
 import { lockPortrait } from '../platform/orientation';
+import { ChromeProvider } from '../design/chrome';
 import { FatalError } from '../design/components';
 import { ThemeProvider, useSchemeStore } from '../design/theme';
 import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
+import { useStrings } from '../i18n';
 
 /**
  * Root layout. Nothing renders until Outfit is loaded: a flash of system sans is
@@ -44,6 +46,13 @@ export default function RootLayout() {
 
   const onboardingDone = useAppStore((state) => state.settings.onboardingDone);
   const scheme = useSchemeStore((state) => state.scheme);
+  // The design system's own chrome (back, close, cancel) speaks the app's language
+  // without importing the dictionary: the words are handed in here, once.
+  const { common } = useStrings();
+  const chrome = useMemo(
+    () => ({ back: common.back, close: common.close, cancel: common.cancel, clear: common.clear, dismiss: common.dismiss }),
+    [common],
+  );
 
   // Portrait everywhere; the active session unlocks itself while it is on screen.
   useEffect(() => {
@@ -68,45 +77,48 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-      {__DEV__ ? <DevJump /> : null}
-      <PlatformEffects />
-      <SessionGate />
-      <Stack screenOptions={stackScreenOptions}>
-        <Stack.Protected guard={!onboardingDone}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
-        <Stack.Protected guard={onboardingDone}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="session/active" options={lockedScreenOptions} />
-          <Stack.Screen name="session/complete" options={lockedScreenOptions} />
-          <Stack.Screen name="session/exit" options={lockedScreenOptions} />
-          <Stack.Screen name="session/emergency" options={lockedScreenOptions} />
-          <Stack.Screen name="session/closed" options={lockedScreenOptions} />
-          <Stack.Screen name="modes/index" />
-          <Stack.Screen name="modes/edit" />
-          <Stack.Screen name="modes/apps" />
-          <Stack.Screen name="modes/websites" />
-          <Stack.Screen name="modes/ideas" />
-          <Stack.Screen name="schedules/edit" />
-          <Stack.Screen name="settings/rules" />
-          <Stack.Screen name="settings/emergency" />
-          <Stack.Screen name="settings/notifications" />
-          <Stack.Screen name="settings/live-activities" />
-          <Stack.Screen name="settings/health" />
-          <Stack.Screen name="settings/life" />
-          <Stack.Screen name="settings/help" />
-          <Stack.Screen name="settings/about" />
-          <Stack.Screen name="settings/circle" />
-          <Stack.Screen name="habits/edit" />
-          <Stack.Screen name="habits/new" />
-          <Stack.Screen name="circle/index" />
-          <Stack.Screen name="circle/invite" />
-          <Stack.Screen name="circle/join" />
-          <Stack.Screen name="circle/challenge" />
-          <Stack.Screen name="circle/challenge-new" />
-        </Stack.Protected>
-      </Stack>
+      <ChromeProvider strings={chrome}>
+        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+        {__DEV__ ? <DevJump /> : null}
+        <PlatformEffects />
+        <SessionGate />
+        <Stack screenOptions={stackScreenOptions}>
+          <Stack.Protected guard={!onboardingDone}>
+            <Stack.Screen name="onboarding" />
+          </Stack.Protected>
+          <Stack.Protected guard={onboardingDone}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="session/active" options={lockedScreenOptions} />
+            <Stack.Screen name="session/complete" options={lockedScreenOptions} />
+            <Stack.Screen name="session/exit" options={lockedScreenOptions} />
+            <Stack.Screen name="session/emergency" options={lockedScreenOptions} />
+            <Stack.Screen name="session/closed" options={lockedScreenOptions} />
+            <Stack.Screen name="modes/index" />
+            <Stack.Screen name="modes/edit" />
+            <Stack.Screen name="modes/apps" />
+            <Stack.Screen name="modes/websites" />
+            <Stack.Screen name="modes/ideas" />
+            <Stack.Screen name="schedules/edit" />
+            <Stack.Screen name="settings/rules" />
+            <Stack.Screen name="settings/emergency" />
+            <Stack.Screen name="settings/notifications" />
+            <Stack.Screen name="settings/language" />
+            <Stack.Screen name="settings/live-activities" />
+            <Stack.Screen name="settings/health" />
+            <Stack.Screen name="settings/life" />
+            <Stack.Screen name="settings/help" />
+            <Stack.Screen name="settings/about" />
+            <Stack.Screen name="settings/circle" />
+            <Stack.Screen name="habits/edit" />
+            <Stack.Screen name="habits/new" />
+            <Stack.Screen name="circle/index" />
+            <Stack.Screen name="circle/invite" />
+            <Stack.Screen name="circle/join" />
+            <Stack.Screen name="circle/challenge" />
+            <Stack.Screen name="circle/challenge-new" />
+          </Stack.Protected>
+        </Stack>
+      </ChromeProvider>
     </ThemeProvider>
   );
 }

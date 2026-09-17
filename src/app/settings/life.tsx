@@ -31,7 +31,7 @@ import { useNow } from '../../lib/useNow';
 /** The weeks counter only needs to move once a minute. */
 const CLOCK_MS = 60_000;
 
-const SEX_OPTIONS: ReadonlyArray<{ value: Sex | null; key: 'female' | 'male' | 'undisclosed' }> = [
+const SEX_OPTIONS: readonly { value: Sex | null; key: 'female' | 'male' | 'undisclosed' }[] = [
   { value: 'female', key: 'female' },
   { value: 'male', key: 'male' },
   { value: null, key: 'undisclosed' },

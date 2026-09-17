@@ -14,7 +14,7 @@ import type { Depth } from './types';
 export type BreathPhase = 'inhale' | 'hold' | 'exhale';
 
 /** Box-ish breathing: 4 in, 4 hold, 6 out. Three rounds are 42 seconds. */
-export const BREATH_PHASES: ReadonlyArray<{ phase: BreathPhase; seconds: number }> = [
+export const BREATH_PHASES: readonly { phase: BreathPhase; seconds: number }[] = [
   { phase: 'inhale', seconds: 4 },
   { phase: 'hold', seconds: 4 },
   { phase: 'exhale', seconds: 6 },

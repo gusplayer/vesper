@@ -11,7 +11,7 @@ import type { Artwork, Dot, Point, Stroke } from './types';
 const DEFAULT_DOT_RADIUS = 0.004;
 const DEFAULT_JITTER = 0.0025;
 
-function length(points: ReadonlyArray<Point>): number {
+function length(points: readonly Point[]): number {
   let total = 0;
   for (let i = 1; i < points.length; i += 1) {
     const [x0, y0] = points[i - 1] as Point;
@@ -22,7 +22,7 @@ function length(points: ReadonlyArray<Point>): number {
 }
 
 /** Shoelace area of a closed polygon. */
-function area(points: ReadonlyArray<Point>): number {
+function area(points: readonly Point[]): number {
   let sum = 0;
   for (let i = 0; i < points.length; i += 1) {
     const [x0, y0] = points[i] as Point;
@@ -32,7 +32,7 @@ function area(points: ReadonlyArray<Point>): number {
   return Math.abs(sum) / 2;
 }
 
-function pointAt(points: ReadonlyArray<Point>, distance: number): Point {
+function pointAt(points: readonly Point[], distance: number): Point {
   let left = distance;
   for (let i = 1; i < points.length; i += 1) {
     const [x0, y0] = points[i - 1] as Point;
@@ -47,7 +47,7 @@ function pointAt(points: ReadonlyArray<Point>, distance: number): Point {
   return points[points.length - 1] as Point;
 }
 
-function inside(points: ReadonlyArray<Point>, x: number, y: number): boolean {
+function inside(points: readonly Point[], x: number, y: number): boolean {
   let hit = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
     const [xi, yi] = points[i] as Point;
@@ -59,7 +59,7 @@ function inside(points: ReadonlyArray<Point>, x: number, y: number): boolean {
   return hit;
 }
 
-function bounds(points: ReadonlyArray<Point>): { minX: number; minY: number; maxX: number; maxY: number } {
+function bounds(points: readonly Point[]): { minX: number; minY: number; maxX: number; maxY: number } {
   let minX = 1, minY = 1, maxX = 0, maxY = 0;
   for (const [x, y] of points) {
     minX = Math.min(minX, x); minY = Math.min(minY, y);
@@ -142,7 +142,7 @@ export function visibleDots(total: number, elapsedMs: number, plannedMs: number)
  * An SVG path that draws every visible dot as a tiny circle, in one element. Cheap to
  * render whatever the count: it is one string, not thousands of views.
  */
-export function dotsPath(dots: ReadonlyArray<Dot>, visible: number, size: number): string {
+export function dotsPath(dots: readonly Dot[], visible: number, size: number): string {
   const parts: string[] = [];
   const shown = Math.min(visible, dots.length);
   for (let i = 0; i < shown; i += 1) {

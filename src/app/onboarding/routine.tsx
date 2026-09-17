@@ -63,7 +63,12 @@ export default function RoutineScreen() {
           </Text>
         }
       >
-        <DayPicker days={schedule.days} onChange={(days) => setSchedule({ days })} />
+        <DayPicker
+          days={schedule.days}
+          onChange={(days) => setSchedule({ days })}
+          letters={t.format.weekdayInitials}
+          labels={t.format.shortDays}
+        />
       </Section>
 
       <TimeSheet

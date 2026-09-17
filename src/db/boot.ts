@@ -1,7 +1,7 @@
 import { demoChallenge, demoChallengeMarks, demoKudos, demoMembers, demoMemberWeeks } from '../data/circleSeed';
 import { demoActivities, demoHabits, demoModes, demoSchedules, seedDemoSessions, seedHabitMarks } from '../data/seed';
 import type { Strings } from '../i18n/es';
-import { getDb } from './client';
+import { getDb, transaction } from './client';
 import * as activities from './repositories/activities';
 import * as circle from './repositories/circle';
 import * as habits from './repositories/habits';
@@ -15,7 +15,10 @@ type DemoStrings = Strings['demo'];
 
 export type BootResult = {
   activityCount: number;
-  /** Sessions that survived a process death and were closed as `expired`. */
+  /**
+   * Sessions that survived a process death past their end and were closed at that
+   * end: `completed` for a chosen duration, `expired` for an open session at its cap.
+   */
   orphansRecovered: number;
   /** True when this boot wrote the demo data, i.e. the database was empty. */
   demoSeeded: boolean;
@@ -34,19 +37,6 @@ export function resolveActivityId(keyOrId: string): string {
     activities.listActive()[0]?.id ??
     keyOrId
   );
-}
-
-/** Runs `work` inside one transaction, rolling back on any throw. */
-function transaction(work: () => void): void {
-  const db = getDb();
-  db.executeSync('BEGIN');
-  try {
-    work();
-    db.executeSync('COMMIT');
-  } catch (error) {
-    db.executeSync('ROLLBACK');
-    throw error;
-  }
 }
 
 /**

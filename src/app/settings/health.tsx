@@ -13,11 +13,15 @@ import {
 } from '../../design/components';
 import { HealthWeekSummary } from '../../features/health/HealthWeekSummary';
 import { useStrings } from '../../i18n';
+import { useNow } from '../../lib/useNow';
 import { requestAuthorization, status } from '../../platform/health';
 import { syncHealth } from '../../platform/hooks/useHealthSync';
 
+/** The week summary only needs to notice a new day. */
+const CLOCK_MS = 60_000;
+
 /** Three blocks, like Brick's Screen Time page: what it does, what it keeps, why. */
-const BLOCK_KEYS: ReadonlyArray<{ key: 'how' | 'privacy' | 'why'; icon: IconName }> = [
+const BLOCK_KEYS: readonly { key: 'how' | 'privacy' | 'why'; icon: IconName }[] = [
   { key: 'how', icon: 'activity' },
   { key: 'privacy', icon: 'lock' },
   { key: 'why', icon: 'heart' },
@@ -36,6 +40,7 @@ export default function HealthScreen() {
   const t = useStrings();
   const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
+  const now = useNow(CLOCK_MS);
 
   const health = status();
   const connected = settings.healthConnected;
@@ -86,7 +91,7 @@ export default function HealthScreen() {
 
       {connected ? (
         <>
-          <HealthWeekSummary now={Date.now()} onSyncNow={() => void syncHealth(true)} />
+          <HealthWeekSummary now={now} onSyncNow={() => void syncHealth(true)} />
           <Text variant="caption" tone="tertiary" align="center">
             {t.settings.health.syncNote}
           </Text>

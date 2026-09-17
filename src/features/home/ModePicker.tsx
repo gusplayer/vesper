@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { Pressable } from 'react-native';
 
-import { Button, Check, Icon, ListGroup, ListRow, Sheet, Stack, Text } from '../../design/components';
+import { Button, Check, Icon, ListGroup, ListRow, Sheet, Stack, Tappable, Text } from '../../design/components';
 import { modeSummaryText } from '../../data/modes';
 import type { Mode } from '../../data/types';
 import { useStrings } from '../../i18n';
@@ -9,7 +8,7 @@ import { useStrings } from '../../i18n';
 type ModePickerProps = {
   /** The active mode. */
   mode: Mode;
-  modes: ReadonlyArray<Mode>;
+  modes: readonly Mode[];
   /** During a session the mode is read-only: the heading is plain text and no sheet opens. */
   readOnly: boolean;
   onSelect: (id: string) => void;
@@ -36,16 +35,12 @@ export function ModePicker({ mode, modes, readOnly, onSelect, onManage }: ModePi
 
   return (
     <>
-      <Pressable
-        onPress={() => setOpen(true)}
-        accessibilityRole="button"
-        accessibilityLabel={t.label(mode.name)}
-      >
+      <Tappable onPress={() => setOpen(true)} accessibilityLabel={t.label(mode.name)}>
         <Stack direction="row" align="center" gap="xs">
           {heading}
           <Icon name="chevron-down" size="sm" tone="secondary" />
         </Stack>
-      </Pressable>
+      </Tappable>
 
       <Sheet visible={open} title={t.title} onClose={close}>
         <ListGroup>

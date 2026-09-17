@@ -7,13 +7,8 @@ export const depth: DepthStrings = {
     deep: 'deep',
   },
   description: {
-    soft: 'holding ends it right away',
-    firm: 'asks you why and waits 15 seconds',
+    soft: 'one round of breathing and you are out',
+    firm: 'two rounds, the sentence and a reason',
     deep: 'does not answer. only the timer ends it',
-  },
-  giveUp: {
-    soft: 'hold to end',
-    firm: 'hold to end',
-    deep: 'deep · only the timer ends it',
   },
 };

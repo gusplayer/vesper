@@ -46,7 +46,7 @@ export function deltaText(delta: Delta, t: ActivityStrings, tag: string): string
  * bar's key is its day, so the weekday is read from the date and not from the short
  * label under the bar.
  */
-export function chartSummary(bars: ReadonlyArray<ChartBar>, t: ActivityStrings, tag: string): string {
+export function chartSummary(bars: readonly ChartBar[], t: ActivityStrings, tag: string): string {
   const parts = bars.map((bar) => {
     const at = midnightOf(bar.key);
     const day = `${weekdayLong(weekdayIndex(at), tag)} ${new Date(at).getDate()}`;

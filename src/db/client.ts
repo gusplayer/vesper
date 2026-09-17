@@ -65,10 +65,27 @@ function runMigrations(db: DB): void {
 }
 
 /**
+ * Runs `work` inside one transaction, rolling back on any throw. For a write that is
+ * several statements and must be all or nothing: replacing every health mark, taking
+ * a person out of the circle, seeding the demo data.
+ */
+export function transaction(work: () => void): void {
+  const db = getDb();
+  db.executeSync('BEGIN');
+  try {
+    work();
+    db.executeSync('COMMIT');
+  } catch (error) {
+    db.executeSync('ROLLBACK');
+    throw error;
+  }
+}
+
+/**
  * The rows of a query, typed by the caller. op-sqlite returns untyped records; the
  * repositories know their table shape, and this is the one place the cast happens.
  */
-export function rowsAs<T>(result: { rows: Array<Record<string, unknown>> }): T[] {
+export function rowsAs<T>(result: { rows: Record<string, unknown>[] }): T[] {
   return result.rows as unknown as T[];
 }
 

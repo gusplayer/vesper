@@ -5,7 +5,7 @@ import { Text } from './Text';
 
 type PeriodStripProps = {
   /** In display order: ['SEMANA PASADA', 'ESTA SEMANA']. */
-  options: ReadonlyArray<{ key: string; label: string }>;
+  options: readonly { key: string; label: string }[];
   selectedKey: string;
   onSelect: (key: string) => void;
 };

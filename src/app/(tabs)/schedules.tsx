@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 import { useAppStore, useFocusStore, useModes, useRunningSession, useSchedules } from '../../data';
@@ -16,10 +16,12 @@ import {
   Tooltip,
 } from '../../design/components';
 import { manualDurationMs, routineStatus, sortRoutines } from '../../domain/routines';
+import { exactAlarmsOff } from '../../features/schedules/exactAlarms';
 import { overlapNames, windowText } from '../../features/schedules/format';
 import { statusText } from '../../features/schedules/status';
 import { useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
+import { requestExactAlarms, status as blockingStatus } from '../../platform/blocking';
 
 /** How long the "not during a session" bubble stays up. */
 const TOOLTIP_MS = 2500;
@@ -45,6 +47,18 @@ export default function SchedulesScreen() {
 
   const [tip, setTip] = useState<string | null>(null);
   const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Android's exact-alarm toggle, re-read whenever the tab comes back into view: the
+  // user may have flipped it in the system page and returned.
+  const [alarmsOff, setAlarmsOff] = useState(() => exactAlarmsOff(blockingStatus()));
+  useFocusEffect(
+    useCallback(() => {
+      setAlarmsOff(exactAlarmsOff(blockingStatus()));
+    }, []),
+  );
+  const turnOnAlarms = () => {
+    void requestExactAlarms().then((granted) => setAlarmsOff(!granted));
+  };
 
   useEffect(
     () => () => {
@@ -99,6 +113,23 @@ export default function SchedulesScreen() {
       />
 
       {tip === null ? null : <Tooltip message={tip} />}
+
+      {alarmsOff ? (
+        <Card
+          tone="muted"
+          onPress={turnOnAlarms}
+          accessibilityLabel={`${t.routines.list.exactAlarmsOff} ${t.routines.list.exactAlarmsTurnOn}`}
+        >
+          <Stack gap="xs">
+            <Text variant="label" tone="secondary">
+              {t.routines.list.exactAlarmsOff}
+            </Text>
+            <Text variant="label" weight="medium">
+              {t.routines.list.exactAlarmsTurnOn}
+            </Text>
+          </Stack>
+        </Card>
+      ) : null}
 
       {ordered.length === 0 ? (
         <Card tone="muted">

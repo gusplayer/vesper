@@ -180,7 +180,7 @@ function toMillis(iso: string): Millis | null {
   return Number.isNaN(ms) ? null : ms;
 }
 
-function toWorkouts(samples: ReadonlyArray<WorkoutSample>): HealthWorkout[] {
+function toWorkouts(samples: readonly WorkoutSample[]): HealthWorkout[] {
   const workouts: HealthWorkout[] = [];
   for (const sample of samples) {
     const start = toMillis(sample.start);
@@ -192,7 +192,7 @@ function toWorkouts(samples: ReadonlyArray<WorkoutSample>): HealthWorkout[] {
   return workouts;
 }
 
-function toStepsByDay(samples: ReadonlyArray<StepSample>): Record<DayKey, number> {
+function toStepsByDay(samples: readonly StepSample[]): Record<DayKey, number> {
   const byDay: Record<DayKey, number> = {};
   for (const sample of samples) {
     const start = toMillis(sample.startDate);
@@ -205,7 +205,7 @@ function toStepsByDay(samples: ReadonlyArray<StepSample>): Record<DayKey, number
   return byDay;
 }
 
-function toSleepSessions(samples: ReadonlyArray<SleepSample>): HealthSleepSession[] {
+function toSleepSessions(samples: readonly SleepSample[]): HealthSleepSession[] {
   const sessions: HealthSleepSession[] = [];
   for (const sample of samples) {
     const start = toMillis(sample.startDate);

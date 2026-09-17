@@ -6,7 +6,7 @@ import type {
   MemberStatus,
   MemberWeek,
 } from '../../domain/types';
-import { getDb, rowsAs } from '../client';
+import { getDb, rowsAs, transaction } from '../client';
 
 /**
  * The circle's five tables (ADR-0021). One repository: a member's weeks, kudos and
@@ -303,6 +303,24 @@ export function deleteChallengeMarksByMember(memberId: string): void {
 }
 
 // --- Leaving -----------------------------------------------------------------------
+
+/**
+ * Takes a person out of the circle in one transaction: their marks, kudos and
+ * weeks, their member row, and the challenges they were in, rewritten without them
+ * (the store hands those over). All or nothing: a person half removed would be a
+ * ghost in a challenge.
+ */
+export function removeMemberEverywhere(memberId: string, challengesWithoutThem: readonly Challenge[]): void {
+  transaction(() => {
+    deleteChallengeMarksByMember(memberId);
+    deleteKudosByMember(memberId);
+    deleteWeeksByMember(memberId);
+    removeMember(memberId);
+    for (const challenge of challengesWithoutThem) {
+      upsertChallenge(challenge);
+    }
+  });
+}
 
 /**
  * Empties the people tables: marks, kudos, weeks, members, children first. The

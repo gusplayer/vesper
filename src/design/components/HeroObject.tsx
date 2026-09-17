@@ -17,7 +17,7 @@ type HeroObjectProps = {
 export function HeroObject({ size = 'lg' }: HeroObjectProps) {
   const { colors, scheme } = useTheme();
   const side = size === 'lg' ? layout.hero : layout.hero * 0.6;
-  const tile = scheme === 'dark' ? colors.card : colors.card;
+  const tile = colors.card;
   const cell = scheme === 'dark' ? colors.inkTertiary : colors.cardMuted;
   const cellLived = colors.ink;
   // Four columns whatever the size: the grid is sized from its cells, not the tile.

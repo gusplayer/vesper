@@ -24,7 +24,6 @@ data class AlarmInstants(val nextStart: Long?, val nextEnd: Long?)
  */
 object WindowSchedule {
   private const val MINUTE_MS = 60_000L
-  private const val DAY_MS = 24 * 60 * MINUTE_MS
   private const val LOOKAHEAD_DAYS = 8
 
   /** Monday-first weekday index of an instant. */
@@ -33,14 +32,32 @@ object WindowSchedule {
     return (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7
   }
 
-  /** Local midnight of the day containing `at`. */
-  private fun dayStartOf(at: Long): Long {
+  /**
+   * The instant at `minutes` past local midnight of the day containing `at`, on the
+   * wall clock: 21:30 stays 21:30 on a 23 or 25 hour day, which `midnight + minutes`
+   * would miss by an hour (mirror of `atMinuteOfDay` in src/domain/day.ts).
+   */
+  private fun atMinuteOfDay(at: Long, minutes: Int): Long {
     val calendar = Calendar.getInstance().apply {
       timeInMillis = at
       set(Calendar.HOUR_OF_DAY, 0)
       set(Calendar.MINUTE, 0)
       set(Calendar.SECOND, 0)
       set(Calendar.MILLISECOND, 0)
+      add(Calendar.MINUTE, minutes)
+    }
+    return calendar.timeInMillis
+  }
+
+  /** Local midnight `days` calendar days from the day containing `at` (mirror of `dayStartShifted`). */
+  private fun dayStartShifted(at: Long, days: Int): Long {
+    val calendar = Calendar.getInstance().apply {
+      timeInMillis = at
+      set(Calendar.HOUR_OF_DAY, 0)
+      set(Calendar.MINUTE, 0)
+      set(Calendar.SECOND, 0)
+      set(Calendar.MILLISECOND, 0)
+      add(Calendar.DAY_OF_MONTH, days)
     }
     return calendar.timeInMillis
   }
@@ -50,20 +67,19 @@ object WindowSchedule {
     if (spec.days.getOrNull(weekdayOf(dayAt)) != true) {
       return null
     }
-    val dayStart = dayStartOf(dayAt)
-    val start = dayStart + spec.startMinute * MINUTE_MS
+    val start = atMinuteOfDay(dayAt, spec.startMinute)
     val endMinute = spec.endMinute
     val end = when {
       endMinute == null -> start + spec.capMinutes * MINUTE_MS
-      endMinute > spec.startMinute -> dayStart + endMinute * MINUTE_MS
-      else -> dayStart + DAY_MS + endMinute * MINUTE_MS
+      endMinute > spec.startMinute -> atMinuteOfDay(dayAt, endMinute)
+      else -> atMinuteOfDay(dayStartShifted(dayAt, 1), endMinute)
     }
     return WindowInstants(start, end)
   }
 
   /** The window containing `now`, if the spec is inside one right now. */
   fun activeWindow(spec: WindowSpec, now: Long): WindowInstants? {
-    for (dayAt in longArrayOf(now - DAY_MS, now)) {
+    for (dayAt in longArrayOf(dayStartShifted(now, -1), now)) {
       val window = windowOnDay(spec, dayAt) ?: continue
       if (now >= window.start && now < window.end) {
         return window
@@ -75,7 +91,7 @@ object WindowSchedule {
   /** The first window whose start is at or after `at`, looking a week ahead. */
   fun nextWindow(spec: WindowSpec, at: Long): WindowInstants? {
     for (offset in 0 until LOOKAHEAD_DAYS) {
-      val window = windowOnDay(spec, at + offset * DAY_MS) ?: continue
+      val window = windowOnDay(spec, if (offset == 0) at else dayStartShifted(at, offset)) ?: continue
       if (window.start >= at) {
         return window
       }

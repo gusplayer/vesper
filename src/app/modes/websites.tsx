@@ -6,7 +6,7 @@ import { SelectionPicker, type PickerItem } from '../../features/modes/Selection
 import { useStrings } from '../../i18n';
 
 /** Hosts are not words: the catalogue is the same in every language. */
-const ITEMS: ReadonlyArray<PickerItem> = WEBSITES.map((site) => ({ id: site.id, label: site.host }));
+const ITEMS: readonly PickerItem[] = WEBSITES.map((site) => ({ id: site.id, label: site.host }));
 const POPULAR = ITEMS.filter((item) => WEBSITES.find((site) => site.id === item.id)?.popular);
 
 /** Picks the websites of the mode draft. Hosts only; the popular ones are listed first. */

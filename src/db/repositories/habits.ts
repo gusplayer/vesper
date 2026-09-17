@@ -8,8 +8,9 @@ import {
   type MarkSource,
 } from '../../domain/types';
 import { activityKeyOf } from '../../domain/activities';
+import { canAddHabit } from '../../domain/habits';
 import { uuidv7 } from '../../lib/uuid';
-import { getDb, rowsAs } from '../client';
+import { getDb, rowsAs, transaction } from '../client';
 import { findByKey } from './activities';
 
 /**
@@ -60,69 +61,21 @@ export function countActive(): number {
   return typeof n === 'number' ? n : 0;
 }
 
-export type NewHabit = {
-  name: string;
-  weeklyTarget: number;
-  countMode: CountMode;
-  healthType: HealthType | null;
-};
-
-/**
- * Creates a habit.
- *
- * The name is free text (ADR-0008), but when it matches an existing activity key the
- * habit is linked to it, so the day ledger shows one row instead of two that mean the
- * same thing.
- *
- * Enforces the 5-habit cap here rather than in SQL: invariant 3 is a product decision
- * and the error has to be legible to the UI.
- */
-export function insert(habit: NewHabit, now: number): Habit {
-  if (countActive() >= MAX_HABITS) {
-    throw new Error(`cannot have more than ${MAX_HABITS} active habits`);
-  }
-
-  const name = habit.name.trim();
-  if (name.length === 0) {
-    throw new Error('habit name cannot be empty');
-  }
-
-  const created: Habit = {
-    id: uuidv7(now),
-    name,
-    activityId: findByKey(activityKeyOf(name))?.id ?? null,
-    weeklyTarget: habit.weeklyTarget,
-    countMode: habit.countMode,
-    healthType: habit.healthType,
-    archivedAt: null,
-    createdAt: now,
-  };
-
-  getDb().executeSync(
-    `INSERT INTO habits
-       (id, name, activity_id, weekly_target, count_mode, health_type, archived_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    [
-      created.id,
-      created.name,
-      created.activityId,
-      created.weeklyTarget,
-      created.countMode,
-      created.healthType,
-      created.createdAt,
-    ],
-  );
-
-  return created;
-}
-
 /**
  * Inserts or replaces a whole habit by id. The store builds the Habit — id, activity
  * link and all — so this is the one write the prototype's editor and the demo seed
- * both use. Unlike `insert`, it enforces nothing: the editor already refuses a sixth
- * habit and an empty name before it gets here.
+ * both use. The name is the editor's business, but the cap is not: a row that would
+ * become the sixth active habit is refused here too, so rule 4 holds whatever the
+ * screen did (invariant 3 in DATA_MODEL.md). Updating a habit that is already
+ * active, or archiving one, never counts against it.
  */
 export function upsert(habit: Habit): void {
+  const existing = findById(habit.id);
+  const becomesActive = habit.archivedAt === null && (existing === null || existing.archivedAt !== null);
+  if (becomesActive && !canAddHabit(countActive())) {
+    throw new Error(`cannot have more than ${MAX_HABITS} active habits`);
+  }
+
   getDb().executeSync(
     `INSERT INTO habits
        (id, name, activity_id, weekly_target, count_mode, health_type, archived_at, created_at)
@@ -236,19 +189,22 @@ export function unmarkManual(habitId: string, dayKey: DayKey): void {
 /**
  * Replaces every Health-sourced mark with what Health says now. Manual marks stay.
  * The ids come from the caller so a re-sync writes the same rows; INSERT OR IGNORE
- * keeps the (habit, day, sample) uniqueness of invariant 6.
+ * keeps the (habit, day, sample) uniqueness of invariant 6. One transaction: a
+ * failure halfway must not leave the verified marks deleted until the next sync.
  */
-export function replaceHealthMarks(marks: ReadonlyArray<HabitMark>): void {
-  const db = getDb();
-  db.executeSync("DELETE FROM habit_marks WHERE source = 'health'");
-  for (const item of marks) {
-    db.executeSync(
-      `INSERT OR IGNORE INTO habit_marks
-         (id, habit_id, day_key, source, source_ref, duration_ms, marked_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [item.id, item.habitId, item.dayKey, 'health', item.sourceRef, item.durationMs, item.markedAt],
-    );
-  }
+export function replaceHealthMarks(marks: readonly HabitMark[]): void {
+  transaction(() => {
+    const db = getDb();
+    db.executeSync("DELETE FROM habit_marks WHERE source = 'health'");
+    for (const item of marks) {
+      db.executeSync(
+        `INSERT OR IGNORE INTO habit_marks
+           (id, habit_id, day_key, source, source_ref, duration_ms, marked_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [item.id, item.habitId, item.dayKey, 'health', item.sourceRef, item.durationMs, item.markedAt],
+      );
+    }
+  });
 }
 
 export function listMarksBetween(fromDayKey: DayKey, toDayKey: DayKey): HabitMark[] {

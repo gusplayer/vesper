@@ -12,7 +12,6 @@ import {
   demoModeIdeas,
   demoModes,
   demoSchedules,
-  seedDayStats,
   seedDemoSessions,
   seedHabitMarks,
 } from './seed';
@@ -20,42 +19,29 @@ import {
 // Wednesday 2026-08-19, 15:00 local.
 const NOW = new Date(2026, 7, 19, 15).getTime();
 
-describe('seedDayStats', () => {
-  it('covers the last 70 days, oldest first, ending today with no focus', () => {
-    const stats = seedDayStats(NOW);
-
-    expect(stats).toHaveLength(DEMO_HISTORY_DAYS);
-    expect(stats[0]?.dayKey).toBe('2026-06-11');
-    expect(stats.at(-1)).toMatchObject({ dayKey: '2026-08-19', focusMs: 0, sessions: 0 });
-  });
-
-  it('is deterministic', () => {
-    expect(seedDayStats(NOW)).toEqual(seedDayStats(NOW));
-  });
-
-  it('has a session count of zero exactly when there is no focus', () => {
-    for (const stat of seedDayStats(NOW)) {
-      expect(stat.sessions === 0).toBe(stat.focusMs === 0);
-      expect(stat.segments).toHaveLength(stat.sessions);
-    }
-  });
-});
-
 describe('seedDemoSessions', () => {
-  it('produces completed sessions whose day totals match seedDayStats', () => {
+  it('covers the 69 days before today, oldest first, and is deterministic', () => {
     const sessions = seedDemoSessions(NOW);
-    const byDay = new Map<string, { focusMs: number; sessions: number }>();
-    for (const session of sessions) {
+
+    expect(dayKeyOf(sessions[0]?.startedAt ?? 0)).toBe('2026-06-11');
+    expect(dayKeyOf(sessions.at(-1)?.startedAt ?? 0)).toBe('2026-08-18');
+    expect(sessions.map((s) => s.startedAt)).toEqual([...sessions.map((s) => s.startedAt)].sort((a, b) => a - b));
+    expect(seedDemoSessions(NOW)).toEqual(sessions);
+  });
+
+  it('follows the weekday shape: one to three equal sessions on a day with focus, none on Fridays', () => {
+    const byDay = new Map<string, number[]>();
+    for (const session of seedDemoSessions(NOW)) {
       const key = dayKeyOf(session.startedAt);
-      const current = byDay.get(key) ?? { focusMs: 0, sessions: 0 };
-      byDay.set(key, { focusMs: current.focusMs + session.actualMs, sessions: current.sessions + 1 });
+      byDay.set(key, [...(byDay.get(key) ?? []), session.actualMs]);
     }
 
-    for (const stat of seedDayStats(NOW)) {
-      const derived = byDay.get(stat.dayKey) ?? { focusMs: 0, sessions: 0 };
-      expect(derived.sessions).toBe(stat.sessions);
-      // Rounding per session can drift by at most one ms per session.
-      expect(Math.abs(derived.focusMs - stat.focusMs)).toBeLessThanOrEqual(stat.sessions);
+    for (const [key, lengths] of byDay) {
+      expect(lengths.length).toBeGreaterThanOrEqual(1);
+      expect(lengths.length).toBeLessThanOrEqual(3);
+      expect(new Set(lengths).size).toBe(1);
+      expect(lengths[0]).toBeGreaterThan(0);
+      expect(new Date(key).getUTCDay()).not.toBe(5);
     }
   });
 

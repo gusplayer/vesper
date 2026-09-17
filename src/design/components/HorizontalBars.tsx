@@ -5,7 +5,7 @@ import { radius, space } from '../tokens';
 import { Text } from './Text';
 
 type HorizontalBarsProps = {
-  rows: ReadonlyArray<{ key: string; label: string; value: number; valueText: string }>;
+  rows: readonly { key: string; label: string; value: number; valueText: string }[];
 };
 
 /** Label, bar, value — one line per row. 'Tu ritmo semanal'. */

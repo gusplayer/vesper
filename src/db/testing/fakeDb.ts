@@ -5,7 +5,7 @@
  * Not a test file, so vitest does not collect it; not imported by app code either.
  */
 
-export type FakeRows = Array<Record<string, unknown>>;
+export type FakeRows = Record<string, unknown>[];
 
 export type FakeCall = {
   sql: string;
@@ -27,7 +27,7 @@ function matches(pattern: RegExp | string, sql: string): boolean {
 
 export function createFakeDb(): FakeDb {
   const calls: FakeCall[] = [];
-  const stubs: Array<{ pattern: RegExp | string; rows: FakeRows }> = [];
+  const stubs: { pattern: RegExp | string; rows: FakeRows }[] = [];
 
   return {
     calls,
@@ -46,6 +46,24 @@ export function createFakeDb(): FakeDb {
       }
       return call;
     },
+  };
+}
+
+/**
+ * A `transaction()` for a mocked `../client`: BEGIN, the work, COMMIT (or ROLLBACK
+ * on a throw) recorded on the fake like any other statement, so a test can assert
+ * that a multi-statement write is wrapped.
+ */
+export function transactionOn(fake: FakeDb): (work: () => void) => void {
+  return (work) => {
+    fake.executeSync('BEGIN');
+    try {
+      work();
+      fake.executeSync('COMMIT');
+    } catch (error) {
+      fake.executeSync('ROLLBACK');
+      throw error;
+    }
   };
 }
 

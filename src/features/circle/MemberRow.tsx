@@ -18,7 +18,7 @@ type MemberRowProps = {
  */
 export function MemberRow({ row, kudosGiven, onKudos }: MemberRowProps) {
   const t = useStrings().circle.member;
-  const lines = [`@${row.handle} · ${row.hasData ? t.focus(durationText(row.focusMs)) : t.noData}`];
+  const lines = [`${t.handle(row.handle)} · ${row.hasData ? t.focus(durationText(row.focusMs)) : t.noData}`];
   if (row.hasData && row.socialMs !== null) {
     lines.push(t.social(durationText(row.socialMs)));
   }

@@ -14,8 +14,7 @@ import {
   Section,
   Stack,
   Text,
-} from '../../design/components';
-import { AppRow } from '../../design/components';
+ AppRow } from '../../design/components';
 import { useStrings } from '../../i18n';
 
 /** How many apps a mode can block. A product number, same as modes/apps. */
@@ -84,7 +83,7 @@ export default function AppsScreen() {
             title={t.onboarding.apps.selected}
             right={
               <Text variant="label" tone="secondary">
-                {`${appIds.length} / ${MAX_APPS}`}
+                {t.modes.picker.count(appIds.length, MAX_APPS)}
               </Text>
             }
           >

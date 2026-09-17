@@ -8,9 +8,9 @@ export type Locale = 'es' | 'en';
 /** What the user chose in Ajustes › Idioma. `auto` follows the phone. */
 export type LanguagePreference = 'auto' | Locale;
 
-export const LOCALES: ReadonlyArray<Locale> = ['es', 'en'];
+export const LOCALES: readonly Locale[] = ['es', 'en'];
 
-export const LANGUAGE_PREFERENCES: ReadonlyArray<LanguagePreference> = ['auto', 'es', 'en'];
+export const LANGUAGE_PREFERENCES: readonly LanguagePreference[] = ['auto', 'es', 'en'];
 
 /**
  * A phone in any language the app does not have opens in English: it is the language
@@ -33,11 +33,11 @@ export type DeviceLocale = {
 };
 
 function isLocale(value: string): value is Locale {
-  return (LOCALES as ReadonlyArray<string>).includes(value);
+  return (LOCALES as readonly string[]).includes(value);
 }
 
 export function isLanguagePreference(value: unknown): value is LanguagePreference {
-  return typeof value === 'string' && (LANGUAGE_PREFERENCES as ReadonlyArray<string>).includes(value);
+  return typeof value === 'string' && (LANGUAGE_PREFERENCES as readonly string[]).includes(value);
 }
 
 function languageOf(device: DeviceLocale): string | null {
@@ -49,7 +49,7 @@ function languageOf(device: DeviceLocale): string | null {
  * The locale to render with. A manual preference wins; `auto` walks the phone's
  * languages in order and takes the first one the app has.
  */
-export function resolveLocale(preference: LanguagePreference, devices: ReadonlyArray<DeviceLocale>): Locale {
+export function resolveLocale(preference: LanguagePreference, devices: readonly DeviceLocale[]): Locale {
   if (preference !== 'auto') {
     return preference;
   }
@@ -66,7 +66,7 @@ export function resolveLocale(preference: LanguagePreference, devices: ReadonlyA
  * The tag Intl formats dates and numbers with. The phone's region is kept when its
  * language is the one being rendered (en-GB stays British); otherwise the default.
  */
-export function resolveTag(locale: Locale, devices: ReadonlyArray<DeviceLocale>): string {
+export function resolveTag(locale: Locale, devices: readonly DeviceLocale[]): string {
   const match = devices.find((device) => languageOf(device) === locale);
   return match?.languageTag ?? DEFAULT_TAG[locale];
 }

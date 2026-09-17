@@ -13,11 +13,10 @@ import {
   type CircleWeekRow,
   type Standing,
 } from '../domain/circle';
-import { dayBounds, dayKeyOf, weekStart } from '../domain/day';
+import { dayBounds, dayKeyOf, weekDayKeys, weekStart } from '../domain/day';
 import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import { elapsed } from '../domain/session';
-import { DAY } from '../domain/time';
 import { ME, type Challenge, type Member, type Profile, type SharePrefs } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
@@ -123,12 +122,12 @@ export function getModeIdeas(): ModeIdea[] {
   return modeIdeasFor(getStrings().demo);
 }
 
-export function appsById(ids: ReadonlyArray<string>): AppInfo[] {
+export function appsById(ids: readonly string[]): AppInfo[] {
   const apps = getApps();
   return ids.map((id) => apps.find((app) => app.id === id)).filter((app): app is AppInfo => app !== undefined);
 }
 
-export function websitesById(ids: ReadonlyArray<string>): Website[] {
+export function websitesById(ids: readonly string[]): Website[] {
   return ids.map((id) => WEBSITES.find((site) => site.id === id)).filter((site): site is Website => site !== undefined);
 }
 
@@ -173,11 +172,11 @@ export function useDayStats(): DayStat[] {
 export function useWeekStats(now: number): DayStat[] {
   const stats = useDayStats();
   return useMemo(() => {
-    const start = weekStart(now);
-    return Array.from({ length: 7 }, (_, i) => {
-      const dayKey = dayKeyOf(start + i * DAY);
-      return stats.find((d) => d.dayKey === dayKey) ?? { dayKey, focusMs: 0, sessions: 0, segments: [] };
-    });
+    // Calendar days, not `monday + i * DAY`: a DST change inside the week would shift
+    // the later keys by an hour and, at midnight, onto the wrong day.
+    return weekDayKeys(weekKeyOf(now)).map(
+      (dayKey) => stats.find((d) => d.dayKey === dayKey) ?? { dayKey, focusMs: 0, sessions: 0, segments: [] },
+    );
   }, [stats, now]);
 }
 
@@ -293,14 +292,14 @@ export type ChallengeView = {
   status: ChallengeStatus;
   joined: boolean;
   weeksLeft: number;
-  participants: Array<{ id: string; name: string; isMe: boolean }>;
+  participants: { id: string; name: string; isMe: boolean }[];
 };
 
 const STATUS_ORDER: Record<ChallengeStatus, number> = { active: 0, upcoming: 1, ended: 2 };
 
 function challengeView(
   challenge: Challenge,
-  members: ReadonlyArray<Member>,
+  members: readonly Member[],
   profile: Profile | null,
   weekKey: string,
 ): ChallengeView {

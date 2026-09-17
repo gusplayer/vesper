@@ -42,7 +42,14 @@ function toSession(row: SessionRow): Session {
   };
 }
 
+/**
+ * Inserts a session. A running one is refused while another runs: invariant 1 holds
+ * in the table, not only in the focus store's cache.
+ */
 export function insert(session: Session): void {
+  if (session.outcome === 'running' && findRunning() !== null) {
+    throw new Error('a session is already running');
+  }
   getDb().executeSync(
     `INSERT INTO sessions
        (id, activity_id, planned_ms, actual_ms, outcome, depth, block_profile,
@@ -107,12 +114,6 @@ export function countCompleted(): number {
   return typeof n === 'number' ? n : 0;
 }
 
-export function countAll(): number {
-  const result = getDb().executeSync('SELECT COUNT(*) AS n FROM sessions');
-  const n = result.rows[0]?.n;
-  return typeof n === 'number' ? n : 0;
-}
-
 export function listBetween(from: number, to: number): Session[] {
   return rowsAs<SessionRow>(
     getDb().executeSync(
@@ -125,7 +126,10 @@ export function listBetween(from: number, to: number): Session[] {
 /**
  * Settles the running session after nobody watched it for a while: a break past its
  * length is ended when it should have ended, and a session past its planned end is
- * closed as `expired` at that instant (domain/session.settle).
+ * closed at that instant with the verdict it would have had on screen — `completed`
+ * for a chosen duration, `expired` for an open session at its cap
+ * (domain/session.settle). Boot and foreground share that one function, so the
+ * outcome never depends on whether the app was awake.
  *
  * Called before the first render. Without it the one-running-session invariant locks
  * the app forever: nothing can start while a ghost session is still running, and in
@@ -136,17 +140,14 @@ export function listBetween(from: number, to: number): Session[] {
  * reopening two minutes into a 25 minute session should continue it, not void it.
  * Only a session whose time is already up cannot continue.
  *
- * The outcome is `expired` and not `completed`: the timer ran its course, but nobody
- * was watching, so crediting it as completed would be a claim we cannot make.
- *
- * Returns how many were expired, so the caller can log it during development.
+ * Returns how many were closed, so the caller can log it during development.
  */
 export function recoverOrphans(now: number): number {
   const running = rowsAs<SessionRow>(
     getDb().executeSync("SELECT * FROM sessions WHERE outcome = 'running'"),
   );
 
-  let expired = 0;
+  let closed = 0;
   for (const row of running) {
     const session = toSession(row);
     const settled = settle(session, now);
@@ -154,10 +155,10 @@ export function recoverOrphans(now: number): number {
       continue;
     }
     update(settled);
-    if (settled.outcome === 'expired') {
-      expired += 1;
+    if (settled.outcome !== 'running') {
+      closed += 1;
     }
   }
 
-  return expired;
+  return closed;
 }

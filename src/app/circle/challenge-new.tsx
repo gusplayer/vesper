@@ -25,7 +25,7 @@ const DEFAULT_WEEKS = 2;
 
 /** A challenge's weekly target has to be one of the offered chips. */
 function targetOption(value: number): number {
-  return (CHALLENGE_TARGET_OPTIONS as ReadonlyArray<number>).includes(value) ? value : DEFAULT_TARGET;
+  return (CHALLENGE_TARGET_OPTIONS as readonly number[]).includes(value) ? value : DEFAULT_TARGET;
 }
 
 /**
@@ -36,7 +36,8 @@ function targetOption(value: number): number {
  */
 export default function NewChallengeScreen() {
   const router = useRouter();
-  const t = useStrings().circle.challengeNew;
+  const circle = useStrings().circle;
+  const t = circle.challengeNew;
   const now = useNow(CLOCK_MS);
   const habits = useHabitsWeek(now);
   const members = useCircleMembers().filter((member) => member.status === 'member');
@@ -45,7 +46,7 @@ export default function NewChallengeScreen() {
   const [name, setName] = useState('');
   const [weeklyTarget, setWeeklyTarget] = useState<number>(DEFAULT_TARGET);
   const [weeks, setWeeks] = useState<number>(DEFAULT_WEEKS);
-  const [participantIds, setParticipantIds] = useState<ReadonlyArray<string>>([]);
+  const [participantIds, setParticipantIds] = useState<readonly string[]>([]);
   const [join, setJoin] = useState(true);
   const [habitsFull, setHabitsFull] = useState(false);
 
@@ -157,7 +158,7 @@ export default function NewChallengeScreen() {
               <ListRow
                 key={member.id}
                 label={member.name}
-                description={`@${member.handle}`}
+                description={circle.member.handle(member.handle)}
                 right={<Check checked={participantIds.includes(member.id)} shape="box" />}
                 kind="action"
                 onPress={() => toggleParticipant(member.id)}

@@ -106,11 +106,11 @@ function AndroidSelectionView({ style, familyActivitySelection, onSelectionChang
       <ScrollView nestedScrollEnabled contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
         {apps === null ? (
           <Text variant="label" tone="secondary" align="center">
-            Cargando apps…
+            {t.modes.picker.loading}
           </Text>
         ) : visible.length === 0 ? (
           <Text variant="label" tone="secondary" align="center">
-            Nada con ese nombre.
+            {t.modes.picker.noResults}
           </Text>
         ) : (
           <ListGroup>

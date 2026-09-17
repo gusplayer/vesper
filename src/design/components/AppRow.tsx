@@ -10,30 +10,18 @@ type AppRowProps = {
   initial: string;
   color: string;
   name: string;
-  /** A second line under the name: the category, a usage figure. */
+  /** A second line under the name: the category. */
   description?: string;
-  /** Text on the right: '34m'. */
-  value?: string;
   /** A control on the right: a checkbox, a toggle. */
   right?: ReactNode;
   onPress?: () => void;
-  accessibilityLabel?: string;
 };
 
 /**
  * A ListRow led by an AppIcon instead of a Feather icon: the app pickers, the usage
  * list. Same rhythm as ListRow so both can share a ListGroup.
  */
-export function AppRow({
-  initial,
-  color,
-  name,
-  description,
-  value,
-  right,
-  onPress,
-  accessibilityLabel,
-}: AppRowProps) {
+export function AppRow({ initial, color, name, description, right, onPress }: AppRowProps) {
   const content = (
     <View style={styles.row}>
       <AppIcon initial={initial} color={color} size="md" />
@@ -45,11 +33,6 @@ export function AppRow({
           </Text>
         )}
       </View>
-      {value === undefined ? null : (
-        <Text variant="body" tone="secondary">
-          {value}
-        </Text>
-      )}
       {right}
     </View>
   );
@@ -61,7 +44,7 @@ export function AppRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? name}
+      accessibilityLabel={name}
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
     >
       {content}

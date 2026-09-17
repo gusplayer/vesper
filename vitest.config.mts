@@ -17,7 +17,7 @@ export default defineConfig({
     },
     coverage: {
       include: ['src/domain/**/*.ts', 'src/lib/**/*.ts', 'src/db/**/*.ts', 'src/data/seed.ts'],
-      exclude: ['src/domain/types.ts', 'src/domain/fixtures.ts', 'src/lib/useNow.ts', 'src/lib/useRevision.ts', 'src/db/migrations/**', 'src/db/boot.ts', 'src/db/client.ts'],
+      exclude: ['src/domain/types.ts', 'src/domain/fixtures.ts', 'src/lib/useNow.ts', 'src/db/migrations/**', 'src/db/boot.ts', 'src/db/client.ts'],
       thresholds: { lines: 80, functions: 80 },
     },
   },

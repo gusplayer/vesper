@@ -1,6 +1,6 @@
 import { endWeekKeyFor, shiftDayKey, weekDayKeys, weekKeyOf } from '../domain/circle';
-import { dayKeyOf, weekStart } from '../domain/day';
-import { DAY, HOUR, MINUTE } from '../domain/time';
+import { dayKeyOf, dayStartShifted, weekStart } from '../domain/day';
+import { HOUR, MINUTE } from '../domain/time';
 import { ME, type Challenge, type ChallengeMark, type Kudos, type Member, type MemberWeek } from '../domain/types';
 import type { Strings } from '../i18n/es';
 
@@ -27,13 +27,13 @@ function daysAgoKey(now: number, days: number): string {
 }
 
 export function demoMembers(now: number): Member[] {
-  const threeWeeksAgo = weekStart(now) - 21 * DAY;
+  const threeWeeksAgo = dayStartShifted(weekStart(now), -21);
   return [
     { id: 'ana', name: 'Ana', handle: 'ana', status: 'member', joinedAt: threeWeeksAgo, createdAt: threeWeeksAgo },
     { id: 'luis', name: 'Luis', handle: 'luis', status: 'member', joinedAt: threeWeeksAgo + HOUR, createdAt: threeWeeksAgo + HOUR },
     { id: 'sofia', name: 'Sofía', handle: 'sofia', status: 'member', joinedAt: threeWeeksAgo + 2 * HOUR, createdAt: threeWeeksAgo + 2 * HOUR },
     // Mateo invited the user and waits: accept and decline can both be tried.
-    { id: 'mateo', name: 'Mateo', handle: 'mateo', status: 'pending', joinedAt: null, createdAt: now - DAY },
+    { id: 'mateo', name: 'Mateo', handle: 'mateo', status: 'pending', joinedAt: null, createdAt: dayStartShifted(now, -1) },
   ];
 }
 
@@ -48,7 +48,7 @@ type WeekShape = {
 };
 
 /** Between 2 h and 9 h of focus a week, so nobody towers over the user's own numbers. */
-const WEEK_SHAPES: ReadonlyArray<WeekShape> = [
+const WEEK_SHAPES: readonly WeekShape[] = [
   { memberId: 'ana', focusMs: 8 * HOUR + 10 * MINUTE, socialMs: 6 * HOUR + 35 * MINUTE, habitsDone: 9, habitsTarget: 10 },
   { memberId: 'luis', focusMs: 3 * HOUR + 25 * MINUTE, socialMs: null, habitsDone: 4, habitsTarget: 6 },
   { memberId: 'sofia', focusMs: 6 * HOUR + 40 * MINUTE, socialMs: null, habitsDone: 8, habitsTarget: 8 },
@@ -97,8 +97,8 @@ export function demoKudos(now: number): Kudos[] {
   const anaDay = daysAgoKey(now, 2);
   const luisDay = daysAgoKey(now, 1);
   return [
-    { id: `kudos-ana-${anaDay}`, fromId: 'ana', toId: ME, dayKey: anaDay, createdAt: now - 2 * DAY },
-    { id: `kudos-luis-${luisDay}`, fromId: 'luis', toId: ME, dayKey: luisDay, createdAt: now - DAY },
+    { id: `kudos-ana-${anaDay}`, fromId: 'ana', toId: ME, dayKey: anaDay, createdAt: dayStartShifted(now, -2) },
+    { id: `kudos-luis-${luisDay}`, fromId: 'luis', toId: ME, dayKey: luisDay, createdAt: dayStartShifted(now, -1) },
   ];
 }
 

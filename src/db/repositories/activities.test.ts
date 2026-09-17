@@ -67,24 +67,6 @@ describe('findById / findByKey', () => {
   });
 });
 
-describe('insert', () => {
-  it('runs one INSERT with the params in column order and returns the activity', () => {
-    const created = activities.insert('gym', 'Gym', T0);
-
-    expect(created).toEqual({
-      id: 'id-fixed',
-      key: 'gym',
-      label: 'Gym',
-      isDefault: false,
-      archivedAt: null,
-      createdAt: T0,
-    });
-    expect(fake.calls).toHaveLength(1);
-    const call = fake.callMatching(/^INSERT INTO activities/);
-    expect(call.params).toEqual(['id-fixed', 'gym', 'Gym', T0]);
-  });
-});
-
 describe('seedDefaults', () => {
   it('writes the labels of the language it is given, under the same keys', () => {
     activities.seedDefaults(T0, demoActivities(en.demo));
@@ -118,7 +100,6 @@ describe('seedDefaults', () => {
 
 describe('schema', () => {
   it('only inserts columns that exist in the activities table', () => {
-    activities.insert('gym', 'gym', T0);
     activities.seedDefaults(T0, demoActivities(es.demo));
 
     const declared = ddlColumns(INIT_SQL, 'activities');

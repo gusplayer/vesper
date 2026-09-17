@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { dissolveLayers } from '../../lib/dissolve';
 import { useTheme } from '../theme';
 import { colors as palette, motion } from '../tokens';
+import { useReduceMotion } from '../useReduceMotion';
 
 type InkFloodProps = {
   /** True starts the flood; it runs once and calls `onDone`. */
@@ -34,6 +35,7 @@ type InkFloodProps = {
  */
 export function InkFlood({ active, origin = null, onDone, tone = 'ink' }: InkFloodProps) {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const fill = tone === 'paper' ? palette.light.bg : colors.ink;
   const { width, height } = useWindowDimensions();
   const [progress] = useState(() => new Animated.Value(0));
@@ -68,6 +70,12 @@ export function InkFlood({ active, origin = null, onDone, tone = 'ink' }: InkFlo
       // Keep the ink where it is while the sheet lingers; the next flood resets it.
       return undefined;
     }
+    // With "reduce motion" the sheet is simply there: no dots spreading, same result.
+    if (reduceMotion) {
+      progress.setValue(1);
+      done.current();
+      return undefined;
+    }
     progress.setValue(0);
     const animation = Animated.timing(progress, {
       toValue: 1,
@@ -81,7 +89,7 @@ export function InkFlood({ active, origin = null, onDone, tone = 'ink' }: InkFlo
       }
     });
     return () => animation.stop();
-  }, [active, progress]);
+  }, [active, progress, reduceMotion]);
 
   if (!shown) {
     return null;

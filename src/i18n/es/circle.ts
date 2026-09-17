@@ -5,7 +5,7 @@
  */
 
 /** 'Ana', 'Ana y Luis', 'Ana, Luis y Sofía'. */
-function joinNames(names: ReadonlyArray<string>): string {
+function joinNames(names: readonly string[]): string {
   if (names.length === 0) {
     return '';
   }
@@ -34,6 +34,8 @@ export const circle = {
   /** One person's row in the week list. */
   member: {
     me: 'Tú',
+    /** '@ana', how a handle is written wherever it appears. */
+    handle: (handle: string) => `@${handle}`,
     /** '3h 20m de foco'. */
     focus: (hours: string) => `${hours} de foco`,
     /** 'redes · 2h (estimado)'. An estimated floor on its own line, never summed (ADR-0005). */
@@ -44,7 +46,7 @@ export const circle = {
   },
   kudos: {
     /** 'Ana y Luis te dieron ánimo esta semana.' */
-    received: (names: ReadonlyArray<string>) =>
+    received: (names: readonly string[]) =>
       names.length === 1 ? `${names[0]} te dio ánimo esta semana.` : `${joinNames(names)} te dieron ánimo esta semana.`,
   },
   /** circle/index. */
@@ -68,7 +70,7 @@ export const circle = {
     summary: (target: number, weeks: number) =>
       `${target} veces por semana · ${weeks === 1 ? '1 semana' : `${weeks} semanas`}`,
     /** 'con Ana y Luis'. */
-    withNames: (names: ReadonlyArray<string>) => `con ${joinNames(names)}`,
+    withNames: (names: readonly string[]) => `con ${joinNames(names)}`,
     alone: 'solo tú',
     nobody: 'sin participantes',
     status: {

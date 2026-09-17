@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
-import { getStrings } from '../../i18n';
+import { getStrings, useLocaleStore } from '../../i18n';
 import { endFocus, startFocus, status, updateFocus, type FocusInput } from '../liveActivity';
 import { focusInputFor } from '../liveActivityProps';
 
@@ -17,7 +17,7 @@ import { focusInputFor } from '../liveActivityProps';
  *
  * There is no timer here. The activity's clocks are native and count from the
  * interval they were given (ADR-0023); an update goes out only when the interval or
- * the words change: a break starts or ends, the mode is renamed.
+ * the words change: a break starts or ends, the mode is renamed, the language changes.
  */
 
 function currentInput(): FocusInput | null {
@@ -91,9 +91,17 @@ export function useLiveActivitySync(): void {
       }
     });
 
+    // The phase text travels as a prop in the app's language: a language change resends it.
+    const unsubscribeLocale = useLocaleStore.subscribe(() => {
+      if (shownSessionId !== null) {
+        refresh();
+      }
+    });
+
     return () => {
       unsubscribeFocus();
       unsubscribeApp();
+      unsubscribeLocale();
       if (shownSessionId !== null) {
         stop();
       }

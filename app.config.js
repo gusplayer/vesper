@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
 
 /**
  * Build variants on top of app.json.

@@ -10,8 +10,7 @@ import {
   SearchField,
   Section,
   Text,
-} from '../../design/components';
-import { AppRow } from '../../design/components';
+ AppRow } from '../../design/components';
 import { MAX_SELECTION } from '../../data/modeDraft';
 import { useStrings } from '../../i18n';
 
@@ -28,10 +27,10 @@ type SelectionPickerProps = {
   title: string;
   searchPlaceholder: string;
   /** Everything that can be picked; searched in full. */
-  items: ReadonlyArray<PickerItem>;
+  items: readonly PickerItem[];
   /** What the second section lists when not searching; defaults to every item. */
-  featured?: ReadonlyArray<PickerItem>;
-  selectedIds: ReadonlyArray<string>;
+  featured?: readonly PickerItem[];
+  selectedIds: readonly string[];
   /** 'Seleccionadas' / 'Seleccionados'. */
   selectedTitle: string;
   /** 'Todas' / 'Populares'. */
@@ -114,7 +113,7 @@ export function SelectionPicker({
             title={selectedTitle}
             right={
               <Text variant="label" tone="secondary">
-                {`${selected.length} / ${MAX_SELECTION}`}
+                {t.modes.picker.count(selected.length, MAX_SELECTION)}
               </Text>
             }
           >

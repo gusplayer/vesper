@@ -30,6 +30,10 @@ class AlarmReceiver : BroadcastReceiver() {
           Log.w(TAG, "window ${spec.id} start alarm arrived outside the window; not starting")
         } else if (spec.packageNames.isEmpty()) {
           Log.w(TAG, "window ${spec.id} has no packages; not starting")
+        } else if (PlanStore.sessionPlanRunning(context, now)) {
+          // ADR-0019: a session the user started is never cut short or re-skinned by a
+          // routine. JS starts the routine's session when this one ends.
+          Log.i(TAG, "window ${spec.id} opens but a session plan is running; left alone")
         } else {
           Log.i(TAG, "window ${spec.id} opens; blocking until ${active.end}")
           BlockingService.apply(context, spec.plan(active.start, active.end))

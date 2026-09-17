@@ -7,7 +7,7 @@ import { Text } from './Text';
 type Segment<T extends string> = { value: T; label: string };
 
 type SegmentedControlProps<T extends string> = {
-  segments: ReadonlyArray<Segment<T>>;
+  segments: readonly Segment<T>[];
   value: T;
   onChange: (value: T) => void;
 };

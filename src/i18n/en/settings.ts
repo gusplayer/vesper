@@ -128,7 +128,7 @@ export const settings: typeof shape = {
       },
       {
         question: 'How does the emergency unlock work?',
-        answer: 'It ends the session right away, no waiting. You have five per month and they are counted in Settings.',
+        answer: 'It waits ten seconds from the session and ends it without the ritual. You have five per month.',
       },
       {
         question: 'Does Vesper upload my data?',
@@ -179,7 +179,7 @@ export const settings: typeof shape = {
     title: 'Live Activities',
     toggleTitle: 'Live Activities',
     toggleDescription: 'The timer on the lock screen and in the Dynamic Island',
-    previewMode: 'No social',
+    previewMode: 'No socials',
     previewStatus: (remaining) => `Focused · ${remaining} left`,
     previewCaption: 'This is how it looks while a session runs.',
   },

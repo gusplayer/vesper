@@ -18,15 +18,16 @@ segundo, no la impide, y quien lo pone es quien lo puede quitar.
 ## Descripción completa — español
 
 Vesper es un temporizador de foco para ti, no para vigilar a nadie. Eliges qué apps
-esperan mientras trabajas, mantienes pulsado un botón y la sesión empieza. Si abres una
+esperan mientras trabajas, tocas un botón y la sesión empieza. Si abres una
 de esas apps antes de terminar, Vesper la cubre con un recordatorio y un solo botón:
 Volver. Tú pusiste el bloqueo; tú lo puedes quitar.
 
 **Qué hace**
 
-- Sesiones de foco de 25, 50 o 90 minutos, o la duración que quieras.
-- Modos: cada uno con sus apps, sus sitios y su profundidad. Suave termina al instante;
-  firme te pregunta por qué; profundo solo termina con el reloj.
+- Sesiones de foco de 5 a 120 minutos, o sin límite, con una pausa de 15 minutos cada
+  25 de foco.
+- Modos: cada uno con sus apps, sus sitios y su profundidad. Suave termina tras una
+  respiración; firme, tras dos y una frase; profundo solo termina con el reloj.
 - Rutinas: un modo que se enciende solo a la hora que programaste, o cuando lo pidas.
 - Hasta cinco hábitos y una meta semanal. Sin rachas, sin insignias, sin ranking.
 - Un libro mayor del día con tres monedas que nunca se suman: tiempo invertido, tiempo
@@ -59,15 +60,16 @@ no es la información, sino la fricción. Una pantalla, un botón, y el tiempo q
 ## Full description — English
 
 Vesper is a focus timer for you, not for watching anyone else. You choose which apps
-should wait while you work, you hold a button, and the session starts. If you open one of
+should wait while you work, you tap a button, and the session starts. If you open one of
 those apps before you are done, Vesper covers it with a reminder and a single button: Go
 back. You set the block; you can lift it.
 
 **What it does**
 
-- Focus sessions of 25, 50 or 90 minutes, or any length you want.
-- Modes: each with its own apps, websites and depth. Soft ends at once; firm asks you
-  why; deep only ends with the clock.
+- Focus sessions from 5 to 120 minutes, or open-ended, with a 15-minute break every
+  25 minutes of focus.
+- Modes: each with its own apps, websites and depth. Soft ends after one breath; firm
+  after two and a sentence; deep only ends with the clock.
 - Routines: a mode that turns itself on at the time you scheduled, or whenever you ask.
 - Up to five habits and one weekly goal. No streaks, no badges, no leaderboards.
 - A ledger of the day with three currencies that are never added together: time

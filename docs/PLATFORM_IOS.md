@@ -1,7 +1,10 @@
 # Plataforma iOS — Screen Time
 
-Referencia técnica. Relevante a partir de la fase 2. Léelo antes de tocar cualquier cosa
-de bloqueo o de uso.
+Referencia técnica. Léelo antes de tocar cualquier cosa de bloqueo, de uso o de la Live
+Activity. La integración existe desde ADR-0017 (`src/platform/blocking.ios.ts`,
+`liveActivity.ts`, `targets/`); **nada del bloqueo se ha verificado en un teléfono**
+porque falta el entitlement. La primera mitad de este documento es la referencia de la
+API; la segunda ("Integración") describe lo que hay en el repo.
 
 ## Entitlement
 
@@ -16,14 +19,17 @@ Requisito del usuario final: el iPhone debe tener FaceID o código configurado.
 Sin eso, la autorización de Screen Time no se puede conceder. Hay que detectarlo antes
 de mostrar la pantalla de permisos.
 
-## Los cuatro componentes
+## Los cuatro componentes de Screen Time
 
-| Componente | Sandbox | Puede escribir a App Group |
-|---|---|---|
-| App principal | normal | sí |
-| `DeviceActivityMonitor` extension | normal | **sí** |
-| `ShieldAction` extension | normal | **sí** |
-| `DeviceActivityReport` extension | solo lectura | **no** |
+| Componente | Sandbox | Puede escribir a App Group | En Vesper |
+|---|---|---|---|
+| App principal | normal | sí | `com.gusplayer.vesper` |
+| `DeviceActivityMonitor` extension | normal | **sí** | `targets/ActivityMonitorExtension` |
+| `ShieldAction` extension | normal | **sí** | `targets/ShieldAction` (y `ShieldConfiguration`, que solo dibuja) |
+| `DeviceActivityReport` extension | solo lectura | **no** | **No existe** en el proyecto (ADR-0004) |
+
+El proyecto de Xcode tiene además `ExpoWidgetsTarget` (la Live Activity), que no es de
+Screen Time: en total cuatro targets más la app.
 
 ## Lo que se puede persistir
 
@@ -161,13 +167,15 @@ pedirlo para:
 4. `com.gusplayer.vesper.ShieldAction`
 
 Hasta que lleguen, un dev client firmado para dispositivo con estas extensiones falla
-al firmar. El código de `src/platform/blocking.ts` lo sabe y no depende de ello.
+al firmar. El código de `src/platform/blocking.ios.ts` lo sabe y no depende de ello.
+Con una cuenta gratuita, `VESPER_FREE_TEAM=1` (`app.config.js`) deja fuera estas
+extensiones y el widget, y el resto de la app corre en el teléfono.
 
 ### Qué funciona dónde
 
 | Dónde | `status()` | Qué pasa |
 |---|---|---|
-| Android | `solo iPhone` | Nada se carga. Las pantallas no muestran la fila de apps reales. |
+| Android | responde `blocking.android.ts` | Su propio módulo, con la misma superficie. Ver `PLATFORM_ANDROID.md`. |
 | Simulador iOS | `el simulador no tiene Tiempo de uso` | El módulo existe pero Family Controls no funciona. Onboarding continúa, "Mis reglas" lo dice, `modes/apps?native=1` muestra la razón y "Volver". |
 | iPhone sin entitlement | `falta el entitlement de Family Controls de Apple` | `requestAuthorization()` falla; se recuerda durante el lanzamiento y todo lo demás se apaga. |
 | iPhone, permiso denegado | `el permiso de Tiempo de uso está denegado` | El usuario dijo que no. Se puede cambiar en Ajustes del sistema. |
@@ -186,7 +194,8 @@ importan la plataforma):
    `modeId`, arma el plan con `blockPlan(mode, settings.rules)` de
    `src/domain/blocking.ts`, y si `status().available`:
    - `configureShield(mode.name)` → `updateShield({ title: 'Vesper · <modo>', subtitle,
-     primaryButtonLabel: 'Volver a Vesper' }, { primary: { behavior: 'close' } })`;
+     primaryButtonLabel: 'Cerrar' }, { primary: { behavior: 'close' } })`, con la
+     paleta de `shieldPalette.ts` (ver "Escudo", abajo);
    - `kind === 'block'` → `disableBlockAllMode` + `blockSelection({ activitySelectionToken })`;
    - `kind === 'allow'` → `enableBlockAllMode` + `addSelectionToWhitelistAndUpdateBlock(...)`;
    - `blockMature` → `setWebContentFilterPolicy({ type: 'auto' })`.
@@ -194,6 +203,9 @@ importan la plataforma):
    `disableBlockAllMode`, `clearWhitelistAndUpdateBlock`, `clearWebContentFilterPolicy`.
 3. **Al montar con una sesión corriendo**: aplica de nuevo. ManagedSettings sobrevive
    reinicios, así que casi siempre es idempotente.
+4. **Pausa** (ADR-0022, ADR-0023): `pausePlan(untilMs)` es `release()` en iOS y
+   `resumePlan(plan, timing)` es `applyPlan`; el `PlanTiming` (`startedAt`, `endsAt`,
+   `open`) que viaja con el plan lo ignora iOS, que espera a `release()`.
 
 Un modo sin `selectionToken` produce `kind: 'none'`: la sesión corre igual y no bloquea
 nada. El token se elige en `modes/edit` → "Apps reales (Tiempo de uso)" →

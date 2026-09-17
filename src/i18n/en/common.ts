@@ -1,7 +1,6 @@
 import type { common as shape } from '../es/common';
 
 export const common: typeof shape = {
-  appName: 'Vesper',
   tabs: {
     focus: 'Focus',
     routines: 'Routines',
@@ -12,11 +11,11 @@ export const common: typeof shape = {
   save: 'Save',
   done: 'Done',
   back: 'Back',
-  delete: 'Delete',
+  close: 'Close',
+  clear: 'Clear search',
+  dismiss: 'Dismiss notice',
   edit: 'Edit',
   continue: 'Continue',
-  on: 'On',
-  off: 'Off',
   none: 'None',
   empty: '—',
 };

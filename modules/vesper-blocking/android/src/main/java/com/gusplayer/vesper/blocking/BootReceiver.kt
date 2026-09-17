@@ -24,12 +24,14 @@ class BootReceiver : BroadcastReceiver() {
     val windows = WindowScheduler.armAll(context, now)
     Log.i(TAG, "$action: re-armed ${windows.size} windows")
 
-    // A plan that ended while the phone was off is stale; a window open now wins over
-    // whatever else was stored, because the reboot ended any session the user had.
+    // A plan that ended while the phone was off is stale. A session plan still ahead
+    // outranks any window (ADR-0019: the routine waits); otherwise a window open now
+    // wins over whatever else was stored.
     val stored = PlanStore.load(context)
     if (stored?.endsAt != null && stored.endsAt <= now) {
       PlanStore.clear(context)
     }
+    val sessionRunning = PlanStore.sessionPlanRunning(context, now)
     val open = windows
       .mapNotNull { spec -> WindowSchedule.activeWindow(spec, now)?.let { spec to it } }
       .filter { (spec, _) -> spec.packageNames.isNotEmpty() }
@@ -39,18 +41,21 @@ class BootReceiver : BroadcastReceiver() {
       // while the phone was off. Nothing should be blocking on its behalf.
       PlanStore.clear(context)
     }
-    if (open != null) {
-      val (spec, window) = open
-      Log.i(TAG, "$action: window ${spec.id} is open; starting service until ${window.end}")
-      BlockingService.apply(context, spec.plan(window.start, window.end))
-    } else if (action == Intent.ACTION_BOOT_COMPLETED) {
+    if (sessionRunning) {
+      if (open != null) {
+        Log.i(TAG, "$action: window ${open.first.id} is open but a session plan is running; left alone")
+      }
       val plan = PlanStore.load(context)
-      if (plan != null && plan.windowId == null && plan.endsAt != null) {
+      if (action == Intent.ACTION_BOOT_COMPLETED && plan != null && plan.endsAt != null) {
         // A JS session with an end that is still ahead: the service was killed by
         // the reboot, START_STICKY does not survive one, so it is started again.
         Log.i(TAG, "$action: resuming session plan until ${plan.endsAt}")
         BlockingService.apply(context, plan)
       }
+    } else if (open != null) {
+      val (spec, window) = open
+      Log.i(TAG, "$action: window ${spec.id} is open; starting service until ${window.end}")
+      BlockingService.apply(context, spec.plan(window.start, window.end))
     }
   }
 

@@ -11,6 +11,7 @@ import {
   Text,
 } from '../../design/components';
 import { useFocusStore, useMode, useSettings } from '../../data';
+import { EMERGENCY_EXIT_REASON, exitReasonText } from '../../features/session/exitReason';
 import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { useBlockBack } from '../../lib/useBlockBack';
@@ -32,7 +33,8 @@ export default function SessionClosedScreen() {
   const mode = useMode(modeId ?? undefined);
   const emergencyLeft = useSettings().emergencyLeft;
   const params = useLocalSearchParams<{ emergency?: string }>();
-  const emergency = params.emergency === '1';
+  // The route param says it on arrival; the stored reason says it after a relaunch.
+  const emergency = params.emergency === '1' || closed?.exitReason === EMERGENCY_EXIT_REASON;
   const served = durationText(closed?.actualMs ?? 0);
 
   return (
@@ -59,7 +61,7 @@ export default function SessionClosedScreen() {
         <ListRow label={strings.session.complete.mode} value={mode?.name ?? strings.common.empty} />
         <ListRow label={strings.session.complete.duration} value={served} />
         {closed === null || closed.exitReason === null || emergency ? null : (
-          <ListRow label={t.reason} value={closed.exitReason} />
+          <ListRow label={t.reason} value={exitReasonText(closed.exitReason, strings.session)} />
         )}
       </ListGroup>
     </Screen>

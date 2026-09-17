@@ -119,7 +119,7 @@ export default function FocusScreen() {
         <Stack align="center" gap="sm">
           <HeatGrid
             cells={cells}
-            columnLabels={t.focus.recentDays.weekdayInitials}
+            columnLabels={t.format.weekdayInitials}
             onPress={openActivity}
             accessibilityLabel={gridSummary(cells, t.focus.recentDays)}
           />

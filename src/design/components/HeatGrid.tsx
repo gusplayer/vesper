@@ -15,10 +15,10 @@ export type HeatCell = {
 
 type HeatGridProps = {
   /** Reading order, oldest first, `columns` per row. */
-  cells: ReadonlyArray<HeatCell>;
+  cells: readonly HeatCell[];
   columns?: number;
   /** One letter per column, drawn above the first row. */
-  columnLabels?: ReadonlyArray<string>;
+  columnLabels?: readonly string[];
   onPress?: () => void;
   accessibilityLabel?: string;
 };

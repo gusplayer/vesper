@@ -3,7 +3,7 @@ import { Card, Check, DotGrid, Stack, Text } from '../../design/components';
 import { useStrings } from '../../i18n';
 
 type StandingsListProps = {
-  standings: ReadonlyArray<Standing>;
+  standings: readonly Standing[];
 };
 
 /**

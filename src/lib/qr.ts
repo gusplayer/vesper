@@ -6,10 +6,10 @@
  * Pure: takes text, returns a square boolean matrix. No React, no imports.
  */
 
-export type QrMatrix = ReadonlyArray<ReadonlyArray<boolean>>;
+export type QrMatrix = readonly (readonly boolean[])[];
 
 /** Per version, level M: total codewords, error-correction codewords per block, blocks. */
-const VERSIONS: ReadonlyArray<{ total: number; ecPerBlock: number; blocks: number; alignment: number | null }> = [
+const VERSIONS: readonly { total: number; ecPerBlock: number; blocks: number; alignment: number | null }[] = [
   { total: 26, ecPerBlock: 10, blocks: 1, alignment: null },
   { total: 44, ecPerBlock: 16, blocks: 1, alignment: 18 },
   { total: 70, ecPerBlock: 26, blocks: 1, alignment: 22 },
@@ -68,7 +68,7 @@ function generator(degree: number): number[] {
 }
 
 /** The `degree` error-correction codewords of `data`. */
-export function reedSolomon(data: ReadonlyArray<number>, degree: number): number[] {
+export function reedSolomon(data: readonly number[], degree: number): number[] {
   const gen = generator(degree);
   const remainder = new Array<number>(degree).fill(0);
   for (const byte of data) {
@@ -93,7 +93,7 @@ class Bits {
   }
 }
 
-function encodeBytes(bytes: ReadonlyArray<number>): number[] {
+function encodeBytes(bytes: readonly number[]): number[] {
   const index = QR_MAX_BYTES.findIndex((max) => bytes.length <= max);
   if (index === -1) {
     throw new Error(`QR payload of ${bytes.length} bytes exceeds ${QR_MAX_BYTES[QR_MAX_BYTES.length - 1]}`);
@@ -246,7 +246,7 @@ function drawFormat(mask: number, modules: Grid): void {
 }
 
 /** Codewords zigzag upward and downward in two-module columns, skipping column 6. */
-function drawCodewords(codewords: ReadonlyArray<number>, modules: Grid, isFunction: Grid): void {
+function drawCodewords(codewords: readonly number[], modules: Grid, isFunction: Grid): void {
   const size = modules.length;
   let i = 0;
   const total = codewords.length * 8;
@@ -272,7 +272,7 @@ function drawCodewords(codewords: ReadonlyArray<number>, modules: Grid, isFuncti
   }
 }
 
-const MASKS: ReadonlyArray<(x: number, y: number) => boolean> = [
+const MASKS: readonly ((x: number, y: number) => boolean)[] = [
   (x, y) => (x + y) % 2 === 0,
   (_x, y) => y % 2 === 0,
   (x) => x % 3 === 0,

@@ -33,7 +33,7 @@ const HOLA = `
   .split('\n')
   .map((row) => [...row].map((cell) => cell === '1'));
 
-function text(matrix: ReadonlyArray<ReadonlyArray<boolean>>): string {
+function text(matrix: readonly (readonly boolean[])[]): string {
   return matrix.map((row) => row.map((cell) => (cell ? '1' : '0')).join('')).join('\n');
 }
 

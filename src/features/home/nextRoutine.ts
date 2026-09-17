@@ -2,6 +2,7 @@ import { dayKeyOf } from '../../domain/day';
 import { dueRoutine, nextStart, type RoutineLike } from '../../domain/routines';
 import { DAY } from '../../domain/time';
 import type { Strings } from '../../i18n/es';
+import { clockText } from '../../lib/format';
 
 /**
  * The one line under the mode on the home page: what the routines are doing right
@@ -18,14 +19,8 @@ export type NamedMode = { id: string; name: string };
 
 export type NextRoutineStrings = Strings['focus']['nextRoutine'];
 
-/** '9:05', '14:30'. Local time, twenty-four hours, no leading zero on the hour. */
-function clockText(at: number): string {
-  const date = new Date(at);
-  return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
 /** The mode's name is what the user recognises; the routine's own name is the fallback. */
-function displayName(routine: NamedRoutine, modes: ReadonlyArray<NamedMode>): string {
+function displayName(routine: NamedRoutine, modes: readonly NamedMode[]): string {
   return modes.find((mode) => mode.id === routine.modeId)?.name ?? routine.name;
 }
 
@@ -35,8 +30,8 @@ function displayName(routine: NamedRoutine, modes: ReadonlyArray<NamedMode>): st
  * soonest start is less than a day away; null otherwise.
  */
 export function nextRoutineText(
-  routines: ReadonlyArray<NamedRoutine>,
-  modes: ReadonlyArray<NamedMode>,
+  routines: readonly NamedRoutine[],
+  modes: readonly NamedMode[],
   now: number,
   t: NextRoutineStrings,
 ): string | null {

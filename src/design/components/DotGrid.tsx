@@ -6,14 +6,18 @@ import { space } from '../tokens';
 
 type DotGridProps = {
   /** One flag per cell, in reading order. */
-  cells: ReadonlyArray<boolean>;
+  cells: readonly boolean[];
   columns?: number;
-  /** Cell side in points when not filling. */
-  size?: number;
-  gap?: number;
+  /** A hairline between cells instead of a gap, for grids with thousands of them (the weeks of life). */
+  dense?: boolean;
   /** Size the cells so `columns` of them span the available width exactly. */
   fill?: boolean;
 };
+
+/** Cell side in points when not filling. */
+const SIZE = 14;
+const GAP = 3;
+const DENSE_GAP = 1;
 
 /**
  * A grid of filled and empty squares. The month heatmap of the activity tab and the
@@ -21,15 +25,16 @@ type DotGridProps = {
  * visible in both schemes, so the shape of what is left reads as clearly as what is
  * done.
  */
-export function DotGrid({ cells, columns = 7, size = 14, gap = 3, fill = false }: DotGridProps) {
+export function DotGrid({ cells, columns = 7, dense = false, fill = false }: DotGridProps) {
   const { colors } = useTheme();
   const [width, setWidth] = useState(0);
+  const gap = dense ? DENSE_GAP : GAP;
 
   const side = fill
     ? width === 0
       ? 0
       : Math.max(1, Math.floor((width - (columns - 1) * gap) / columns))
-    : size;
+    : SIZE;
 
   function measure(event: LayoutChangeEvent): void {
     setWidth(event.nativeEvent.layout.width);
@@ -38,7 +43,7 @@ export function DotGrid({ cells, columns = 7, size = 14, gap = 3, fill = false }
   return (
     <View
       onLayout={fill ? measure : undefined}
-      style={[styles.grid, { gap }, fill ? styles.fill : { width: columns * (size + gap) - gap }]}
+      style={[styles.grid, { gap }, fill ? styles.fill : { width: columns * (SIZE + gap) - gap }]}
     >
       {side === 0
         ? null

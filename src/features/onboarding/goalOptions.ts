@@ -8,7 +8,7 @@ export type GoalOptionLabel = keyof Strings['onboarding']['goal']['options'];
  * entry and at the dictionary key that names it. The order is the one Brick shows,
  * not the order of the seed.
  */
-export const GOAL_OPTIONS: ReadonlyArray<{ ideaId: string; label: GoalOptionLabel }> = [
+export const GOAL_OPTIONS: readonly { ideaId: string; label: GoalOptionLabel }[] = [
   { ideaId: 'idea-work', label: 'work' },
   { ideaId: 'idea-mindfulness', label: 'mindfulness' },
   { ideaId: 'idea-family', label: 'family' },

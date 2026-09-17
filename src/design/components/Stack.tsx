@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { space } from '../tokens';
 
@@ -13,7 +13,6 @@ type StackProps = {
   /** Takes the remaining space, for pushing a footer down. */
   grow?: boolean;
   wrap?: boolean;
-  style?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -28,7 +27,6 @@ export function Stack({
   justify = 'flex-start',
   grow = false,
   wrap = false,
-  style,
 }: StackProps) {
   return (
     <View
@@ -41,7 +39,6 @@ export function Stack({
           flexWrap: wrap ? 'wrap' : 'nowrap',
         },
         grow ? styles.grow : null,
-        style,
       ]}
     >
       {children}

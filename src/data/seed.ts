@@ -1,4 +1,4 @@
-import { dayKeyOf } from '../domain/day';
+import { dayKeyOf, dayStartShifted } from '../domain/day';
 import { BREAK_EVERY_MS } from '../domain/session';
 import { DAY, HOUR, MINUTE } from '../domain/time';
 import type { Strings } from '../i18n/es';
@@ -6,7 +6,6 @@ import type { AppCategory } from '../i18n/es/demo';
 import type {
   Activity,
   AppInfo,
-  DayStat,
   Habit,
   HabitMark,
   HealthSummary,
@@ -34,7 +33,7 @@ import type {
 type DemoStrings = Strings['demo'];
 
 /** The catalogue without words: the category is a key the dictionary resolves. */
-const APP_CATALOGUE: ReadonlyArray<Omit<AppInfo, 'category'> & { category: AppCategory }> = [
+const APP_CATALOGUE: readonly (Omit<AppInfo, 'category'> & { category: AppCategory })[] = [
   { id: 'instagram', name: 'Instagram', category: 'social', color: '#C13584', initial: 'I' },
   { id: 'tiktok', name: 'TikTok', category: 'entertainment', color: '#1C1B1A', initial: 'T' },
   { id: 'youtube', name: 'YouTube', category: 'entertainment', color: '#D6322A', initial: 'Y' },
@@ -70,6 +69,10 @@ export const WEBSITES: Website[] = [
 ];
 
 /** The default activities. The id is the key the activities table carries, never translated. */
+/** Ids of the seeded activities that screens point a new mode at. */
+export const WORK_ACTIVITY_ID = 'trabajo';
+export const FAMILY_ACTIVITY_ID = 'familia';
+
 export function demoActivities(t: DemoStrings): Activity[] {
   return [
     { id: 'trabajo', label: t.activity.trabajo },
@@ -240,12 +243,6 @@ function seededSessions(dayIndex: number, focusMs: number): number {
 /** How many days of history the demo fabricates. */
 export const DEMO_HISTORY_DAYS = 70;
 
-/** Local midnight `offset` days before the day containing `now`. */
-function dayStartBefore(now: number, offset: number): number {
-  const date = new Date(now);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - offset).getTime();
-}
-
 type DemoDay = {
   /** Local midnight of the day. */
   dayStart: number;
@@ -255,7 +252,7 @@ type DemoDay = {
 
 /** The shape of one fabricated day: how much focus, split into how many sessions. */
 function demoDay(now: number, offset: number): DemoDay {
-  const dayStart = dayStartBefore(now, offset);
+  const dayStart = dayStartShifted(now, -offset);
   const weekday = (new Date(dayStart).getDay() + 6) % 7;
   const wobble = ((offset * 37) % 11) / 10;
   const base = WEEKDAY_PATTERN_MS[weekday] ?? 0;
@@ -268,25 +265,10 @@ function sessionStartFraction(index: number): number {
   return 0.35 + index * 0.2;
 }
 
-/** Day stats for the last `days` days, today included, oldest first. */
-export function seedDayStats(now: number, days = DEMO_HISTORY_DAYS): DayStat[] {
-  const stats: DayStat[] = [];
-  for (let offset = days - 1; offset >= 0; offset -= 1) {
-    const { dayStart, focusMs, sessions } = demoDay(now, offset);
-    const segments = Array.from({ length: sessions }, (_, i) => {
-      const start = sessionStartFraction(i);
-      return { start, end: Math.min(0.98, start + (focusMs / (sessions * DAY)) * 1.4) };
-    });
-    stats.push({ dayKey: dayKeyOf(dayStart), focusMs, sessions, segments });
-  }
-  return stats;
-}
-
 /**
- * The same history as seedDayStats, as the completed sessions that would produce it,
- * oldest first. Folded back by day (db/queries/dayStats) it gives the same focus and
- * session count per day, so the charts look as they did when the stats were seeded
- * directly. Ids are deterministic so a re-seed writes the same rows.
+ * About ten weeks of completed sessions, oldest first, following the weekday shape
+ * above. Folded by day (db/queries/dayStats) they give the charts their history.
+ * Ids are deterministic so a re-seed writes the same rows.
  *
  * activityId is the activity key; the seeder resolves it to the row id.
  */
@@ -299,6 +281,8 @@ export function seedDemoSessions(now: number, days = DEMO_HISTORY_DAYS): Session
     }
     const perSession = Math.round(focusMs / sessions);
     for (let i = 0; i < sessions; i += 1) {
+      // A fraction of the day for demo data: an hour off on a DST day is fine here.
+      // eslint-disable-next-line no-restricted-syntax
       const startedAt = Math.round(dayStart + sessionStartFraction(i) * DAY);
       result.push({
         id: `demo-${dayKeyOf(dayStart)}-${i}`,
@@ -328,7 +312,7 @@ export function seedHabitMarks(now: number): HabitMark[] {
   const marks: HabitMark[] = [];
   const weekday = (new Date(now).getDay() + 6) % 7;
   for (let offset = weekday; offset >= 1; offset -= 1) {
-    const dayKey = dayKeyOf(now - offset * DAY);
+    const dayKey = dayKeyOf(dayStartShifted(now, -offset));
     if (offset % 2 === 0) {
       marks.push({ id: `m-gym-${dayKey}`, habitId: 'habit-gym', dayKey, source: 'health', sourceRef: `hk-${dayKey}`, durationMs: 55 * MINUTE, markedAt: now });
     }

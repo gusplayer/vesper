@@ -83,47 +83,6 @@ describe('set', () => {
   });
 });
 
-describe('getWeeklyTargetMs', () => {
-  it('is null when missing, zero or negative', () => {
-    expect(settings.getWeeklyTargetMs()).toBeNull();
-
-    fake = createFakeDb();
-    fake.whenSql('SELECT value', [{ value: '0' }]);
-    expect(settings.getWeeklyTargetMs()).toBeNull();
-
-    fake = createFakeDb();
-    fake.whenSql('SELECT value', [{ value: '-5' }]);
-    expect(settings.getWeeklyTargetMs()).toBeNull();
-  });
-
-  it('returns the stored target otherwise', () => {
-    fake.whenSql('SELECT value', [{ value: '36000000' }]);
-
-    expect(settings.getWeeklyTargetMs()).toBe(36_000_000);
-    expect(fake.callMatching('SELECT value').params).toEqual([
-      settings.SETTING_KEYS.weeklyFocusTargetMs,
-    ]);
-  });
-});
-
-describe('setWeeklyTargetMs', () => {
-  it('writes 0 for no goal', () => {
-    settings.setWeeklyTargetMs(null, T0);
-
-    expect(fake.callMatching(/INSERT INTO settings/).params).toEqual([
-      settings.SETTING_KEYS.weeklyFocusTargetMs,
-      '0',
-      T0,
-    ]);
-  });
-
-  it('writes the target otherwise', () => {
-    settings.setWeeklyTargetMs(36_000_000, T0);
-
-    expect(fake.callMatching(/INSERT INTO settings/).params?.[1]).toBe('36000000');
-  });
-});
-
 const DEFAULTS: Settings = {
   onboardingDone: false,
   screenTimeConnected: false,

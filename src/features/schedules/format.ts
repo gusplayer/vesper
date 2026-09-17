@@ -21,7 +21,7 @@ export function timeText(minutes: number): string {
   return `${hours}:${String(rest).padStart(2, '0')}`;
 }
 
-function sameDays(a: ReadonlyArray<boolean>, b: ReadonlyArray<boolean>): boolean {
+function sameDays(a: readonly boolean[], b: readonly boolean[]): boolean {
   return a.length === b.length && a.every((flag, index) => flag === b[index]);
 }
 
@@ -29,7 +29,7 @@ function sameDays(a: ReadonlyArray<boolean>, b: ReadonlyArray<boolean>): boolean
  * 'Entre semana', 'Fines de semana', 'Todos los días', or the chosen days spelled out:
  * 'lun, mar, jue'. No day at all reads 'Ningún día' so the card never goes blank.
  */
-export function daysText(days: ReadonlyArray<boolean>, t: FormatStrings): string {
+export function daysText(days: readonly boolean[], t: FormatStrings): string {
   if (days.length === 7 && days.every(Boolean)) {
     return t.everyDay;
   }
@@ -98,7 +98,7 @@ export type OverlapCandidate = ScheduleWindow & Pick<Schedule, 'id' | 'name' | '
  * The names of the other enabled schedules this one crosses, in list order. Disabled
  * schedules never take part, on either side: a schedule that is off cannot clash.
  */
-export function overlapNames(schedule: OverlapCandidate, all: ReadonlyArray<OverlapCandidate>): string[] {
+export function overlapNames(schedule: OverlapCandidate, all: readonly OverlapCandidate[]): string[] {
   if (!schedule.enabled) {
     return [];
   }

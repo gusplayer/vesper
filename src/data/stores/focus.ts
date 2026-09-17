@@ -55,8 +55,10 @@ type FocusState = {
   /** Ends the running break, by hand or because its time is up; a no-op outside one. */
   resume: (now: number) => void;
   /**
-   * Catches up after the app was asleep: ends a break past its length and expires a
-   * session past its end (domain/session.settle). Returns what changed, if anything.
+   * Catches up after the app was asleep: ends a break past its length and closes a
+   * session past its end at that end, with its due verdict (domain/session.settle).
+   * Both in one call. Returns what changed, if anything; a closed session comes back
+   * with its outcome so the caller can navigate to the closing screen.
    */
   settleNow: (now: number) => Session | null;
   setIntention: (text: string) => void;
@@ -87,7 +89,8 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     const session = createSession(
       uuidv7(now),
       {
-        activityId: resolveActivityId(mode?.activityId ?? 'trabajo'),
+        // No mode, no key: resolveActivityId falls back to the first activity.
+        activityId: resolveActivityId(mode?.activityId ?? ''),
         plannedMs: plannedMs ?? 0,
         open: plannedMs === null,
         depth: mode?.depth ?? 'soft',
@@ -107,7 +110,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     }
     const closed = closeSession(current, now, outcome, { exitReason: exitReason ?? null });
     sessionsRepo.update(closed);
-    useAppStore.getState().recordFocus(now, closed.actualMs);
+    useAppStore.getState().recordFocus(now);
     set((state) => ({
       session: null,
       lastClosed: closed,
@@ -160,8 +163,12 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     if (settled.outcome === 'running') {
       set({ session: settled });
     } else {
-      useAppStore.getState().recordFocus(now, settled.actualMs);
-      set({ session: null, lastClosed: settled });
+      useAppStore.getState().recordFocus(now);
+      set((state) => ({
+        session: null,
+        lastClosed: settled,
+        completedCount: state.completedCount + (settled.outcome === 'completed' ? 1 : 0),
+      }));
     }
     useSchemeStore.getState().setScheme(schemeFor(settled.outcome === 'running' ? settled : null));
     return settled;

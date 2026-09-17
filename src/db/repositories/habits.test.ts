@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { INIT_SQL } from '../migrations/001_init';
-import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
+import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as habits from './habits';
 
 let fake = createFakeDb();
@@ -9,6 +9,7 @@ let fake = createFakeDb();
 vi.mock('../client', () => ({
   getDb: () => fake,
   rowsAs: (result: { rows: FakeRows }) => result.rows,
+  transaction: (work: () => void) => transactionOn(fake)(work),
 }));
 
 vi.mock('../../lib/uuid', () => ({
@@ -26,76 +27,8 @@ const gymActivityRow = {
   created_at: 0,
 };
 
-const newHabit: habits.NewHabit = {
-  name: 'leer',
-  weeklyTarget: 4,
-  countMode: 'declared',
-  healthType: null,
-};
-
 beforeEach(() => {
   fake = createFakeDb();
-});
-
-describe('insert', () => {
-  it('refuses a sixth active habit before touching the table', () => {
-    fake.whenSql(/COUNT\(\*\)/, [{ n: 5 }]);
-
-    expect(() => habits.insert(newHabit, T0)).toThrow(/more than 5/);
-    expect(fake.calls.some((call) => call.sql.includes('INSERT'))).toBe(false);
-  });
-
-  it('refuses an empty or whitespace name', () => {
-    expect(() => habits.insert({ ...newHabit, name: '' }, T0)).toThrow(/empty/);
-    expect(() => habits.insert({ ...newHabit, name: '   ' }, T0)).toThrow(/empty/);
-    expect(fake.calls.some((call) => call.sql.includes('INSERT'))).toBe(false);
-  });
-
-  it('links the activity whose key matches the trimmed, lowercased name', () => {
-    fake.whenSql('key = ?', [gymActivityRow]);
-
-    const created = habits.insert({ ...newHabit, name: ' Gym ' }, T0);
-
-    expect(fake.callMatching('key = ?').params).toEqual(['gym']);
-    expect(created.name).toBe('Gym');
-    expect(created.activityId).toBe('activity-gym');
-  });
-
-  it('leaves activity_id null when no activity matches', () => {
-    const created = habits.insert(newHabit, T0);
-
-    expect(created.activityId).toBeNull();
-  });
-
-  it('writes the params in column order and returns the habit', () => {
-    const created = habits.insert(
-      { name: 'gym', weeklyTarget: 2, countMode: 'verified', healthType: 'workout' },
-      T0,
-    );
-
-    expect(created).toEqual({
-      id: 'id-fixed',
-      name: 'gym',
-      activityId: null,
-      weeklyTarget: 2,
-      countMode: 'verified',
-      healthType: 'workout',
-      archivedAt: null,
-      createdAt: T0,
-    });
-    const call = fake.callMatching(/INSERT INTO habits/);
-    expect(insertColumns(call.sql).columns).toEqual([
-      'id',
-      'name',
-      'activity_id',
-      'weekly_target',
-      'count_mode',
-      'health_type',
-      'archived_at',
-      'created_at',
-    ]);
-    expect(call.params).toEqual(['id-fixed', 'gym', null, 2, 'verified', 'workout', T0]);
-  });
 });
 
 describe('upsert', () => {
@@ -117,21 +50,66 @@ describe('upsert', () => {
     expect(call.params).toEqual(['habit-gym', 'gym', 'activity-gym', 4, 'verified', 'workout', null, T0]);
   });
 
-  it('enforces nothing: the editor already did', () => {
-    habits.upsert({
-      id: 'h',
-      name: '',
-      activityId: null,
-      weeklyTarget: 1,
-      countMode: 'declared',
-      healthType: null,
-      archivedAt: null,
-      createdAt: T0,
-    });
+  it('refuses a sixth active habit before touching the table, like insert (rule 4)', () => {
+    fake.whenSql(/FROM habits WHERE id = \?/, []);
+    fake.whenSql(/COUNT\(\*\)/, [{ n: 5 }]);
 
+    expect(() => habits.upsert(aRow('h-6'))).toThrow(/more than 5/);
+    expect(fake.calls.some((call) => call.sql.includes('INSERT'))).toBe(false);
+  });
+
+  it('counts an archived habit coming back as a new slot', () => {
+    fake.whenSql(/FROM habits WHERE id = \?/, [{ ...aHabitRow('h-old'), archived_at: T0 }]);
+    fake.whenSql(/COUNT\(\*\)/, [{ n: 5 }]);
+
+    expect(() => habits.upsert(aRow('h-old'))).toThrow(/more than 5/);
+  });
+
+  it('edits an active habit, and archives one, at the cap without counting', () => {
+    fake.whenSql(/FROM habits WHERE id = \?/, [aHabitRow('h-1')]);
+    fake.whenSql(/COUNT\(\*\)/, [{ n: 5 }]);
+
+    habits.upsert({ ...aRow('h-1'), name: 'gym' });
+    habits.upsert({ ...aRow('h-1'), archivedAt: T0 });
+
+    expect(fake.calls.filter((call) => call.sql.includes('INSERT INTO habits'))).toHaveLength(2);
     expect(fake.calls.some((call) => call.sql.includes('COUNT'))).toBe(false);
   });
+
+  it('writes a new habit under the cap, and does not check the name: the editor already did', () => {
+    fake.whenSql(/COUNT\(\*\)/, [{ n: 4 }]);
+
+    habits.upsert({ ...aRow('h'), name: '' });
+
+    expect(fake.callMatching(/INSERT INTO habits/).params?.[1]).toBe('');
+  });
 });
+
+function aRow(id: string): Parameters<typeof habits.upsert>[0] {
+  return {
+    id,
+    name: 'leer',
+    activityId: null,
+    weeklyTarget: 4,
+    countMode: 'declared',
+    healthType: null,
+    archivedAt: null,
+    createdAt: T0,
+  };
+}
+
+function aHabitRow(id: string): Record<string, unknown> {
+  return {
+    id,
+    name: 'leer',
+    activity_id: null,
+    weekly_target: 4,
+    count_mode: 'declared',
+    health_type: null,
+    archived_at: null,
+    created_at: T0,
+  };
+}
 
 describe('replaceHealthMarks', () => {
   it('deletes every health mark, then inserts the given ones with their own ids', () => {
@@ -147,17 +125,18 @@ describe('replaceHealthMarks', () => {
       },
     ]);
 
-    const [first, second] = fake.calls;
+    const [begin, first, second, commit] = fake.calls;
+    expect(begin?.sql).toBe('BEGIN');
     expect(first?.sql).toMatch(/DELETE FROM habit_marks WHERE source = 'health'/);
     expect(second?.sql).toContain('INSERT OR IGNORE INTO habit_marks');
     expect(second?.params).toEqual(['hk-1', 'habit-gym', '2026-08-17', 'health', 'sample-1', 1_800_000, T0]);
+    expect(commit?.sql).toBe('COMMIT');
   });
 
-  it('only deletes when given nothing', () => {
+  it('only deletes when given nothing, still inside a transaction', () => {
     habits.replaceHealthMarks([]);
 
-    expect(fake.calls).toHaveLength(1);
-    expect(fake.calls[0]?.sql).toContain('DELETE');
+    expect(fake.calls.map((call) => call.sql.split(' ')[0])).toEqual(['BEGIN', 'DELETE', 'COMMIT']);
   });
 });
 
@@ -274,7 +253,6 @@ describe('listActive / findById / countActive', () => {
 
 describe('schema', () => {
   it('only inserts columns that exist in the habits and habit_marks tables', () => {
-    habits.insert(newHabit, T0);
     habits.mark({ habitId: 'habit-1', dayKey: '2026-08-17', source: 'manual' }, T0);
     habits.upsert({
       id: 'h',
@@ -291,7 +269,7 @@ describe('schema', () => {
     ]);
 
     const inserts = fake.calls.filter((call) => call.sql.includes('INSERT'));
-    expect(inserts).toHaveLength(4);
+    expect(inserts).toHaveLength(3);
     for (const call of inserts) {
       const { table, columns } = insertColumns(call.sql);
       const declared = ddlColumns(INIT_SQL, table);

@@ -9,7 +9,7 @@ import { Toggle } from './Toggle';
 type ScheduleCardProps = {
   title: string;
   /** Lines under the title: status, mode, crossings. */
-  lines: ReadonlyArray<string>;
+  lines: readonly string[];
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
   /**

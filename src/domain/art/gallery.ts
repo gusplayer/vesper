@@ -7,7 +7,7 @@ import type { Artwork } from './types';
  */
 import { WORKS } from './works';
 
-export const GALLERY: ReadonlyArray<Artwork> = WORKS;
+export const GALLERY: readonly Artwork[] = WORKS;
 
 /** The artwork for a session: random, but the same every time that session is opened. */
 export function artworkFor(sessionId: string): Artwork {

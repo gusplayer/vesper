@@ -1,5 +1,10 @@
 # Sprint 01 — primer prototipo
 
+> **Histórico.** Registro del prototipo e-ink de la fase 1 (ADR-0001 a 0015), superado en
+> forma por ADR-0016. Los componentes, rutas y desviaciones que lista ya no existen con
+> ese nombre; el dominio y la base de datos sí. No se actualiza: para el estado real,
+> `STATUS.md`; para la estructura, `ARCHITECTURE.md`.
+
 Objetivo: app corriendo en un dispositivo físico, tres pantallas, cero permisos.
 
 Lee `CLAUDE.md`, `docs/PRD.md` y `docs/DESIGN_SYSTEM.md` antes de empezar.

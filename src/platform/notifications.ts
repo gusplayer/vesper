@@ -152,7 +152,7 @@ let queue: Promise<void> = Promise.resolve();
  * with the same fingerprint are left alone; changed ones are rescheduled; anything the
  * OS holds that is not in the plan is cancelled. An empty plan clears everything.
  */
-export function syncScheduled(specs: ReadonlyArray<NotificationSpec>): Promise<void> {
+export function syncScheduled(specs: readonly NotificationSpec[]): Promise<void> {
   if (!available) {
     return Promise.resolve();
   }
@@ -160,7 +160,7 @@ export function syncScheduled(specs: ReadonlyArray<NotificationSpec>): Promise<v
   return queue;
 }
 
-async function applyPlan(specs: ReadonlyArray<NotificationSpec>): Promise<void> {
+async function applyPlan(specs: readonly NotificationSpec[]): Promise<void> {
   await ensureAndroidChannel();
   const existing = await Notifications.getAllScheduledNotificationsAsync();
   const held = new Map<string, string | null>();

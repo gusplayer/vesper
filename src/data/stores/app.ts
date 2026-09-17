@@ -6,8 +6,8 @@ import * as habitsRepo from '../../db/repositories/habits';
 import * as modesRepo from '../../db/repositories/modes';
 import * as schedulesRepo from '../../db/repositories/schedules';
 import * as settingsRepo from '../../db/repositories/settings';
-import { dayKeyOf } from '../../domain/day';
-import { DAY } from '../../domain/time';
+import { dayKeyOf, shiftDayKey } from '../../domain/day';
+import { activeHabitCount, canAddHabit } from '../../domain/habits';
 import type { Habit, HabitMark } from '../../domain/types';
 import { uuidv7 } from '../../lib/uuid';
 import { SETTINGS } from '../seed';
@@ -61,7 +61,12 @@ type AppState = {
   dismissBanner: () => void;
 
   // Habits
-  upsertHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'archivedAt'> & { id?: string }) => void;
+  /**
+   * Creates or edits a habit. False, and nothing written, when a new habit would be
+   * the sixth active one: the screens refuse earlier, this is the rule holding on
+   * its own (rule 4 in CLAUDE.md).
+   */
+  upsertHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'archivedAt'> & { id?: string }) => boolean;
   archiveHabit: (id: string) => void;
   toggleHabitToday: (id: string, now: number) => void;
   /** Replaces every Health-sourced mark with what Health says now. Manual marks stay. */
@@ -70,14 +75,13 @@ type AppState = {
   // Stats
   /**
    * Re-derives the day stats from the sessions table. The focus store calls it after
-   * closing a session; `focusMs` is accepted for compatibility and not needed, since
-   * the closed row is already in the database.
+   * closing a session: the closed row is already in the database.
    */
-  recordFocus: (now: number, focusMs?: number) => void;
+  recordFocus: (now: number) => void;
 };
 
 function marksWindowFrom(now: number): string {
-  return dayKeyOf(now - HISTORY_DAYS * DAY);
+  return shiftDayKey(dayKeyOf(now), -HISTORY_DAYS);
 }
 
 export const useAppStore = create<AppState>((set, get) => {
@@ -218,6 +222,10 @@ export const useAppStore = create<AppState>((set, get) => {
 
     upsertHabit: (input) => {
       const existing = input.id === undefined ? undefined : get().habits.find((h) => h.id === input.id);
+      const becomesActive = existing === undefined || existing.archivedAt !== null;
+      if (becomesActive && !canAddHabit(activeHabitCount(get().habits))) {
+        return false;
+      }
       const habit: Habit = {
         ...input,
         // The editor speaks in activity keys; the habits table holds the row id.
@@ -232,6 +240,7 @@ export const useAppStore = create<AppState>((set, get) => {
           ? state.habits.map((h) => (h.id === habit.id ? habit : h))
           : [...state.habits, habit],
       }));
+      return true;
     },
 
     archiveHabit: (id) => {

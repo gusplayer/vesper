@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { aDoneSession, anActivity, aRunningSession, T0 } from './fixtures';
+import { aDoneSession, aRunningSession, T0 } from './fixtures';
 import {
   allowsBreaks,
+  BREAK_MS,
   breakAvailableIn,
   breakEndsAt,
   canGiveUp,
   canTakeBreak,
   close,
+  closeDue,
   createSession,
   DEFAULT_DEPTH,
   DEFAULT_PLANNED_MS,
@@ -15,16 +17,15 @@ import {
   effectiveDepth,
   elapsed,
   endBreak,
-  expire,
   interrupt,
   isBreakOver,
   isDepth,
   isDue,
   isValidPlannedMs,
+  occupiedIntervals,
   OPEN_SESSION_CAP_MS,
   plannedEndAt,
   remaining,
-  resolveSessionConfig,
   served,
   sessionProgress,
   settle,
@@ -77,71 +78,10 @@ describe('isValidPlannedMs', () => {
   });
 });
 
-describe('resolveSessionConfig', () => {
-  const work = anActivity();
-  const read = anActivity({ id: 'activity-read', key: 'lectura', label: 'lectura' });
-  const activities = [work, read];
-  const fallback: SessionConfig = {
-    activityId: work.id,
-    plannedMs: DEFAULT_PLANNED_MS,
-    depth: DEFAULT_DEPTH,
-    blockProfile: null,
-  };
-
-  it('is null without activities', () => {
-    expect(resolveSessionConfig(null, [])).toBeNull();
-  });
-
-  it('defaults to 25 minutes of the first activity, soft, when nothing is stored', () => {
-    expect(resolveSessionConfig(null, activities)).toStrictEqual(fallback);
+describe('defaults', () => {
+  it('are 25 minutes and soft', () => {
     expect(DEFAULT_PLANNED_MS).toBe(25 * MINUTE);
-  });
-
-  it('defaults when the stored activity no longer exists', () => {
-    const stored = { activityId: 'activity-gone', plannedMs: 50 * MINUTE, depth: 'firm' };
-
-    expect(resolveSessionConfig(stored, activities)).toStrictEqual(fallback);
-  });
-
-  it('defaults on a bad depth', () => {
-    const stored = { activityId: read.id, plannedMs: 50 * MINUTE, depth: 'hard' };
-
-    expect(resolveSessionConfig(stored, activities)).toStrictEqual(fallback);
-  });
-
-  it('defaults on a bad duration', () => {
-    for (const plannedMs of [0, String(50 * MINUTE), 300 * MINUTE]) {
-      const stored = { activityId: read.id, plannedMs, depth: 'firm' };
-
-      expect(resolveSessionConfig(stored, activities)).toStrictEqual(fallback);
-    }
-  });
-
-  it('returns a valid stored config exactly, with blockProfile forced null', () => {
-    const stored = {
-      activityId: read.id,
-      plannedMs: 50 * MINUTE,
-      depth: 'firm',
-      blockProfile: 'strict',
-    };
-
-    expect(resolveSessionConfig(stored, activities)).toStrictEqual({
-      activityId: read.id,
-      plannedMs: 50 * MINUTE,
-      depth: 'firm',
-      blockProfile: null,
-    });
-  });
-
-  it('ignores extra keys', () => {
-    const stored = { activityId: read.id, plannedMs: 50 * MINUTE, depth: 'deep', legacy: true };
-
-    expect(resolveSessionConfig(stored, activities)).toStrictEqual({
-      activityId: read.id,
-      plannedMs: 50 * MINUTE,
-      depth: 'deep',
-      blockProfile: null,
-    });
+    expect(DEFAULT_DEPTH).toBe('soft');
   });
 });
 
@@ -317,14 +257,26 @@ describe('close', () => {
   });
 });
 
-describe('expire', () => {
-  it('ends at the planned end, not when the app noticed', () => {
+describe('closeDue', () => {
+  it('completes a chosen duration at its planned end, not when the app noticed', () => {
     const session = aRunningSession();
-    const expired = expire(session);
+    const closed = closeDue(session);
 
-    expect(expired.outcome).toBe('expired');
-    expect(expired.endedAt).toBe(session.startedAt + session.plannedMs);
-    expect(expired.actualMs).toBe(session.plannedMs);
+    expect(closed.outcome).toBe('completed');
+    expect(closed.endedAt).toBe(session.startedAt + session.plannedMs);
+    expect(closed.actualMs).toBe(session.plannedMs);
+  });
+
+  it('expires an open session at its cap: the only way to earn expired', () => {
+    const closed = closeDue(running({ open: true }));
+
+    expect(closed.outcome).toBe('expired');
+    expect(closed.endedAt).toBe(T0 + OPEN_SESSION_CAP_MS);
+    expect(closed.actualMs).toBe(OPEN_SESSION_CAP_MS);
+  });
+
+  it('refuses a session on a break: settle ends the break first', () => {
+    expect(() => closeDue(startBreak(running({ plannedMs: HOUR }), T0 + 30 * MINUTE))).toThrow(/break/);
   });
 });
 
@@ -454,17 +406,196 @@ describe('settle', () => {
     expect(elapsed(settled, at(50)).toString()).toBe(String(35 * MINUTE));
   });
 
-  it('expires a session past its end, at that end, breaks included', () => {
+  it('completes a chosen session past its end, at that end, breaks included', () => {
     const paused = startBreak(running({ plannedMs: HOUR }), at(30));
     const settled = settle(paused, at(200));
 
-    expect(settled.outcome).toBe('expired');
+    expect(settled.outcome).toBe('completed');
     expect(settled.actualMs).toBe(HOUR);
     expect(settled.endedAt).toBe(at(75));
     expect(settle(running({ plannedMs: HOUR }), at(60)).endedAt).toBe(at(60));
   });
 
-  it('refuses to expire a session still on a break', () => {
-    expect(() => expire(startBreak(running({ plannedMs: HOUR }), at(30)))).toThrow();
+  it('gives boot and foreground the same verdict as the screen: dueOutcome', () => {
+    const chosen = running({ plannedMs: HOUR });
+    const open = running({ open: true });
+
+    expect(settle(chosen, at(61)).outcome).toBe(dueOutcome(chosen));
+    expect(settle(open, T0 + OPEN_SESSION_CAP_MS + 1).outcome).toBe(dueOutcome(open));
+    expect(settle(open, T0 + OPEN_SESSION_CAP_MS + 1).outcome).toBe('expired');
+  });
+
+  it('is idempotent: settling a settled session changes nothing', () => {
+    const settled = settle(running({ plannedMs: HOUR }), at(90));
+
+    expect(settle(settled, at(500))).toBe(settled);
+  });
+});
+
+describe('the 12 h cap of an open session, with breaks (ADR-0022)', () => {
+  it('serves at most the cap however long the clock has run, and ends at start + cap', () => {
+    const session = running({ open: true });
+
+    expect(elapsed(session, T0 + 20 * HOUR)).toBe(OPEN_SESSION_CAP_MS);
+    expect(served(session, T0 + 20 * HOUR)).toBe(OPEN_SESSION_CAP_MS);
+    expect(plannedEndAt(session)).toBe(T0 + OPEN_SESSION_CAP_MS);
+    expect(remaining(session, T0 + 20 * HOUR)).toBe(0);
+  });
+
+  it('a break pushes the cap back by what it took, and the session still expires there', () => {
+    const paused = startBreak(running({ open: true }), T0 + 25 * MINUTE);
+    const resumed = endBreak(paused, T0 + 35 * MINUTE);
+
+    expect(plannedEndAt(resumed)).toBe(T0 + OPEN_SESSION_CAP_MS + 10 * MINUTE);
+    expect(isDue(resumed, T0 + OPEN_SESSION_CAP_MS + 10 * MINUTE - 1)).toBe(false);
+    expect(isDue(resumed, T0 + OPEN_SESSION_CAP_MS + 10 * MINUTE)).toBe(true);
+
+    const settled = settle(resumed, T0 + 14 * HOUR);
+    expect(settled.outcome).toBe('expired');
+    expect(settled.endedAt).toBe(T0 + OPEN_SESSION_CAP_MS + 10 * MINUTE);
+    expect(settled.actualMs).toBe(OPEN_SESSION_CAP_MS);
+    expect(settled.breakMs).toBe(10 * MINUTE);
+  });
+
+  it('a break left running near the cap ends at its own end, and the session expires after it', () => {
+    const paused = startBreak(running({ open: true }), T0 + OPEN_SESSION_CAP_MS - 5 * MINUTE);
+
+    // Frozen during the break: the cap is never reached while paused.
+    expect(isDue(paused, T0 + 2 * OPEN_SESSION_CAP_MS)).toBe(false);
+
+    const settled = settle(paused, T0 + 2 * OPEN_SESSION_CAP_MS);
+    expect(settled.outcome).toBe('expired');
+    expect(settled.breakMs).toBe(BREAK_MS);
+    expect(settled.endedAt).toBe(T0 + OPEN_SESSION_CAP_MS + BREAK_MS);
+    expect(settled.actualMs).toBe(OPEN_SESSION_CAP_MS);
+  });
+});
+
+describe('break arithmetic invariants', () => {
+  const at = (minutes: number) => T0 + minutes * MINUTE;
+
+  it('actualMs never exceeds plannedMs after a break, whatever the outcome', () => {
+    const resumed = endBreak(startBreak(running({ plannedMs: HOUR }), at(30)), at(40));
+
+    expect(close(resumed, at(200), 'completed').actualMs).toBe(HOUR);
+    expect(close(resumed, at(200), 'expired').actualMs).toBe(HOUR);
+    expect(close(resumed, at(50), 'cancelled').actualMs).toBe(40 * MINUTE);
+    expect(close(resumed, at(50), 'cancelled').breakMs).toBe(10 * MINUTE);
+  });
+
+  it('elapsed plus breaks equals the wall clock while running, so nothing is lost or double counted', () => {
+    const resumed = endBreak(startBreak(running({ plannedMs: HOUR }), at(30)), at(40));
+    const paused = startBreak(resumed, at(65));
+
+    for (const minutes of [41, 50, 64]) {
+      expect(elapsed(resumed, at(minutes)) + resumed.breakMs).toBe(minutes * MINUTE);
+    }
+    for (const minutes of [66, 70, 79]) {
+      expect(elapsed(paused, at(minutes)) + paused.breakMs + (at(minutes) - at(65))).toBe(minutes * MINUTE);
+    }
+  });
+
+  it('a break cannot start once the session is due, even when the unlock has passed', () => {
+    expect(canTakeBreak(running({ plannedMs: 25 * MINUTE }), at(25))).toBe(false);
+    expect(canTakeBreak(running({ plannedMs: 30 * MINUTE }), at(25))).toBe(true);
+    expect(canTakeBreak(running({ plannedMs: 30 * MINUTE }), at(30))).toBe(false);
+  });
+
+  it('a break cannot start inside a break, and ending one twice changes nothing', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+
+    expect(canTakeBreak(paused, at(35))).toBe(false);
+    expect(() => startBreak(paused, at(35))).toThrow();
+    const resumed = endBreak(paused, at(40));
+    expect(endBreak(resumed, at(41))).toBe(resumed);
+  });
+
+  it('an ended break unlocks the next one 25 minutes of focus later, not of wall clock', () => {
+    const resumed = endBreak(startBreak(running({ plannedMs: 2 * HOUR }), at(30)), at(45));
+
+    expect(resumed.nextBreakAtMs).toBe(55 * MINUTE);
+    expect(breakAvailableIn(resumed, at(60))).toBe(10 * MINUTE);
+    expect(canTakeBreak(resumed, at(70))).toBe(true);
+  });
+
+  it('settle of a session on a break still inside its length changes nothing', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+
+    expect(settle(paused, at(40))).toBe(paused);
+  });
+
+  it('a clock that moved back never yields a negative break', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+
+    expect(elapsed(paused, at(20))).toBe(20 * MINUTE);
+    expect(endBreak(paused, at(20)).breakMs).toBe(0);
+  });
+});
+
+describe('occupiedIntervals', () => {
+  const at = (minutes: number) => T0 + minutes * MINUTE;
+  const total = (session: ReturnType<typeof running>, now: number) =>
+    occupiedIntervals(session, now).reduce((sum, i) => sum + (i.end - i.start), 0);
+
+  it('is one stretch from the start for what was served, without breaks', () => {
+    const session = running({ plannedMs: HOUR });
+
+    expect(occupiedIntervals(session, at(20))).toEqual([{ start: T0, end: at(20) }]);
+    expect(occupiedIntervals(close(session, at(20), 'cancelled'), at(500))).toEqual([{ start: T0, end: at(20) }]);
+    expect(occupiedIntervals(closeDue(session), at(500))).toEqual([{ start: T0, end: at(60) }]);
+  });
+
+  it('cuts a running break out where it is, frozen while it lasts', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+
+    expect(occupiedIntervals(paused, at(35))).toEqual([{ start: T0, end: at(30) }]);
+    expect(occupiedIntervals(paused, at(45))).toEqual([{ start: T0, end: at(30) }]);
+    // Past its length the break is over and the clock runs again from minute 45,
+    // like elapsed() says, until settle() writes that down.
+    expect(occupiedIntervals(paused, at(200))).toEqual([
+      { start: T0, end: at(30) },
+      { start: at(45), end: at(75) },
+    ]);
+  });
+
+  it('cuts a finished break out where it was, so the session ends later on the clock', () => {
+    const resumed = endBreak(startBreak(running({ plannedMs: HOUR }), at(30)), at(40));
+
+    expect(occupiedIntervals(resumed, at(50))).toEqual([
+      { start: T0, end: at(30) },
+      { start: at(40), end: at(50) },
+    ]);
+    expect(occupiedIntervals(closeDue(resumed), at(500))).toEqual([
+      { start: T0, end: at(30) },
+      { start: at(40), end: at(70) },
+    ]);
+  });
+
+  it('cuts both a finished and a running break', () => {
+    const resumed = endBreak(startBreak(running({ plannedMs: 2 * HOUR }), at(30)), at(40));
+    const paused = startBreak(resumed, at(70));
+
+    expect(occupiedIntervals(paused, at(75))).toEqual([
+      { start: T0, end: at(30) },
+      { start: at(40), end: at(70) },
+    ]);
+  });
+
+  it('always measures exactly what was served, whatever the breaks', () => {
+    const resumed = endBreak(startBreak(running({ plannedMs: 2 * HOUR }), at(25)), at(40));
+    const again = endBreak(startBreak(resumed, at(70)), at(80));
+    const cancelledOnBreak = close(startBreak(again, at(110)), at(115), 'cancelled');
+
+    expect(total(again, at(90))).toBe(served(again, at(90)));
+    expect(total(cancelledOnBreak, at(500))).toBe(cancelledOnBreak.actualMs);
+    expect(total(closeDue(again), at(500))).toBe(2 * HOUR);
+    for (const interval of occupiedIntervals(cancelledOnBreak, at(500))) {
+      expect(interval.end).toBeGreaterThan(interval.start);
+    }
+  });
+
+  it('is empty for a session that served nothing', () => {
+    expect(occupiedIntervals(running(), T0)).toEqual([]);
+    expect(occupiedIntervals(close(running(), T0, 'cancelled'), at(10))).toEqual([]);
   });
 });

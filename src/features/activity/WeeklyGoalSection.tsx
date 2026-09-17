@@ -5,7 +5,7 @@ import { Card, Chip, ProgressBar, Section, Sheet, Stack, Text } from '../../desi
 import { HOUR } from '../../domain/time';
 import { hasTarget, WEEKLY_TARGET_HOURS } from '../../domain/week';
 import { useLocale, useStrings } from '../../i18n';
-import { focusOfTargetText } from '../../lib/format';
+import { durationText, focusOfTargetText } from '../../lib/format';
 import { daysText } from './text';
 
 type WeeklyGoalSectionProps = {
@@ -52,7 +52,7 @@ export function WeeklyGoalSection({ now }: WeeklyGoalSectionProps) {
           {WEEKLY_TARGET_HOURS.map((hours) => (
             <Chip
               key={hours}
-              label={`${hours}h`}
+              label={durationText(hours * HOUR)}
               selected={targetMs === hours * HOUR}
               onPress={() => choose(hours * HOUR)}
             />

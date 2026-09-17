@@ -66,6 +66,10 @@ export const modes = {
     results: 'Resultados',
     noResults: 'Nada con ese nombre.',
     nothingYet: 'Todavía no elegiste nada.',
+    /** '3 / 50', how many are chosen against the cap. */
+    count: (selected: number, max: number) => `${selected} / ${max}`,
+    /** While the platform picker reads the installed apps. */
+    loading: 'Cargando apps…',
   },
   apps: {
     search: 'Buscar apps',

@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 
-import { Button, HeroObject, Screen, Stack, Text } from '../../design/components';
-import { ThemeScope } from '../../design/components';
+import { Button, HeroObject, Screen, Stack, Text , ThemeScope } from '../../design/components';
 import { useStrings } from '../../i18n';
 
 /** The first thing the app shows: a dark page, the object, and one button. */

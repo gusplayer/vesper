@@ -73,7 +73,7 @@ export type MonthGrid = {
 
 const EMPTY_STAT: Omit<DayStat, 'dayKey'> = { focusMs: 0, sessions: 0, segments: [] };
 
-function indexStats(stats: ReadonlyArray<DayStat>): ReadonlyMap<string, DayStat> {
+function indexStats(stats: readonly DayStat[]): ReadonlyMap<string, DayStat> {
   return new Map(stats.map((stat) => [stat.dayKey, stat]));
 }
 
@@ -89,7 +89,7 @@ function calendarDay(index: ReadonlyMap<string, DayStat>, at: number, now: numbe
   };
 }
 
-function averageOfFocused(days: ReadonlyArray<CalendarDay>): number | null {
+function averageOfFocused(days: readonly CalendarDay[]): number | null {
   const focused = days.filter((day) => !day.isFuture && day.stat.focusMs > 0);
   if (focused.length === 0) {
     return null;
@@ -98,14 +98,14 @@ function averageOfFocused(days: ReadonlyArray<CalendarDay>): number | null {
 }
 
 /** The seven days of the week `offset` weeks back, Monday first. */
-export function weekDays(stats: ReadonlyArray<DayStat>, now: number, offset = 0): CalendarDay[] {
+export function weekDays(stats: readonly DayStat[], now: number, offset = 0): CalendarDay[] {
   const index = indexStats(stats);
   const monday = shiftDays(weekStart(now), -7 * offset);
   return Array.from({ length: 7 }, (_, i) => calendarDay(index, shiftDays(monday, i), now));
 }
 
 export function weekBars(
-  stats: ReadonlyArray<DayStat>,
+  stats: readonly DayStat[],
   now: number,
   offset: number,
   tag: string,
@@ -125,7 +125,7 @@ export function weekBars(
  * number is honest about the week and not just about the good days. Null when the
  * week has no focus at all.
  */
-export function weekAverage(stats: ReadonlyArray<DayStat>, now: number, offset = 0): number | null {
+export function weekAverage(stats: readonly DayStat[], now: number, offset = 0): number | null {
   const elapsed = weekDays(stats, now, offset).filter((day) => !day.isFuture);
   if (elapsed.length === 0 || !elapsed.some((day) => day.stat.focusMs > 0)) {
     return null;
@@ -134,7 +134,7 @@ export function weekAverage(stats: ReadonlyArray<DayStat>, now: number, offset =
 }
 
 /** How many days of that week had any focus. */
-export function weekFocusedDays(stats: ReadonlyArray<DayStat>, now: number, offset = 0): number {
+export function weekFocusedDays(stats: readonly DayStat[], now: number, offset = 0): number {
   return weekDays(stats, now, offset).filter((day) => !day.isFuture && day.stat.focusMs > 0).length;
 }
 
@@ -145,7 +145,7 @@ export const MIN_DAYS_FOR_DELTA = 2;
  * How this week's average compares to the previous one. Null when either week has
  * fewer than two days with focus: a percentage against one afternoon is noise.
  */
-export function deltaVsPrevious(stats: ReadonlyArray<DayStat>, now: number, offset = 0): Delta | null {
+export function deltaVsPrevious(stats: readonly DayStat[], now: number, offset = 0): Delta | null {
   if (
     weekFocusedDays(stats, now, offset) < MIN_DAYS_FOR_DELTA ||
     weekFocusedDays(stats, now, offset + 1) < MIN_DAYS_FOR_DELTA
@@ -165,7 +165,7 @@ export function deltaVsPrevious(stats: ReadonlyArray<DayStat>, now: number, offs
 }
 
 /** The days of that week up to today, newest first, for the per-day cards. */
-export function weekDayCards(stats: ReadonlyArray<DayStat>, now: number, offset = 0): CalendarDay[] {
+export function weekDayCards(stats: readonly DayStat[], now: number, offset = 0): CalendarDay[] {
   return weekDays(stats, now, offset)
     .filter((day) => !day.isFuture)
     .reverse();
@@ -176,17 +176,14 @@ export function weekDayCards(stats: ReadonlyArray<DayStat>, now: number, offset 
  * reads whole too ('4h' and '2h', never '2h 30m'). At least 2h so an empty chart
  * still has a scale.
  */
-export function niceGuides(bars: ReadonlyArray<ChartBar>): Guide[] {
+export function niceGuides(bars: readonly ChartBar[]): Guide[] {
   const maxMs = Math.max(0, ...bars.map((bar) => bar.value));
   const topHours = Math.max(2, 2 * Math.ceil(maxMs / (2 * HOUR)));
-  return [
-    { value: topHours * HOUR, label: `${topHours}h` },
-    { value: (topHours / 2) * HOUR, label: `${topHours / 2}h` },
-  ];
+  return [topHours * HOUR, (topHours / 2) * HOUR].map((value) => ({ value, label: durationText(value) }));
 }
 
 /** Every day of the month `offset` months back, the 1st first. */
-export function monthDays(stats: ReadonlyArray<DayStat>, now: number, offset = 0): CalendarDay[] {
+export function monthDays(stats: readonly DayStat[], now: number, offset = 0): CalendarDay[] {
   const index = indexStats(stats);
   const first = monthStart(now, offset);
   return Array.from({ length: daysInMonth(first) }, (_, i) =>
@@ -196,7 +193,7 @@ export function monthDays(stats: ReadonlyArray<DayStat>, now: number, offset = 0
 
 const MONTH_LABELLED_DAYS = new Set([1, 5, 10, 15, 20, 25, 30]);
 
-export function monthBars(stats: ReadonlyArray<DayStat>, now: number, offset = 0): ChartBar[] {
+export function monthBars(stats: readonly DayStat[], now: number, offset = 0): ChartBar[] {
   return monthDays(stats, now, offset).map((day) => {
     const number = dayOfMonth(day.at);
     return {
@@ -209,7 +206,7 @@ export function monthBars(stats: ReadonlyArray<DayStat>, now: number, offset = 0
 }
 
 export function monthTotals(
-  stats: ReadonlyArray<DayStat>,
+  stats: readonly DayStat[],
   now: number,
   offset = 0,
 ): { totalMs: number; averageMs: number | null } {
@@ -221,7 +218,7 @@ export function monthTotals(
 }
 
 /** Average focus per weekday over the whole history, Monday first. */
-export function weekdayRhythm(stats: ReadonlyArray<DayStat>, tag: string): RhythmRow[] {
+export function weekdayRhythm(stats: readonly DayStat[], tag: string): RhythmRow[] {
   const sums = Array.from({ length: 7 }, () => ({ total: 0, count: 0 }));
   for (const stat of stats) {
     if (stat.focusMs <= 0) {
@@ -239,7 +236,7 @@ export function weekdayRhythm(stats: ReadonlyArray<DayStat>, tag: string): Rhyth
   });
 }
 
-export function lifetimeTotals(stats: ReadonlyArray<DayStat>): LifetimeTotals {
+export function lifetimeTotals(stats: readonly DayStat[]): LifetimeTotals {
   const focused = stats.filter((stat) => stat.focusMs > 0);
   const firstKey = focused.map((stat) => stat.dayKey).sort()[0];
   return {
@@ -251,7 +248,7 @@ export function lifetimeTotals(stats: ReadonlyArray<DayStat>): LifetimeTotals {
 }
 
 /** One flag per day of the month starting at `monthStartMs`: focused or not. */
-export function monthGrid(stats: ReadonlyArray<DayStat>, monthStartMs: number): boolean[] {
+export function monthGrid(stats: readonly DayStat[], monthStartMs: number): boolean[] {
   const index = indexStats(stats);
   return Array.from({ length: daysInMonth(monthStartMs) }, (_, i) => {
     const stat = index.get(dayKeyOf(shiftDays(monthStartMs, i)));
@@ -261,7 +258,7 @@ export function monthGrid(stats: ReadonlyArray<DayStat>, monthStartMs: number): 
 
 /** The last `count` months with any focus, newest first, each with its day grid. */
 export function recentMonths(
-  stats: ReadonlyArray<DayStat>,
+  stats: readonly DayStat[],
   now: number,
   count: number,
   t: ActivityStrings,

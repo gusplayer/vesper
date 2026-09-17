@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Pressable } from 'react-native';
 
 import { USAGE, useLife, useSettings } from '../../data';
-import { Card, DotGrid, Section, Stack, Text } from '../../design/components';
+import { Card, DotGrid, Section, Stack, Tappable, Text } from '../../design/components';
 import { projectedWeeksConsumed } from '../../domain/life';
 import { expectancySourceText, resolveExpectancy, yearsText } from '../../domain/lifeExpectancy';
 import { useLocale, useStrings } from '../../i18n';
@@ -67,9 +66,8 @@ export function LifeSection({ now }: LifeSectionProps) {
     <Section title={copy.title}>
       <Card>
         <Stack gap="md">
-          <Pressable
+          <Tappable
             onPress={() => setUnit(unit === 'weeks' ? 'days' : 'weeks')}
-            accessibilityRole="button"
             accessibilityLabel={copy.tapHint(leftText, unit === 'weeks')}
           >
             <Stack gap="xs">
@@ -84,8 +82,8 @@ export function LifeSection({ now }: LifeSectionProps) {
                 {unit === 'weeks' ? copy.tapToSeeDays : copy.tapToSeeWeeks}
               </Text>
             </Stack>
-          </Pressable>
-          <DotGrid cells={cells} columns={LIFE_COLUMNS} gap={1} fill />
+          </Tappable>
+          <DotGrid cells={cells} columns={LIFE_COLUMNS} dense fill />
           <Stack gap="xs">
             <Text variant="label" tone="secondary">
               {copy.atYourPace(consumedText)}

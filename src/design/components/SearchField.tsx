@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { useChrome } from '../chrome';
 import { useTheme } from '../theme';
 import { font, layout, radius, space } from '../tokens';
 import { Icon } from './Icon';
@@ -11,9 +12,10 @@ type SearchFieldProps = {
   placeholder: string;
 };
 
-/** A pill with a magnifier, a clear button while typing, and 'cancelar' beside it. */
+/** A pill with a magnifier, a clear button while typing, and a cancel word beside it. */
 export function SearchField({ value, onChangeText, placeholder }: SearchFieldProps) {
   const { colors } = useTheme();
+  const { clear, cancel } = useChrome();
   const active = value.length > 0;
   return (
     <View style={styles.row}>
@@ -31,14 +33,14 @@ export function SearchField({ value, onChangeText, placeholder }: SearchFieldPro
           style={[styles.input, { color: colors.ink }]}
         />
         {active ? (
-          <Pressable onPress={() => onChangeText('')} hitSlop={8} accessibilityLabel="borrar">
+          <Pressable onPress={() => onChangeText('')} hitSlop={8} accessibilityRole="button" accessibilityLabel={clear}>
             <Icon name="x-circle" size="sm" tone="secondary" />
           </Pressable>
         ) : null}
       </View>
-      {active ? (
-        <Pressable onPress={() => onChangeText('')} hitSlop={8}>
-          <Text variant="body">cancelar</Text>
+      {active && cancel !== undefined ? (
+        <Pressable onPress={() => onChangeText('')} hitSlop={8} accessibilityRole="button">
+          <Text variant="body">{cancel}</Text>
         </Pressable>
       ) : null}
     </View>

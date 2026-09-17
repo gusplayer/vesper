@@ -13,7 +13,7 @@ import { TodaySection } from './TodaySection';
 import { WeeklyGoalSection } from './WeeklyGoalSection';
 
 type LifetimeViewProps = {
-  stats: ReadonlyArray<DayStat>;
+  stats: readonly DayStat[];
   now: number;
 };
 

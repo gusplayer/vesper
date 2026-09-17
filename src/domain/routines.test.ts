@@ -150,3 +150,51 @@ describe('manualDurationMs', () => {
     expect(manualDurationMs(routine({ startMinutes: null }))).toBe(25 * MINUTE);
   });
 });
+
+describe('windows on the calendar, not on 24 h arithmetic', () => {
+  // 2026-03-08 (US) and 2026-03-29 (EU) are spring-forward Sundays: 23 hour days.
+  // In a zone without DST these are ordinary Sundays and the expectations hold too.
+  const sundayOnly = [false, false, false, false, false, false, true];
+  const night = routine({ id: 'r-night', startMinutes: 21 * 60 + 30, endMinutes: 6 * 60 + 30, days: sundayOnly });
+
+  it.each([
+    ['US', new Date(2026, 2, 8), new Date(2026, 2, 9)],
+    ['EU', new Date(2026, 2, 29), new Date(2026, 2, 30)],
+  ])('keeps a window that crossed a DST midnight active just after it (%s)', (_zone, sunday, monday) => {
+    const justAfterMidnight = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 0, 30).getTime();
+
+    expect(activeWindow(night, justAfterMidnight)).toEqual({
+      start: new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate(), 21, 30).getTime(),
+      end: new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 6, 30).getTime(),
+    });
+  });
+
+  it('starts and ends at the wall-clock minute on a DST day', () => {
+    const sunday = new Date(2026, 2, 8, 12).getTime();
+    const day = routine({ id: 'r-day', startMinutes: 9 * 60, endMinutes: 18 * 60, days: sundayOnly });
+
+    expect(activeWindow(day, sunday)).toEqual({
+      start: new Date(2026, 2, 8, 9).getTime(),
+      end: new Date(2026, 2, 8, 18).getTime(),
+    });
+    expect(nextStart(day, new Date(2026, 2, 2, 12).getTime())).toBe(new Date(2026, 2, 8, 9).getTime());
+  });
+
+  it('finds the next start on every calendar day of the coming week', () => {
+    const daily = routine({ id: 'r-daily', days: everyDay, startMinutes: 9 * 60, endMinutes: 10 * 60 });
+    // Saturday 2026-03-07 22:00: the next seven starts are one per calendar day.
+    let at = new Date(2026, 2, 7, 22).getTime();
+    const starts: number[] = [];
+    for (let i = 0; i < 7; i += 1) {
+      const next = nextStart(daily, at);
+      if (next === null) {
+        throw new Error('expected a next start');
+      }
+      starts.push(next);
+      at = next + MINUTE;
+    }
+
+    expect(starts.map((s) => new Date(s).getDate())).toEqual([8, 9, 10, 11, 12, 13, 14]);
+    expect(starts.every((s) => new Date(s).getHours() === 9 && new Date(s).getMinutes() === 0)).toBe(true);
+  });
+});

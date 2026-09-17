@@ -13,7 +13,6 @@ type BreathingObjectProps = {
   phase: BreathPhaseName;
   /** How long the current phase lasts in ms; the cells pace themselves to it. */
   phaseMs: number;
-  size?: 'md' | 'lg';
   onPressIn?: () => void;
   onPressOut?: () => void;
   accessibilityLabel?: string;
@@ -42,7 +41,6 @@ const ROW_DURATION = 1 / 2;
 export function BreathingObject({
   phase,
   phaseMs,
-  size = 'lg',
   onPressIn,
   onPressOut,
   accessibilityLabel,
@@ -51,7 +49,7 @@ export function BreathingObject({
   const { colors, scheme } = useTheme();
   const reduceMotion = useReduceMotion();
   const dim = scheme === 'dark' ? DIM_DARK : DIM_LIGHT;
-  const side = size === 'lg' ? layout.hero : layout.hero * 0.6;
+  const side = layout.hero;
   const cellSide = Math.round(side * 0.09);
   const gap = Math.max(2, Math.round(side * 0.03));
   const gridWidth = COLUMNS * cellSide + (COLUMNS - 1) * gap;

@@ -33,6 +33,8 @@ export type Colors = {
   danger: string;
   /** Shadow color for cards and the hero object. */
   shadow: string;
+  /** The dimmed page behind a sheet. Ink with alpha, never pure black. */
+  scrim: string;
 };
 
 export const colors: Record<Scheme, Colors> = {
@@ -51,6 +53,7 @@ export const colors: Record<Scheme, Colors> = {
     success: '#3B7A4A',
     danger: '#C0392B',
     shadow: '#1C1B1A',
+    scrim: 'rgba(28, 27, 26, 0.45)',
   },
   dark: {
     bg: '#191919',
@@ -65,7 +68,8 @@ export const colors: Record<Scheme, Colors> = {
     accent: '#3B84F5',
     success: '#5FA46F',
     danger: '#E06B5E',
-    shadow: '#000000',
+    shadow: '#191919',
+    scrim: 'rgba(25, 25, 25, 0.6)',
   },
 };
 

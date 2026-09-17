@@ -19,7 +19,7 @@ export default function ScreenTimeScreen() {
   const [busy, setBusy] = useState(false);
 
   const copy = t.onboarding.screenTime;
-  const blocks: ReadonlyArray<PermissionBlock> = [
+  const blocks: readonly PermissionBlock[] = [
     { icon: 'settings', heading: copy.use.heading, body: copy.use.body },
     { icon: 'lock', heading: copy.privacy.heading, body: copy.privacy.body },
     { icon: 'zap', heading: copy.why.heading, body: copy.why.body },

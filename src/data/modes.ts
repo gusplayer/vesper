@@ -49,7 +49,7 @@ export function countText(count: number, singular: string, plural: string): stri
 }
 
 /** The durations offered before a session, in ms. */
-export const PLANNED_OPTIONS_MS: ReadonlyArray<number> = [5, 25, 50, 90, 120].map((m) => m * MINUTE);
+export const PLANNED_OPTIONS_MS: readonly number[] = [5, 25, 50, 90, 120].map((m) => m * MINUTE);
 
 /**
  * The duration picked for the next session, shown on the focus button. Null is

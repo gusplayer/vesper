@@ -32,12 +32,12 @@ describe('recentDayCells', () => {
 
 describe('weekdayInitials', () => {
   it('runs Monday to Sunday in Spanish with X for miércoles, so every letter is distinct', () => {
-    expect(es.focus.recentDays.weekdayInitials).toEqual(['L', 'M', 'X', 'J', 'V', 'S', 'D']);
-    expect(new Set(es.focus.recentDays.weekdayInitials).size).toBe(7);
+    expect(es.format.weekdayInitials).toEqual(['L', 'M', 'X', 'J', 'V', 'S', 'D']);
+    expect(new Set(es.format.weekdayInitials).size).toBe(7);
   });
 
   it('runs Monday to Sunday in English, seven letters', () => {
-    expect(en.focus.recentDays.weekdayInitials).toEqual(['M', 'T', 'W', 'T', 'F', 'S', 'S']);
+    expect(en.format.weekdayInitials).toEqual(['M', 'T', 'W', 'T', 'F', 'S', 'S']);
   });
 });
 

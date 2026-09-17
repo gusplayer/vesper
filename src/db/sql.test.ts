@@ -110,3 +110,24 @@ describe('pendingMigrations', () => {
     expect(pendingMigrations([], new Set())).toEqual([]);
   });
 });
+
+describe('migration registry', () => {
+  it('numbers migrations 1..n with no gap, so a database can never skip one', () => {
+    expect(migrations.map((m) => m.id)).toEqual(migrations.map((_, i) => i + 1));
+  });
+
+  it('gives every migration a distinct name and at least one statement', () => {
+    expect(new Set(migrations.map((m) => m.name)).size).toBe(migrations.length);
+    for (const migration of migrations) {
+      expect(splitStatements(migration.sql).length).toBeGreaterThan(0);
+    }
+  });
+
+  it('creates every table once: a later migration alters, never re-creates', () => {
+    const created = migrations.flatMap((m) =>
+      [...m.sql.matchAll(/CREATE TABLE (\w+)/g)].map((match) => match[1] ?? ''),
+    );
+
+    expect(new Set(created).size).toBe(created.length);
+  });
+});

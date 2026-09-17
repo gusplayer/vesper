@@ -4,6 +4,8 @@ import { useAppStore } from '../../data/stores/app';
 import { routineWindowPlans } from '../../domain/routineWindows';
 import { getStrings, useLocaleStore } from '../../i18n';
 import { cancelWindow, listWindowIds, scheduleWindow, status } from '../blocking';
+import { isIos } from '../capabilities';
+import { IOS_ACTIVITY_BUDGET, windowBudget } from '../windowBudget';
 
 /** Store changes arrive in bursts (a routine editor saves several fields); settle first. */
 const DEBOUNCE_MS = 500;
@@ -32,7 +34,10 @@ export function useRoutineWindowsSync(): void {
       }
       timer = setTimeout(() => {
         timer = null;
-        queue = queue.then(() => reconcile(applied));
+        // A pass that throws must not poison the chain: the next one still runs.
+        queue = queue
+          .then(() => reconcile(applied))
+          .catch((error: unknown) => console.warn('[blocking] routine windows sync failed', error));
       }, DEBOUNCE_MS);
     };
 
@@ -65,7 +70,11 @@ async function reconcile(applied: Map<string, string>): Promise<void> {
     return;
   }
   const { schedules, modes } = useAppStore.getState();
-  const wanted = routineWindowPlans(schedules, modes, getStrings().session.shield);
+  const plans = routineWindowPlans(schedules, modes, getStrings().session.shield);
+  // iOS holds ~20 DeviceActivity names; past the budget startMonitoring fails in
+  // silence, so the routines that do not fit are left out on purpose (and, being
+  // absent from `wanted`, cancelled below if they were registered). Android has no cap.
+  const wanted = isIos ? budgeted(plans) : plans;
   const wantedIds = new Set(wanted.map((plan) => plan.id));
   const registered = await listWindowIds();
   for (const id of registered) {
@@ -82,4 +91,13 @@ async function reconcile(applied: Map<string, string>): Promise<void> {
     await scheduleWindow(plan);
     applied.set(plan.id, key);
   }
+}
+
+function budgeted(plans: ReturnType<typeof routineWindowPlans>): ReturnType<typeof routineWindowPlans> {
+  const { kept, skipped } = windowBudget(plans, IOS_ACTIVITY_BUDGET);
+  if (__DEV__ && skipped.length > 0) {
+    const names = skipped.map(({ plan, cost }) => `${plan.id} (${cost})`).join(', ');
+    console.warn(`[blocking] ${skipped.length} routine window(s) over the iOS budget of ${IOS_ACTIVITY_BUDGET}, not scheduled: ${names}`);
+  }
+  return kept;
 }

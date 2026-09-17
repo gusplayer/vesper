@@ -1,5 +1,5 @@
 import { HOUR, MINUTE } from './time';
-import { DEPTHS, type Activity, type Depth, type Millis, type Session } from './types';
+import { DEPTHS, type Depth, type Millis, type Session } from './types';
 
 /**
  * Session logic. Pure: no React, no database, no id generation — the caller passes
@@ -46,7 +46,7 @@ export const HOLD_MS = 1_500;
 export const FIRM_WAIT_MS = 15_000;
 
 export function isDepth(value: unknown): value is Depth {
-  return (DEPTHS as ReadonlyArray<unknown>).includes(value);
+  return (DEPTHS as readonly unknown[]).includes(value);
 }
 
 /** Whole minutes inside the allowed range. Guards both the custom field and stored JSON. */
@@ -56,48 +56,6 @@ export function isValidPlannedMs(value: unknown): value is number {
   }
   const minutes = value / MINUTE;
   return minutes >= PLANNED_MINUTES_MIN && minutes <= PLANNED_MINUTES_MAX;
-}
-
-/**
- * Turns whatever was stored last time into a usable config, or falls back to the
- * default: 25 minutes of the first activity, soft. Null only when there is no activity
- * at all, which is a broken database, not a choice.
- *
- * Validated against reality on purpose: an activity can have been archived since, and
- * a stored id pointing nowhere would break the home screen.
- */
-export function resolveSessionConfig(
-  stored: unknown,
-  activities: ReadonlyArray<Activity>,
-): SessionConfig | null {
-  const first = activities[0];
-  if (first === undefined) {
-    return null;
-  }
-
-  if (typeof stored === 'object' && stored !== null) {
-    const candidate = stored as Record<string, unknown>;
-    const activity = activities.find((item) => item.id === candidate.activityId);
-    if (
-      activity !== undefined &&
-      isValidPlannedMs(candidate.plannedMs) &&
-      isDepth(candidate.depth)
-    ) {
-      return {
-        activityId: activity.id,
-        plannedMs: candidate.plannedMs,
-        depth: candidate.depth,
-        blockProfile: null,
-      };
-    }
-  }
-
-  return {
-    activityId: first.id,
-    plannedMs: DEFAULT_PLANNED_MS,
-    depth: DEFAULT_DEPTH,
-    blockProfile: null,
-  };
 }
 
 /**
@@ -267,11 +225,12 @@ export type CloseOptions = {
 /**
  * Closes a running session.
  *
- * - 'completed' — the timer ran out, so actualMs is the full plannedMs. This is also
- *   the case when the app comes back from background past the end.
+ * - 'completed' — the timer ran out, so actualMs is the full plannedMs. The same
+ *   whether the app watched it happen, woke up past the end, or was killed and
+ *   relaunched hours later: settle() closes an orphan this way too.
  * - 'cancelled' — the user gave up. actualMs is what was actually served.
- * - 'expired' — the process died mid-session and nobody closed the row. Not a
- *   surrender: we simply do not know what happened. See ARCHITECTURE.md.
+ * - 'expired' — an open session reached its 12 h cap (ADR-0022): more likely
+ *   forgotten than finished, so it gets no celebration.
  */
 export function close(
   session: Session,
@@ -295,24 +254,26 @@ export function close(
 }
 
 /**
- * Closes an orphan: a session whose time ran out while nobody was watching. It ends
- * at its planned end, not at `now` — the row records when the timer would have
- * finished, not when the app noticed. Never called during a break: settle() ends
- * the break first, and the planned end is known again.
+ * Closes a session whose time ran out, at its planned end on the wall clock (start,
+ * plan and breaks), not at `now`: the row records when the timer finished, not when
+ * the app noticed. The verdict is dueOutcome's, the same one the session screen
+ * gives: a chosen duration completes, an open session at its cap expires. Never
+ * called during a break: settle() ends the break first, and the end is known again.
  */
-export function expire(session: Session): Session {
+export function closeDue(session: Session): Session {
   const end = plannedEndAt(session);
   if (end === null) {
     throw new Error(`session ${session.id} is on a break; settle it first`);
   }
-  return close(session, end, 'expired');
+  return close(session, end, dueOutcome(session));
 }
 
 /**
  * What a session that nobody watched for a while should look like now: a break past
- * its length ended when it should have, and a session past its planned end expired
- * then. Returns the same object when nothing was owed. Used at boot for orphans and
- * on foreground, so the clock never depends on the app being awake.
+ * its length ended when it should have, and a session past its planned end closed
+ * then, with the verdict it would have had on screen. Returns the same object when
+ * nothing was owed. The one path for boot (orphans) and foreground, so the outcome
+ * never depends on whether the app was awake.
  */
 export function settle(session: Session, now: Millis): Session {
   if (session.outcome !== 'running') {
@@ -324,9 +285,56 @@ export function settle(session: Session, now: Millis): Session {
     current = endBreak(current, end ?? now);
   }
   if (current.breakStartedAt === null && isDue(current, now)) {
-    return expire(current);
+    return closeDue(current);
   }
   return current;
+}
+
+export type ClockInterval = {
+  start: Millis;
+  end: Millis;
+};
+
+/**
+ * The stretches of wall clock a session occupied with focus: from its start, for as
+ * long as it served, with every break cut out. A break is not focus and must not
+ * cover the clock (ADR-0005, ADR-0010): a verified workout taken during one is not
+ * inside a session. Together the intervals measure exactly `served`.
+ *
+ * The row keeps the total of finished breaks, not each one, so finished breaks are
+ * drawn as one gap ending where the last one ended; nextBreakAtMs remembers that
+ * point (it is that focus plus BREAK_EVERY_MS). With one finished break this is
+ * exact; with two, only the position of the first is approximate. A break still
+ * running is cut where it is.
+ */
+export function occupiedIntervals(session: Session, now: Millis): ClockInterval[] {
+  const focus = served(session, now);
+  const gaps: ClockInterval[] = [];
+  if (session.breakMs > 0) {
+    const focusBefore = Math.min(focus, Math.max(0, session.nextBreakAtMs - BREAK_EVERY_MS));
+    const start = session.startedAt + focusBefore;
+    gaps.push({ start, end: start + session.breakMs });
+  }
+  if (session.outcome === 'running' && session.breakStartedAt !== null) {
+    const start = session.breakStartedAt;
+    gaps.push({ start, end: start + breakElapsed(session, now) });
+  }
+
+  const intervals: ClockInterval[] = [];
+  let cursor = session.startedAt;
+  let left = focus;
+  for (const gap of gaps) {
+    const run = Math.min(left, Math.max(0, gap.start - cursor));
+    if (run > 0) {
+      intervals.push({ start: cursor, end: cursor + run });
+    }
+    left -= run;
+    cursor = Math.max(cursor, gap.end);
+  }
+  if (left > 0) {
+    intervals.push({ start: cursor, end: cursor + left });
+  }
+  return intervals;
 }
 
 /**

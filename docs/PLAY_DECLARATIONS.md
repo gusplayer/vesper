@@ -13,6 +13,7 @@ Lo que el build declara hoy y viene de Vesper:
 | `SYSTEM_ALERT_WINDOW` | `modules/vesper-blocking` | El escudo (`TYPE_APPLICATION_OVERLAY`) |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE` | `modules/vesper-blocking` | `BlockingService`, tipo `specialUse` |
 | `POST_NOTIFICATIONS` | `modules/vesper-blocking`, `expo-notifications` | Notificación permanente de sesión; recordatorios de rutina |
+| `POST_PROMOTED_NOTIFICATIONS` | `modules/vesper-blocking` | Android 16: la notificación de sesión pide promoverse a actualización en vivo (chip en la barra) |
 | `RECEIVE_BOOT_COMPLETED` | `modules/vesper-blocking`, `expo-notifications` | Rearmar las ventanas de rutina y los recordatorios tras reiniciar |
 | `SCHEDULE_EXACT_ALARM` | `modules/vesper-blocking` | Abrir y cerrar las ventanas de rutina al minuto (fase 2) |
 | `<queries>` MAIN/LAUNCHER y MAIN/HOME | `modules/vesper-blocking` | Listar apps con lanzador; reconocer el launcher |
@@ -55,22 +56,22 @@ con un recordatorio a pantalla completa hasta que termina la sesión.*
 
 **2. Describe the functionality**
 
-> Vesper is a self-imposed focus timer. The user picks, per focus mode, which of their installed apps should wait while they focus. When the user starts a session (a deliberate long press on "Hold to focus") or a routine they scheduled opens its window, `BlockingService` starts as a foreground service. While the screen is on it reads `UsageStatsManager.queryEvents` about once per second and, when an app from the user's list comes to the foreground, it shows a full-screen overlay window (`SYSTEM_ALERT_WINDOW`) with the session name and one button, "Volver" (Go back), which returns to the launcher. The service stops when the user ends the session in Vesper or the session's end time passes. It does nothing between sessions. It never reads the content of other apps, never blocks the launcher, Settings, the dialer or system UI, and keeps no history of the apps it sees.
+> Vesper is a self-imposed focus timer. The user picks, per focus mode, which of their installed apps should wait while they focus. When the user starts a session (a tap on "Enfocarme 25 min", or a deliberate long press when the mode is deep) or a routine they scheduled opens its window, `BlockingService` starts as a foreground service. While the screen is on it reads `UsageStatsManager.queryEvents` about once per second and, when an app from the user's list comes to the foreground, it shows a full-screen overlay window (`SYSTEM_ALERT_WINDOW`) with the session name, the time it lifts, and one button, "Volver" (Go back), which returns to the launcher. The service stops when the user ends the session in Vesper or the session's end time passes. It does nothing between sessions. It never reads the content of other apps, never blocks the launcher, Settings, the dialer or system UI, and keeps no history of the apps it sees.
 
 *Vesper es un temporizador de foco autoimpuesto. El usuario elige, por modo, qué apps
-instaladas esperan mientras se enfoca. Al iniciar una sesión (una pulsación larga
-deliberada en "Mantén para enfocar") o cuando abre la ventana de una rutina que el
+instaladas esperan mientras se enfoca. Al iniciar una sesión (un toque en "Enfocarme 25 min",
+o una pulsación larga deliberada si el modo es profundo) o cuando abre la ventana de una rutina que el
 usuario programó, `BlockingService` arranca en primer plano. Con la pantalla encendida
 lee `UsageStatsManager.queryEvents` una vez por segundo y, cuando una app de la lista
 pasa al frente, muestra una ventana superpuesta a pantalla completa con el nombre de la
-sesión y un solo botón, "Volver", que lleva al inicio. El servicio se detiene cuando el
+sesión, la hora a la que se libera y un solo botón, "Volver", que lleva al inicio. El servicio se detiene cuando el
 usuario termina la sesión en Vesper o vence su hora de fin. Entre sesiones no hace nada.
 Nunca lee el contenido de otras apps, nunca bloquea el launcher, Ajustes, el marcador ni
 la interfaz del sistema, y no guarda historial de las apps que ve.*
 
 **3. User-facing impact**
 
-> Without a foreground service Android stops the polling within seconds of Vesper leaving the screen, so the focus session would only work while the user is looking at Vesper — that is, never when it matters. With it, the user sees a persistent notification ("Sesión de foco", session name) for the length of the session, and a full-screen reminder the moment they open one of the apps they chose. There is no other user-visible effect.
+> Without a foreground service Android stops the polling within seconds of Vesper leaving the screen, so the focus session would only work while the user is looking at Vesper — that is, never when it matters. With it, the user sees a persistent notification ("Sesión de foco", session name, a native countdown) for the length of the session, and a full-screen reminder the moment they open one of the apps they chose. There is no other user-visible effect.
 
 *Sin servicio en primer plano, Android detiene el sondeo segundos después de que Vesper
 salga de pantalla, y la sesión solo funcionaría mientras el usuario mira Vesper, es decir,
@@ -80,14 +81,14 @@ completa en cuanto abre una de las apps que eligió. No hay otro efecto visible.
 
 **4. Why no other foreground service type fits**
 
-> The task is "watch usage events and draw an overlay on the user's request". None of the enumerated types describe it: it is not media playback, media projection, location, camera, microphone, phone call, connected device, remote messaging, health (no Health Connect or sensors are involved in this service), data sync (nothing is transferred) or system exempted (Vesper is not a system app). `shortService` does not fit because a session lasts up to 8 hours (a routine window). `specialUse` is the only remaining type and the subtype property in the manifest states the exact use.
+> The task is "watch usage events and draw an overlay on the user's request". None of the enumerated types describe it: it is not media playback, media projection, location, camera, microphone, phone call, connected device, remote messaging, health (no Health Connect or sensors are involved in this service), data sync (nothing is transferred) or system exempted (Vesper is not a system app). `shortService` does not fit because a session lasts up to 12 hours (an open-ended session; a routine window up to 8). `specialUse` is the only remaining type and the subtype property in the manifest states the exact use.
 
 *La tarea es "observar eventos de uso y dibujar una superposición a pedido del usuario".
 Ningún tipo enumerado la describe: no es reproducción de medios, proyección, ubicación,
 cámara, micrófono, llamada, dispositivo conectado, mensajería remota, salud (este servicio
 no toca Health Connect ni sensores), sincronización (no se transfiere nada) ni exención
-del sistema. `shortService` no sirve porque una sesión dura hasta 8 horas (una ventana de
-rutina). `specialUse` es el único tipo que queda y la propiedad del manifiesto dice el uso
+del sistema. `shortService` no sirve porque una sesión dura hasta 12 horas (una sesión sin
+límite; una ventana de rutina, hasta 8). `specialUse` es el único tipo que queda y la propiedad del manifiesto dice el uso
 exacto.*
 
 **5. Video link**
@@ -225,7 +226,8 @@ Connect aparte.
   hay una sesión.
 - [ ] **Conducta engañosa:** la ficha dice lo que hace y lo que no (ver
   `docs/STORE_LISTING.md`); nada de "bloqueo imposible de saltar".
-- [ ] **Nivel de API objetivo:** el de Expo SDK 57 (Android 15+), cumple el mínimo vigente.
+- [ ] **Nivel de API objetivo:** `compileSdk`/`targetSdk` 36 en el manifiesto generado
+  (`PLATFORM_ANDROID.md`, fase 4); cumple el mínimo vigente. Confirmar en el build de release.
 - [ ] **Cuestionario de clasificación de contenido:** utilidad / productividad, sin
   contenido generado por usuarios, sin compras, sin anuncios.
 - [ ] **Acceso a la app (App access):** "Todas las funciones están disponibles sin
@@ -240,8 +242,8 @@ Pegar en "App access › Instructions" y en el campo de notas de la declaración
 > **All functionality is available without an account. How to test the foreground service in 60 seconds:**
 > 1. Open Vesper. Grant "Usage access" and "Display over other apps" when the app sends you to Settings (both are asked from a mode's "Apps reales (Tiempo de uso)" screen), or grant them in advance in Settings › Apps › Vesper.
 > 2. Focus tab › tap the mode name › "Gestionar modos" › "Editar" › "Apps reales (Tiempo de uso)" › tick any app, for example Clock › "Listo" › "Guardar modo".
-> 3. Back on Focus, press and hold "Mantén para enfocar" for 1.5 s. A session starts and a persistent notification "Sesión de foco" appears: that is the foreground service.
-> 4. Go Home and open the app you ticked. Within a second a dark full-screen reminder "Vesper · <mode>" covers it, with one button "Volver" that returns to Home.
+> 3. Back on Focus, tap "Enfocarme 25 min" (a deep mode asks you to hold the button instead). A session starts and a persistent notification "Sesión de foco" with a countdown appears: that is the foreground service.
+> 4. Go Home and open the app you ticked. Within a second a dark full-screen reminder "Vesper · <mode>" covers it, with the time it lifts and one button "Volver" that returns to Home.
 > 5. Open Vesper › "Terminar" › after one breathing round tap "Terminar · llevas …". The session ends, the notification disappears and the app you ticked opens normally again.
 >
 > The app never uses AccessibilityService or QUERY_ALL_PACKAGES, makes no network requests and has no account. Deleting everything: Ajustes › "Borrar todo y reiniciar".
@@ -250,9 +252,10 @@ Pegar en "App access › Instructions" y en el campo de notas de la declaración
 otras apps" cuando la app mande a Ajustes (se piden desde "Apps reales" de un modo) o
 concederlos antes en Ajustes › Apps › Vesper. 2) Focus › nombre del modo › "Gestionar
 modos" › "Editar" › "Apps reales (Tiempo de uso)" › marcar Reloj › "Listo" › "Guardar
-modo". 3) Mantener "Mantén para enfocar" 1,5 s: arranca la sesión y aparece la
-notificación "Sesión de foco". 4) Ir al inicio y abrir Reloj: en menos de un segundo el
-escudo "Vesper · Sin redes" lo cubre, con "Volver". 5) Abrir Vesper › "Terminar" › una
+modo". 3) Tocar "Enfocarme 25 min" (un modo profundo pide mantener): arranca la sesión y
+aparece la notificación "Sesión de foco" con cuenta regresiva. 4) Ir al inicio y abrir
+Reloj: en menos de un segundo el escudo "Vesper · Sin redes" lo cubre, con la hora a la
+que se libera y "Volver". 5) Abrir Vesper › "Terminar" › una
 ronda de respiración › "Terminar · llevas …". Sin AccessibilityService, sin
 `QUERY_ALL_PACKAGES`, sin red, sin cuenta. Borrar todo: Ajustes › "Borrar todo y reiniciar".*
 

@@ -59,7 +59,7 @@ export const session = {
     /** The route with none left: only "Seguir enfocado" remains. */
     none: 'No te quedan desbloqueos este mes.',
     noneHint: 'Vuelven con el mes que viene.',
-    /** Stored as the session's exit reason, so the ledger can say how it ended. */
+    /** How the stored identifier (`features/session/exitReason`) reads when a reason row shows it. */
     reason: 'desbloqueo de emergencia',
   },
   closed: {

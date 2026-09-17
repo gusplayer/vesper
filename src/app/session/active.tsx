@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { AppState, Pressable } from 'react-native';
+import { AppState } from 'react-native';
 
 import {
   Button,
@@ -13,6 +13,7 @@ import {
   Screen,
   Spacer,
   Stack,
+  Tappable,
   Text,
 } from '../../design/components';
 import { useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
@@ -261,17 +262,16 @@ export default function ActiveSessionScreen() {
       <Spacer />
 
       <Stack align="center" gap="xs">
-        <Pressable
+        <Tappable
           onPress={() => setShowingMode(true)}
           disabled={mode === null}
-          accessibilityRole="button"
           accessibilityLabel={t.modeLabel(mode?.name ?? t.fallbackName)}
         >
           <Stack direction="row" align="center" gap="sm">
             <Text variant="heading">{mode?.name ?? t.fallbackName}</Text>
             {mode === null ? null : <Icon name="info" size="sm" tone="tertiary" />}
           </Stack>
-        </Pressable>
+        </Tappable>
       </Stack>
       {mode === null ? null : (
         <ModeDetailsSheet mode={mode} visible={showingMode} onClose={() => setShowingMode(false)} />

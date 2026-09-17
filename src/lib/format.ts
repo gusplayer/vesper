@@ -79,33 +79,6 @@ export function focusOfTargetText(week: WeekProgress, t: FormatStrings): string 
     : durationText(week.focusMs);
 }
 
-/**
- * The header line for the weekly goal. Without a target it reports the total and says
- * nothing about progress: the app does not invent a number to measure you against.
- * On Sunday it stops counting down and invites the closing — ADR-0013.
- */
-export function weekSummaryText(week: WeekProgress, closingDay: boolean, t: FormatStrings): string {
-  if (closingDay) {
-    return t.closeWeek;
-  }
-  if (!hasTarget(week.targetMs)) {
-    return t.thisWeek(durationText(week.focusMs));
-  }
-  if (week.met) {
-    return t.goalMet(durationText(week.focusMs));
-  }
-  return `${focusOfTargetText(week, t)} · ${t.daysLeft(week.daysLeft)}`;
-}
-
-/** What the Sunday closing says under the numbers. */
-export function weekClosingText(week: WeekProgress, t: FormatStrings): string {
-  if (!hasTarget(week.targetMs)) {
-    return t.closing.noTarget;
-  }
-  return week.met ? t.closing.met : t.closing.missed;
-}
-
-/** 'hecho', or '2 de 4'. Done is a word, never a color. */
 export function habitProgressText(progress: HabitProgress, t: FormatStrings): string {
   return progress.met ? t.done : t.ofCount(progress.markedDays, progress.habit.weeklyTarget);
 }

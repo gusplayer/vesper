@@ -3,10 +3,9 @@ import { Alert } from 'react-native';
 
 import { resetAndRehydrate, useCircleMembers, useProfile, useSettings } from '../../data';
 import { Card, ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { VERSION_NUMBER } from '../../features/settings/version';
 import { useLocale, useLocaleStore, useStrings } from '../../i18n';
 import { birthDateText } from '../../lib/birthDate';
-
-const VERSION_NUMBER = '2026.9.1';
 
 /** The Ajustes tab: groups of rows that each open their own page, like Brick. */
 export default function SettingsScreen() {

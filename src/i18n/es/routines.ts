@@ -33,6 +33,9 @@ export const routines = {
     crossesWith: (name: string) => `Se cruza con ${name}`,
     start: (name: string) => `Empezar ${name}`,
     cardA11y: (name: string, lines: string) => `${name}, ${lines}. Editar`,
+    /** Android without the exact-alarm toggle (rule 8): why, and the word that opens it. */
+    exactAlarmsOff: 'Sin alarmas exactas, una rutina puede empezar hasta diez minutos tarde.',
+    exactAlarmsTurnOn: 'Activar',
   },
   edit: {
     newTitle: 'Nueva rutina',

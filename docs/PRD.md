@@ -23,16 +23,32 @@ información — es fricción y honestidad. No quiere otro dashboard.
 
 ## Estructura desde ADR-0016
 
-Cuatro pestañas de texto: **Foco**, **Horarios**, **Actividad**, **Ajustes**. La sesión
-activa y su cierre son rutas a pantalla completa. Modos reemplazan a la configuración de
-sesión; horarios encienden un modo solo; Actividad reúne las estadísticas, la meta
-semanal, los hábitos, el libro mayor del día y las semanas de vida. La descripción
-detallada por pantalla está en `docs/PROTOTYPE_GUIDE.md`. Lo que sigue es la versión
-anterior, vigente en su fondo (monedas separadas, profundidades, meta semanal, vida).
+Cuatro pestañas de texto: **Focus**, **Rutinas**, **Actividad**, **Ajustes**. La sesión
+activa y sus salidas son rutas a pantalla completa. Los modos reemplazan a la
+configuración de sesión (apps, sitios, comportamiento y profundidad viven en el modo);
+las rutinas encienden una sesión con su modo a la hora programada, o a mano si no tienen
+hora (ADR-0019); Actividad reúne las estadísticas, la meta semanal, los hábitos, el libro
+mayor del día, las semanas de vida y el círculo. La descripción detallada por pantalla
+está en `docs/PROTOTYPE_GUIDE.md`.
+
+Lo que existe hoy y este documento no describe en detalle, porque nació en los ADR:
+
+| Área | Dónde se define |
+|---|---|
+| Modos (`modes/*`), rutinas (`(tabs)/schedules`, `schedules/edit`), Ajustes y sus páginas, onboarding de ocho pasos | ADR-0016, `PROTOTYPE_GUIDE.md` |
+| Persistencia real, notificaciones, Salud (iOS), Live Activity, bloqueo | ADR-0017, ADR-0023, `PLATFORM_*.md` |
+| Arte de foco durante la sesión | ADR-0018 |
+| Rutinas que arrancan sesiones; bloqueo en Android | ADR-0019 |
+| Español e inglés, Ajustes › Idioma | ADR-0020 |
+| Sesión sin límite, pausas de 15 min, botón de un toque | ADR-0022 |
+| Salida consciente con el dedo, emergencia como ruta, cierre breve | ADR-0025 |
+
+Lo que sigue es la versión anterior, vigente en su fondo (monedas separadas,
+profundidades, meta semanal, vida); donde la forma cambió, se dice.
 
 ## Las tres pantallas (versión e-ink, superada en forma)
 
-Sin tab bar. Sin pantalla de ajustes.
+Sin tab bar. Sin pantalla de ajustes. **Hoy hay cuatro pestañas y Ajustes existe** (ADR-0016).
 
 El swipe horizontal va entre **inicio y vida**. La sesión activa no es una página del
 swipe: es una ruta a pantalla completa de la que solo se sale terminando el timer o
@@ -40,6 +56,10 @@ manteniendo pulsado. Si fuera una página, un deslizamiento abandonaría una ses
 `profunda` y el nivel no significaría nada. Ver ADR-0009.
 
 ### 1. Inicio (también es la pantalla de arranque de sesión)
+
+Hoy es la pestaña Focus: "Xh Ym enfocado hoy", la grilla de los últimos días, el modo
+activo con cuántas apps bloquea, la próxima rutina, la fila de duración y el botón. La
+meta semanal y el libro mayor viven en Actividad.
 
 - Encabezado: fecha, progreso de la meta semanal
 - Duración de la próxima sesión, grande, con la última configuración ya aplicada
@@ -52,12 +72,10 @@ manteniendo pulsado. Si fuera una página, un deslizamiento abandonaría una ses
 
 **Regla:** un tap desde abrir la app hasta estar en sesión.
 
-Toda la configuración se abre desde donde se lee, y no hay otro acceso (ADR-0007):
-
-- el número grande → configuración de sesión
-- el progreso del encabezado → meta semanal, y el domingo, el cierre de la semana
-- `agregar hábito` al pie del libro mayor → nuevo hábito
-- mantener pulsada la fila de un hábito → editar o archivar ese hábito
+Toda la configuración se abría desde donde se leía (ADR-0007, superado por ADR-0016).
+Hoy: el modo se elige en una hoja desde su nombre y se edita en `modes/*`; la duración en
+la fila "25 min ⌄"; la meta semanal tocando su tarjeta en Actividad › De por vida; los
+hábitos ahí mismo (tocar marca hoy, mantener edita, "Agregar hábito" crea).
 
 ### 2. Sesión activa
 
@@ -103,18 +121,25 @@ los 60 de foco real. No gasta emergencias. Profundo no tiene pausas.
 
 ### 3. Vida
 
+Hoy es la tarjeta Vida al final de Actividad › De por vida, y Ajustes › Vida guarda la
+fecha de nacimiento, el país y el sexo opcionales (ajustan la esperanza de vida,
+`domain/lifeExpectancy`) y la esperanza editable.
+
 - Semanas restantes, número grande
 - Cuadrícula de semanas (vividas en tinta, restantes en gris)
 - Una línea de proyección: *"a tu ritmo actual, X de eso en redes"*. Llega en fase 3,
   con los datos de uso; hasta entonces la página lo dice en una línea
 
-**Regla:** nunca es la pantalla inicial. Nunca genera notificaciones. Opt-in: la página
-está siempre en el pager —no hay onboarding donde declinarla, ADR-0012— y sin fecha de
-nacimiento no cuenta nada, solo invita. El opt-in es escribir la fecha ahí mismo.
+**Regla:** nunca es la pantalla inicial. Nunca genera notificaciones. Opt-in: sin fecha
+de nacimiento no cuenta nada, solo invita. Nada más se pregunta: ni peso ni altura.
 
 ## Configuración de sesión
 
-Se abre tocando el número grande. Cuatro decisiones, todas con valor por defecto
+Versión e-ink. Hoy la duración se elige en la fila sobre el botón de Focus
+(5 · 25 · 50 · 90 · 120 · Sin límite; la elegida vive en memoria, no se persiste) y la
+actividad, la profundidad y qué se bloquea son del modo activo.
+
+Se abría tocando el número grande. Cuatro decisiones, todas con valor por defecto
 heredado de la última sesión. Cada cambio se guarda al instante; no hay botón de guardar.
 
 | Decisión | Opciones | Default |
@@ -140,24 +165,28 @@ intención es que el libro mayor muestre un solo renglón en vez de dos que habl
 mismo; el vínculo ya se guarda, pero el libro mayor todavía no lo usa.
 
 El tipo verificado solo se desbloquea para hábitos mapeables a datos de salud:
-entrenamiento, caminata, sueño. Lo desbloquea el nombre, pero **declarado sigue siendo el
-default** hasta la fase 1.5: hoy nada puede marcar un hábito verificado.
+entrenamiento, caminata, sueño. Lo desbloquea el nombre (`healthTypeFor`), y
+**declarado sigue siendo el default**. En iOS, con Salud conectada, HealthKit marca
+solo los hábitos verificados (ADR-0017); en Android Salud no existe todavía y un hábito
+verificado no recibe marcas.
 
-Se editan y archivan manteniendo pulsada su fila en el libro mayor. Archivar no borra:
-las marcas son historia, y el hábito deja de contar y libera un lugar.
+Se editan y archivan desde Actividad › De por vida (mantener la fila) o desde
+`habits/edit`. Archivar no borra: las marcas son historia, y el hábito deja de contar y
+libera un lugar.
 
 ## Metas semanales, no rachas diarias
 
 Un objetivo por semana, en horas de foco. Se reinicia el lunes.
 Las rachas diarias castigan a quien se enferma un martes.
 
-Se configura tocando el progreso en el encabezado de inicio, que es donde se lee. **No hay
-meta por defecto:** la app no inventa un número contra el cual medirte, y `ninguna` es una
-respuesta válida.
+Se configura tocando su tarjeta en Actividad › De por vida, que es donde se lee (chips
+5 / 10 / 15 / 20 / ninguna). **No hay meta por defecto** para un usuario nuevo: la app no
+inventa un número contra el cual medirte, y `ninguna` es una respuesta válida. (Los datos
+de demostración siembran 15 h.)
 
-El **cierre del domingo** vive en la misma ruta de la meta: ese día el encabezado dice
-`cerrar la semana` y la ruta muestra primero cómo cerró, y debajo la meta de la que empieza.
-No es una cuarta pantalla. Ver ADR-0013.
+El **cierre del domingo** es el aviso "Cierra la semana" más Actividad › Semanal, que ya
+muestra cómo cerró la semana. No habrá pantalla ni sección de cierre (ADR-0026, que
+supera a ADR-0013).
 
 ## Círculo (ADR-0021)
 
@@ -179,13 +208,19 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 
 ## Fuera de alcance en v1
 
-- Bloqueo de apps (fase 2)
 - Sync y backend (el círculo tiene su capa de datos, pero nada viaja todavía)
-- Gráficos y estadísticas complejas
+- Gráficos y estadísticas complejas más allá de las vistas de Actividad
 - Rachas, badges, leaderboards, feed, seguidores, notificaciones sociales
-- Modo oscuro
+- Modo oscuro como ajuste (la sesión es oscura por diseño; la app no)
 - Tablet / iPad
-- Widgets y Live Activities (fase 1.5)
+- Widget de pantalla de inicio (la Live Activity sí existe)
+- Health Connect en Android
+- Estimación real de uso (fase 3): hoy el "tiempo consumido" es un estimado de demostración
+- Sonido y vibración (ADR-0024, en propuesta)
+
+Lo que la primera versión de este documento dejaba fuera y ya existe: bloqueo de apps
+(ADR-0017, ADR-0019), Live Activity (ADR-0017, ADR-0023), español e inglés (ADR-0020),
+onboarding (ADR-0016) y pantalla de ajustes (ADR-0016).
 
 ## Métricas de éxito del prototipo
 
@@ -203,5 +238,5 @@ Si la respuesta a la primera es no, el problema no era el bloqueo.
 |---|---|
 | La pantalla de vida genera ansiedad | Opt-in, nunca inicial, nunca push, framing de asignación |
 | El usuario infla el tiempo declarado | Tope de 6h/día declarables; separación visual de verificado |
-| El onboarding pide demasiado | No hay onboarding: una línea en la primera vez, y cero permisos hasta después de la primera sesión completada. Ver ADR-0012 |
+| El onboarding pide demasiado | Ocho pasos que se pueden saltar; cada permiso se pide de verdad, con "Ahora no", y la app funciona sin ninguno. ADR-0026: hay onboarding, ningún permiso es obligatorio |
 | Estética e-ink se vuelve decorativa | Regla: solo texto, reglas horizontales y cuadros rellenos |

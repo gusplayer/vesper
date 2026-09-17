@@ -11,9 +11,8 @@
  */
 import { execSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join , resolve } from 'node:path';
 
-import { resolve } from 'node:path';
 
 import { GALLERY, dotBudget } from '../src/domain/art/gallery';
 import { dotsPath, stipple } from '../src/domain/art/stipple';
@@ -29,7 +28,7 @@ function isArtwork(value: unknown): value is Artwork {
   return typeof value === 'object' && value !== null && 'strokes' in value && 'id' in value;
 }
 
-async function works(): Promise<ReadonlyArray<Artwork>> {
+async function works(): Promise<readonly Artwork[]> {
   if (file === undefined) {
     return GALLERY;
   }
@@ -47,7 +46,7 @@ async function main(): Promise<void> {
       continue;
     }
     const dots = stipple(artwork, dotBudget(25 * 60_000), 1);
-    const stages: Array<[string, number]> = [
+    const stages: [string, number][] = [
       ['', dots.length],
       ['-25', Math.floor(dots.length * 0.25)],
       ['-50', Math.floor(dots.length * 0.5)],

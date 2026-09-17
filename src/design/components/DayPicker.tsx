@@ -6,24 +6,27 @@ import { Text } from './Text';
 
 type DayPickerProps = {
   /** Seven flags, Monday first. */
-  days: ReadonlyArray<boolean>;
+  days: readonly boolean[];
   onChange: (days: boolean[]) => void;
+  /** One letter per circle, Monday first: `format.weekdayInitials`. */
+  letters: readonly string[];
+  /** What VoiceOver reads per circle, Monday first: `format.shortDays`. */
+  labels: readonly string[];
 };
 
-const LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-
 /** Seven circles, Monday to Sunday. Chosen days are ink. */
-export function DayPicker({ days, onChange }: DayPickerProps) {
+export function DayPicker({ days, onChange, letters, labels }: DayPickerProps) {
   const { colors } = useTheme();
   return (
     <View style={styles.row}>
-      {LETTERS.map((letter, index) => {
+      {letters.map((letter, index) => {
         const active = days[index] ?? false;
         return (
           <Pressable
             key={index}
             onPress={() => onChange(days.map((day, i) => (i === index ? !day : day)))}
             accessibilityRole="button"
+            accessibilityLabel={labels[index]}
             accessibilityState={{ selected: active }}
             style={[styles.circle, { backgroundColor: active ? colors.ink : colors.card }]}
           >

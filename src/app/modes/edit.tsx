@@ -51,7 +51,7 @@ export default function ModeEditScreen() {
     return null;
   }
 
-  const behaviors: ReadonlyArray<{ value: ModeBehavior; label: string }> = [
+  const behaviors: readonly { value: ModeBehavior; label: string }[] = [
     { value: 'block', label: t.modes.edit.behaviorBlock },
     { value: 'allow', label: t.modes.edit.behaviorAllow },
   ];

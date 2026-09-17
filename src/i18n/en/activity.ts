@@ -67,11 +67,15 @@ export const activity: typeof shape = {
     noDayYet: 'None yet.',
     since: (month) => `Since ${month}.`,
   },
+  chart: {
+    average: 'AVG',
+  },
   today: {
     title: 'Today',
     focused: 'Focused',
     social: 'Social (estimate)',
     socialDescription: 'always a floor, never exact',
+    atLeast: (duration) => `≥ ${duration}`,
     unregistered: 'Unregistered',
     footer: 'Three separate currencies. Never added up.',
   },

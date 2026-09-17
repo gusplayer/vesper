@@ -78,19 +78,24 @@ export function nativeModule(): Module | null {
   return cached;
 }
 
+/**
+ * Whenever the module is there, `detail.exactAlarm` carries the exact-alarm toggle,
+ * available or not, so a screen can point at it while usage access is still missing.
+ */
 export function status(): CapabilityStatus {
   const mod = nativeModule();
   if (mod === null) {
     return unavailable(getStrings().modes.blocking.androidNoModule);
   }
   const native = nativeStatus(mod);
+  const detail = { exactAlarm: native.exactAlarm };
   if (!native.usageAccess) {
-    return unavailable(getStrings().modes.blocking.androidNoUsageAccess);
+    return { ...unavailable(getStrings().modes.blocking.androidNoUsageAccess), detail };
   }
   if (!native.overlay) {
-    return unavailable(getStrings().modes.blocking.androidNoOverlay);
+    return { ...unavailable(getStrings().modes.blocking.androidNoOverlay), detail };
   }
-  return { available: true, reason: null };
+  return { available: true, reason: null, detail };
 }
 
 /** True once both Settings toggles are on. There is no "not asked yet" on Android. */
@@ -172,13 +177,13 @@ export async function requestNotifications(): Promise<boolean> {
   }
 }
 
-/** The battery-optimisation list, for phones whose makers kill services. */
-export function openBatterySettings(): void {
+/** The battery-optimisation list, for phones whose makers kill services. True when it opened. */
+export async function openBatterySettings(): Promise<boolean> {
   const mod = nativeModule();
   if (mod === null) {
-    return;
+    return false;
   }
-  void safeAsync(() => mod.openBatterySettings());
+  return safeAsync(() => mod.openBatterySettings());
 }
 
 /** How many apps a token holds. Android has no categories or websites. */

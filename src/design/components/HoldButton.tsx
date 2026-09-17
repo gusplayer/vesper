@@ -15,27 +15,15 @@ type HoldButtonProps = {
   label: string;
   /** Fires once the page is ink: the caller starts the session and opens its route. */
   onHold: () => void;
-  /** A short tap, released before the fill completes. */
-  onPress?: () => void;
-  disabled?: boolean;
-  holdMs?: number;
-  accessibilityHint?: string;
 };
 
 /**
  * The focus button for a deep mode, the one session with no way out. Hold it and paper
  * dots close in from both ends of the pill toward the middle; let go early and they
  * vanish at once. When they meet, ink floods the page from the button and the session
- * opens underneath. A quick tap does something smaller, when the caller gives it one.
+ * opens underneath. A quick tap does nothing: the hold is the gesture.
  */
-export function HoldButton({
-  label,
-  onHold,
-  onPress,
-  disabled = false,
-  holdMs = motion.holdMs,
-  accessibilityHint,
-}: HoldButtonProps) {
+export function HoldButton({ label, onHold }: HoldButtonProps) {
   const { colors } = useTheme();
   const [fill] = useState(() => new Animated.Value(0));
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -67,7 +55,7 @@ export function HoldButton({
     fill.setValue(0);
     animation.current = Animated.timing(fill, {
       toValue: 1,
-      duration: holdMs,
+      duration: motion.holdMs,
       easing: Easing.linear,
       useNativeDriver: true,
     });
@@ -107,19 +95,11 @@ export function HoldButton({
       <Pressable
         ref={pill}
         onLayout={measure}
-        onPressIn={disabled ? undefined : start}
-        onPressOut={disabled ? undefined : release}
-        onPress={() => {
-          if (!disabled && !completed.current) {
-            onPress?.();
-          }
-        }}
-        disabled={disabled}
+        onPressIn={start}
+        onPressOut={release}
         accessibilityRole="button"
         accessibilityLabel={label}
-        accessibilityHint={accessibilityHint}
-        accessibilityState={{ disabled }}
-        style={[styles.pill, { backgroundColor: disabled ? colors.cardMuted : colors.ink }]}
+        style={[styles.pill, { backgroundColor: colors.ink }]}
       >
         {size.width === 0
           ? null
@@ -143,7 +123,7 @@ export function HoldButton({
                 </Svg>
               </Animated.View>
             ))}
-        <Text variant="body" weight="medium" tone={disabled ? 'secondary' : 'onInk'} align="center">
+        <Text variant="body" weight="medium" tone="onInk" align="center">
           {label}
         </Text>
       </Pressable>

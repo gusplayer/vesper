@@ -11,11 +11,6 @@ import { getDb } from '../client';
  */
 
 export const SETTING_KEYS = {
-  lastSessionConfig: 'last_session_config',
-  birthDate: 'birth_date',
-  lifeExpectancyYears: 'life_expectancy_years',
-  weeklyFocusTargetMs: 'weekly_focus_target_ms',
-  onboardingCompletedAt: 'onboarding_completed_at',
   /** The whole prototype Settings object as one JSON value (ADR-0017). */
   prototypeSettings: 'prototype_settings',
   /** The mode the home page shows. */
@@ -29,8 +24,6 @@ export const SETTING_KEYS = {
   /** What the user shares with the circle, JSON. Missing reads as the defaults. */
   circleShare: 'circle_share',
 } as const;
-
-export const DEFAULT_LIFE_EXPECTANCY_YEARS = 77.6;
 
 export function get(key: string): string | null {
   const result = getDb().executeSync('SELECT value FROM settings WHERE key = ?', [key]);
@@ -57,19 +50,6 @@ export function getNumber(key: string): number | null {
 
 export function setNumber(key: string, value: number, now: number): void {
   set(key, String(value), now);
-}
-
-/**
- * The weekly goal, or null when there is none. Stored as 0 for "none" because the
- * table holds text and a missing row and an explicit choice should read the same.
- */
-export function getWeeklyTargetMs(): number | null {
-  const stored = getNumber(SETTING_KEYS.weeklyFocusTargetMs);
-  return stored === null || stored <= 0 ? null : stored;
-}
-
-export function setWeeklyTargetMs(targetMs: number | null, now: number): void {
-  setNumber(SETTING_KEYS.weeklyFocusTargetMs, targetMs ?? 0, now);
 }
 
 /**

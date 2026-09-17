@@ -10,7 +10,6 @@ import { uuidv7 } from '../../lib/uuid';
  * (see domain/activities.ts): they are the user's own words and have no translation.
  */
 
-
 type ActivityRow = {
   id: string;
   key: string;
@@ -51,34 +50,13 @@ export function findByKey(key: string): Activity | null {
   return row === undefined ? null : toActivity(row);
 }
 
-export function insert(key: string, label: string, now: number): Activity {
-  const activity: Activity = {
-    id: uuidv7(now),
-    key,
-    label,
-    isDefault: false,
-    archivedAt: null,
-    createdAt: now,
-  };
-
-  getDb().executeSync(
-    `INSERT INTO activities (id, key, label, is_default, archived_at, created_at)
-     VALUES (?, ?, ?, 0, NULL, ?)`,
-    [activity.id, activity.key, activity.label, activity.createdAt],
-  );
-
-  return activity;
-}
-
 /**
- * Seeds the default activities. Idempotent through the UNIQUE key, so it can run on
- * every boot without a "has it been seeded" flag.
+ * Seeds the default activities, labelled in the language of the fresh install
+ * (ADR-0020); `defaults` comes from `demoActivities(t.demo)` and the ids are the
+ * keys. Idempotent through the UNIQUE key, so it can run on every boot without a
+ * "has it been seeded" flag.
  */
-/**
- * The default activities, labelled in the language of the fresh install (ADR-0020).
- * `defaults` comes from `demoActivities(t.demo)`: the ids are the keys.
- */
-export function seedDefaults(now: number, defaults: ReadonlyArray<{ id: string; label: string }>): void {
+export function seedDefaults(now: number, defaults: readonly { id: string; label: string }[]): void {
   const db = getDb();
   for (const { id: key, label } of defaults) {
     db.executeSync(

@@ -14,6 +14,7 @@ import {
 } from '../../design/components';
 import { EMERGENCY_WAIT_MS } from '../../domain/exitRitual';
 import { SECOND } from '../../domain/time';
+import { EMERGENCY_EXIT_REASON } from '../../features/session/exitReason';
 import { useStrings } from '../../i18n';
 import { useBlockBack } from '../../lib/useBlockBack';
 import { useNow } from '../../lib/useNow';
@@ -57,7 +58,7 @@ export default function EmergencyScreen() {
   };
   // The page is paper: close the session under it and swap the route while it lingers.
   const flooded = () => {
-    finish('cancelled', Date.now(), t.reason);
+    finish('cancelled', Date.now(), EMERGENCY_EXIT_REASON);
     router.replace({ pathname: '/session/closed', params: { emergency: '1' } });
     setLeaving(false);
   };

@@ -13,9 +13,6 @@ type ButtonProps = {
   /** Replaces the label while something is happening: 'Iniciando…'. */
   busyLabel?: string;
   busy?: boolean;
-  /** Fires after holding for `holdMs`. The label says so. */
-  onLongPress?: () => void;
-  accessibilityLabel?: string;
 };
 
 /**
@@ -29,8 +26,6 @@ export function Button({
   disabled = false,
   busyLabel,
   busy = false,
-  onLongPress,
-  accessibilityLabel,
 }: ButtonProps) {
   const { colors } = useTheme();
   const inactive = disabled || busy;
@@ -50,12 +45,10 @@ export function Button({
   return (
     <Pressable
       onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={600}
       disabled={inactive}
       accessibilityRole="button"
       accessibilityState={{ disabled: inactive }}
-      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityLabel={label}
       style={({ pressed }) => [
         styles.pill,
         { backgroundColor: background, opacity: pressed && !inactive ? 0.85 : 1 },

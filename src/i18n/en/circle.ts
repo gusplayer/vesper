@@ -1,7 +1,7 @@
 import type { circle as shape } from '../es/circle';
 
 /** 'Ana', 'Ana and Luis', 'Ana, Luis and Sofía'. */
-function joinNames(names: ReadonlyArray<string>): string {
+function joinNames(names: readonly string[]): string {
   if (names.length === 0) {
     return '';
   }
@@ -27,6 +27,7 @@ export const circle: typeof shape = {
   },
   member: {
     me: 'You',
+    handle: (handle) => `@${handle}`,
     focus: (hours) => `${hours} of focus`,
     social: (hours) => `social · ${hours} (estimated)`,
     noData: 'no data this week',

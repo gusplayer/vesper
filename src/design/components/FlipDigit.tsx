@@ -3,6 +3,7 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
 import { font, radius } from '../tokens';
+import { useReduceMotion } from '../useReduceMotion';
 
 type FlipDigitProps = {
   /** One character. Digits flip; anything else just sits there. */
@@ -23,6 +24,7 @@ const FLIP_MS = 340;
  */
 export function FlipDigit({ value, scale = 1 }: FlipDigitProps) {
   const { colors } = useTheme();
+  const reduceMotion = useReduceMotion();
   const [shown, setShown] = useState(value);
   // Two values, one per half, so each half gets its own curve on the native driver.
   const [topProgress] = useState(() => new Animated.Value(0));
@@ -31,6 +33,11 @@ export function FlipDigit({ value, scale = 1 }: FlipDigitProps) {
 
   useEffect(() => {
     if (value === shown || running.current) {
+      return;
+    }
+    // With "reduce motion" the digit changes, nothing falls.
+    if (reduceMotion) {
+      setShown(value);
       return;
     }
     running.current = true;
@@ -55,7 +62,7 @@ export function FlipDigit({ value, scale = 1 }: FlipDigitProps) {
       running.current = false;
       setShown(value);
     });
-  }, [value, shown, topProgress, bottomProgress]);
+  }, [value, shown, topProgress, bottomProgress, reduceMotion]);
 
   const topFlap = topProgress.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-90deg'] });
   const bottomFlap = bottomProgress.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '0deg'] });

@@ -4,6 +4,7 @@ import { en } from '../i18n/en';
 import { es } from '../i18n/es';
 import { aDoneSession, anActivity, aRunningSession, T0 } from './fixtures';
 import { buildLedger as build } from './ledger';
+import { closeDue, endBreak, startBreak } from './session';
 import { HOUR, MINUTE } from './time';
 import {
   DECLARED_DAILY_CAP_MS,
@@ -364,5 +365,63 @@ describe('provenance', () => {
 
     expect(rowMs(ledger, 'activity:unknown')).toBe(HOUR);
     expect(rowMs(ledger, 'unknown')).toBe(7 * HOUR);
+  });
+});
+
+describe('breaks (ADR-0022)', () => {
+  const at = (minutes: number) => DAY_START + minutes * MINUTE;
+
+  /** A one hour session from minute 60 with a 10 minute break at minute 90, completed. */
+  function withBreak() {
+    const session = aRunningSession({ id: 's-break', activityId: 'a-work', plannedMs: HOUR, startedAt: at(60) });
+    return closeDue(endBreak(startBreak(session, at(90)), at(100)));
+  }
+
+  it('credit the activity with the focus served, never with the break', () => {
+    const ledger = buildLedger(input({ sessions: [withBreak()], now: at(240) }));
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
+    expect(ledger.declaredMs).toBe(HOUR);
+  });
+
+  it('leave the break on the clock as unregistered time', () => {
+    const ledger = buildLedger(input({ sessions: [withBreak()], now: at(240) }));
+
+    expect(rowMs(ledger, 'unknown')).toBe(240 * MINUTE - HOUR);
+  });
+
+  it('let a verified workout taken during the break count once, outside the session', () => {
+    const ledger = buildLedger(
+      input({
+        sessions: [withBreak()],
+        healthSamples: [sample('w', 'workout', at(90), at(100))],
+        now: at(240),
+      }),
+    );
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(HOUR);
+    expect(rowMs(ledger, 'health:workout')).toBe(10 * MINUTE);
+    // 240 min so far, 60 of focus and 10 of workout, none of them overlapping.
+    expect(rowMs(ledger, 'unknown')).toBe(240 * MINUTE - HOUR - 10 * MINUTE);
+  });
+
+  it('count a running session on a break by its focus so far, frozen', () => {
+    const paused = startBreak(
+      aRunningSession({ id: 's-paused', activityId: 'a-work', plannedMs: HOUR, startedAt: at(60) }),
+      at(85),
+    );
+    const ledger = buildLedger(input({ sessions: [paused], now: at(90) }));
+
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(25 * MINUTE);
+    expect(rowMs(ledger, 'unknown')).toBe(90 * MINUTE - 25 * MINUTE);
+  });
+
+  it('clip the stretch after the break to the day like any other', () => {
+    const late = aRunningSession({ id: 's-late', activityId: 'a-work', plannedMs: HOUR, startedAt: DAY_END - 50 * MINUTE });
+    const closed = closeDue(endBreak(startBreak(late, DAY_END - 25 * MINUTE), DAY_END - 15 * MINUTE));
+    const ledger = buildLedger(input({ sessions: [closed], now: DAY_END + HOUR }));
+
+    // 25 min before the break, then 15 min after it until midnight; the rest is tomorrow's.
+    expect(rowMs(ledger, 'activity:trabajo')).toBe(40 * MINUTE);
   });
 });

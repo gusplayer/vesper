@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
-import { blockPlan, type BlockPlan } from '../../domain/blocking';
+import { blockPlan, isEmptyPlan, type BlockPlan } from '../../domain/blocking';
 import { breakEndsAt, plannedEndAt } from '../../domain/session';
 import type { Session } from '../../domain/types';
 import { applyPlan, configureShield, pausePlan, release, resumePlan, status } from '../blocking';
@@ -45,11 +45,20 @@ export function useBlockingSync(): void {
       open: session.open,
     });
 
-    const apply = (modeId: string | null, session: Session) => {
+    /** `replacing`: another session was running a moment ago, so its shield may still be up. */
+    const apply = (modeId: string | null, session: Session, replacing: boolean) => {
       if (!status().available) {
         return;
       }
-      applyPlan(planFor(modeId), timingOf(session));
+      const plan = planFor(modeId);
+      if (isEmptyPlan(plan)) {
+        // Nothing to shield for this session; what the previous one left goes down.
+        if (replacing) {
+          release();
+        }
+        return;
+      }
+      applyPlan(plan, timingOf(session));
     };
 
     const resume = (modeId: string | null, session: Session) => {
@@ -61,20 +70,22 @@ export function useBlockingSync(): void {
 
     const current = useFocusStore.getState();
     if (current.session !== null && current.session.breakStartedAt === null) {
-      apply(current.modeId, current.session);
+      apply(current.modeId, current.session, false);
     }
 
     const unsubscribe = useFocusStore.subscribe((state, previous) => {
-      const started = previous.session === null && state.session !== null;
-      const ended = previous.session !== null && state.session === null;
+      // The identity decides: a new session applies its own plan (also straight after
+      // another one, should the store ever swap them without a null in between), and
+      // no session releases. Editing the running session changes nothing here.
+      const changed = state.session?.id !== previous.session?.id;
       const onBreak = state.session !== null && state.session.breakStartedAt !== null;
       const wasOnBreak = previous.session !== null && previous.session.breakStartedAt !== null;
-      if (started && state.session !== null) {
-        if (!onBreak) {
-          apply(state.modeId, state.session);
+      if (changed) {
+        if (state.session === null) {
+          release();
+        } else if (!onBreak) {
+          apply(state.modeId, state.session, previous.session !== null);
         }
-      } else if (ended) {
-        release();
       } else if (state.session !== null && onBreak !== wasOnBreak) {
         const breakEnd = breakEndsAt(state.session);
         if (onBreak && breakEnd !== null) {

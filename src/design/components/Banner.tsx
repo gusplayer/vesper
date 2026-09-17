@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useChrome } from '../chrome';
 import { useTheme } from '../theme';
 import { radius, space } from '../tokens';
 import { Icon } from './Icon';
@@ -14,6 +15,7 @@ type BannerProps = {
 /** The dark strip at the top of the home page: 'Cumpliste. Completaste tu primera rutina.' */
 export function Banner({ title, message, onDismiss }: BannerProps) {
   const { colors } = useTheme();
+  const { dismiss } = useChrome();
   return (
     <View style={[styles.banner, { backgroundColor: colors.ink }]}>
       <View style={styles.text}>
@@ -24,7 +26,7 @@ export function Banner({ title, message, onDismiss }: BannerProps) {
           {message}
         </Text>
       </View>
-      <Pressable onPress={onDismiss} hitSlop={8} accessibilityLabel="cerrar aviso">
+      <Pressable onPress={onDismiss} hitSlop={8} accessibilityRole="button" accessibilityLabel={dismiss}>
         <Icon name="x" size="sm" tone="onInk" />
       </Pressable>
     </View>

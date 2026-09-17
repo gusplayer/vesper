@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
+import { useChrome } from '../chrome';
 import { layout } from '../tokens';
 import { IconCircle } from './IconCircle';
 import { Text } from './Text';
@@ -15,13 +16,14 @@ type PageHeaderProps = {
 
 /** Back (or close) on the left, a centered title, an optional action on the right. */
 export function PageHeader({ title, onBack, onClose, right }: PageHeaderProps) {
+  const { back, close } = useChrome();
   return (
     <View style={styles.row}>
       <View style={styles.side}>
         {onBack !== undefined ? (
-          <IconCircle name="chevron-left" onPress={onBack} accessibilityLabel="volver" />
+          <IconCircle name="chevron-left" onPress={onBack} accessibilityLabel={back} />
         ) : onClose !== undefined ? (
-          <IconCircle name="x" onPress={onClose} accessibilityLabel="cerrar" />
+          <IconCircle name="x" onPress={onClose} accessibilityLabel={close} />
         ) : null}
       </View>
       <View style={styles.center}>

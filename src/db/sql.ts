@@ -24,7 +24,7 @@ export function splitStatements(sql: string): string[] {
 
 /** The migrations not yet applied, in id order. */
 export function pendingMigrations<T extends { id: number }>(
-  all: ReadonlyArray<T>,
+  all: readonly T[],
   appliedIds: ReadonlySet<number>,
 ): T[] {
   return all.filter((migration) => !appliedIds.has(migration.id)).sort((a, b) => a.id - b.id);

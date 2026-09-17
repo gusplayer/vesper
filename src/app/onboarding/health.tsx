@@ -19,7 +19,7 @@ export default function HealthScreen() {
 
   const health = status();
   const copy = t.onboarding.health;
-  const blocks: ReadonlyArray<PermissionBlock> = [
+  const blocks: readonly PermissionBlock[] = [
     { icon: 'activity', heading: copy.automatic.heading, body: copy.automatic.body },
     { icon: 'lock', heading: copy.privacy.heading, body: copy.privacy.body },
     { icon: 'heart', heading: copy.verified.heading, body: copy.verified.body },

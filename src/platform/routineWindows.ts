@@ -1,5 +1,5 @@
-import { dayBounds } from '../domain/day';
-import { DAY, MINUTE } from '../domain/time';
+import { atMinuteOfDay, dayStartShifted } from '../domain/day';
+import { MINUTE } from '../domain/time';
 import type { Millis } from '../domain/types';
 import type { RoutineWindowSpec } from './blockingTypes';
 
@@ -42,23 +42,23 @@ export function windowOnDay(spec: WindowTiming, dayAt: Millis): WindowInstants |
   if (spec.days[weekdayOf(dayAt)] !== true) {
     return null;
   }
-  const { dayStart } = dayBounds(dayAt);
-  const start = dayStart + spec.startMinute * MINUTE;
+  // Wall-clock minutes, not offsets from midnight: a 23 or 25 hour day keeps 21:30.
+  const start = atMinuteOfDay(dayAt, spec.startMinute);
   let end: Millis;
   if (spec.endMinute === null) {
     end = start + spec.capMinutes * MINUTE;
   } else if (spec.endMinute > spec.startMinute) {
-    end = dayStart + spec.endMinute * MINUTE;
+    end = atMinuteOfDay(dayAt, spec.endMinute);
   } else {
     // Crosses midnight: 21:30 → 06:30 ends the next day.
-    end = dayStart + DAY + spec.endMinute * MINUTE;
+    end = atMinuteOfDay(dayStartShifted(dayAt, 1), spec.endMinute);
   }
   return { start, end };
 }
 
 /** The window containing `now`, if the spec is inside one right now. */
 export function activeWindow(spec: WindowTiming, now: Millis): WindowInstants | null {
-  for (const dayAt of [now - DAY, now]) {
+  for (const dayAt of [dayStartShifted(now, -1), now]) {
     const window = windowOnDay(spec, dayAt);
     if (window !== null && now >= window.start && now < window.end) {
       return window;
@@ -70,7 +70,7 @@ export function activeWindow(spec: WindowTiming, now: Millis): WindowInstants | 
 /** The first window whose start is at or after `at`, looking a week ahead. */
 export function nextWindow(spec: WindowTiming, at: Millis): WindowInstants | null {
   for (let offset = 0; offset < LOOKAHEAD_DAYS; offset += 1) {
-    const window = windowOnDay(spec, at + offset * DAY);
+    const window = windowOnDay(spec, offset === 0 ? at : dayStartShifted(at, offset));
     if (window !== null && window.start >= at) {
       return window;
     }

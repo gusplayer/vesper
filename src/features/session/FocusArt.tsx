@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
-import { Pressable } from 'react-native';
 
-import { Stack, StippleCanvas, Text } from '../../design/components';
+import { Stack, StippleCanvas, Tappable, Text } from '../../design/components';
 import { artworkFor, dotBudget, seedFor } from '../../domain/art/gallery';
 import { stipple, visibleDots } from '../../domain/art/stipple';
 import { elapsed } from '../../domain/session';
@@ -36,15 +35,11 @@ export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusAr
   const label = t.label(words.name, Math.round((visible / dots.length) * 100));
 
   if (layout === 'landscape') {
-    return (
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} style={{ flex: 1 }}>
-        <StippleCanvas dots={dots} visible={visible} fit="height" />
-      </Pressable>
-    );
+    return <StippleCanvas dots={dots} visible={visible} fit="height" onPress={onPress} accessibilityLabel={label} />;
   }
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+    <Tappable onPress={onPress} accessibilityLabel={label}>
       <Stack gap="md" align="center">
         <StippleCanvas dots={dots} visible={visible} />
         {/* No name while it grows: the drawing is its own reveal. */}
@@ -59,6 +54,6 @@ export function FocusArt({ session, now, onPress, layout = 'portrait' }: FocusAr
           </>
         ) : null}
       </Stack>
-    </Pressable>
+    </Tappable>
   );
 }

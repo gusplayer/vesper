@@ -26,7 +26,7 @@ export type WindowLike = {
   startMinute: number;
   endMinute: number | null;
   capMinutes: number;
-  days: ReadonlyArray<boolean>;
+  days: readonly boolean[];
 };
 
 /** The bits of a mode the spec builder needs. `Mode` from src/data fits as is. */
@@ -77,8 +77,8 @@ export type WindowInterval = {
  * the routine's duration when it has one, like the in-app engine does.
  */
 export function routineWindowPlans(
-  routines: ReadonlyArray<RoutineLike>,
-  modes: ReadonlyArray<WindowModeLike>,
+  routines: readonly RoutineLike[],
+  modes: readonly WindowModeLike[],
   t: ShieldStrings,
 ): RoutineWindowPlan[] {
   const plans: RoutineWindowPlan[] = [];
@@ -177,7 +177,7 @@ export function routineIdFromActivityName(name: string): string | null {
 }
 
 /** The distinct routine ids among a list of activity names, in first-seen order. */
-export function routineIdsFromActivityNames(names: ReadonlyArray<string>): string[] {
+export function routineIdsFromActivityNames(names: readonly string[]): string[] {
   const ids: string[] = [];
   for (const name of names) {
     const id = routineIdFromActivityName(name);

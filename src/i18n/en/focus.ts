@@ -32,7 +32,6 @@ export const focus: typeof shape = {
     startsTomorrowAt: (name, time) => `${name} starts tomorrow at ${time}`,
   },
   recentDays: {
-    weekdayInitials: ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
     gridSummary: (days) =>
       `Last four weeks: ${days === 1 ? '1 day' : `${days} days`} with focus. Tap to see activity`,
   },

@@ -88,15 +88,15 @@ function propsOf(input: FocusInput): FocusActivityProps {
 }
 
 /**
- * Ends activities this process does not own: a previous launch that died mid-session
- * left them on the lock screen, and the system keeps them for hours on its own.
+ * Ends every activity the system still holds: a previous launch that died mid-session
+ * left them on the lock screen, and the system keeps them for hours on its own. Only
+ * called while nothing is current, so there is nothing of ours to spare
+ * (`getInstances()` hands out fresh wrappers, so identity would not tell anyway).
  */
 function endOrphans(loaded: Factory): void {
   try {
     for (const instance of loaded.getInstances()) {
-      if (instance !== current) {
-        instance.end('immediate').catch((error: unknown) => report('end orphan', error));
-      }
+      instance.end('immediate').catch((error: unknown) => report('end orphan', error));
     }
   } catch (error) {
     report('getInstances', error);

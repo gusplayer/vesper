@@ -61,15 +61,11 @@ class BlockingService : Service() {
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-    if (intent?.action == ACTION_STOP) {
-      stopSelf()
-      return START_NOT_STICKY
-    }
     val now = System.currentTimeMillis()
     val plan = PlanStore.load(this)
     if (plan == null) {
       Log.i(TAG, "no plan stored; stopping")
-      stopSelf()
+      stopQuietly(intent)
       return START_NOT_STICKY
     }
     val pause = PlanStore.loadPause(this)
@@ -93,11 +89,33 @@ class BlockingService : Service() {
     if (plan.endsAt != null && plan.endsAt <= now) {
       Log.i(TAG, "plan already over; stopping")
       PlanStore.clear(this)
-      stopSelf()
+      stopQuietly(intent)
       return START_NOT_STICKY
     }
     enterFocus(plan, now)
     return START_STICKY
+  }
+
+  /**
+   * Stops with nothing to show. A start that came through startForegroundService()
+   * (`intent` is not null; a START_STICKY restart carries none) has to reach
+   * startForeground() or Android kills the process, even after stopSelf(): a
+   * RemoteServiceException on 8-11, ForegroundServiceDidNotStartInTimeException on
+   * 12+. So a bare notification goes up for an instant and comes straight down.
+   */
+  private fun stopQuietly(intent: Intent?) {
+    if (intent != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      val copy = PlanStore.load(this)?.notification ?: NotificationCopy()
+      val placeholder = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(R.drawable.ic_vesper_focus)
+        .setContentTitle(copy.channelName)
+        .setSilent(true)
+        .build()
+      runCatching { startInForeground(copy, placeholder) }
+        .onFailure { Log.w(TAG, "placeholder foreground refused: ${it.message}") }
+      stopForeground(STOP_FOREGROUND_REMOVE)
+    }
+    stopSelf()
   }
 
   override fun onDestroy() {
@@ -138,7 +156,11 @@ class BlockingService : Service() {
   }
 
   private fun startInForeground(plan: Plan, notification: Notification) {
-    ensureChannel(plan.notification)
+    startInForeground(plan.notification, notification)
+  }
+
+  private fun startInForeground(copy: NotificationCopy, notification: Notification) {
+    ensureChannel(copy)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
       startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
     } else {
@@ -164,6 +186,9 @@ class BlockingService : Service() {
           }
         }
       }.also {
+        // No RECEIVER_EXPORTED / RECEIVER_NOT_EXPORTED flag on purpose: Android 14 only
+        // demands one for non-system broadcasts, and SCREEN_ON / SCREEN_OFF are
+        // protected system broadcasts that only the OS can send.
         registerReceiver(it, IntentFilter().apply {
           addAction(Intent.ACTION_SCREEN_ON)
           addAction(Intent.ACTION_SCREEN_OFF)
@@ -261,7 +286,6 @@ class BlockingService : Service() {
     const val ACTION_APPLY = "com.gusplayer.vesper.blocking.APPLY"
     const val ACTION_PAUSE = "com.gusplayer.vesper.blocking.PAUSE"
     const val ACTION_RESUME = "com.gusplayer.vesper.blocking.RESUME"
-    const val ACTION_STOP = "com.gusplayer.vesper.blocking.STOP"
     private const val CHANNEL_ID = "vesper_session"
     /** Phase 1's low-importance channel, removed on the next start. */
     private const val LEGACY_CHANNEL_ID = "vesper_focus"
@@ -289,6 +313,13 @@ class BlockingService : Service() {
      * start it already had, so the count-up notification does not jump.
      */
     fun apply(context: Context, plan: Plan) {
+      val endsAt = plan.endsAt
+      if (endsAt != null && endsAt <= System.currentTimeMillis()) {
+        // Nothing to run: the same outcome the service would reach, without a start.
+        Log.i(TAG, "apply with an end already past ($endsAt); releasing")
+        release(context)
+        return
+      }
       val stored = PlanStore.load(context)
       val effective = if (stored != null && stored.windowId == null && plan.windowId == null &&
         stored.packageNames == plan.packageNames && stored.mode == plan.mode

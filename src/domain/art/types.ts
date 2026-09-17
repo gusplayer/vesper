@@ -11,7 +11,7 @@ export type Point = readonly [x: number, y: number];
 
 export type Stroke = {
   /** Two or more points, in unit space. Closed shapes repeat the first point last. */
-  points: ReadonlyArray<Point>;
+  points: readonly Point[];
   /**
    * Relative dot density along this stroke. 1 is a normal line; 2 a heavy one; 0.4 a
    * whisper. The engine spreads the artwork's dot budget in proportion.
@@ -31,7 +31,7 @@ export type ArtworkId = 'dog' | 'eiffel' | 'face' | 'liberty' | 'pagoda';
 
 export type Artwork = {
   id: ArtworkId;
-  strokes: ReadonlyArray<Stroke>;
+  strokes: readonly Stroke[];
   /** Base dot radius in unit space. ~0.004 reads as ink dots on a phone. */
   dotRadius?: number;
   /** Jitter across the stroke, in unit space. Gives the hand-made feel. */

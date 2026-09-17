@@ -2,13 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { aHabit, aMark } from './fixtures';
 import {
+  activeHabitCount,
+  canAddHabit,
   DEFAULT_HABIT_TARGET,
   HABIT_TARGET_OPTIONS,
   healthTypeFor,
   isMarkedOn,
   weeklyProgress,
 } from './habits';
-import type { Habit, HabitMark } from './types';
+import { MAX_HABITS, type Habit, type HabitMark } from './types';
 
 function habit(id: string, name: string, weeklyTarget: number): Habit {
   return aHabit({ id, name, weeklyTarget });
@@ -55,7 +57,7 @@ describe('healthTypeFor', () => {
 describe('targets', () => {
   it('offers 2, 4 and 6, and defaults to one of them', () => {
     expect(HABIT_TARGET_OPTIONS).toEqual([2, 4, 6]);
-    expect((HABIT_TARGET_OPTIONS as ReadonlyArray<number>).includes(DEFAULT_HABIT_TARGET)).toBe(
+    expect((HABIT_TARGET_OPTIONS as readonly number[]).includes(DEFAULT_HABIT_TARGET)).toBe(
       true,
     );
   });
@@ -141,5 +143,25 @@ describe('isMarkedOn', () => {
 
     expect(isMarkedOn(marks, 'h2', TODAY)).toBe(false);
     expect(isMarkedOn(marks, 'h1', '2026-08-22')).toBe(false);
+  });
+});
+
+describe('the five-habit cap (rule 4)', () => {
+  it('canAddHabit is true under the cap and false at it', () => {
+    expect(canAddHabit(0)).toBe(true);
+    expect(canAddHabit(MAX_HABITS - 1)).toBe(true);
+    expect(canAddHabit(MAX_HABITS)).toBe(false);
+    expect(canAddHabit(MAX_HABITS + 1)).toBe(false);
+  });
+
+  it('activeHabitCount ignores archived habits: they do not take a slot', () => {
+    const habits = [
+      aHabit({ id: 'h1' }),
+      aHabit({ id: 'h2', archivedAt: 1 }),
+      aHabit({ id: 'h3' }),
+    ];
+
+    expect(activeHabitCount(habits)).toBe(2);
+    expect(activeHabitCount([])).toBe(0);
   });
 });

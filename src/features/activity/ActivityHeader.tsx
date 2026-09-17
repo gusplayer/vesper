@@ -1,12 +1,11 @@
 import { useState } from 'react';
 
-import { Check, ListGroup, ListRow, Sheet } from '../../design/components';
-import { DropdownTitle } from '../../design/components';
+import { Check, ListGroup, ListRow, Sheet , DropdownTitle } from '../../design/components';
 import { useStrings } from '../../i18n';
 
 export type ActivityView = 'week' | 'month' | 'lifetime';
 
-const VIEWS: ReadonlyArray<ActivityView> = ['week', 'month', 'lifetime'];
+const VIEWS: readonly ActivityView[] = ['week', 'month', 'lifetime'];
 
 type ActivityHeaderProps = {
   view: ActivityView;

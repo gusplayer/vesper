@@ -12,8 +12,6 @@ type FieldRowProps = {
   placeholder?: string;
   autoFocus?: boolean;
   keyboardType?: 'default' | 'number-pad';
-  onEndEditing?: () => void;
-  accessibilityLabel?: string;
 };
 
 /** 'Nombre ........ Familia' — a label on the left and the input on the right, in a card. */
@@ -24,8 +22,6 @@ export function FieldRow({
   placeholder,
   autoFocus = false,
   keyboardType = 'default',
-  onEndEditing,
-  accessibilityLabel,
 }: FieldRowProps) {
   const { colors } = useTheme();
   return (
@@ -41,9 +37,8 @@ export function FieldRow({
           placeholderTextColor={colors.inkTertiary}
           autoFocus={autoFocus}
           keyboardType={keyboardType}
-          onEndEditing={onEndEditing}
           selectionColor={colors.accent}
-          accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityLabel={label}
           textAlign="right"
           style={[styles.input, { color: colors.ink, fontFamily: font.family.medium }]}
         />

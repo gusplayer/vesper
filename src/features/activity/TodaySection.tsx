@@ -25,7 +25,7 @@ export function TodaySection({ now }: TodaySectionProps) {
         <ListRow
           label={t.activity.today.social}
           description={t.activity.today.socialDescription}
-          value={`≥ ${durationText(usageMs)}`}
+          value={t.activity.today.atLeast(durationText(usageMs))}
         />
         <ListRow label={t.activity.today.unregistered} value={durationText(unregisteredMs)} />
       </ListGroup>

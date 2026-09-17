@@ -9,8 +9,7 @@ import {
   Section,
   Stack,
   Text,
-} from '../../design/components';
-import { PeriodStrip } from '../../design/components';
+ PeriodStrip } from '../../design/components';
 import { useLocale, useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { CircleWeekSection } from '../circle/CircleWeekSection';
@@ -27,7 +26,7 @@ import {
 import { chartSummary, dayCardSummary, deltaText, sessionsText } from './text';
 
 type WeeklyViewProps = {
-  stats: ReadonlyArray<DayStat>;
+  stats: readonly DayStat[];
   now: number;
 };
 
@@ -70,6 +69,7 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
         bars={bars}
         guides={guides}
         average={average ?? undefined}
+        averageLabel={t.activity.chart.average}
         accessibilityLabel={spokenChart}
       />
       <Stack gap="md">
@@ -118,7 +118,7 @@ function DayCard({ day }: { day: CalendarDay }) {
             {day.isToday ? t.activity.weekly.today : dayLabel(day.at, t.activity, tag).toUpperCase()}
           </Text>
           {day.isToday ? (
-            <Text variant="caption" tone="accent">
+            <Text variant="caption" tone="accent" decorative>
               ●
             </Text>
           ) : null}

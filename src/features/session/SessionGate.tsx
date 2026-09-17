@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useFocusStore } from '../../data';
-import { breakEndsAt, dueOutcome, isBreakOver, isDue, plannedEndAt } from '../../domain/session';
+import { breakEndsAt, plannedEndAt } from '../../domain/session';
 
 const SESSION_PREFIX = '/session';
 /** How often to look again while the navigator is still mounting. */
@@ -32,8 +32,7 @@ export function SessionGate() {
   const navigation = useNavigationContainerRef();
   const pathname = usePathname();
   const session = useFocusStore((state) => state.session);
-  const finish = useFocusStore((state) => state.finish);
-  const resume = useFocusStore((state) => state.resume);
+  const settleNow = useFocusStore((state) => state.settleNow);
   const sessionId = session?.id ?? null;
   const endAt = session === null ? null : plannedEndAt(session);
   const breakEnd = session === null ? null : breakEndsAt(session);
@@ -83,15 +82,12 @@ export function SessionGate() {
       if (current === null || current.id !== sessionId) {
         return;
       }
-      const now = Date.now();
-      if (isBreakOver(current, now)) {
-        resume(now);
+      // One verdict for boot and foreground (ADR-0026): the store settles the break
+      // past its length and the session past its end, at that end, not at now.
+      const settled = settleNow(Date.now());
+      if (settled === null || settled.outcome === 'running') {
         return;
       }
-      if (!isDue(current, now)) {
-        return;
-      }
-      finish(dueOutcome(current), now);
       if (insideSession()) {
         router.replace('/session/complete');
       } else {
@@ -111,7 +107,7 @@ export function SessionGate() {
       }
       subscription.remove();
     };
-  }, [sessionId, endAt, breakEnd, finish, resume, router]);
+  }, [sessionId, endAt, breakEnd, settleNow, router]);
 
   return null;
 }

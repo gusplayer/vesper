@@ -6,4 +6,4 @@ import { liberty } from './liberty';
 import { pagoda } from './pagoda';
 
 /** Registered artworks. Add a file per work and list it here. */
-export const WORKS: ReadonlyArray<Artwork> = [pagoda, eiffel, liberty, face, dog];
+export const WORKS: readonly Artwork[] = [pagoda, eiffel, liberty, face, dog];

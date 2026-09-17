@@ -1,21 +1,18 @@
 import { useMemo, useState } from 'react';
 
 import type { DayStat } from '../../data/types';
-import { BarChart, Card, HorizontalBars, Section, Stack, Text } from '../../design/components';
-import { PeriodStrip } from '../../design/components';
+import { BarChart, Card, HorizontalBars, Section, Stack, Text , PeriodStrip } from '../../design/components';
 import { HOUR } from '../../domain/time';
 import { useLocale, useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { monthLabel, monthStart } from './dates';
 import { monthBars, monthTotals, weekdayRhythm } from './selectors';
 
-const MONTH_GUIDES = [
-  { value: 10 * HOUR, label: '10h' },
-  { value: 5 * HOUR, label: '5h' },
-] as const;
+/** Two fixed guides: a month has a scale of its own, unlike a week. */
+const MONTH_GUIDES = [10 * HOUR, 5 * HOUR].map((value) => ({ value, label: durationText(value) }));
 
 type MonthlyViewProps = {
-  stats: ReadonlyArray<DayStat>;
+  stats: readonly DayStat[];
   now: number;
 };
 
@@ -52,7 +49,12 @@ export function MonthlyView({ stats, now }: MonthlyViewProps) {
         </Text>
       </Section>
       <Card>
-        <BarChart bars={bars} guides={MONTH_GUIDES} average={totals.averageMs ?? undefined} />
+        <BarChart
+          bars={bars}
+          guides={MONTH_GUIDES}
+          average={totals.averageMs ?? undefined}
+          averageLabel={t.activity.chart.average}
+        />
       </Card>
       <Card>
         <Stack gap="sm">

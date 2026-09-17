@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 
 import { Card, IconCircle, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { useAppStore, useModeIdeas } from '../../data';
+import { WORK_ACTIVITY_ID } from '../../data/seed';
 import type { ModeIdea } from '../../data/types';
 import { useStrings } from '../../i18n';
 
@@ -19,7 +20,7 @@ export default function ModeIdeasScreen() {
       appIds: [...idea.appIds],
       websiteIds: [],
       depth: idea.depth,
-      activityId: 'trabajo',
+      activityId: WORK_ACTIVITY_ID,
     });
     router.back();
   };

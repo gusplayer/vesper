@@ -7,7 +7,7 @@ type ProgressBarProps = {
   /** 0 to 1, clamped. */
   progress: number;
   /** Several segments, e.g. sessions of a day: [0.2, 0.5] as fractions of the track. */
-  segments?: ReadonlyArray<{ start: number; end: number }>;
+  segments?: readonly { start: number; end: number }[];
 };
 
 /** A thin rounded track with an ink fill, or a few ink segments on it. */

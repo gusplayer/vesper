@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
  * What this build can really do. Every native capability goes through here so the UI
  * can say "en el simulador esto no existe" instead of failing silently.
  *
- * Each module in src/platform/ exposes `isAvailable()`; this file holds the facts they
+ * Each module in src/platform/ exposes `status()`; this file holds the facts they
  * all need. Nothing here imports a native module: importing one on a platform that
  * lacks it would throw at load time.
  */
@@ -23,4 +23,14 @@ export type CapabilityStatus = {
   available: boolean;
   /** One line for the UI when it is not: why, in the app's current language. */
   reason: string | null;
+  /**
+   * Platform-specific facts a screen may show next to the capability, filled only
+   * where they exist (Android's exact-alarm toggle for routine windows). Never a
+   * substitute for `reason`: `available` and `reason` alone say whether the
+   * capability works; `detail` only adds what the platform knows on top.
+   */
+  detail?: {
+    /** SCHEDULE_EXACT_ALARM is on, so routine windows open on the minute. Android only. */
+    exactAlarm?: boolean;
+  };
 };

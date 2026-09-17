@@ -12,8 +12,6 @@ import {
   habitProgressText,
   minutesText,
   timerText,
-  weekClosingText,
-  weekSummaryText,
 } from './format';
 
 function aWeek(overrides: Partial<WeekProgress> = {}): WeekProgress {
@@ -114,47 +112,6 @@ describe('focusOfTargetText', () => {
 
   it('reads only the focus when there is none', () => {
     expect(focusOfTargetText(aWeek({ targetMs: null }), es.format)).toBe('4h');
-  });
-});
-
-describe('weekSummaryText', () => {
-  it('invites the closing on Sunday whatever the numbers say', () => {
-    expect(weekSummaryText(aWeek({ met: true }), true, es.format)).toBe('cerrar la semana');
-  });
-
-  it('reports the total without measuring it when there is no goal', () => {
-    expect(weekSummaryText(aWeek({ targetMs: null }), false, es.format)).toBe('4h esta semana');
-  });
-
-  it('says the goal is done once it is met', () => {
-    expect(weekSummaryText(aWeek({ focusMs: 10 * HOUR, met: true }), false, es.format)).toBe(
-      'meta hecha · 10h',
-    );
-  });
-
-  it('counts down the days while in progress', () => {
-    expect(weekSummaryText(aWeek(), false, es.format)).toBe('4h de 10h · 5d');
-    expect(weekSummaryText(aWeek(), false, en.format)).toBe('4h of 10h · 5d');
-  });
-});
-
-describe('weekClosingText', () => {
-  it('asks for a goal when there was none', () => {
-    expect(weekClosingText(aWeek({ targetMs: null }), es.format)).toBe(
-      'no había meta esta semana. pon una para la que empieza mañana',
-    );
-  });
-
-  it('celebrates a met goal', () => {
-    expect(weekClosingText(aWeek({ met: true }), es.format)).toBe(
-      'meta cumplida. la semana que empieza mañana arranca en cero',
-    );
-  });
-
-  it('promises a clean start when the goal was missed', () => {
-    expect(weekClosingText(aWeek(), es.format)).toBe(
-      'la semana que empieza mañana arranca en cero. sin rachas que perder',
-    );
   });
 });
 

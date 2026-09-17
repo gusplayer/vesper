@@ -5,7 +5,7 @@ import { AppIcon } from './AppIcon';
 import { Text } from './Text';
 
 type AppIconStackProps = {
-  apps: ReadonlyArray<{ id: string; initial: string; color: string }>;
+  apps: readonly { id: string; initial: string; color: string }[];
   /** How many tiles to draw before collapsing into '+N'. */
   max?: number;
 };

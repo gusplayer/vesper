@@ -11,7 +11,7 @@ export type PermissionBlock = {
 
 type PermissionPageProps = {
   title: string;
-  blocks: ReadonlyArray<PermissionBlock>;
+  blocks: readonly PermissionBlock[];
   /** The pinned primary button, plus whatever goes under it. */
   footer: ReactNode;
   onBack: () => void;

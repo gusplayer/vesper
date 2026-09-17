@@ -83,6 +83,7 @@ data class WindowSpec(
     Plan(packageNames, mode, endsAt, shield, windowId = id, startedAt = startsAt, notification = notification)
 
   fun toJson(): JSONObject = JSONObject()
+    .put(PlanStore.KEY_SCHEMA, PlanStore.SCHEMA)
     .put("id", id)
     .put("startMinute", startMinute)
     .put("endMinute", endMinute ?: JSONObject.NULL)
@@ -102,7 +103,11 @@ data class WindowSpec(
   companion object {
     const val DAYS_PER_WEEK = 7
 
-    fun fromJson(json: JSONObject): WindowSpec {
+    /** Null for a row written under another schema: PlanStore drops it and JS re-registers. */
+    fun fromJson(json: JSONObject): WindowSpec? {
+      if (json.optInt(PlanStore.KEY_SCHEMA, 0) != PlanStore.SCHEMA) {
+        return null
+      }
       val days = json.getJSONArray("days")
       val packages = json.getJSONArray("packageNames")
       val defaults = NotificationCopy()
@@ -139,8 +144,16 @@ data class WindowSpec(
  * The registered windows live in a second preferences file, one JSON object per
  * window id, so clearing the plan never forgets a routine and BootReceiver can re-arm
  * every window after a restart.
+ *
+ * Every row carries [SCHEMA]. A plan or window written under another number (or none,
+ * by a build before the key existed) is dropped rather than guessed at: JS re-applies
+ * the session plan on mount and re-registers every window on its next reconciliation.
  */
 object PlanStore {
+  /** Bump when the meaning of a stored field changes, not when one is added with a default. */
+  const val SCHEMA = 1
+  const val KEY_SCHEMA = "schema"
+
   private const val PREFS = "vesper_blocking"
   private const val KEY_PACKAGES = "packageNames"
   private const val KEY_MODE = "mode"
@@ -166,6 +179,7 @@ object PlanStore {
     val packages = JSONArray()
     plan.packageNames.forEach { packages.put(it) }
     prefs(context).edit()
+      .putInt(KEY_SCHEMA, SCHEMA)
       .putString(KEY_PACKAGES, packages.toString())
       .putString(KEY_MODE, plan.mode.name)
       .putLong(KEY_ENDS_AT, plan.endsAt ?: -1L)
@@ -188,6 +202,9 @@ object PlanStore {
   fun load(context: Context): Plan? {
     val prefs = prefs(context)
     val raw = prefs.getString(KEY_PACKAGES, null) ?: return null
+    if (prefs.getInt(KEY_SCHEMA, 0) != SCHEMA) {
+      return null
+    }
     val packages = mutableSetOf<String>()
     val array = JSONArray(raw)
     for (i in 0 until array.length()) {
@@ -240,6 +257,25 @@ object PlanStore {
 
   fun clearPause(context: Context) {
     prefs(context).edit().remove(KEY_PAUSED_AT).remove(KEY_PAUSED_UNTIL).apply()
+  }
+
+  /**
+   * True while a plan the user started (not a window's) is still alive at `now`: on a
+   * break that has not ended, or before its end, or with no end at all. A routine
+   * window never replaces it (ADR-0019: the routine waits; JS starts its session when
+   * the running one ends). A session plan whose end has passed is stale, not running.
+   */
+  fun sessionPlanRunning(context: Context, now: Long): Boolean {
+    val plan = load(context) ?: return false
+    if (plan.windowId != null) {
+      return false
+    }
+    val pause = loadPause(context)
+    if (pause != null && pause.until > now) {
+      return true
+    }
+    val endsAt = plan.endsAt ?: return true
+    return endsAt > now
   }
 
   fun saveWindow(context: Context, spec: WindowSpec) {

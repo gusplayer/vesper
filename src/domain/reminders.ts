@@ -153,8 +153,8 @@ export function weeklyCloseReminder(t: ReminderStrings = es.notifications): Week
 
 export type ReminderState = {
   session: Session | null;
-  schedules: ReadonlyArray<Schedule>;
-  modes: ReadonlyArray<Pick<Mode, 'id' | 'name'>>;
+  schedules: readonly Schedule[];
+  modes: readonly Pick<Mode, 'id' | 'name'>[];
   prefs: NotificationPrefs;
   /** The OS permission and the user's own switch, together. Nothing is planned without it. */
   allowed: boolean;

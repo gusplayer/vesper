@@ -66,7 +66,7 @@ export function sleepHoursFor(name: string): number {
 type DayTotals = Map<DayKey, number>;
 
 /** Total workout ms per day, for days that had at least one real workout. */
-function workoutDays(workouts: ReadonlyArray<HealthWorkout>): DayTotals {
+function workoutDays(workouts: readonly HealthWorkout[]): DayTotals {
   const totals: DayTotals = new Map();
   const qualified = new Set<DayKey>();
   for (const workout of workouts) {
@@ -103,7 +103,7 @@ function stepDays(stepsByDay: Readonly<Record<DayKey, number>>): DayTotals {
  * Asleep ms per night, keyed by the day the sleep ended: Sunday night's sleep counts
  * for Monday, which is the morning the user wakes up and looks at the app.
  */
-function sleepNights(sessions: ReadonlyArray<HealthSleepSession>, minMs: number): DayTotals {
+function sleepNights(sessions: readonly HealthSleepSession[], minMs: number): DayTotals {
   const totals: DayTotals = new Map();
   for (const session of sessions) {
     const ms = Math.max(0, session.end - session.start);
@@ -142,7 +142,7 @@ function durationFor(type: HealthType, total: number): number | null {
  * and never in the future. Archived habits and declared habits are ignored.
  */
 export function marksFromHealth(
-  habits: ReadonlyArray<Habit>,
+  habits: readonly Habit[],
   week: HealthWeek,
   now: Millis,
 ): HabitMark[] {

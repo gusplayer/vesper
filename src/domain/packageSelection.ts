@@ -23,7 +23,7 @@ export function packageNamesFromToken(token: string | null): string[] {
 }
 
 /** A token for a list of package names, or null when there is nothing to store. */
-export function tokenFromPackageNames(packageNames: ReadonlyArray<string>): string | null {
+export function tokenFromPackageNames(packageNames: readonly string[]): string | null {
   const unique = Array.from(new Set(packageNames.filter((name) => name.trim() !== '')));
   return unique.length === 0 ? null : JSON.stringify(unique);
 }

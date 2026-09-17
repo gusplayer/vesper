@@ -1,7 +1,8 @@
 # Vesper
 
-App de foco y asignación de tiempo. Desde ADR-0016, un prototipo navegable de todas las
-fases con datos falsos, con la forma de Brick.
+App de foco y asignación de tiempo con la forma de Brick (ADR-0016) y capacidades reales
+detrás de `src/platform/` (ADR-0017): SQLite, notificaciones, Salud, Live Activity y
+bloqueo de apps. Corre en simulador y emulador; nada se ha verificado aún en un teléfono.
 
 > Pomodoro que respeta tu tiempo, hábitos que se verifican solos, y un recordatorio honesto de cuánta vida te queda.
 
@@ -16,17 +17,21 @@ fases con datos falsos, con la forma de Brick.
 | `docs/ARCHITECTURE.md` | Stack, estructura, flujo de datos |
 | `docs/DATA_MODEL.md` | Esquema de base de datos |
 | `docs/ROADMAP.md` | Fases y criterios de salida |
-| `docs/STATUS.md` | Dónde quedamos: qué está probado y qué falta |
-| `docs/SPRINT_01.md` | Tareas del primer prototipo |
+| `docs/STATUS.md` | Qué existe, dónde se verificó y qué falta. **Empieza aquí** |
+| `docs/SPRINT_01.md` | Tareas del primer prototipo (histórico) |
 | `docs/PLATFORM_IOS.md` | Screen Time API, entitlement, límites |
 | `docs/PLATFORM_ANDROID.md` | Usage stats, bloqueo, políticas de Play |
+| `docs/PLAY_DECLARATIONS.md` | Declaraciones de Google Play para el módulo de bloqueo |
+| `docs/STORE_LISTING.md` | Ficha de Google Play |
 | `docs/adr/README.md` | Índice de decisiones de arquitectura |
 
 ## Empezar
 
-Expo Go no sirve: hay cinco módulos nativos (SQLite, notificaciones, Salud, widgets,
-Tiempo de uso), así que hace falta un dev build (ADR-0001, ADR-0017). `postinstall`
-aplica el parche de `patches/` a `react-native-health`.
+Expo Go no sirve: hay seis módulos nativos (SQLite, notificaciones, Salud, widgets,
+Tiempo de uso en iOS y el módulo local `modules/vesper-blocking` en Android), así que
+hace falta un dev build (ADR-0001, ADR-0017, ADR-0019). `postinstall` aplica el parche
+de `patches/` a `react-native-health`. Con una cuenta gratuita de Apple,
+`VESPER_FREE_TEAM=1` deja fuera widgets y Tiempo de uso (`app.config.js`).
 
 ```bash
 npm install
@@ -78,15 +83,17 @@ $ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
 ## Tests
 
 ```bash
-npm test                     # unit tests de src/domain/, src/lib/, src/db/ y src/store/
+npm test                     # vitest sobre src/**/*.test.ts: domain, lib, db, data, i18n, features, platform
 npx vitest run --coverage    # lo mismo, con cobertura; falla bajo el 80%
 npm run typecheck            # obligatorio antes de cerrar cualquier tarea
 ```
 
-Los módulos puros se testean con vitest; los repositorios y el store, contra un handle
-falso de base de datos, sin módulo nativo. Las pantallas y los componentes se verifican
-corriendo la app.
+Los módulos puros se testean con vitest; los repositorios y las queries, contra un handle
+falso de base de datos, sin módulo nativo. Los stores, las pantallas, los componentes y
+la plataforma se verifican corriendo la app (`docs/STATUS.md`, "Cómo probar").
 
 ## Estado
 
-Fase 1 — prototipo sin permisos ni bloqueo. Ver `docs/ROADMAP.md`.
+Completa en código, verificada en simulador y emulador, pendiente de teléfonos reales y
+del entitlement de Family Controls. Ver `docs/STATUS.md`; el plan por fases, en
+`docs/ROADMAP.md`.

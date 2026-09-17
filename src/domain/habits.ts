@@ -1,4 +1,4 @@
-import type { DayKey, Habit, HabitMark, HealthType } from './types';
+import { MAX_HABITS, type DayKey, type Habit, type HabitMark, type HealthType } from './types';
 
 /**
  * Weekly habit progress. Counts, not time — a habit goal is "4 times this week", and
@@ -18,7 +18,7 @@ export const DEFAULT_HABIT_TARGET = 4;
  * words a user would name the habit with (ADR-0020); a name is data, so it is
  * matched in both languages whatever the app's language is.
  */
-export const HEALTH_HINTS: ReadonlyArray<{ pattern: RegExp; type: HealthType }> = [
+export const HEALTH_HINTS: readonly { pattern: RegExp; type: HealthType }[] = [
   {
     pattern: /gym|entrena|pesas|ejercicio|correr|bici|workout|exercise|\btrain|weights|\blift|\brun|\bjog|bike|cycl|swim/i,
     type: 'workout',
@@ -29,6 +29,20 @@ export const HEALTH_HINTS: ReadonlyArray<{ pattern: RegExp; type: HealthType }> 
 
 export function healthTypeFor(name: string): HealthType | null {
   return HEALTH_HINTS.find((hint) => hint.pattern.test(name))?.type ?? null;
+}
+
+/**
+ * Whether one more active habit fits under the cap (rule 4 in CLAUDE.md, invariant 3
+ * in DATA_MODEL.md). The one place the comparison is written: the repository, the
+ * stores and the screens all ask this instead of comparing against MAX_HABITS.
+ */
+export function canAddHabit(activeCount: number): boolean {
+  return activeCount < MAX_HABITS;
+}
+
+/** How many active habits a list holds: archived ones do not take a slot. */
+export function activeHabitCount(habits: readonly Pick<Habit, 'archivedAt'>[]): number {
+  return habits.filter((habit) => habit.archivedAt === null).length;
 }
 
 export type HabitProgress = {
@@ -45,7 +59,7 @@ export type HabitProgress = {
  * Distinct days, not marks: a day with both a health sample and a manual tap counts
  * once. Without that, a synced habit would race past its target.
  */
-function markedDaysOf(marks: ReadonlyArray<HabitMark>, habitId: string): number {
+function markedDaysOf(marks: readonly HabitMark[], habitId: string): number {
   const days = new Set<DayKey>();
   for (const mark of marks) {
     if (mark.habitId === habitId) {
@@ -56,7 +70,7 @@ function markedDaysOf(marks: ReadonlyArray<HabitMark>, habitId: string): number 
 }
 
 export function isMarkedOn(
-  marks: ReadonlyArray<HabitMark>,
+  marks: readonly HabitMark[],
   habitId: string,
   dayKey: DayKey,
 ): boolean {
@@ -64,8 +78,8 @@ export function isMarkedOn(
 }
 
 export function weeklyProgress(
-  habits: ReadonlyArray<Habit>,
-  weekMarks: ReadonlyArray<HabitMark>,
+  habits: readonly Habit[],
+  weekMarks: readonly HabitMark[],
   todayKey: DayKey,
 ): HabitProgress[] {
   return habits.map((habit) => {

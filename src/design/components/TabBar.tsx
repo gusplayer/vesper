@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme';
 import { layout, motion, radius, space } from '../tokens';
+import { useReduceMotion } from '../useReduceMotion';
 import { Text } from './Text';
 
 type Slot = { x: number; width: number };
@@ -16,6 +17,7 @@ type Slot = { x: number; width: number };
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const reduceMotion = useReduceMotion();
   const [tabs, setTabs] = useState<Record<number, Slot>>({});
   const [labels, setLabels] = useState<Record<number, number>>({});
   const [x] = useState(() => new Animated.Value(0));
@@ -32,7 +34,8 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     if (target === undefined) {
       return;
     }
-    if (first.current) {
+    // The first placement and "reduce motion" both put the bar where it goes, no slide.
+    if (first.current || reduceMotion) {
       x.setValue(target.x);
       width.setValue(target.width);
       first.current = false;
@@ -44,7 +47,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     ]).start();
     // Only the numbers matter, not the object identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.x, target?.width, x, width]);
+  }, [target?.x, target?.width, x, width, reduceMotion]);
 
   return (
     <View

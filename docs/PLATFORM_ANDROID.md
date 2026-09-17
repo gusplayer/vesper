@@ -1,6 +1,9 @@
 # Plataforma Android
 
-Referencia técnica. Relevante a partir de la fase 2.
+Referencia técnica. El bloqueo existe desde ADR-0019 en `modules/vesper-blocking/` y
+`src/platform/blocking.android.ts`, en tres fases más la de ADR-0023, y se verificó en
+el emulador Pixel 6 (API 34); nada en un teléfono real. La primera parte es la
+referencia; "Módulo `vesper-blocking`" en adelante describe lo que hay en el repo.
 
 ## Datos de uso
 
@@ -50,8 +53,10 @@ Permiso sensible con declaración en Play, pero defendible para una app de foco.
 
 ## Salud
 
-**Health Connect**, no Google Fit. Los APIs de Google Fit se soportan solo hasta finales
-de 2026 y Google recomienda migrar a Health Connect para apps móviles.
+**No integrado todavía**: `src/platform/health.ts` responde `available: false` en
+Android y Ajustes › Salud lo dice. Cuando llegue: **Health Connect**, no Google Fit. Los
+APIs de Google Fit se soportan solo hasta finales de 2026 y Google recomienda migrar a
+Health Connect para apps móviles.
 
 Tipos relevantes: `StepsRecord`, `ExerciseSessionRecord`, `SleepSessionRecord`,
 `TotalCaloriesBurnedRecord`.
@@ -82,7 +87,8 @@ de terceros y sin `AccessibilityService` (ADR-0019). Se autoenlaza desde `module
   actividad de lanzador (`AppCatalog.kt`, vía `<queries>`; nunca `QUERY_ALL_PACKAGES`)
   con su icono real (`AppImage`), búsqueda y casilla.
 - **Servicio** `BlockingService.kt`: primer plano, tipo `specialUse`, canal
-  `vesper_focus`, notificación con el título del escudo y "Sesión de foco".
+  `vesper_session` (el `vesper_focus` de la fase 1 se borra al arrancar; ver fase 4),
+  notificación con el título del escudo, "Sesión de foco" y el cronómetro del sistema.
   `START_STICKY`; guarda el plan en SharedPreferences (`PlanStore.kt`) para
   reencontrarlo si el sistema lo reinicia. Se detiene solo en `release()` o al llegar
   `endsAt`.
@@ -123,9 +129,10 @@ servicio corre igual sin ella.
 - Las reglas de instalación, compras y contenido adulto no tienen equivalente: no se
   aplican en Android y `settings/rules` lo dice.
 - Si la app muere durante una sesión, el servicio sigue hasta `release()` o `endsAt`;
-  la fase 1 no pasa `endsAt` todavía (llega con las ventanas de rutina, fase 2).
+  JS pasa `endsAt` con cada plan desde la fase 2 (`PlanTiming`, fase 4).
 - Google Play revisa a mano el servicio `specialUse`: `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
-  ya lleva el texto; hace falta video antes de publicar (fase 3).
+  ya lleva el texto y el video está en `docs/media/`; falta subirlo
+  (`PLAY_DECLARATIONS.md`).
 
 ### Cómo probar con adb
 
