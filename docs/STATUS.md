@@ -226,6 +226,35 @@ dos semanas de números, un reto "Leer", dos ánimos.
 - `ios/` no se versiona; regenerar con `npx expo prebuild --platform ios --clean` tras
   cambiar plugins. `targets/` y `patches/` sí se versionan.
 
+## Salir de la sesión: papel sobre tinta y respirar con el dedo (2026-09-17, ADR-0025)
+
+- **Ritual sostenido** en `session/exit`: el usuario mantiene el objeto de Vesper
+  (`BreathingObject`) y las 16 celdas respiran con él, 4-4-6: se encienden de abajo hacia
+  arriba al inhalar, quedan encendidas al sostener, se apagan de arriba hacia abajo al
+  exhalar. El reloj solo corre con el dedo puesto; soltar a mitad de ronda la reinicia
+  (`domain/exitRitual.releaseBreath`). Suave una ronda, firme dos y la frase.
+- **Toda salida a mano termina en papel**: `InkFlood` con `tone="paper"` disuelve la
+  página desde el botón y debajo aparece `session/closed` ("Sesión cerrada.", "28m quedan
+  contados.", modo, duración, motivo, y el costo si fue emergencia).
+- **La pausa entra y sale por la misma disolución**: papel al pausar, tinta al volver. El
+  cambio de esquema queda escondido debajo.
+- **La emergencia es una ruta** (`session/emergency`) que se abre desde el salvavidas
+  arriba a la derecha: tile, costo, espera de 10 s en la misma barra fina, "Seguir
+  enfocado" primario y "Usar un desbloqueo" ghost. Ajustes › Desbloqueo de emergencia ya
+  solo cuenta. `EmergencySheet` desapareció.
+- **Profundo** ya no tiene un pill apagado: pie vacío y la caption "Profundo · solo el
+  timer termina" bajo la barra. El pie de suave y firme queda en Terminar y Pausa.
+- Verificado en el simulador iPhone 17 tocando con `idb`: pausa y vuelta con las dos
+  disoluciones a mitad de camino y el reloj congelado; el ritual firme sostenido 30 s con
+  capturas en Inhala, Sostén, Exhala, Ronda 2 de 2 y Listo; la frase, "Terminar · llevas
+  28m", el papel sobre la ruta y "Sesión cerrada. 28m quedan contados."; la sesión
+  profunda con salvavidas y caption; la emergencia a los 7 s, lista, gastada ("Te quedan 2
+  este mes" en el cierre) y cerrada con "Seguir enfocado" sin gastar. `tsc` limpio, 634
+  tests en 49 archivos.
+- No verificado: "Reducir movimiento" (las celdas saltan al estado final), el ritmo de la
+  respiración a ojo en un teléfono real, la ruta de emergencia sin desbloqueos, y la
+  pausa venciendo sola (vuelve con el fade de ruta, sin disolución, a propósito).
+
 ## Superficies fuera de la app (2026-09-17, ADR-0023)
 
 Lo que la sesión muestra con Vesper cerrada: pantalla bloqueada, Dynamic Island, escudo

@@ -13,8 +13,12 @@ export const session: typeof shape = {
     art: 'Art',
     end: 'End',
     deepOnlyTimer: 'Deep · only the timer ends it',
-    emergencyLeft: (count) => `Emergency unlock (${count})`,
-    noEmergencyLeft: 'No emergency unlocks left',
+    emergencyLabel: (left) =>
+      left === 0
+        ? 'Emergency unlock, none left this month'
+        : left === 1
+          ? 'Emergency unlock, 1 left'
+          : `Emergency unlock, ${left} left`,
     interruptions: (count) => (count === 1 ? '1 interruption' : `${count} interruptions`),
   },
   duration: {
@@ -36,7 +40,20 @@ export const session: typeof shape = {
     ready: 'If it really is an emergency, go ahead.',
     wait: (seconds) => `You can confirm in ${seconds} s.`,
     use: 'Use an unlock',
+    none: 'You have no unlocks left this month.',
+    noneHint: 'They come back with the next month.',
     reason: 'emergency unlock',
+  },
+  closed: {
+    title: 'Session closed.',
+    counted: (served) => `${served} stays counted.`,
+    emergency: (left) =>
+      left === 0
+        ? 'You used an unlock. None left this month.'
+        : left === 1
+          ? 'You used an unlock. 1 left this month.'
+          : `You used an unlock. ${left} left this month.`,
+    reason: 'Reason',
   },
   art: {
     label: (name, percent) => `${name}, ${percent} percent. Tap to go back to the clock`,
@@ -50,6 +67,9 @@ export const session: typeof shape = {
   },
   exit: {
     breatheFirst: 'Before you decide, breathe.',
+    holdHint: 'Hold the object and breathe with it.',
+    releasedHint: 'You let go. The round starts over.',
+    holdLabel: 'Vesper object. Hold to breathe',
     phase: {
       inhale: 'Inhale',
       hold: 'Hold',

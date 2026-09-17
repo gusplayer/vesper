@@ -118,10 +118,8 @@ export const settings = {
     /** The badge: '5 restantes'. */
     left: (left: number) => (left === 1 ? '1 restante' : `${left} restantes`),
     perMonth: (total: number) => `Tienes ${total} por mes. Suficientes para una emergencia real, no para el scroll.`,
-    onlyWhileRunning: 'Se habilita mientras corre una sesión.',
-    use: 'Usar desbloqueo de emergencia',
-    /** Why the session ended, as the ledger will read it. */
-    exitReason: 'emergencia',
+    /** The page only counts; the unlock itself lives in the session (ADR-0025). */
+    fromSession: 'Se usa desde la sesión, con diez segundos de espera.',
   },
   health: {
     title: 'Salud',

@@ -3,10 +3,12 @@ import type { Depth } from './types';
 
 /**
  * The conscious exit. Ending a session is not a tap: it is a short ritual whose
- * length depends on the depth chosen when the mode was made. The easy button in it is
- * always "Seguir enfocado".
+ * length depends on the depth chosen when the mode was made. The ritual is held, not
+ * watched: the breathing clock only runs while the finger rests on the Vesper object,
+ * and letting go mid-round sends that round back to its start (ADR-0025). The easy
+ * button in it is always "Seguir enfocado".
  *
- * Pure: the screen feeds it elapsed milliseconds and typed text.
+ * Pure: the screen feeds it held milliseconds and typed text.
  */
 
 export type BreathPhase = 'inhale' | 'hold' | 'exhale';
@@ -27,6 +29,22 @@ export const CYCLE_MS = BREATH_PHASES.reduce((total, step) => total + step.secon
 
 export function breathTotalMs(cycles: number): number {
   return CYCLE_MS * cycles;
+}
+
+/** How long one phase lasts, in milliseconds. */
+export function phaseDurationMs(phase: BreathPhase): number {
+  const step = BREATH_PHASES.find((candidate) => candidate.phase === phase);
+  return (step?.seconds ?? 0) * SECOND;
+}
+
+/**
+ * Where the breathing clock lands when the finger lets go. Completed rounds are kept;
+ * a round left halfway starts over. A release exactly on a round boundary changes
+ * nothing.
+ */
+export function releaseBreath(heldMs: number): number {
+  const clamped = Math.max(0, heldMs);
+  return Math.floor(clamped / CYCLE_MS) * CYCLE_MS;
 }
 
 export type BreathState = {

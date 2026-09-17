@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { space } from '../tokens';
+import { useReduceMotion } from '../useReduceMotion';
 import { HeatSquare } from './HeatSquare';
 import { Text } from './Text';
 
@@ -26,27 +26,6 @@ type HeatGridProps = {
 const CELL = 28;
 const GAP = 6;
 const RADIUS = CELL * 0.28;
-
-/** Whether the system asked for less motion, kept current while mounted. */
-function useReduceMotion(): boolean {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((value) => {
-        if (alive) {
-          setReduced(value);
-        }
-      })
-      .catch(() => undefined);
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduced);
-    return () => {
-      alive = false;
-      subscription.remove();
-    };
-  }, []);
-  return reduced;
-}
 
 /**
  * Days as squares: the more focus, the more ink. Four weeks fit the home page and

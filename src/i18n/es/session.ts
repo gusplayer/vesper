@@ -24,9 +24,15 @@ export const session = {
     modeLabel: (name: string) => `${name}. Ver qué hace este modo`,
     art: 'Arte',
     end: 'Terminar',
+    /** A caption under the bar in deep: the pill is gone, only the timer ends it. */
     deepOnlyTimer: 'Profundo · solo el timer termina',
-    emergencyLeft: (count: number) => `Desbloqueo de emergencia (${count})`,
-    noEmergencyLeft: 'Sin desbloqueos de emergencia',
+    /** What VoiceOver reads on the life-buoy icon, top right. */
+    emergencyLabel: (left: number) =>
+      left === 0
+        ? 'Desbloqueo de emergencia, no te quedan este mes'
+        : left === 1
+          ? 'Desbloqueo de emergencia, te queda 1'
+          : `Desbloqueo de emergencia, te quedan ${left}`,
     interruptions: (count: number) => (count === 1 ? '1 interrupción' : `${count} interrupciones`),
   },
   duration: {
@@ -50,8 +56,24 @@ export const session = {
     ready: 'Si de verdad es una emergencia, adelante.',
     wait: (seconds: number) => `Puedes confirmar en ${seconds} s.`,
     use: 'Usar un desbloqueo',
+    /** The route with none left: only "Seguir enfocado" remains. */
+    none: 'No te quedan desbloqueos este mes.',
+    noneHint: 'Vuelven con el mes que viene.',
     /** Stored as the session's exit reason, so the ledger can say how it ended. */
     reason: 'desbloqueo de emergencia',
+  },
+  closed: {
+    title: 'Sesión cerrada.',
+    /** '12m quedan contados.' The served time, as the ledger will keep it. */
+    counted: (served: string) => `${served} quedan contados.`,
+    /** Under the title when the session ended with an emergency unlock. */
+    emergency: (left: number) =>
+      left === 0
+        ? 'Usaste un desbloqueo. No te quedan este mes.'
+        : left === 1
+          ? 'Usaste un desbloqueo. Te queda 1 este mes.'
+          : `Usaste un desbloqueo. Te quedan ${left} este mes.`,
+    reason: 'Motivo',
   },
   art: {
     /** What VoiceOver reads on the drawing: the work, how far along, what a tap does. */
@@ -67,6 +89,12 @@ export const session = {
   },
   exit: {
     breatheFirst: 'Antes de decidir, respira.',
+    /** Under the object: the breathing only runs while the finger is on it. */
+    holdHint: 'Mantén el objeto y respira con él.',
+    /** After letting go before a round ends. */
+    releasedHint: 'Soltaste. La ronda vuelve a empezar.',
+    /** What VoiceOver reads on the object. */
+    holdLabel: 'Objeto de Vesper. Mantén para respirar',
     phase: {
       inhale: 'Inhala',
       hold: 'Sostén',

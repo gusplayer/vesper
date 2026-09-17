@@ -30,3 +30,5 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0021 | Círculo: comunidad pequeña, silenciosa y opcional; la cuenta vive en el teléfono y el backend llega después | aceptada |
 | 0022 | El botón de Focus dice qué hace y se toca; sesiones sin límite; pausas de 15 min que levantan el bloqueo | propuesta |
 | 0023 | Las superficies fuera de la app: relojes nativos, pausa distinta, escudo con tinta, notificación de Android como pantalla bloqueada | aceptada |
+| 0024 | Sonido y vibración suaves al empezar y terminar la sesión; el interruptor de silencio manda; nada al abrir la app | propuesta |
+| 0025 | Salir de la sesión: la tinta se disuelve en papel; respirar sosteniendo el objeto; la emergencia es una ruta; cierre breve para las canceladas | aceptada |

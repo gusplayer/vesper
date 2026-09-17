@@ -5,7 +5,7 @@ gris cálido, un botón pastilla oscuro, listas con chevron, toggles azules, pes
 solo texto. Durante la sesión activa el tema se invierte a oscuro.
 
 El sistema vive entero en `src/design/`: `tokens.ts` (valores), `theme.tsx` (esquema
-activo y `useTheme`), `components/` (32 componentes) y `components/index.ts` (lo único
+activo y `useTheme`), `components/` (52 componentes) y `components/index.ts` (lo único
 que una pantalla puede importar).
 
 ## Principio
@@ -69,7 +69,8 @@ Todo el texto pasa por `Text` con `variant` y `tone`. Sin mayúsculas completas 
   el centro mientras se mantiene (`motion.holdMs`), y `InkFlood` inunda la página de tinta
   desde el botón (`motion.floodMs`, 520 ms) antes de que abra la ruta oscura. Los puntos
   salen de `src/lib/dissolve.ts` agrupados en capas (`motion.dissolve`), una opacidad por
-  capa con el driver nativo; nada se escala ni rebota.
+  capa con el driver nativo; nada se escala ni rebota. Salir es la misma disolución al
+  revés, papel sobre tinta, con `tone="paper"` (ADR-0025).
 
 ## Componentes
 
@@ -96,6 +97,7 @@ Todo el texto pasa por `Text` con `variant` y `tone`. Sin mayúsculas completas 
 | `ProgressDots`, `ProgressBar` | Puntos del onboarding; barra fina, con segmentos |
 | `AppIcon`, `AppIconStack` | Tile con letra que hace de icono de app; pila "+N" |
 | `HeroObject` | El objeto central: tile con la grilla de semanas |
+| `BreathingObject` | El tile que respira con el dedo: 16 celdas que se encienden al inhalar y se apagan al exhalar, solo opacidad |
 | `StatCard` | Etiqueta, cifra grande, frase |
 | `BarChart`, `HorizontalBars`, `DotGrid` | Barras verticales con guías y promedio; barras horizontales; grilla de cuadros |
 | `FatalError` | La única pantalla que existe porque algo se rompió |

@@ -65,30 +65,41 @@ Toda la configuración se abre desde donde se lee, y no hay otro acceso (ADR-000
 - Timer grande, centrado, serif
 - Intención escrita por el usuario, en la misma pantalla
 - Barra de progreso fina
-- `mantén pulsado para terminar` — 1.5s, sin diálogo de confirmación
 - Si hubo interrupciones, una línea que las cuenta. Se anotan, no se castigan
 - Al vencer el timer la ruta no se va: muestra la duración servida, la intención tal como
   se escribió y `volver`. Una sesión cancelada no pasa por ahí. Ver ADR-0015
-- **Salida consciente** (2026-09): `Terminar` no termina. Abre un ritual a pantalla completa
-  cuyo largo depende de la profundidad: suave respira una ronda (4-4-6) y ahí mismo
-  puede terminar; firme respira dos y escribe la frase "Elijo dejar esto ahora", con un
-  motivo opcional; profundo no tiene salida. Corto a propósito: el ritual no debe
-  costar el tiempo que protege. En cada paso el botón grande es `Seguir enfocado`. El desbloqueo de
-  emergencia espera 10 s antes de poder usarse y descuenta uno de los cinco del mes.
+- **Salida consciente** (ADR-0025): `Terminar` no termina. Abre una ruta a pantalla
+  completa donde el usuario sostiene el objeto de Vesper, el tile, y el tile respira con
+  él: 4 s inhala, 4 s sostiene, 6 s exhala. Suave respira una ronda y ahí mismo puede
+  terminar; firme respira dos y escribe la frase "Elijo dejar esto ahora", con un motivo
+  opcional; profundo no tiene salida. El reloj solo avanza con el dedo puesto: soltar a
+  mitad de ronda la devuelve a su inicio y las rondas completas se conservan. Corto a
+  propósito: el ritual no debe costar el tiempo que protege. En cada paso el botón grande
+  es `Seguir enfocado`
+- **Cierre** (ADR-0025): al confirmar, la página se disuelve en papel desde el botón que
+  se tocó y debajo aparece una ruta breve: `Sesión cerrada.`, el tiempo que queda contado,
+  el modo, la duración, el motivo si se escribió y, si fue una emergencia, lo que costó.
+  Botón `Continuar`, sin gesto de volver. No celebra: eso es de la sesión completa
+- **Emergencia** (ADR-0025): una ruta oscura a pantalla completa, a la que se llega desde
+  el icono de salvavidas arriba a la derecha. Muestra el tile en reposo y lo que cuesta,
+  espera 10 s y entonces habilita `Usar un desbloqueo`, que gasta uno de los cinco del
+  mes. `Seguir enfocado` es el primario. Sin desbloqueos, la ruta lo dice y solo queda
+  seguir. En Ajustes solo se ve cuántos quedan
 
-Comportamiento por nivel de profundidad:
-- **Suave** — mantener pulsado termina de inmediato
-- **Firme** — mantener pulsado abre campo de texto "¿por qué?" y espera 15s. Durante la
-  espera hay un texto tocable `seguir` que vuelve a la sesión sin cerrarla
-- **Profundo** — mantener pulsado no responde; solo termina el timer
+Comportamiento por nivel de profundidad (ADR-0025):
+- **Suave** — una ronda de respiración y termina
+- **Firme** — dos rondas, la frase y el motivo opcional
+- **Profundo** — no hay salida; bajo la barra una línea lo dice: `Profundo · solo el timer
+  termina`. Queda la emergencia, arriba a la derecha
 
 **Pausas** (ADR-0022): en suave y firme, cada 25 minutos de foco se habilita una pausa
-de hasta 15 minutos (`Pausa de 15 min`, ghost, entre `Terminar` y la emergencia). Mientras
-dura, el bloqueo se levanta, la app vuelve al esquema claro y la pantalla es un reloj que
-cuenta hacia abajo con el primario `Volver ahora`. Al vencer vuelve sola, con aviso si la
-app está en segundo plano. La pausa no es foco y detiene el reloj: una sesión de 60 min
-con una pausa de 15 termina a los 60 de foco real. No gasta emergencias. Profundo no
-tiene pausas.
+de hasta 15 minutos (`Pausa de 15 min`, ghost, junto a `Terminar`). Al tocarla, el papel
+se disuelve sobre la tinta desde el botón y debajo aparece la pausa en esquema claro
+(ADR-0025). Mientras dura, el bloqueo se levanta y la pantalla es un reloj que cuenta
+hacia abajo con el primario `Volver ahora`, que corre la tinta de vuelta desde el botón.
+Al vencer vuelve sola con el fade de ruta, con aviso si la app está en segundo plano. La
+pausa no es foco y detiene el reloj: una sesión de 60 min con una pausa de 15 termina a
+los 60 de foco real. No gasta emergencias. Profundo no tiene pausas.
 
 ### 3. Vida
 

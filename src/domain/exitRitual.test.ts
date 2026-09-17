@@ -9,6 +9,8 @@ import {
   breathTotalMs,
   exitStepsFor,
   normalizeSentence,
+  phaseDurationMs,
+  releaseBreath,
   sentenceMatches,
 } from './exitRitual';
 import { SECOND } from './time';
@@ -50,6 +52,43 @@ describe('breathState', () => {
     expect(breathCyclesFor('soft')).toBe(1);
     expect(breathCyclesFor('firm')).toBe(2);
     expect(breathCyclesFor('deep')).toBe(1);
+  });
+});
+
+describe('phaseDurationMs', () => {
+  it('reads each phase from the 4-4-6 pattern', () => {
+    expect(phaseDurationMs('inhale')).toBe(4 * SECOND);
+    expect(phaseDurationMs('hold')).toBe(4 * SECOND);
+    expect(phaseDurationMs('exhale')).toBe(6 * SECOND);
+  });
+
+  it('adds up to one round', () => {
+    expect(phaseDurationMs('inhale') + phaseDurationMs('hold') + phaseDurationMs('exhale')).toBe(CYCLE_MS);
+  });
+});
+
+describe('releaseBreath', () => {
+  it('sends a round left halfway back to its start', () => {
+    expect(releaseBreath(1)).toBe(0);
+    expect(releaseBreath(7 * SECOND)).toBe(0);
+    expect(releaseBreath(CYCLE_MS - 1)).toBe(0);
+  });
+
+  it('keeps completed rounds and restarts only the current one', () => {
+    expect(releaseBreath(CYCLE_MS + 5 * SECOND)).toBe(CYCLE_MS);
+    expect(releaseBreath(2 * CYCLE_MS - 1)).toBe(CYCLE_MS);
+    expect(releaseBreath(2 * CYCLE_MS + 3 * SECOND)).toBe(2 * CYCLE_MS);
+  });
+
+  it('leaves an exact round boundary unchanged', () => {
+    expect(releaseBreath(0)).toBe(0);
+    expect(releaseBreath(CYCLE_MS)).toBe(CYCLE_MS);
+    expect(releaseBreath(2 * CYCLE_MS)).toBe(2 * CYCLE_MS);
+  });
+
+  it('treats a negative hold as nothing held', () => {
+    expect(releaseBreath(-1)).toBe(0);
+    expect(releaseBreath(-CYCLE_MS)).toBe(0);
   });
 });
 

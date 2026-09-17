@@ -89,9 +89,7 @@ export const settings: typeof shape = {
     cardDescription: 'Ends a session without waiting, when you really need it',
     left: (left) => `${left} left`,
     perMonth: (total) => `You have ${total} per month. Enough for a real emergency, not for scrolling.`,
-    onlyWhileRunning: 'Available while a session runs.',
-    use: 'Use emergency unlock',
-    exitReason: 'emergency',
+    fromSession: 'It is used from the session, with a ten-second wait.',
   },
   health: {
     title: 'Health',

@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { dissolveLayers } from '../../lib/dissolve';
 import { useTheme } from '../theme';
-import { motion } from '../tokens';
+import { colors as palette, motion } from '../tokens';
 
 type InkFloodProps = {
   /** True starts the flood; it runs once and calls `onDone`. */
@@ -16,16 +16,25 @@ type InkFloodProps = {
    * and drops `active`; the flood lingers for one route fade on its own.
    */
   onDone: () => void;
+  /**
+   * What floods the page. `ink` is the way in: the current scheme's ink over the page.
+   * `paper` is the way out: the light page color over the dark session, whatever the
+   * theme says, because paper is the app's page (ADR-0025).
+   */
+  tone?: 'ink' | 'paper';
 };
 
 /**
- * The way into a session: ink spreads from the button over the whole page, dot by dot,
- * until nothing else is left, and the dark session route opens underneath. Drawn as
- * stipple layers whose opacity follows one progress value, so the noise is free and
- * the animation runs on the native driver. Same language as the focus art (ADR-0018).
+ * The way into a session, and back out of it: ink spreads from the button over the
+ * whole page, dot by dot, until nothing else is left, and the dark session route opens
+ * underneath. Leaving is the same dissolve the other way, paper over ink, with the light
+ * route underneath (ADR-0025). Drawn as stipple layers whose opacity follows one
+ * progress value, so the noise is free and the animation runs on the native driver.
+ * Same language as the focus art (ADR-0018).
  */
-export function InkFlood({ active, origin = null, onDone }: InkFloodProps) {
+export function InkFlood({ active, origin = null, onDone, tone = 'ink' }: InkFloodProps) {
   const { colors } = useTheme();
+  const fill = tone === 'paper' ? palette.light.bg : colors.ink;
   const { width, height } = useWindowDimensions();
   const [progress] = useState(() => new Animated.Value(0));
   // Stays up for one route fade after `active` drops, so the dark session route is
@@ -104,11 +113,11 @@ export function InkFlood({ active, origin = null, onDone }: InkFloodProps) {
             ]}
           >
             <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-              <Path d={layer.path} fill={colors.ink} />
+              <Path d={layer.path} fill={fill} />
             </Svg>
           </Animated.View>
         ))}
-        <Animated.View style={[styles.fill, { backgroundColor: colors.ink, opacity: sheetOpacity }]} />
+        <Animated.View style={[styles.fill, { backgroundColor: fill, opacity: sheetOpacity }]} />
       </View>
     </Modal>
   );

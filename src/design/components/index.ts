@@ -53,3 +53,4 @@ export { ScheduleCard } from './ScheduleCard';
 export { HoldButton } from './HoldButton';
 export { QrCode } from './QrCode';
 export { InkFlood } from './InkFlood';
+export { BreathingObject, type BreathPhaseName } from './BreathingObject';
