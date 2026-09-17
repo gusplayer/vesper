@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { layout, radius, space } from '../tokens';
+import { layout, opacity, radius, space } from '../tokens';
 import { Text } from './Text';
 
 type ButtonProps = {
@@ -31,7 +31,9 @@ export function Button({
   const inactive = disabled || busy;
 
   // Secondary sits on cards as often as on the page, so it is one step darker than
-  // a card. Disabled reads the same way in every variant: tertiary text.
+  // a card. Disabled reads the same way in every variant: secondary text, and the
+  // whole pill faded, so a ghost (text only) is visibly off too. Busy keeps full
+  // opacity: its label already says something is happening.
   const background =
     variant === 'primary'
       ? inactive
@@ -51,7 +53,10 @@ export function Button({
       accessibilityLabel={label}
       style={({ pressed }) => [
         styles.pill,
-        { backgroundColor: background, opacity: pressed && !inactive ? 0.85 : 1 },
+        {
+          backgroundColor: background,
+          opacity: disabled && !busy ? opacity.disabled : pressed && !inactive ? 0.85 : 1,
+        },
         variant === 'ghost' ? styles.ghost : null,
       ]}
     >

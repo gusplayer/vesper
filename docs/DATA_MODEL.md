@@ -15,9 +15,11 @@ columnas de fecha en texto.
 Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
 fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
-Hoy hay cinco: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
-`003_routines.ts` (duración de rutinas, ADR-0019), `004_circle.ts` (ADR-0021) y
-`005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022). El índice está
+Hoy hay seis: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
+`003_routines.ts` (duración de rutinas, ADR-0019), `004_circle.ts` (ADR-0021),
+`005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022) y
+`006_schedule_stamps.ts` (`schedules.updated_at`: una ventana ya abierta al guardar o
+encender la rutina no arranca sesión, ADR-0026). El índice está
 en `src/db/migrations/index.ts`; se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
@@ -131,7 +133,8 @@ CREATE TABLE schedules (
   end_minutes   INTEGER,
   days          TEXT NOT NULL,
   enabled       INTEGER NOT NULL DEFAULT 1,
-  created_at    INTEGER NOT NULL
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL DEFAULT 0  -- 006: último guardado o encendido
 );
 CREATE INDEX idx_schedules_mode ON schedules(mode_id);
 ```

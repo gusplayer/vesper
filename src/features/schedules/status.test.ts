@@ -30,6 +30,21 @@ describe('statusText', () => {
     );
   });
 
+  it('says a started window is in progress while its session runs, and done for today after', () => {
+    const started = { kind: 'started' as const, until: WED_18, next: THU_9 };
+    expect(statusText(started, WED_10, es.routines, { running: true })).toBe('En curso · hasta las 18:00');
+    expect(statusText(started, WED_10, es.routines)).toBe('Hoy ya pasó · mañana a las 9:00');
+    expect(statusText(started, WED_10, es.routines, { running: false })).toBe('Hoy ya pasó · mañana a las 9:00');
+    expect(statusText({ ...started, next: MON_9 }, WED_10, es.routines)).toBe('Hoy ya pasó · el lunes a las 9:00');
+    expect(statusText({ ...started, next: THU_1 }, WED_10, es.routines)).toBe('Hoy ya pasó · mañana a la 1:00');
+    expect(statusText({ ...started, next: null }, WED_10, es.routines)).toBe('Hoy ya pasó');
+
+    expect(statusText(started, WED_10, en.routines, { running: true })).toBe('Running · until 18:00');
+    expect(statusText(started, WED_10, en.routines)).toBe('Done for today · tomorrow at 9:00');
+    expect(statusText({ ...started, next: MON_9 }, WED_10, en.routines)).toBe('Done for today · Monday at 9:00');
+    expect(statusText({ ...started, next: null }, WED_10, en.routines)).toBe('Done for today');
+  });
+
   it('names today, tomorrow, and then the weekday', () => {
     expect(statusText({ kind: 'next', at: WED_21_30 }, WED_10, es.routines)).toBe('Hoy a las 21:30');
     expect(statusText({ kind: 'next', at: THU_9 }, WED_10, es.routines)).toBe('Mañana a las 9:00');

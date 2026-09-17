@@ -1,4 +1,5 @@
 import { getModeIdeas, useAppStore } from '../../data';
+import { findModeByName } from '../../data/modes';
 import { FAMILY_ACTIVITY_ID, WORK_ACTIVITY_ID } from '../../data/seed';
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import type { Depth } from '../../data/types';
@@ -9,6 +10,10 @@ import type { Depth } from '../../data/types';
  * a repeat updates the same mode and schedule instead of adding another. Two screens
  * call it — routine-set when the user saves a routine, notifications in case the
  * routine was skipped — and whichever runs first does the work.
+ *
+ * A mode that already carries the draft's name (the demo "Sin redes", say) is reused
+ * as it is, never rewritten and never duplicated: the routine and the home page
+ * point at it.
  */
 export function commitOnboarding({ withSchedule }: { withSchedule: boolean }): void {
   const draft = useOnboardingDraft.getState();
@@ -20,17 +25,22 @@ export function commitOnboarding({ withSchedule }: { withSchedule: boolean }): v
   const depth: Depth = idea?.depth ?? 'firm';
   const activityId = draft.goalId === 'idea-family' ? FAMILY_ACTIVITY_ID : WORK_ACTIVITY_ID;
 
-  const { upsertMode, upsertSchedule, setActiveMode } = useAppStore.getState();
-  const mode = upsertMode({
-    ...(draft.modeId === null ? {} : { id: draft.modeId }),
-    name: draft.modeName,
-    behavior: 'block',
-    appIds: [...draft.appIds],
-    websiteIds: [],
-    depth,
-    activityId,
-  });
-  // The first mode the user made is the one the home page should show.
+  const { modes, upsertMode, upsertSchedule, setActiveMode } = useAppStore.getState();
+  // Only a mode this draft created is updated on a repeat; an existing one is found
+  // by name and left alone.
+  const existing = draft.modeId === null ? findModeByName(modes, draft.modeName) : undefined;
+  const mode =
+    existing ??
+    upsertMode({
+      ...(draft.modeId === null ? {} : { id: draft.modeId }),
+      name: draft.modeName,
+      behavior: 'block',
+      appIds: [...draft.appIds],
+      websiteIds: [],
+      depth,
+      activityId,
+    });
+  // The mode the user chose is the one the home page should show.
   setActiveMode(mode.id);
 
   let scheduleId = draft.scheduleId;
@@ -48,5 +58,5 @@ export function commitOnboarding({ withSchedule }: { withSchedule: boolean }): v
     scheduleId = schedule.id;
   }
 
-  draft.markCommitted(mode.id, scheduleId);
+  draft.markCommitted(existing === undefined ? mode.id : null, scheduleId);
 }

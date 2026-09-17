@@ -5,17 +5,21 @@ import {
   challengeStatus,
   challengeWeeks,
   challengeWeeksLeft,
+  circleFull,
   circleWeek,
   dayKeyStart,
   DEFAULT_SHARE_PREFS,
   endWeekKeyFor,
   codeFromInviteLink,
   inviteCodeFor,
+  inviteCodeOutcome,
   inviteLinkFor,
+  isOwnInviteCode,
   kudosGivenToday,
   kudosReceivedInWeek,
   kudosSenderNames,
   normalizeInviteCode,
+  seatsTaken,
   shiftDayKey,
   weekDayKeys,
   weekKeyOf,
@@ -23,7 +27,7 @@ import {
 import { dayKeyOf } from './day';
 import { aMark } from './fixtures';
 import { HOUR } from './time';
-import { ME, type Challenge, type Kudos, type Member, type MemberWeek, type Profile } from './types';
+import { MAX_CIRCLE, ME, type Challenge, type Kudos, type Member, type MemberWeek, type Profile } from './types';
 
 // Monday 2026-08-17 .. Sunday 2026-08-23. Wednesday is the 19th.
 const WEEK = '2026-08-17';
@@ -365,5 +369,60 @@ describe('invite codes', () => {
     expect(normalizeInviteCode('ABCI23')).toBeNull();
     expect(normalizeInviteCode('ABCO23')).toBeNull();
     expect(normalizeInviteCode('ábc234')).toBeNull();
+  });
+});
+
+describe('typing a code (no server yet)', () => {
+  it('recognises the user\'s own code, current or from any earlier generation', () => {
+    const regenerated = { ...profile, codeGeneration: 2 };
+    const current = inviteCodeFor(regenerated);
+    const first = inviteCodeFor({ ...profile, codeGeneration: 0 });
+    const second = inviteCodeFor({ ...profile, codeGeneration: 1 });
+
+    expect(isOwnInviteCode(regenerated, current)).toBe(true);
+    expect(isOwnInviteCode(regenerated, first)).toBe(true);
+    expect(isOwnInviteCode(regenerated, second)).toBe(true);
+    // A generation that does not exist yet is not the user's.
+    expect(isOwnInviteCode(regenerated, inviteCodeFor({ ...profile, codeGeneration: 3 }))).toBe(false);
+    expect(isOwnInviteCode(regenerated, inviteCodeFor({ ...profile, id: 'someone-else' }))).toBe(false);
+  });
+
+  it('answers self for an own code, typed in any case, after a new code was generated', () => {
+    const regenerated = { ...profile, codeGeneration: 1 };
+    const previous = inviteCodeFor(profile);
+
+    expect(inviteCodeOutcome(regenerated, previous)).toBe('self');
+    expect(inviteCodeOutcome(regenerated, ` ${previous.toLowerCase()} `)).toBe('self');
+    expect(inviteCodeOutcome(regenerated, inviteCodeFor(regenerated))).toBe('self');
+  });
+
+  it('answers unavailable for any other well-formed code: nobody can look it up', () => {
+    expect(inviteCodeOutcome(profile, 'AAAAAA')).toBe('unavailable');
+    expect(inviteCodeOutcome(profile, inviteCodeFor({ ...profile, id: 'someone-else' }))).toBe('unavailable');
+    expect(inviteCodeOutcome(null, 'AAAAAA')).toBe('unavailable');
+  });
+
+  it('answers invalid only for text that is not shaped like a code', () => {
+    expect(inviteCodeOutcome(profile, 'ABC01O')).toBe('invalid');
+    expect(inviteCodeOutcome(profile, 'ABCDE')).toBe('invalid');
+    expect(inviteCodeOutcome(profile, '')).toBe('invalid');
+    expect(inviteCodeOutcome(null, 'nope')).toBe('invalid');
+  });
+});
+
+describe('seats', () => {
+  it('counts everyone with a row: in the circle, invited, or asking to join', () => {
+    const members = [member('a', 'Ana'), member('b', 'Luis', 'invited'), member('c', 'Mateo', 'pending')];
+
+    expect(seatsTaken(members)).toBe(3);
+    expect(seatsTaken([])).toBe(0);
+  });
+
+  it('is full at MAX_CIRCLE, whatever the mix of statuses', () => {
+    const eleven = Array.from({ length: MAX_CIRCLE - 1 }, (_, i) => member(`m${i}`, `M${i}`));
+
+    expect(circleFull(eleven)).toBe(false);
+    expect(circleFull([...eleven, member('p', 'Pending', 'pending')])).toBe(true);
+    expect(circleFull([...eleven, member('i', 'Invited', 'invited')])).toBe(true);
   });
 });

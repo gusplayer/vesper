@@ -112,6 +112,8 @@ export const session = {
     sentence: 'Elijo dejar esto ahora',
     sentenceField: 'Frase',
     sentencePlaceholder: 'Tal cual',
+    /** Under the field after tapping "Terminar" with the sentence typed wrong. */
+    sentenceMismatch: 'La frase no coincide',
     reasonField: 'Motivo',
     reasonPlaceholder: 'Opcional',
     reasonHint: 'Queda guardado con la sesión. Nadie más lo ve.',

@@ -1,18 +1,10 @@
 import { useRouter } from 'expo-router';
 
-import {
-  HeroObject,
-  ListGroup,
-  ListRow,
-  PageHeader,
-  Screen,
-  Stack,
-  Text,
-} from '../../design/components';
+import { HeroObject, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { VERSION_NUMBER } from '../../features/settings/version';
 import { useStrings } from '../../i18n';
 
-/** Acerca de Vesper: the object, the version, what the product is, and the legal rows. */
+/** Acerca de Vesper: the object, the version and what the product is. No legal text exists yet. */
 export default function AboutScreen() {
   const router = useRouter();
   const t = useStrings();
@@ -36,11 +28,6 @@ export default function AboutScreen() {
       <Text variant="body" tone="secondary" align="center">
         {t.settings.about.body}
       </Text>
-
-      <ListGroup>
-        <ListRow label={t.settings.about.terms} />
-        <ListRow label={t.settings.about.privacy} />
-      </ListGroup>
 
       <Text variant="caption" tone="tertiary" align="center">
         {t.settings.about.prototypeNote}

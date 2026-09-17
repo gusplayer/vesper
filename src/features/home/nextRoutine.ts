@@ -1,5 +1,5 @@
 import { dayKeyOf } from '../../domain/day';
-import { dueRoutine, nextStart, type RoutineLike } from '../../domain/routines';
+import { dueRoutine, isMarked, nextStart, type RoutineLike, type RoutineMark } from '../../domain/routines';
 import { DAY } from '../../domain/time';
 import type { Strings } from '../../i18n/es';
 import { clockText } from '../../lib/format';
@@ -19,6 +19,13 @@ export type NamedMode = { id: string; name: string };
 
 export type NextRoutineStrings = Strings['focus']['nextRoutine'];
 
+export type NextRoutineDetail = {
+  /** What the engine last started (settings.lastRoutineStart). */
+  lastMark?: RoutineMark | null;
+  /** A session is running right now. */
+  running?: boolean;
+};
+
 /** The mode's name is what the user recognises; the routine's own name is the fallback. */
 function displayName(routine: NamedRoutine, modes: readonly NamedMode[]): string {
   return modes.find((mode) => mode.id === routine.modeId)?.name ?? routine.name;
@@ -28,15 +35,21 @@ function displayName(routine: NamedRoutine, modes: readonly NamedMode[]): string
  * 'Trabajo · activa hasta las 18:00' while a routine is inside its window;
  * 'Trabajo empieza a las 9:00' or 'Trabajo empieza mañana a las 9:00' when the
  * soonest start is less than a day away; null otherwise.
+ *
+ * A window the engine already started (`lastMark`) whose session is over is not
+ * active any more — it will not start again — so the line moves on to the next
+ * start, like the Rutinas tab does.
  */
 export function nextRoutineText(
   routines: readonly NamedRoutine[],
   modes: readonly NamedMode[],
   now: number,
   t: NextRoutineStrings,
+  detail: NextRoutineDetail = {},
 ): string | null {
   const due = dueRoutine(routines, now);
-  if (due !== null) {
+  const spent = due !== null && detail.running !== true && isMarked(due.routine, due.window, detail.lastMark ?? null);
+  if (due !== null && !spent) {
     return t.activeUntil(displayName(due.routine, modes), clockText(due.window.end));
   }
 

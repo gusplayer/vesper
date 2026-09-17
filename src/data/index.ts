@@ -8,6 +8,7 @@ import {
   inviteCodeFor,
   kudosReceivedInWeek,
   kudosSenderNames,
+  seatsTaken,
   weekKeyOf,
   type ChallengeStatus,
   type CircleWeekRow,
@@ -235,6 +236,11 @@ export function useSharePrefs(): SharePrefs {
 /** Everyone, whatever the status: in the circle, invited, or waiting for an answer. */
 export function useCircleMembers(): Member[] {
   return useCircleStore((state) => state.members);
+}
+
+/** Seats taken out of MAX_CIRCLE: the same count the cap uses (domain/circle.seatsTaken). */
+export function useSeatsTaken(): number {
+  return useCircleStore((state) => seatsTaken(state.members));
 }
 
 /** People who invited the user and wait for an answer. */

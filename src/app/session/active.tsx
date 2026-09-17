@@ -18,9 +18,9 @@ import {
 } from '../../design/components';
 import { useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
 import {
-  allowsBreaks,
   breakAvailableIn,
   breakEndsAt,
+  breakReachable,
   canTakeBreak,
   elapsed,
   sessionProgress,
@@ -152,7 +152,9 @@ export default function ActiveSessionScreen() {
 
   const deep = session.depth === 'deep';
 
-  const breakButton = allowsBreaks(session.depth) ? (
+  // A break only exists if the next one unlocks before the plan runs out: a 5 min
+  // session never reaches its first break, so it never announces one.
+  const breakButton = breakReachable(session, now) ? (
     <Button
       variant="ghost"
       label={canTakeBreak(session, now) ? t.takeBreak : t.breakIn(durationText(breakAvailableIn(session, now)))}

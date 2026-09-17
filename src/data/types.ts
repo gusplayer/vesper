@@ -64,6 +64,12 @@ export type Schedule = {
   /** Monday first. */
   days: boolean[];
   enabled: boolean;
+  /**
+   * When it was last saved or switched on. The engine ignores a window that was
+   * already open then (domain/routines): saving a routine is not asking for a
+   * session right now. Stamped by the repository, never by a screen.
+   */
+  updatedAt: number;
 };
 
 export type Rules = {

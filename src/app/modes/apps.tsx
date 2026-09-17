@@ -71,8 +71,12 @@ export default function ModeAppsScreen() {
   }, [nativePicker, reason]);
 
   if (!nativePicker) {
+    // The catalogue is a list of names, never a block: where the device cannot block
+    // for real, the picker says so instead of letting the list pass for one (rule 8).
+    const blocking = blockingStatus();
     return (
       <SelectionPicker
+        notice={blocking.available || blocking.reason === null ? undefined : t.modes.apps.notReal(blocking.reason)}
         title={appsTitleText(behavior, t.modes)}
         searchPlaceholder={t.modes.apps.search}
         items={items}

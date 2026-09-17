@@ -40,6 +40,8 @@ type SelectionPickerProps = {
   onDone: () => void;
   /** Defaults to `common.done`. */
   doneLabel?: string;
+  /** A line under the search, for what this list cannot do here: real blocking is off. */
+  notice?: string;
 };
 
 function matches(item: PickerItem, query: string): boolean {
@@ -66,6 +68,7 @@ export function SelectionPicker({
   onBack,
   onDone,
   doneLabel,
+  notice,
 }: SelectionPickerProps) {
   const t = useStrings();
   const [query, setQuery] = useState('');
@@ -97,6 +100,11 @@ export function SelectionPicker({
     <Screen scroll footer={<Button label={doneLabel ?? t.common.done} onPress={onDone} />}>
       <PageHeader onBack={onBack} title={title} />
       <SearchField value={query} onChangeText={setQuery} placeholder={searchPlaceholder} />
+      {notice === undefined ? null : (
+        <Text variant="caption" tone="secondary">
+          {notice}
+        </Text>
+      )}
       {searching ? (
         <Section title={t.modes.picker.results}>
           {results.length === 0 ? (

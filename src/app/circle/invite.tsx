@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Share } from 'react-native';
 
-import { useCircleMembers, useCircleStore, useInviteCode, usePendingInvites } from '../../data';
+import { useCircleMembers, useCircleStore, useInviteCode, usePendingInvites, useSeatsTaken } from '../../data';
+import type { InviteResult } from '../../data/stores/circle';
 import {
   Button,
   Card,
@@ -20,8 +21,6 @@ import {
 import { codeFromInviteLink, inviteLinkFor } from '../../domain/circle';
 import { MAX_CIRCLE, type Member } from '../../domain/types';
 import { useStrings } from '../../i18n';
-
-type InviteResult = 'ok' | 'invalid' | 'full' | 'self';
 
 /**
  * Invitar. Two directions, kept apart on purpose: your code (with its QR and a share
@@ -48,7 +47,7 @@ export default function InviteScreen() {
   const [acceptFull, setAcceptFull] = useState(false);
 
   const inCircle = members.filter((member) => member.status === 'member' || member.status === 'invited');
-  const memberCount = members.filter((member) => member.status === 'member').length;
+  const seatsTaken = useSeatsTaken();
   const link = code === null ? null : inviteLinkFor(code);
 
   const share = () => {
@@ -65,13 +64,10 @@ export default function InviteScreen() {
     ]);
   };
 
-  // A pasted link works as well as a typed code.
+  // A pasted link works as well as a typed code. Nobody can be looked up yet, so the
+  // outcome is always a reason (domain/circle.inviteCodeOutcome); the line says which.
   const send = () => {
-    const outcome = invite(codeFromInviteLink(codeText) ?? codeText, Date.now());
-    setResult(outcome);
-    if (outcome === 'ok') {
-      setCodeText('');
-    }
+    setResult(invite(codeFromInviteLink(codeText) ?? codeText));
   };
 
   const accept = (member: Member) => {
@@ -144,7 +140,7 @@ export default function InviteScreen() {
           placeholder={copy.codePlaceholder}
         />
         <Button label={copy.send} variant="secondary" onPress={send} disabled={codeText.trim() === ''} />
-        <Text variant="label" tone={result === null ? 'tertiary' : result === 'ok' ? 'secondary' : 'danger'}>
+        <Text variant="label" tone={result === null ? 'tertiary' : 'danger'}>
           {result === null ? copy.enterHint : copy.result[result]}
         </Text>
       </Section>
@@ -153,7 +149,7 @@ export default function InviteScreen() {
         title={copy.members}
         right={
           <Text variant="label" tone="secondary">
-            {copy.count(memberCount, MAX_CIRCLE)}
+            {copy.count(seatsTaken, MAX_CIRCLE)}
           </Text>
         }
       >

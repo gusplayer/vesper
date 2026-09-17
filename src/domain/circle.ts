@@ -1,6 +1,7 @@
 import { dayKeyStart, shiftDayKey, weekDayKeys } from './day';
 import { WEEK } from './time';
 import {
+  MAX_CIRCLE,
   ME,
   type Challenge,
   type ChallengeMark,
@@ -47,6 +48,20 @@ export function endWeekKeyFor(startWeekKey: DayKey, weeks: number): DayKey {
 function weeksInclusive(fromWeekKey: DayKey, toWeekKey: DayKey): number {
   const span = Math.round((dayKeyStart(toWeekKey) - dayKeyStart(fromWeekKey)) / WEEK);
   return span + 1;
+}
+
+// --- Seats -------------------------------------------------------------------------
+
+/**
+ * Seats taken, out of MAX_CIRCLE: everyone with a row, whether in the circle,
+ * invited, or asking to join. One rule for the cap and for the header count.
+ */
+export function seatsTaken(members: readonly Member[]): number {
+  return members.length;
+}
+
+export function circleFull(members: readonly Member[]): boolean {
+  return seatsTaken(members) >= MAX_CIRCLE;
 }
 
 // --- The week ----------------------------------------------------------------------
@@ -301,4 +316,36 @@ export function codeFromInviteLink(text: string): string | null {
 export function normalizeInviteCode(text: string): string | null {
   const code = text.trim().toUpperCase();
   return CODE_PATTERN.test(code) ? code : null;
+}
+
+/**
+ * Whether `code` is one this profile ever showed: the current one or any earlier
+ * generation. "Generar código nuevo" only bumps the generation, so the history is
+ * derived, not stored.
+ */
+export function isOwnInviteCode(profile: Profile, code: string): boolean {
+  for (let generation = 0; generation <= profile.codeGeneration; generation += 1) {
+    if (inviteCodeFor({ ...profile, codeGeneration: generation }) === code) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 'invalid' is not shaped like a code; 'self' is one of the user's own; 'unavailable'
+ * is any other well-formed code, because without a server nobody can look it up
+ * (src/platform/circle.ts says why). Nothing is ever verified here.
+ */
+export type InviteCodeOutcome = 'invalid' | 'self' | 'unavailable';
+
+export function inviteCodeOutcome(profile: Profile | null, text: string): InviteCodeOutcome {
+  const code = normalizeInviteCode(text);
+  if (code === null) {
+    return 'invalid';
+  }
+  if (profile !== null && isOwnInviteCode(profile, code)) {
+    return 'self';
+  }
+  return 'unavailable';
 }

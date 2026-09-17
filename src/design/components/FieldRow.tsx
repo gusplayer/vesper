@@ -12,6 +12,8 @@ type FieldRowProps = {
   placeholder?: string;
   autoFocus?: boolean;
   keyboardType?: 'default' | 'number-pad';
+  /** 'none' for values kept lowercase, like a handle. Defaults to the keyboard's sentences. */
+  autoCapitalize?: 'none' | 'sentences' | 'words';
 };
 
 /** 'Nombre ........ Familia' — a label on the left and the input on the right, in a card. */
@@ -22,6 +24,7 @@ export function FieldRow({
   placeholder,
   autoFocus = false,
   keyboardType = 'default',
+  autoCapitalize = 'sentences',
 }: FieldRowProps) {
   const { colors } = useTheme();
   return (
@@ -37,6 +40,7 @@ export function FieldRow({
           placeholderTextColor={colors.inkTertiary}
           autoFocus={autoFocus}
           keyboardType={keyboardType}
+          autoCapitalize={autoCapitalize}
           selectionColor={colors.accent}
           accessibilityLabel={label}
           textAlign="right"

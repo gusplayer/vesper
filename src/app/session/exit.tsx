@@ -52,6 +52,8 @@ export default function ExitScreen() {
   const finish = useFocusStore((state) => state.finish);
   const [index, setIndex] = useState(0);
   const [typed, setTyped] = useState('');
+  // True after tapping the way out with the sentence typed wrong, until the next keystroke.
+  const [mismatch, setMismatch] = useState(false);
   const [reason, setReason] = useState('');
   // Breathing banked from released rounds, plus the current hold if there is one.
   const [completedMs, setCompletedMs] = useState(0);
@@ -177,12 +179,24 @@ export default function ExitScreen() {
   }
 
   const ready = sentenceMatches(typed, t.sentence);
+  // The way out stays tappable: a wrong sentence answers with a line, not with silence.
+  const tryLeave = () => {
+    if (ready) {
+      leave();
+    } else {
+      setMismatch(true);
+    }
+  };
+  const type = (text: string) => {
+    setTyped(text);
+    setMismatch(false);
+  };
   return (
     <Screen
       footer={
         <>
           <Button label={strings.session.stayFocused} onPress={stay} />
-          <Button variant="ghost" label={t.endWithServed(served)} onPress={leave} disabled={!ready} />
+          <Button variant="ghost" label={t.endWithServed(served)} onPress={tryLeave} />
         </>
       }
     >
@@ -198,10 +212,15 @@ export default function ExitScreen() {
           <FieldRow
             label={t.sentenceField}
             value={typed}
-            onChangeText={setTyped}
+            onChangeText={type}
             placeholder={t.sentencePlaceholder}
             autoFocus
           />
+          {mismatch ? (
+            <Text variant="caption" tone="danger">
+              {t.sentenceMismatch}
+            </Text>
+          ) : null}
         </Stack>
         <Stack gap="xs">
           <FieldRow

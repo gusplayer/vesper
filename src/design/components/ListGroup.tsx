@@ -8,7 +8,7 @@ import { Text } from './Text';
 
 type ListGroupProps = {
   children: ReactNode;
-  /** Small uppercase-free caption above the card: 'general', 'sistema'. */
+  /** Small caption above the card, in sentence case: 'General', 'Sistema'. */
   title?: string;
 };
 

@@ -17,6 +17,14 @@ export const routines = {
     active: (clock: string) => `Activa · hasta ${clock}`,
     /** The same window, while its session runs. */
     running: (clock: string) => `En curso · hasta ${clock}`,
+    /**
+     * A window that already started today and whose session is over: it will not
+     * start again. 'Hoy ya pasó · mañana a las 9:00'. The day arrives capitalized
+     * ('Mañana', 'El lunes') and goes mid-sentence here.
+     */
+    done: (day: string, clock: string) => `Hoy ya pasó · ${day.toLowerCase()} a ${clock}`,
+    /** The same, for a routine with no next start to name. */
+    doneOnly: 'Hoy ya pasó',
     /** 'Hoy a las 21:30', 'El lunes a las 9:00'. */
     next: (day: string, clock: string) => `${day} a ${clock}`,
     /** A routine you start by hand. */

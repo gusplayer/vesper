@@ -19,6 +19,8 @@ const WED_10 = new Date(2026, 8, 16, 10).getTime();
 const WED_22 = new Date(2026, 8, 16, 22).getTime();
 const THU_2 = new Date(2026, 8, 17, 2).getTime();
 const THU_7 = new Date(2026, 8, 17, 7).getTime();
+const THU_9 = new Date(2026, 8, 17, 9).getTime();
+const THU_10 = new Date(2026, 8, 17, 10).getTime();
 const SAT_10 = new Date(2026, 8, 19, 10).getTime();
 
 const weekdays = [true, true, true, true, true, false, false];
@@ -64,6 +66,27 @@ describe('activeWindow', () => {
     const timed = routine({ endMinutes: null, durationMs: 2 * HOUR });
     expect(activeWindow(timed, WED_10)?.end).toBe(WED_9 + 2 * HOUR);
   });
+
+  it('ignores a window that was already open when the routine was saved', () => {
+    const savedInside = routine({ updatedAt: WED_9 + 30 * MINUTE });
+    expect(activeWindow(savedInside, WED_10)).toBeNull();
+    // The next day's window opened after the save: it counts.
+    expect(activeWindow(savedInside, THU_10)?.start).toBe(THU_9);
+    // Saved exactly at the start, or before it: the window counts.
+    expect(activeWindow(routine({ updatedAt: WED_9 }), WED_10)?.start).toBe(WED_9);
+    expect(activeWindow(routine({ updatedAt: WED_9 - HOUR }), WED_10)?.start).toBe(WED_9);
+  });
+
+  it('ignores a midnight-crossing window saved after it opened, too', () => {
+    const sleep = routine({
+      id: 'r-sleep',
+      startMinutes: 21 * 60 + 30,
+      endMinutes: 6 * 60 + 30,
+      days: everyDay,
+      updatedAt: WED_22,
+    });
+    expect(activeWindow(sleep, THU_2)).toBeNull();
+  });
 });
 
 describe('nextStart', () => {
@@ -89,6 +112,25 @@ describe('routineStatus and sortRoutines', () => {
     expect(routineStatus(routine({ days: everyDay.map(() => false) }), WED_10).kind).toBe('never');
   });
 
+  it('is started, never active, once the engine started this window', () => {
+    const mark = { routineId: 'r-work', windowStart: WED_9 };
+    expect(routineStatus(routine(), WED_10, mark)).toEqual({
+      kind: 'started',
+      until: new Date(2026, 8, 16, 18).getTime(),
+      next: THU_9,
+    });
+    // Another routine's mark, or yesterday's window, leaves it active.
+    expect(routineStatus(routine(), WED_10, { routineId: 'other', windowStart: WED_9 }).kind).toBe('active');
+    expect(routineStatus(routine(), WED_10, { routineId: 'r-work', windowStart: WED_9 - 24 * HOUR }).kind).toBe(
+      'active',
+    );
+    expect(routineStatus(routine(), WED_10, null).kind).toBe('active');
+  });
+
+  it('shows the next start for a routine saved inside its window', () => {
+    expect(routineStatus(routine({ updatedAt: WED_10 - MINUTE }), WED_10)).toEqual({ kind: 'next', at: THU_9 });
+  });
+
   it('orders active, then soonest, then manual, then off', () => {
     const active = routine({ id: 'active' });
     const later = routine({ id: 'later', startMinutes: 20 * 60, endMinutes: 21 * 60, days: everyDay });
@@ -102,6 +144,9 @@ describe('routineStatus and sortRoutines', () => {
       'manual',
       'off',
     ]);
+    // A started window keeps its place at the top: it is still today's routine.
+    const mark = { routineId: 'active', windowStart: WED_9 };
+    expect(sortRoutines([off, later, manual, sooner, active], WED_10, mark)[0]?.id).toBe('active');
   });
 });
 
@@ -135,6 +180,25 @@ describe('routineDecision', () => {
     expect(routineDecision([work], false, mark, WED_10).action).toBe('none');
     const otherDay = { routineId: 'r-work', windowStart: WED_9 - 24 * HOUR };
     expect(routineDecision([work], false, otherDay, WED_10).action).toBe('start');
+  });
+
+  it('does not start a routine saved inside its window, and starts it at the next occurrence', () => {
+    const savedInside = routine({ updatedAt: WED_10 - 5 * MINUTE });
+    expect(routineDecision([savedInside], false, null, WED_10).action).toBe('none');
+    expect(routineDecision([savedInside], false, null, new Date(2026, 8, 16, 17).getTime()).action).toBe('none');
+
+    const nextDay = routineDecision([savedInside], false, null, THU_10);
+    expect(nextDay.action).toBe('start');
+    if (nextDay.action === 'start') {
+      expect(nextDay.window.start).toBe(THU_9);
+      expect(nextDay.plannedMs).toBe(8 * HOUR);
+    }
+  });
+
+  it('does not start a routine switched on inside its window either', () => {
+    // Toggling stamps the routine like a save does; the engine sees the same field.
+    const toggledOn = routine({ enabled: true, updatedAt: WED_10 });
+    expect(routineDecision([toggledOn], false, null, WED_10 + MINUTE).action).toBe('none');
   });
 
   it('never plans less than a minute', () => {

@@ -84,6 +84,7 @@ export const session: typeof shape = {
     sentence: 'I choose to leave this now',
     sentenceField: 'Sentence',
     sentencePlaceholder: 'As written',
+    sentenceMismatch: 'The sentence does not match',
     reasonField: 'Reason',
     reasonPlaceholder: 'Optional',
     reasonHint: 'Saved with the session. Nobody else sees it.',

@@ -80,3 +80,19 @@ No hay migración: `settings` es clave-valor y una fila vieja que nadie lee no m
 - `docs/DATA_MODEL.md` y `docs/ARCHITECTURE.md` dejan de listar lo borrado.
 - Si algún día se quiere un cierre semanal en pantalla, una sesión que termine con el
   día o pausas con otra cadencia, es un ADR nuevo, no una vuelta a los superados.
+
+## 7. Una ventana ya abierta no arranca (precisión a ADR-0019)
+
+QA reprodujo el caso: instalar en un martes a las 10:00 dejaba al usuario, al terminar
+el onboarding, dentro de una sesión profunda de cinco horas que la rutina de
+demostración "Trabajo" (9:00–18:00) había arrancado sola. ADR-0019 decía "una rutina
+cuya ventana incluye ahora arranca una sesión" y no distinguía la ventana que ya estaba
+abierta cuando la rutina apareció.
+
+**Decisión:** una rutina solo arranca ventanas que se abren después de su último
+guardado o encendido (`schedules.updated_at`, migración 006). Terminar el onboarding
+estampa las rutinas sembradas. La lista muestra el próximo inicio ("Mañana a las
+9:00"); una ventana que ya arrancó y cuya sesión se cerró se muestra como "Hoy ya
+pasó", nunca como activa. Las ventanas nativas (`DeviceActivity`, `AlarmManager`) no
+aplican la estampa todavía: sin selección real en la demo no cambia nada, y queda
+anotado en STATUS para cuando exista bloqueo real.

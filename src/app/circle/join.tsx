@@ -2,11 +2,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { useCircleStore, useProfile } from '../../data';
+import type { InviteResult } from '../../data/stores/circle';
 import { Button, Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { normalizeInviteCode } from '../../domain/circle';
 import { useStrings } from '../../i18n';
-
-type JoinResult = 'ok' | 'invalid' | 'full' | 'self';
 
 /**
  * Where an invite link lands: vesper://circle/join?code=ABC234. Shows the code, says
@@ -21,13 +20,15 @@ export default function JoinScreen() {
   const code = normalizeInviteCode(params.code ?? '');
   const profile = useProfile();
   const invite = useCircleStore((state) => state.invite);
-  const [result, setResult] = useState<JoinResult | null>(null);
+  const [result, setResult] = useState<InviteResult | null>(null);
 
+  // Nobody can be looked up yet (domain/circle.inviteCodeOutcome): asking always
+  // answers with a reason, and the line under the card says which.
   const request = () => {
     if (code === null) {
       return;
     }
-    setResult(invite(code, Date.now()));
+    setResult(invite(code));
   };
 
   if (profile === null) {
@@ -44,16 +45,9 @@ export default function JoinScreen() {
     );
   }
 
-  const done = result === 'ok';
   return (
     <Screen
-      footer={
-        done ? (
-          <Button label={copy.goToCircle} onPress={() => router.replace('/circle')} />
-        ) : (
-          <Button label={copy.request} onPress={request} disabled={code === null || result !== null} />
-        )
-      }
+      footer={<Button label={copy.request} onPress={request} disabled={code === null || result !== null} />}
     >
       <PageHeader onClose={() => router.back()} title={copy.title} />
       <Card>
@@ -67,7 +61,7 @@ export default function JoinScreen() {
         </Stack>
       </Card>
       {result === null ? null : (
-        <Text variant="label" tone={done ? 'secondary' : 'danger'} align="center">
+        <Text variant="label" tone="danger" align="center">
           {t.circle.invite.result[result]}
         </Text>
       )}

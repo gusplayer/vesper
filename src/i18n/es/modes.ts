@@ -80,6 +80,8 @@ export const modes = {
     realHint:
       'Elige en Tiempo de uso qué apps, categorías y sitios limita este modo. Vesper guarda la selección sin ver qué hay adentro.',
     selectedSummary: (summary: string) => `Seleccionadas: ${summary}`,
+    /** On the catalogue picker and under the apps row where real blocking is off, with `status().reason`. */
+    notReal: (reason: string) => `Este teléfono no bloquea apps de verdad: ${reason}. La lista se guarda en el modo.`,
   },
   /** What src/platform/blocking reports: why blocking is off, and what a selection holds. */
   blocking: {

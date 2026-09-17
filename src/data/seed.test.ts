@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { dayKeyOf } from '../domain/day';
-import { DAY } from '../domain/time';
+import { routineDecision, routineStatus } from '../domain/routines';
+import { DAY, HOUR, MINUTE } from '../domain/time';
 import { en } from '../i18n/en';
 import { es } from '../i18n/es';
 import {
@@ -151,5 +152,41 @@ describe('demo data in both languages', () => {
     for (const habit of demoHabits(es.demo)) {
       expect(habit.activityId === null || activityIds.has(habit.activityId)).toBe(true);
     }
+  });
+});
+
+describe('the demo routines after onboarding', () => {
+  // Tuesday 2026-09-15, 10:00: inside the demo "Work" window (9:00 – 18:00, weekdays).
+  const TUESDAY_10 = new Date(2026, 8, 15, 10).getTime();
+  const WEDNESDAY_9 = new Date(2026, 8, 16, 9).getTime();
+
+  it('do not start a session the user never asked for when the onboarding ends inside a window', () => {
+    // What the store does when onboardingDone flips: every schedule is stamped with that moment.
+    const stamped = demoSchedules(es.demo).map((schedule) => ({ ...schedule, updatedAt: TUESDAY_10 }));
+
+    expect(routineDecision(stamped, false, null, TUESDAY_10).action).toBe('none');
+    expect(routineDecision(stamped, false, null, TUESDAY_10 + 3 * HOUR).action).toBe('none');
+    const work = stamped.find((schedule) => schedule.id === 'schedule-work');
+    expect(work).toBeDefined();
+    if (work !== undefined) {
+      // Rutinas says when it will actually start, not that it is active.
+      expect(routineStatus(work, TUESDAY_10)).toEqual({ kind: 'next', at: WEDNESDAY_9 });
+    }
+  });
+
+  it('start the next morning, at the window the user has seen coming', () => {
+    const stamped = demoSchedules(es.demo).map((schedule) => ({ ...schedule, updatedAt: TUESDAY_10 }));
+
+    const decision = routineDecision(stamped, false, null, WEDNESDAY_9 + MINUTE);
+    expect(decision.action).toBe('start');
+    if (decision.action === 'start') {
+      expect(decision.routine.id).toBe('schedule-work');
+      expect(decision.window.start).toBe(WEDNESDAY_9);
+    }
+  });
+
+  it('would have started right away without the stamp: the defect this guards against', () => {
+    const unstamped = demoSchedules(es.demo).map(({ updatedAt: _stamp, ...schedule }) => schedule);
+    expect(routineDecision(unstamped, false, null, TUESDAY_10).action).toBe('start');
   });
 });

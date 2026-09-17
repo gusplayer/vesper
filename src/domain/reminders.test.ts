@@ -34,6 +34,7 @@ function aSchedule(overrides: Partial<Schedule> = {}): Schedule {
     endMinutes: 18 * 60,
     days: [true, true, true, true, true, false, false],
     enabled: true,
+    updatedAt: 0,
     ...overrides,
   };
 }

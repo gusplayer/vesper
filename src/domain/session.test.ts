@@ -6,6 +6,7 @@ import {
   BREAK_MS,
   breakAvailableIn,
   breakEndsAt,
+  breakReachable,
   canGiveUp,
   canTakeBreak,
   close,
@@ -384,6 +385,39 @@ describe('breaks (ADR-0022)', () => {
     const paused = startBreak(running({ plannedMs: HOUR, depth: 'firm' }), at(30));
 
     expect(interrupt(paused)).toBe(paused);
+  });
+});
+
+describe('breakReachable', () => {
+  const at = (minutes: number) => T0 + minutes * MINUTE;
+
+  it('is false when the session ends before its first break would unlock', () => {
+    expect(breakReachable(running({ plannedMs: 5 * MINUTE }), at(1))).toBe(false);
+    expect(breakReachable(running({ plannedMs: 25 * MINUTE }), at(1))).toBe(false);
+    expect(breakReachable(running({ plannedMs: 26 * MINUTE }), at(1))).toBe(true);
+    expect(breakReachable(running({ plannedMs: HOUR }), at(1))).toBe(true);
+  });
+
+  it('is false once the next break would fall past the end, after a break was taken', () => {
+    const paused = startBreak(running({ plannedMs: 50 * MINUTE }), at(30));
+    const resumed = endBreak(paused, at(40));
+
+    // The next break unlocks at 55 minutes of focus; the session has 50.
+    expect(resumed.nextBreakAtMs).toBe(55 * MINUTE);
+    expect(breakReachable(resumed, at(45))).toBe(false);
+    // A longer session still gets there.
+    const long = endBreak(startBreak(running({ plannedMs: 2 * HOUR }), at(30)), at(40));
+    expect(breakReachable(long, at(45))).toBe(true);
+  });
+
+  it('is false in deep, once the session is due, and when it is not running', () => {
+    expect(breakReachable(running({ plannedMs: HOUR, depth: 'deep' }), at(1))).toBe(false);
+    expect(breakReachable(running({ plannedMs: HOUR }), at(60))).toBe(false);
+    expect(breakReachable(close(running({ plannedMs: HOUR }), at(10), 'cancelled'), at(10))).toBe(false);
+  });
+
+  it('is true for an open session: the cap is hours away', () => {
+    expect(breakReachable(running({ open: true }), at(1))).toBe(true);
   });
 });
 

@@ -173,6 +173,22 @@ export function breakAvailableIn(session: Session, now: Millis): number {
   return Math.max(0, session.nextBreakAtMs - elapsed(session, now));
 }
 
+/**
+ * Whether a break will ever unlock in this session: the next one comes before the
+ * planned end. A 5-minute session never reaches its first break at minute 25, and a
+ * 50-minute one whose break ended at minute 30 never reaches the next at 55, so the
+ * screen has no countdown to show. Both instants are focus time, so breaks already
+ * taken shift them equally; an open session counts against its cap.
+ */
+export function breakReachable(session: Session, now: Millis): boolean {
+  return (
+    session.outcome === 'running' &&
+    allowsBreaks(session.depth) &&
+    !isDue(session, now) &&
+    session.nextBreakAtMs < session.plannedMs
+  );
+}
+
 /** A break can start: allowed by the depth, none running, unlocked, and time left. */
 export function canTakeBreak(session: Session, now: Millis): boolean {
   return (

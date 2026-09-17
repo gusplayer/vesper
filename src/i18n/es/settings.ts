@@ -107,8 +107,6 @@ export const settings = {
     /** 'Versión 2026.9.1'. The number lives in code. */
     version: (number: string) => `Versión ${number}`,
     body: 'Vesper mide el tiempo que inviertes, no el que consumes. Lo que haces con foco, lo que verifica Salud y lo que el teléfono estima viven en columnas distintas y nunca se suman. La idea es que veas tu tiempo como algo que se asigna, no como algo que se pierde.',
-    terms: 'Términos',
-    privacy: 'Privacidad',
     prototypeNote: 'Prototipo con datos de ejemplo. Nada de lo que ves es real.',
   },
   emergency: {
@@ -232,8 +230,8 @@ export const settings = {
       'El sistema no lo vuelve a pedir. Actívalo en Ajustes del sistema › Vesper › Notificaciones y vuelve aquí.',
     pendingTitle: 'Vesper todavía no puede avisarte',
     pendingBody: 'Sin permiso no hay aviso al terminar una sesión ni cierre semanal. Se pide una sola vez.',
-    generalGroup: 'general',
-    systemGroup: 'sistema',
+    generalGroup: 'General',
+    systemGroup: 'Sistema',
     coaching: { label: 'Acompañamiento', description: 'Aviso cuando empieza una rutina' },
     sessionEnd: { label: 'Fin de sesión', description: 'Aviso cuando el timer termina' },
     weeklyClose: { label: 'Cierre semanal', description: 'El domingo a las 20:00, cómo cerró la semana' },

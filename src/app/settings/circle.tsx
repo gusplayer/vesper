@@ -77,7 +77,13 @@ export default function CircleSettingsScreen() {
           placeholder={t.namePlaceholder}
           autoFocus={profile === null}
         />
-        <FieldRow label={t.handle} value={handle} onChangeText={setHandle} placeholder={t.handlePlaceholder} />
+        <FieldRow
+          label={t.handle}
+          value={handle}
+          onChangeText={setHandle}
+          placeholder={t.handlePlaceholder}
+          autoCapitalize="none"
+        />
         <Text variant="caption" tone="tertiary">
           {t.profileHint}
         </Text>

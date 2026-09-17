@@ -167,6 +167,7 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
   ];
 }
 
+/** `updatedAt` is 0 here: the seeder's write stamps the real instant. */
 export function demoSchedules(t: DemoStrings): Schedule[] {
   return [
     {
@@ -178,6 +179,7 @@ export function demoSchedules(t: DemoStrings): Schedule[] {
       durationMs: null,
       days: [true, true, true, true, true, false, false],
       enabled: true,
+      updatedAt: 0,
     },
     {
       id: 'schedule-sleep',
@@ -188,6 +190,7 @@ export function demoSchedules(t: DemoStrings): Schedule[] {
       durationMs: null,
       days: [true, true, true, true, false, false, true],
       enabled: true,
+      updatedAt: 0,
     },
     {
       id: 'schedule-walk',
@@ -198,6 +201,7 @@ export function demoSchedules(t: DemoStrings): Schedule[] {
       durationMs: 20 * MINUTE,
       days: [false, false, false, false, false, false, false],
       enabled: true,
+      updatedAt: 0,
     },
   ];
 }

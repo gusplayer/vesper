@@ -70,6 +70,7 @@ export const modes: typeof shape = {
     realHint:
       'Pick in Screen Time which apps, categories and sites this mode limits. Vesper keeps the selection without seeing what is inside.',
     selectedSummary: (summary) => `Selected: ${summary}`,
+    notReal: (reason) => `This phone does not really block apps: ${reason}. The list is saved on the mode.`,
   },
   blocking: {
     iosOnly: 'iPhone only',

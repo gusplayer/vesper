@@ -6,9 +6,10 @@ export const habits = {
   section: {
     title: 'Hábitos esta semana',
     healthTip: 'Este hábito lo marca Salud',
-    verified: 'verificado por Salud',
     /** 'verificado por Salud · sincronizado 14:30'. */
     verifiedSynced: (synced: string) => `verificado por Salud · ${synced}`,
+    /** A verified habit while Health is not connected: the mark is yours, and declared (ADR-0005). */
+    verifiedNoHealth: 'Salud no conectada · marca manual',
     declared: 'declarado',
     today: 'hoy',
     todayMarked: 'hoy ✓',

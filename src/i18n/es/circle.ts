@@ -15,10 +15,12 @@ function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }
 
+/** Why nothing here is real yet, as `status().reason` in src/platform/circle.ts says it. */
+const unavailable = 'Todavía no hay conexión con otros teléfonos. Lo que ves son datos de ejemplo.';
+
 export const circle = {
   sync: {
-    /** Why nothing here is real yet, as `status().reason` in src/platform/circle.ts says it. */
-    unavailable: 'Todavía no hay conexión con otros teléfonos. Lo que ves son datos de ejemplo.',
+    unavailable,
   },
   /** The section at the end of Actividad › Semanal. */
   section: {
@@ -139,11 +141,13 @@ export const circle = {
     codeField: 'Código',
     codePlaceholder: 'seis letras o números',
     send: 'Pedir entrar a su círculo',
+    /** What `invite` answers. Nothing is verified: there is no server to ask. */
     result: {
-      ok: 'Solicitud enviada. Cuando acepte, aparece en tu círculo.',
-      invalid: 'Ese código no existe. Son seis letras o números.',
-      full: 'Tu círculo está lleno. Doce es el máximo, a propósito.',
+      /** Not shaped like a code. Says what one looks like, never that it "does not exist". */
+      invalid: 'Un código son seis letras o números.',
       self: 'Ese es tu propio código.',
+      /** A well-formed code nobody can look up yet: the platform's own reason. */
+      unavailable,
     },
     pending: 'Quieren entrar a tu círculo',
     /** Under the name of someone who used the user's code. */
@@ -172,7 +176,6 @@ export const circle = {
     noProfileTitle: 'Primero crea tu perfil.',
     noProfileBody: 'Un nombre y un alias, en este teléfono. Luego vuelve a tocar el link.',
     createProfile: 'Crear tu perfil',
-    goToCircle: 'Ver círculo',
   },
   /** Ajustes › Círculo. */
   settings: {

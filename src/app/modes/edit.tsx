@@ -120,6 +120,11 @@ export default function ModeEditScreen() {
             onPress={() => router.push({ pathname: '/modes/apps', params: { draft: '1' } })}
           />
           {apps.length > 0 ? <AppIconStack apps={apps} max={6} /> : null}
+          {blocking.available || blocking.reason === null ? null : (
+            <Text variant="caption" tone="secondary">
+              {t.modes.apps.notReal(blocking.reason)}
+            </Text>
+          )}
           {blocking.available ? (
             <>
               <Divider />

@@ -18,14 +18,18 @@ type OnboardingDraft = {
   schedule: DraftSchedule;
   /** True once the mode exists in the app store. */
   committed: boolean;
-  /** Ids of what the commit created, so it can be repeated safely. */
+  /**
+   * Ids of what the commit created, so it can be repeated safely. `modeId` stays
+   * null when the commit reused a mode that already had the draft's name: a repeat
+   * finds it by name again and never rewrites it.
+   */
   modeId: string | null;
   scheduleId: string | null;
 
   setGoal: (goalId: string, modeName: string, appIds: readonly string[]) => void;
   setAppIds: (appIds: readonly string[]) => void;
   setSchedule: (patch: Partial<DraftSchedule>) => void;
-  markCommitted: (modeId: string, scheduleId: string | null) => void;
+  markCommitted: (modeId: string | null, scheduleId: string | null) => void;
   reset: () => void;
 };
 

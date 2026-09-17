@@ -63,7 +63,10 @@ export default function FocusScreen() {
   const start = useFocusStore((state) => state.start);
   const plannedMs = usePlannedStore((state) => state.plannedMs);
   const cells = recentDayCells(stats, now);
-  const routineLine = nextRoutineText(schedules, modes, now, t.focus.nextRoutine);
+  const routineLine = nextRoutineText(schedules, modes, now, t.focus.nextRoutine, {
+    lastMark: settings.lastRoutineStart,
+    running: session !== null,
+  });
   const openActivity = () => router.push('/(tabs)/activity');
 
   // A tap floods the page with ink first, like the hold does; the route opens under it.

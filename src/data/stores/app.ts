@@ -49,11 +49,17 @@ type AppState = {
   setModeSelection: (id: string, selectionToken: string | null) => void;
 
   // Schedules
-  upsertSchedule: (schedule: Omit<Schedule, 'id'> & { id?: string }) => Schedule;
+  /** Saves a schedule, stamped with now: a window already open at this instant will not start. */
+  upsertSchedule: (schedule: Omit<Schedule, 'id' | 'updatedAt'> & { id?: string }) => Schedule;
   toggleSchedule: (id: string, enabled: boolean) => void;
   deleteSchedule: (id: string) => void;
 
   // Settings
+  /**
+   * Merges a patch. Ending the onboarding (`onboardingDone` false → true) also stamps
+   * every schedule with that moment, so a demo routine whose window is open right
+   * then waits for its next one instead of starting a session nobody asked for.
+   */
   updateSettings: (patch: Partial<Settings>) => void;
   updateRules: (patch: Partial<Rules>) => void;
   updateNotifications: (patch: Partial<NotificationPrefs>) => void;
@@ -160,13 +166,14 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     deleteMode: (id) => {
+      const now = Date.now();
       modesRepo.remove(id);
       // Schedules using this mode are turned off, like Brick warns.
-      schedulesRepo.disableByMode(id);
+      schedulesRepo.disableByMode(id, now);
       const modes = get().modes.filter((m) => m.id !== id);
       set((state) => ({
         modes,
-        schedules: state.schedules.map((s) => (s.modeId === id ? { ...s, enabled: false } : s)),
+        schedules: state.schedules.map((s) => (s.modeId === id ? { ...s, enabled: false, updatedAt: now } : s)),
       }));
       if (get().activeModeId === id) {
         setActive(modes[0]?.id ?? '');
@@ -181,8 +188,9 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     upsertSchedule: (input) => {
-      const schedule: Schedule = { ...input, id: input.id ?? uuidv7(Date.now()) };
-      schedulesRepo.upsert(schedule, Date.now());
+      const now = Date.now();
+      const schedule: Schedule = { ...input, id: input.id ?? uuidv7(now), updatedAt: now };
+      schedulesRepo.upsert(schedule, now);
       set((state) => ({
         schedules: state.schedules.some((s) => s.id === schedule.id)
           ? state.schedules.map((s) => (s.id === schedule.id ? schedule : s))
@@ -192,8 +200,11 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     toggleSchedule: (id, enabled) => {
-      schedulesRepo.setEnabled(id, enabled);
-      set((state) => ({ schedules: state.schedules.map((s) => (s.id === id ? { ...s, enabled } : s)) }));
+      const now = Date.now();
+      schedulesRepo.setEnabled(id, enabled, now);
+      set((state) => ({
+        schedules: state.schedules.map((s) => (s.id === id ? { ...s, enabled, updatedAt: now } : s)),
+      }));
     },
 
     deleteSchedule: (id) => {
@@ -201,7 +212,15 @@ export const useAppStore = create<AppState>((set, get) => {
       set((state) => ({ schedules: state.schedules.filter((s) => s.id !== id) }));
     },
 
-    updateSettings: (patch) => saveSettings({ ...get().settings, ...patch }),
+    updateSettings: (patch) => {
+      const current = get().settings;
+      if (patch.onboardingDone === true && !current.onboardingDone) {
+        const now = Date.now();
+        schedulesRepo.touchAll(now);
+        set((state) => ({ schedules: state.schedules.map((s) => ({ ...s, updatedAt: now })) }));
+      }
+      saveSettings({ ...current, ...patch });
+    },
 
     updateRules: (patch) => {
       const current = get().settings;

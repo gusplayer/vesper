@@ -45,9 +45,11 @@ function dayLabel(at: Millis, now: Millis, t: RoutinesStrings): string {
 }
 
 /**
- * 'Activa · hasta las 18:00' (or 'En curso · …' while its session runs), 'Hoy a las
- * 21:30', 'Mañana a las 9:00', 'El lunes a las 9:00', 'Cuando quieras · 20 min',
- * 'Sin días elegidos'. Null when the routine is off: the dimmed card already says it.
+ * 'Activa · hasta las 18:00' (or 'En curso · …' while its session runs), 'Hoy ya
+ * pasó · mañana a las 9:00' for a window that already started and whose session is
+ * over, 'Hoy a las 21:30', 'Mañana a las 9:00', 'El lunes a las 9:00', 'Cuando
+ * quieras · 20 min', 'Sin días elegidos'. Null when the routine is off: the dimmed
+ * card already says it.
  */
 export function statusText(
   status: RoutineStatus,
@@ -65,6 +67,16 @@ export function statusText(
     case 'active': {
       const clock = clockText(status.until, t);
       return detail.running === true ? t.status.running(clock) : t.status.active(clock);
+    }
+    case 'started': {
+      // The window already started once. While its session runs it is in progress;
+      // once that session is over, it is done for today and never active again.
+      if (detail.running === true) {
+        return t.status.running(clockText(status.until, t));
+      }
+      return status.next === null
+        ? t.status.doneOnly
+        : t.status.done(dayLabel(status.next, now, t), clockText(status.next, t));
     }
     case 'next':
       return t.status.next(dayLabel(status.at, now, t), clockText(status.at, t));

@@ -132,6 +132,11 @@ export const layout = {
   qr: 168,
 } as const;
 
+/** Opacity roles. A disabled control fades as a whole, on top of its muted colors. */
+export const opacity = {
+  disabled: 0.4,
+} as const;
+
 /** Soft, wide shadows. iOS reads them; Android gets `elevation`. */
 export const shadow = {
   card: {

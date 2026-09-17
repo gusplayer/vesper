@@ -44,6 +44,25 @@ describe('nextRoutineText', () => {
     expect(nextRoutineText([routine()], MODES, NOW, EN)).toBe('Trabajo · active until 18:00');
   });
 
+  it('moves on to the next start once the engine started this window and its session is over', () => {
+    const mark = { routineId: 'r1', windowStart: new Date(2026, 8, 16, 9).getTime() };
+    expect(nextRoutineText([routine()], MODES, NOW, ES, { lastMark: mark })).toBe('Trabajo empieza mañana a las 9:00');
+    expect(nextRoutineText([routine()], MODES, NOW, EN, { lastMark: mark })).toBe('Trabajo starts tomorrow at 9:00');
+    // While its session still runs, the window is active.
+    expect(nextRoutineText([routine()], MODES, NOW, ES, { lastMark: mark, running: true })).toBe(
+      'Trabajo · activa hasta las 18:00',
+    );
+    // A mark for another window changes nothing.
+    const yesterday = { routineId: 'r1', windowStart: new Date(2026, 8, 15, 9).getTime() };
+    expect(nextRoutineText([routine()], MODES, NOW, ES, { lastMark: yesterday })).toBe('Trabajo · activa hasta las 18:00');
+    expect(nextRoutineText([routine()], MODES, NOW, ES, { lastMark: null })).toBe('Trabajo · activa hasta las 18:00');
+  });
+
+  it('says nothing about a window that was already open when the routine was saved', () => {
+    const savedInside = routine({ updatedAt: new Date(2026, 8, 16, 11).getTime() });
+    expect(nextRoutineText([savedInside], MODES, NOW, ES)).toBe('Trabajo empieza mañana a las 9:00');
+  });
+
   it('caps an open-ended window at its duration', () => {
     const open = routine({ startMinutes: 11 * 60, endMinutes: null, durationMs: 2 * HOUR });
     expect(nextRoutineText([open], MODES, NOW, ES)).toBe('Trabajo · activa hasta las 13:00');

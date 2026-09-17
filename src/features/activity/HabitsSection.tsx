@@ -40,9 +40,11 @@ export function HabitsSection({ now }: HabitsSectionProps) {
     [],
   );
 
+  // Without Health the verified habit still takes a tap, and the row says the mark
+  // is manual: declared time, never mixed with verified (ADR-0005).
   const verifiedText = settings.healthConnected
     ? t.habits.section.verifiedSynced(syncedText(settings.healthSyncedAt, t.habits))
-    : t.habits.section.verified;
+    : t.habits.section.verifiedNoHealth;
 
   const lockedByHealth = (progress: HabitProgress) =>
     settings.healthConnected && progress.habit.countMode === 'verified';

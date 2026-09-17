@@ -21,6 +21,12 @@ export type RoutineLike = {
   enabled: boolean;
   /** Session length for a hand-started routine; also the cap for an open-ended window. */
   durationMs: number | null;
+  /**
+   * When the routine was last saved or switched on. A window that was already open at
+   * that instant does not count: the user did not ask for a session that was "due"
+   * the moment they created the routine. Absent means every window counts.
+   */
+  updatedAt?: Millis;
 };
 
 /** An open-ended window ("hasta que lo termines") still ends on its own, eventually. */
@@ -61,7 +67,18 @@ function windowOnDay(routine: RoutineLike, dayAt: Millis): RoutineWindow | null 
   return { start, end };
 }
 
-/** The window containing `now`, if the routine is inside one right now. */
+/**
+ * A window that opened before the routine was last saved was already open when the
+ * routine became what it is. It never counts: only windows that open afterwards do.
+ */
+function openedBeforeSave(routine: RoutineLike, window: RoutineWindow): boolean {
+  return routine.updatedAt !== undefined && window.start < routine.updatedAt;
+}
+
+/**
+ * The window containing `now`, if the routine is inside one right now. A window
+ * that was already open when the routine was saved is not one of them.
+ */
 export function activeWindow(routine: RoutineLike, now: Millis): RoutineWindow | null {
   if (!routine.enabled || isManual(routine)) {
     return null;
@@ -72,7 +89,7 @@ export function activeWindow(routine: RoutineLike, now: Millis): RoutineWindow |
   for (const dayAt of [dayStartShifted(now, -1), now]) {
     const window = windowOnDay(routine, dayAt);
     if (window !== null && now >= window.start && now < window.end) {
-      return window;
+      return openedBeforeSave(routine, window) ? null : window;
     }
   }
   return null;
@@ -92,14 +109,37 @@ export function nextStart(routine: RoutineLike, now: Millis): Millis | null {
   return null;
 }
 
+/** What the engine last did, so a window never starts twice. */
+export type RoutineMark = {
+  routineId: string;
+  windowStart: Millis;
+};
+
+/** Whether `mark` is this routine's window: the engine already started it. */
+export function isMarked(routine: RoutineLike, window: RoutineWindow, mark: RoutineMark | null): boolean {
+  return mark !== null && mark.routineId === routine.id && mark.windowStart === window.start;
+}
+
 export type RoutineStatus =
   | { kind: 'off' }
   | { kind: 'manual' }
+  /** Inside a window the engine has not started yet. */
   | { kind: 'active'; until: Millis }
+  /**
+   * Inside a window the engine already started. Its session may still run, or the
+   * user may have ended it early: either way this window is done, it will not start
+   * again. `next` is the following start, so the list can say when.
+   */
+  | { kind: 'started'; until: Millis; next: Millis | null }
   | { kind: 'next'; at: Millis }
   | { kind: 'never' };
 
-export function routineStatus(routine: RoutineLike, now: Millis): RoutineStatus {
+/**
+ * What a routine is doing right now. `lastMark` is what the engine last started
+ * (settings.lastRoutineStart): without it a window whose session was ended early
+ * would still read as active, which it is not — a window never starts twice.
+ */
+export function routineStatus(routine: RoutineLike, now: Millis, lastMark: RoutineMark | null = null): RoutineStatus {
   if (!routine.enabled) {
     return { kind: 'off' };
   }
@@ -108,7 +148,9 @@ export function routineStatus(routine: RoutineLike, now: Millis): RoutineStatus 
   }
   const active = activeWindow(routine, now);
   if (active !== null) {
-    return { kind: 'active', until: active.end };
+    return isMarked(routine, active, lastMark)
+      ? { kind: 'started', until: active.end, next: nextStart(routine, now) }
+      : { kind: 'active', until: active.end };
   }
   const at = nextStart(routine, now);
   return at === null ? { kind: 'never' } : { kind: 'next', at };
@@ -118,11 +160,16 @@ export function routineStatus(routine: RoutineLike, now: Millis): RoutineStatus 
  * List order for the Rutinas tab: what is running first, then what comes soonest,
  * then the ones you start by hand, then the ones that are off.
  */
-export function sortRoutines<T extends RoutineLike>(routines: readonly T[], now: Millis): T[] {
+export function sortRoutines<T extends RoutineLike>(
+  routines: readonly T[],
+  now: Millis,
+  lastMark: RoutineMark | null = null,
+): T[] {
   const rank = (routine: T): [number, number] => {
-    const status = routineStatus(routine, now);
+    const status = routineStatus(routine, now, lastMark);
     switch (status.kind) {
       case 'active':
+      case 'started':
         return [0, status.until];
       case 'next':
         return [1, status.at];
@@ -158,12 +205,6 @@ export function dueRoutine<T extends RoutineLike>(
   return best;
 }
 
-/** What the engine last did, so a window never starts twice. */
-export type RoutineMark = {
-  routineId: string;
-  windowStart: Millis;
-};
-
 export type RoutineDecision =
   | { action: 'start'; routine: RoutineLike; window: RoutineWindow; plannedMs: number }
   | { action: 'wait'; routine: RoutineLike; window: RoutineWindow }
@@ -177,6 +218,8 @@ export type RoutineDecision =
  *   The next tick after that session ends will start it, if the window is still open.
  * - A window already started (same routine, same start) is never started again, even
  *   if its session was ended early. Ending it was a decision.
+ * - A window that was already open when the routine was saved is not due at all
+ *   (activeWindow): saving a routine is not asking for a session right now.
  */
 export function routineDecision(
   routines: readonly RoutineLike[],
@@ -188,7 +231,7 @@ export function routineDecision(
   if (due === null) {
     return { action: 'none' };
   }
-  if (lastMark !== null && lastMark.routineId === due.routine.id && lastMark.windowStart === due.window.start) {
+  if (isMarked(due.routine, due.window, lastMark)) {
     return { action: 'none' };
   }
   if (sessionRunning) {

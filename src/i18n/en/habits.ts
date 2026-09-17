@@ -4,8 +4,8 @@ export const habits: typeof shape = {
   section: {
     title: 'Habits this week',
     healthTip: 'Health marks this habit',
-    verified: 'verified by Health',
     verifiedSynced: (synced) => `verified by Health · ${synced}`,
+    verifiedNoHealth: 'Health not connected · manual mark',
     declared: 'declared',
     today: 'today',
     todayMarked: 'today ✓',

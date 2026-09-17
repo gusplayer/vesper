@@ -88,14 +88,18 @@ export function BarChart({ bars, guides = [], average, averageLabel, accessibili
       <View style={styles.labels}>
         {bars.map((bar) => (
           <View key={bar.key} style={styles.labelColumn}>
-            <Text variant="caption" tone="secondary" align="center">
-              {bar.label}
-            </Text>
-            {bar.sublabel === undefined ? null : (
-              <Text variant="caption" tone="tertiary" align="center">
-                {bar.sublabel}
+            {/* A month gives each column a few points: the label keeps its own width,
+                centred on the bar, and overflows the column instead of wrapping. */}
+            <View style={styles.label}>
+              <Text variant="caption" tone="secondary" align="center" numberOfLines={1}>
+                {bar.label}
               </Text>
-            )}
+              {bar.sublabel === undefined ? null : (
+                <Text variant="caption" tone="tertiary" align="center" numberOfLines={1}>
+                  {bar.sublabel}
+                </Text>
+              )}
+            </View>
           </View>
         ))}
       </View>
@@ -109,6 +113,8 @@ const HEIGHT = 160;
 const TOP_ROOM = 16;
 /** The right column shared by bars, labels, guide text and the average pill. */
 const GUTTER = 52;
+/** Room for a label like 'mié' or '30', whatever the column under it measures. */
+const LABEL_WIDTH = 36;
 
 const styles = StyleSheet.create({
   chart: {
@@ -171,5 +177,9 @@ const styles = StyleSheet.create({
   },
   labelColumn: {
     flex: 1,
+    alignItems: 'center',
+  },
+  label: {
+    width: LABEL_WIDTH,
   },
 });

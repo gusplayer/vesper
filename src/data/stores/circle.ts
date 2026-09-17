@@ -3,17 +3,17 @@ import { create } from 'zustand';
 import * as circleRepo from '../../db/repositories/circle';
 import * as settingsRepo from '../../db/repositories/settings';
 import {
+  circleFull,
   DEFAULT_SHARE_PREFS,
   endWeekKeyFor,
-  inviteCodeFor,
+  inviteCodeOutcome,
   kudosGivenToday,
-  normalizeInviteCode,
   weekKeyOf,
+  type InviteCodeOutcome,
 } from '../../domain/circle';
 import { dayKeyOf } from '../../domain/day';
 import { canAddHabit } from '../../domain/habits';
 import {
-  MAX_CIRCLE,
   ME,
   type Challenge,
   type ChallengeMark,
@@ -31,12 +31,13 @@ import { useAppStore } from './app';
  * hooks in src/data/index.ts and write through these actions; each one writes
  * through its repository first, then updates the cache, like the app store.
  *
- * There is no server yet. Inviting someone adds a row on this phone and nothing
- * leaves it; `src/platform/circle.ts` says so to the screens. Nothing here schedules
- * a notification, and nothing ever will: the circle is silent by decision.
+ * There is no server yet, so a code typed in goes nowhere: `invite` answers with why
+ * and creates nothing; `src/platform/circle.ts` says the same to the screens. Nothing
+ * here schedules a notification, and nothing ever will: the circle is silent by
+ * decision.
  */
 
-export type InviteResult = 'ok' | 'invalid' | 'full' | 'self';
+export type InviteResult = InviteCodeOutcome;
 export type AcceptResult = 'ok' | 'full';
 export type JoinResult = 'ok' | 'habitsFull';
 
@@ -69,8 +70,12 @@ type CircleState = {
   updateShare: (patch: Partial<SharePrefs>, now: number) => void;
 
   // People
-  /** Prototype: a valid code adds an 'invited' member named after the code. */
-  invite: (code: string, now: number) => InviteResult;
+  /**
+   * What a typed code amounts to. Without a server no request is sent and no row
+   * is written: the user's own code (any generation) is 'self', anything else that
+   * looks like a code is 'unavailable', and the rest is 'invalid'.
+   */
+  invite: (code: string) => InviteResult;
   acceptInvite: (memberId: string, now: number) => AcceptResult;
   declineInvite: (memberId: string) => void;
   /** Also drops their weeks, kudos and marks, and takes them out of every challenge. */
@@ -118,11 +123,6 @@ function linkHabit(name: string, weeklyTarget: number): string | null {
     .getState()
     .habits.find((h) => h.archivedAt === null && h.name.trim().toLowerCase() === wanted);
   return created?.id ?? null;
-}
-
-/** Seats taken: people in the circle and people the user has invited. */
-function seatsTaken(members: readonly Member[]): number {
-  return members.filter((m) => m.status !== 'pending').length;
 }
 
 export const useCircleStore = create<CircleState>((set, get) => {
@@ -203,35 +203,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
       set({ share });
     },
 
-    invite: (code, now) => {
-      const normalized = normalizeInviteCode(code);
-      if (normalized === null) {
-        return 'invalid';
-      }
-      const { profile, members } = get();
-      if (profile !== null && inviteCodeFor(profile) === normalized) {
-        return 'self';
-      }
-      const handle = normalized.toLowerCase();
-      if (members.some((m) => m.handle === handle)) {
-        // Already in the circle or already invited: nothing to add, nothing to say.
-        return 'ok';
-      }
-      if (seatsTaken(members) >= MAX_CIRCLE) {
-        return 'full';
-      }
-      const member: Member = {
-        id: uuidv7(now),
-        name: normalized,
-        handle,
-        status: 'invited',
-        joinedAt: null,
-        createdAt: now,
-      };
-      circleRepo.upsertMember(member);
-      set((state) => ({ members: [...state.members, member] }));
-      return 'ok';
-    },
+    invite: (code) => inviteCodeOutcome(get().profile, code),
 
     acceptInvite: (memberId, now) => {
       const { members } = get();
@@ -239,7 +211,8 @@ export const useCircleStore = create<CircleState>((set, get) => {
       if (pending === undefined) {
         return 'ok';
       }
-      if (seatsTaken(members) >= MAX_CIRCLE) {
+      // Someone asking already holds a seat; accepting only changes their status.
+      if (pending.status !== 'member' && circleFull(members.filter((m) => m.id !== memberId))) {
         return 'full';
       }
       const member: Member = { ...pending, status: 'member', joinedAt: now };

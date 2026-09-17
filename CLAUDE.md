@@ -54,7 +54,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Expo SDK con dev client (no Expo Go — ver ADR-0001)
 - TypeScript estricto, sin `any`
 - expo-router para navegación (`Stack` con guardas: onboarding o app)
-- op-sqlite para persistencia; migraciones `001`–`005` en `src/db/migrations/`
+- op-sqlite para persistencia; migraciones `001`–`006` en `src/db/migrations/`
 - Zustand para las cachés de la base (`src/data/stores/`) y el estado efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)

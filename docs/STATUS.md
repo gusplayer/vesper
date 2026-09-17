@@ -19,7 +19,7 @@ compila con Gradle.
 
 | Capacidad | iOS | Android | Verificado dónde |
 |---|---|---|---|
-| Persistencia (SQLite, migraciones 001–005, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
+| Persistencia (SQLite, migraciones 001–006, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
 | Sesión: reloj split-flap, modo horizontal, arte de foco (`?art=1`) | real | real | Simulador (capturas a mitad de giro, rotación por script, arte a 25/50/75/100 %). Sin medir el trazado de 6.000 puntos en un teléfono |
 | Botón de Focus: toque arranca, mantener solo en profundo, `InkFlood` (ADR-0022) | real | real | Simulador iPhone 17 con `idb`, capturas a mitad del gesto. Sin verificar "Reducir movimiento" ni el ritmo a ojo en teléfono |
 | Sesión sin límite (tope 12 h) y pausas de 15 min cada 25 min de foco | real | real | Simulador: sin límite desde la hoja, pausa a claro y vuelta con reloj congelado, relanzar en frío a mitad de sesión |
@@ -28,7 +28,7 @@ compila con Gradle.
 | Motor de rutinas: arranca la sesión de la ventana, espera si hay una, nunca dos veces; rutinas sin hora | real | real | Simulador: a las 16:16 de un miércoles "Trabajo" arrancó sola con "Trabajo profundo" |
 | Notificaciones locales (fin de sesión, fin de pausa, rutinas, cierre semanal; se replanifican al cambiar idioma) | real | real | Simulador iPhone 17: el aviso de rutina "Empieza Lectures · Modo Deep work. Toca para empezar la sesión." salió en la pantalla bloqueada y abrir la app cayó en la sesión. Sin verificar el fin de pausa en segundo plano ni nada en Android |
 | Live Activity: banner, isla (cinco regiones), relojes nativos, pausa en papel (ADR-0023) | real | no aplica | Simulador iPhone 17 Pro: banner contando con la app fuera, isla compacta y expandida en foco y pausa, tocar abre la sesión. Sin verificar sesión sin límite en la isla (solo tests) |
-| Salud: entrenamientos, pasos y sueño marcan hábitos verificados | real (`react-native-health`, con parche) | no existe (`status()` lo dice; sin Health Connect) | Solo compila. El simulador no tiene datos de Salud |
+| Salud: entrenamientos, pasos y sueño marcan hábitos verificados | real (`react-native-health`, con parche) | no existe (`status()` lo dice; sin Health Connect) | Simulador iPhone 17 Pro: "Conectar Salud" abre la hoja de permisos del sistema y queda "Salud conectada · última lectura"; sin datos que leer |
 | Bloqueo durante la sesión | integrado (`react-native-device-activity`); **imposible sin el entitlement de Apple** | real (`modules/vesper-blocking`: servicio `specialUse`, escudo superpuesto) | iOS: solo compila; las tres extensiones se generan en `targets/`. Android: emulador Pixel 6 (API 34) por adb: escudo sobre Ajustes y Reloj, baja con "Volver" |
 | Ventanas de rutina con la app cerrada | `DeviceActivity` por día (sin verificar) | `AlarmManager` exactas o con 10 min de holgura, `BootReceiver` | Android: ventana abierta con el proceso muerto, cierre al minuto, alarmas de vuelta tras `adb reboot`, servicio revivido tras `kill -9`. iOS: aritmética con tests, nada en dispositivo |
 | Pausa con el bloqueo (`pausePlan`/`resumePlan`) | `release()` + `applyPlan()` (sin verificar) | del servicio, sin JS | Android: notificación en pausa, reanudación al segundo tras `kill -9`, escudo subiendo sobre Ajustes |
@@ -130,15 +130,27 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 
 ## Deuda conocida
 
-- `react-native-health` lleva un parche en `patches/` (`setBridge:` no existe en RN 0.86).
-- Recargar el JS con la app abierta puede tumbar op-sqlite al destruir su caché de
-  nombres (`ResultPropNames`, SIGSEGV). Relanzar en frío no falla.
+- `react-native-health` lleva un parche en `patches/` con dos partes: `setBridge:` no
+  existe en RN 0.86, y su `index.js` copiaba con `Object.assign` un módulo que bajo la
+  New Architecture llega vacío (los métodos viven en el prototipo), así que Salud decía
+  "este build no incluye Salud" aunque el pod estaba enlazado. Ojo: con Xcode 16 el
+  ejecutable `Vesper.app/Vesper` es un stub; el código está en `Vesper.debug.dylib`.
+- El SIGSEGV de op-sqlite al recargar el JS (`ResultPropNames`) era su issue #446,
+  resuelto en 18.2.0; el proyecto usa 18.2.3 y sobrevive a la recarga. Un dev client
+  compilado antes del 2026-09-17 sigue cayendo: hay que recompilarlo.
 - `t.depth.label` está en minúscula; `DepthCards` capitaliza localmente.
 - `ios/` y `android/` no se versionan; se regeneran con `npx expo prebuild --clean` tras
   cambiar plugins o el widget. `targets/`, `modules/` y `patches/` sí se versionan. Un
   `ios/` viejo puede no traer `ExpoWidgetsTarget`: `--clean` lo arregla.
 - Los restos de la fase 1 (`repositories/sessionConfig.ts`, `queries/week.ts`, cinco
-  claves viejas de `settings`) se borran en la revisión del 2026-09-17 (ADR-0026).
+  claves viejas de `settings`) se borraron en la revisión del 2026-09-17 (ADR-0026).
+- Las ventanas nativas de rutina (`DeviceActivity` en iOS, `AlarmManager` en Android) no
+  aplican todavía la estampa `updated_at` de ADR-0026 §7: una rutina con selección real
+  guardada dentro de su ventana subiría el escudo esa misma vez. Hay que pasar
+  `updatedAt` en `RoutineWindowSpec` y saltar la primera ocurrencia cuando corresponda.
+- Círculo sin servidor: escribir un código ajeno responde "todavía no hay servidor"; solo
+  la invitación sembrada (Mateo) se puede aceptar. Es lo honesto hasta el backend (ADR-0021).
+- Sin textos legales: Acerca de no tiene Términos ni Privacidad hasta que existan.
 
 ## Historial
 

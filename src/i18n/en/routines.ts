@@ -9,6 +9,9 @@ export const routines: typeof shape = {
     clock: (time) => time,
     active: (clock) => `Active · until ${clock}`,
     running: (clock) => `Running · until ${clock}`,
+    // 'Tomorrow' loses its capital mid-sentence; a weekday name keeps it.
+    done: (day, clock) => `Done for today · ${day === 'Tomorrow' ? 'tomorrow' : day} at ${clock}`,
+    doneOnly: 'Done for today',
     next: (day, clock) => `${day} at ${clock}`,
     manual: (minutes) => `Whenever you want · ${minutes} min`,
     never: 'No days chosen',

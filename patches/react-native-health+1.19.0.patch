@@ -13,3 +13,36 @@ index e8ddce1..d3a99e2 100644
      [self sendEventWithName:notification.name
                     body:notification.userInfo];
    }
+diff --git a/node_modules/react-native-health/index.js b/node_modules/react-native-health/index.js
+index 06e5105..55c3d6f 100644
+--- a/node_modules/react-native-health/index.js
++++ b/node_modules/react-native-health/index.js
+@@ -2,13 +2,20 @@ import { Activities, Observers, Permissions, Units } from './src/constants'
+ 
+ const { AppleHealthKit } = require('react-native').NativeModules
+ 
+-export const HealthKit = Object.assign({}, AppleHealthKit, {
+-  Constants: {
+-    Activities,
+-    Observers,
+-    Permissions,
+-    Units,
+-  },
+-})
++const Constants = {
++  Activities,
++  Observers,
++  Permissions,
++  Units,
++}
++
++// Under the New Architecture (bridgeless) NativeModules.AppleHealthKit is an empty
++// object whose prototype is the TurboModule: methods only materialize on first access,
++// so `Object.assign({}, AppleHealthKit, ...)` copies nothing and every method comes out
++// undefined. Chaining to the module instead of copying it works on both architectures.
++export const HealthKit = Object.assign(
++  Object.create(AppleHealthKit === undefined || AppleHealthKit === null ? null : AppleHealthKit),
++  { Constants },
++)
+ 
+ module.exports = HealthKit

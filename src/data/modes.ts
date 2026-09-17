@@ -18,6 +18,19 @@ export type ModesStrings = Strings['modes'];
 
 type ModeShape = Pick<Mode, 'behavior' | 'appIds' | 'websiteIds'>;
 
+/**
+ * The mode that already carries `name`, ignoring case and surrounding spaces, or
+ * undefined. The onboarding uses it to point at the demo mode instead of creating a
+ * twin; the first match wins, so the oldest mode with that name is the one reused.
+ */
+export function findModeByName<T extends Pick<Mode, 'name'>>(modes: readonly T[], name: string): T | undefined {
+  const wanted = name.trim().toLowerCase();
+  if (wanted === '') {
+    return undefined;
+  }
+  return modes.find((mode) => mode.name.trim().toLowerCase() === wanted);
+}
+
 /** 'Bloquea 4 apps · 3 sitios' or 'Permite solo 3 apps' — the line under a mode name. */
 export function modeSummaryText(mode: ModeShape, t: ModesStrings): string {
   const apps = t.summary.apps(mode.appIds.length);

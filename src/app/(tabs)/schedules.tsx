@@ -2,7 +2,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
-import { useAppStore, useFocusStore, useModes, useRunningSession, useSchedules } from '../../data';
+import { useAppStore, useFocusStore, useModes, useRunningSession, useSchedules, useSettings } from '../../data';
 import { modeSummaryText } from '../../data/modes';
 import type { Schedule } from '../../data/types';
 import {
@@ -39,6 +39,8 @@ export default function SchedulesScreen() {
   const router = useRouter();
   const t = useStrings();
   const now = useNow(CLOCK_MS);
+  // The routine the user last started by hand: its window reads as 'started', not 'active'.
+  const lastMark = useSettings().lastRoutineStart;
   const schedules = useSchedules();
   const modes = useModes();
   const running = useRunningSession();
@@ -101,7 +103,7 @@ export default function SchedulesScreen() {
     return mode === undefined ? t.routines.list.missingMode : `${mode.name} · ${modeSummaryText(mode, t.modes)}`;
   };
 
-  const ordered = sortRoutines(schedules, now);
+  const ordered = sortRoutines(schedules, now, lastMark);
 
   return (
     <Screen scroll inTabs>
@@ -140,7 +142,7 @@ export default function SchedulesScreen() {
       ) : (
         <Stack gap="md">
           {ordered.map((schedule) => {
-            const status = routineStatus(schedule, now);
+            const status = routineStatus(schedule, now, lastMark);
             const statusLine = statusText(status, now, t.routines, {
               running: running !== null && runningModeId === schedule.modeId,
               durationMs: schedule.durationMs,

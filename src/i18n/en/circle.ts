@@ -11,9 +11,11 @@ function joinNames(names: readonly string[]): string {
   return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 }
 
+const unavailable = 'There is no connection between phones yet. What you see is sample data.';
+
 export const circle: typeof shape = {
   sync: {
-    unavailable: 'There is no connection between phones yet. What you see is sample data.',
+    unavailable,
   },
   section: {
     title: 'Your circle',
@@ -113,10 +115,9 @@ export const circle: typeof shape = {
     codePlaceholder: 'six letters or digits',
     send: 'Ask to join their circle',
     result: {
-      ok: 'Request sent. Once they accept, they appear in your circle.',
-      invalid: 'That code does not exist. It is six letters or digits.',
-      full: 'Your circle is full. Twelve is the maximum, on purpose.',
+      invalid: 'A code is six letters or digits.',
       self: 'That is your own code.',
+      unavailable,
     },
     pending: 'Want to join your circle',
     invitedYou: 'used your code',
@@ -141,7 +142,6 @@ export const circle: typeof shape = {
     noProfileTitle: 'Create your profile first.',
     noProfileBody: 'A name and a handle, on this phone. Then tap the link again.',
     createProfile: 'Create your profile',
-    goToCircle: 'See circle',
   },
   settings: {
     title: 'Circle',

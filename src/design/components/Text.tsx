@@ -16,6 +16,8 @@ type TextProps = {
   accessibilityRole?: 'header' | 'text';
   /** A glyph that only decorates (a dot, a colon): VoiceOver skips it. */
   decorative?: boolean;
+  /** Clip instead of wrapping: chart labels, values in tight rows. */
+  numberOfLines?: number;
 };
 
 const DEFAULT_WEIGHT: Record<TextVariant, 'regular' | 'medium' | 'semibold'> = {
@@ -54,12 +56,14 @@ export function Text({
   style,
   accessibilityRole,
   decorative = false,
+  numberOfLines,
 }: TextProps) {
   const { colors } = useTheme();
   const resolvedWeight = weight ?? DEFAULT_WEIGHT[variant];
   return (
     <RNText
       accessibilityRole={accessibilityRole}
+      numberOfLines={numberOfLines}
       accessible={decorative ? false : undefined}
       importantForAccessibility={decorative ? 'no' : undefined}
       // Big type is welcome on titles; captions and labels stop at 1.6× so fixed
