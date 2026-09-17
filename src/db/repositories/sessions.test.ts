@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { aDoneSession, aRunningSession, T0 } from '../../domain/fixtures';
-import { HOUR } from '../../domain/time';
+import { BREAK_EVERY_MS, BREAK_MS } from '../../domain/session';
+import { HOUR, MINUTE } from '../../domain/time';
 import { INIT_SQL } from '../migrations/001_init';
+import { OPEN_SESSIONS_BREAKS_SQL } from '../migrations/005_open_sessions_breaks';
 import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
 import * as sessions from './sessions';
 
@@ -13,7 +15,7 @@ vi.mock('../client', () => ({
   rowsAs: (result: { rows: FakeRows }) => result.rows,
 }));
 
-function runningRow(id: string, startedAt: number, plannedMs: number) {
+function runningRow(id: string, startedAt: number, plannedMs: number, extra: Record<string, unknown> = {}) {
   return {
     id,
     activity_id: 'activity-work',
@@ -27,6 +29,11 @@ function runningRow(id: string, startedAt: number, plannedMs: number) {
     interruptions: 2,
     started_at: startedAt,
     ended_at: null,
+    open: 0,
+    break_ms: 0,
+    break_started_at: null,
+    next_break_at_ms: BREAK_EVERY_MS,
+    ...extra,
   };
 }
 
@@ -35,7 +42,7 @@ beforeEach(() => {
 });
 
 describe('insert', () => {
-  it('writes the 12 params in column order', () => {
+  it('writes the 16 params in column order', () => {
     const session = aRunningSession({ intention: 'leer', blockProfile: null });
 
     sessions.insert(session);
@@ -54,6 +61,10 @@ describe('insert', () => {
       'interruptions',
       'started_at',
       'ended_at',
+      'open',
+      'break_ms',
+      'break_started_at',
+      'next_break_at_ms',
     ]);
     expect(call.params).toEqual([
       'session-1',
@@ -68,28 +79,45 @@ describe('insert', () => {
       0,
       T0,
       null,
+      0,
+      0,
+      null,
+      BREAK_EVERY_MS,
     ]);
-    expect(call.params).toHaveLength(12);
+    expect(call.params).toHaveLength(16);
   });
 });
 
 describe('update', () => {
-  it('writes the mutable columns, intention included, then the id', () => {
+  it('writes the mutable columns, intention and breaks included, then the id', () => {
     const closed = aDoneSession(HOUR, T0, {
       outcome: 'cancelled',
       actualMs: HOUR / 2,
       exitReason: 'llamada',
       interruptions: 3,
       intention: 'leer',
+      breakMs: 10 * MINUTE,
+      nextBreakAtMs: 55 * MINUTE,
     });
 
     sessions.update(closed);
 
     const call = fake.callMatching(/UPDATE sessions/);
     expect(call.sql).toMatch(
-      /SET actual_ms = \?, outcome = \?, exit_reason = \?, interruptions = \?, ended_at = \?,\s+intention = \?/,
+      /SET actual_ms = \?, outcome = \?, exit_reason = \?, interruptions = \?, ended_at = \?,\s+intention = \?, break_ms = \?, break_started_at = \?, next_break_at_ms = \?/,
     );
-    expect(call.params).toEqual([HOUR / 2, 'cancelled', 'llamada', 3, T0 + HOUR, 'leer', 'session-1']);
+    expect(call.params).toEqual([
+      HOUR / 2,
+      'cancelled',
+      'llamada',
+      3,
+      T0 + HOUR,
+      'leer',
+      10 * MINUTE,
+      null,
+      55 * MINUTE,
+      'session-1',
+    ]);
   });
 });
 
@@ -127,7 +155,17 @@ describe('findRunning', () => {
       interruptions: 2,
       startedAt: T0,
       endedAt: null,
+      open: false,
+      breakMs: 0,
+      breakStartedAt: null,
+      nextBreakAtMs: BREAK_EVERY_MS,
     });
+  });
+
+  it('reads the open flag as a boolean', () => {
+    fake.whenSql("outcome = 'running'", [runningRow('s-open', T0, 12 * HOUR, { open: 1 })]);
+
+    expect(sessions.findRunning()?.open).toBe(true);
   });
 });
 
@@ -142,20 +180,36 @@ describe('listBetween', () => {
 
 describe('recoverOrphans', () => {
   it('closes each orphan as expired at its planned end and returns the count', () => {
-    fake.whenSql('started_at + planned_ms <= ?', [
-      runningRow('s-1', T0, HOUR),
-      runningRow('s-2', T0 + HOUR, 2 * HOUR),
-    ]);
+    fake.whenSql("outcome = 'running'", [runningRow('s-1', T0, HOUR), runningRow('s-2', T0 + HOUR, 2 * HOUR)]);
 
     const recovered = sessions.recoverOrphans(T0 + 10 * HOUR);
 
     expect(recovered).toBe(2);
-    expect(fake.callMatching('started_at + planned_ms <= ?').params).toEqual([T0 + 10 * HOUR]);
 
     const updates = fake.calls.filter((call) => call.sql.includes('UPDATE sessions'));
     expect(updates).toHaveLength(2);
-    expect(updates[0]?.params).toEqual([HOUR, 'expired', null, 2, T0 + HOUR, 'leer', 's-1']);
-    expect(updates[1]?.params).toEqual([2 * HOUR, 'expired', null, 2, T0 + 3 * HOUR, 'leer', 's-2']);
+    expect(updates[0]?.params).toEqual([HOUR, 'expired', null, 2, T0 + HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-1']);
+    expect(updates[1]?.params).toEqual([2 * HOUR, 'expired', null, 2, T0 + 3 * HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-2']);
+  });
+
+  it('leaves a session still inside its window alone', () => {
+    fake.whenSql("outcome = 'running'", [runningRow('s-1', T0, HOUR)]);
+
+    expect(sessions.recoverOrphans(T0 + 10 * MINUTE)).toBe(0);
+    expect(fake.calls.some((call) => call.sql.includes('UPDATE'))).toBe(false);
+  });
+
+  it('ends a break past its length and keeps the session running', () => {
+    fake.whenSql("outcome = 'running'", [
+      runningRow('s-1', T0, HOUR, { break_started_at: T0 + 30 * MINUTE, next_break_at_ms: 25 * MINUTE }),
+    ]);
+
+    const expired = sessions.recoverOrphans(T0 + 50 * MINUTE);
+
+    expect(expired).toBe(0);
+    const update = fake.callMatching(/UPDATE sessions/);
+    // Ended at its own end: 15 min on record, the clock frozen at 30 min of focus.
+    expect(update.params).toEqual([0, 'running', null, 2, null, 'leer', BREAK_MS, null, 30 * MINUTE + BREAK_EVERY_MS, 's-1']);
   });
 
   it('writes nothing when there is no orphan', () => {
@@ -171,7 +225,7 @@ describe('schema', () => {
 
     const { table, columns } = insertColumns(fake.callMatching(/INSERT/).sql);
     expect(table).toBe('sessions');
-    const declared = ddlColumns(INIT_SQL, table);
+    const declared = ddlColumns(INIT_SQL + OPEN_SESSIONS_BREAKS_SQL, table);
     for (const column of columns) {
       expect(declared).toContain(column);
     }

@@ -58,7 +58,13 @@ export function ddlColumns(ddl: string, table: string): string[] {
   const created = body
     .split('\n')
     .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('--') && !line.startsWith('UNIQUE'))
+    .filter(
+      (line) =>
+        line.length > 0 &&
+        !line.startsWith('--') &&
+        !line.startsWith('UNIQUE') &&
+        !line.startsWith('PRIMARY KEY'),
+    )
     .map((line) => line.split(/\s+/)[0] ?? '');
   // Later migrations add columns with ALTER TABLE; they count too.
   const added = [...ddl.matchAll(new RegExp(`ALTER TABLE ${table} ADD COLUMN (\\w+)`, 'g'))].map(

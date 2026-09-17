@@ -3,18 +3,23 @@ import type { focus as shape } from '../es/focus';
 export const focus: typeof shape = {
   home: {
     resume: 'Resume',
-    holdToFocus: 'Hold to focus',
-    holdHint: (minutes) => `${minutes} min · tap to change`,
-    seeActivity: 'See activity ›',
+    inSession: (elapsed, planned) => `In session · ${elapsed} of ${planned}`,
+    inSessionOpen: (elapsed) => `In session · ${elapsed} · no limit`,
+    focusFor: (minutes) => `Focus for ${minutes} min`,
+    focusOpen: 'Focus with no limit',
+    holdFor: (minutes) => `Hold to focus for ${minutes} min`,
     noModes: 'No modes',
     noModesHint: 'A mode says what gets blocked while you focus',
     createFirstMode: 'Create your first mode ›',
   },
   pill: {
-    todayAndWeek: (today, week) => `${today} today · ${week} this week`,
-    todayOnly: (today) => `${today} focused today`,
-    label: (today, week) =>
-      `Today: ${today} focused${week === null ? '' : `. This week: ${week}`}. See activity`,
+    today: (today) => `${today} focused today`,
+    label: (today) => `Today: ${today} focused. See activity`,
+  },
+  durationPicker: {
+    minutes: (minutes) => `${minutes} min`,
+    open: 'No limit',
+    label: (current) => `Duration: ${current}. Tap to change`,
   },
   modePicker: {
     title: 'Mode',

@@ -29,6 +29,9 @@ Lee `docs/adr/` antes de proponer cambios de arquitectura.
 8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué no (ADR-0012, ADR-0017).
 9. **Nunca sumar tiempo verificado y declarado en una misma métrica.** Ver ADR-0005.
 10. **Nunca persistir datos de `DeviceActivityReport`.** Es técnicamente imposible y arquitectónicamente prohibido. Ver ADR-0004.
+11. **El círculo no notifica, no rankea y no tiene feed.** Hasta 12 personas por invitación,
+    comparación sin posiciones, ánimo una vez al día, y cada métrica se comparte solo si el
+    usuario lo elige. Un reto ocupa un hábito (regla 4). Ver ADR-0021.
 
 ## Stack
 
@@ -96,7 +99,8 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 
 - No agregues librerías de UI ni de gráficos. Los componentes son 32 y se escriben a mano;
   las barras y grillas se dibujan con `View`.
-- No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal.
+- No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal. En el
+  círculo tampoco: sin puntos, sin medallas, sin contador de ánimos.
 - No implementes bloqueo de apps real: lo que existe es su UI con datos falsos. Ver ADR-0003 y ADR-0016.
 - No presentes como real lo que `src/platform/` reporta como no disponible. Los datos de
   demostración se siembran una vez y se borran desde Ajustes.

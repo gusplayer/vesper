@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { bootAndHydrate, useAppStore } from '../data';
 import type { BootResult } from '../db/boot';
 import { DevJump } from '../dev/DevJump';
+import { SessionGate } from '../features/session/SessionGate';
 import { PlatformEffects } from '../platform/PlatformEffects';
 import { lockPortrait } from '../platform/orientation';
 import { FatalError } from '../design/components';
@@ -20,7 +21,8 @@ import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
  * worse than a blank page.
  *
  * Two worlds behind guards: onboarding until it is done, the app after. The session
- * routes are full screen and cannot be swiped away (ADR-0009 still holds there).
+ * routes are full screen and cannot be swiped away (ADR-0009 still holds there);
+ * SessionGate pulls the app into them whenever a session is running.
  *
  * The database is opened, migrated and read into the stores here, synchronously,
  * before anything renders (ADR-0017): op-sqlite is sync, so no screen has to handle
@@ -69,6 +71,7 @@ export default function RootLayout() {
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       {__DEV__ ? <DevJump /> : null}
       <PlatformEffects />
+      <SessionGate />
       <Stack screenOptions={stackScreenOptions}>
         <Stack.Protected guard={!onboardingDone}>
           <Stack.Screen name="onboarding" />
@@ -92,8 +95,14 @@ export default function RootLayout() {
           <Stack.Screen name="settings/life" />
           <Stack.Screen name="settings/help" />
           <Stack.Screen name="settings/about" />
+          <Stack.Screen name="settings/circle" />
           <Stack.Screen name="habits/edit" />
           <Stack.Screen name="habits/new" />
+          <Stack.Screen name="circle/index" />
+          <Stack.Screen name="circle/invite" />
+          <Stack.Screen name="circle/join" />
+          <Stack.Screen name="circle/challenge" />
+          <Stack.Screen name="circle/challenge-new" />
         </Stack.Protected>
       </Stack>
     </ThemeProvider>

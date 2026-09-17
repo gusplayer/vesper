@@ -13,6 +13,10 @@ export const notifications = {
     /** `duration` is '1h 15m', language-neutral. */
     body: (duration: string) => `${duration} de foco. Vuelve a Vesper para cerrarla.`,
   },
+  breakEnd: {
+    title: 'Se acabó la pausa',
+    body: 'Las apps vuelven a bloquearse. Tu sesión sigue.',
+  },
   schedule: {
     title: (scheduleName: string) => `Empieza ${scheduleName}`,
     body: (modeName: string) => `Modo ${modeName}. Toca para enfocar.`,

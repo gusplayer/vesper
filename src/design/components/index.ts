@@ -4,6 +4,7 @@
  */
 export { AppIcon } from './AppIcon';
 export { AppIconStack } from './AppIconStack';
+export { Avatar } from './Avatar';
 export { Banner } from './Banner';
 export { BarChart, type Bar } from './BarChart';
 export { Button } from './Button';
@@ -50,3 +51,5 @@ export { StippleCanvas } from './StippleCanvas';
 export { HeatGrid, type HeatCell } from './HeatGrid';
 export { ScheduleCard } from './ScheduleCard';
 export { HoldButton } from './HoldButton';
+export { QrCode } from './QrCode';
+export { InkFlood } from './InkFlood';

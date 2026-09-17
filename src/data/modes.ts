@@ -52,10 +52,10 @@ export function countText(count: number, singular: string, plural: string): stri
 export const PLANNED_OPTIONS_MS: ReadonlyArray<number> = [5, 25, 50, 90, 120].map((m) => m * MINUTE);
 
 /**
- * The duration picked last time, so the long press on the focus button can start
- * without asking. Not persisted: the prototype forgets on relaunch (ADR-0016).
+ * The duration picked for the next session, shown on the focus button. Null is
+ * "sin límite" (ADR-0022). Not persisted: the prototype forgets on relaunch (ADR-0016).
  */
-export const usePlannedStore = create<{ plannedMs: number; setPlannedMs: (ms: number) => void }>(
+export const usePlannedStore = create<{ plannedMs: number | null; setPlannedMs: (ms: number | null) => void }>(
   (set) => ({
     plannedMs: DEFAULT_PLANNED_MS,
     setPlannedMs: (plannedMs) => set({ plannedMs }),

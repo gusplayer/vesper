@@ -59,7 +59,17 @@ Todo el texto pasa por `Text` con `variant` y `tone`. Sin mayúsculas completas 
 - `radius`: 10, 14, 20, 28, pastilla.
 - `layout`: margen de página 20, objetivo táctil 44, objeto central 132, icono de app 24/40/56.
 - `shadow.card` suave y ancha; `shadow.hero` para el objeto central. En Android, `elevation`.
-- Movimiento: fade de 160 ms entre rutas. Sin springs, sin rebote de scroll.
+- Movimiento: fade de 160 ms entre rutas. Sin springs, sin rebote de scroll. La grilla de
+  días (`HeatGrid`) se enciende cuadro a cuadro al aparecer, al azar y a distinto ritmo,
+  unos pocos con una duda breve; el de hoy no lleva borde: respira lento y suave (hasta
+  40 % y vuelve). Solo opacidad, y con "Reducir movimiento" activo se ve todo encendido
+  de una vez.
+- Entrar en sesión es una **disolución punteada**, el mismo lenguaje del arte de foco
+  (ADR-0018): `HoldButton` llena la pastilla de puntos de papel desde los extremos hacia
+  el centro mientras se mantiene (`motion.holdMs`), y `InkFlood` inunda la página de tinta
+  desde el botón (`motion.floodMs`, 520 ms) antes de que abra la ruta oscura. Los puntos
+  salen de `src/lib/dissolve.ts` agrupados en capas (`motion.dissolve`), una opacidad por
+  capa con el driver nativo; nada se escala ni rebota.
 
 ## Componentes
 

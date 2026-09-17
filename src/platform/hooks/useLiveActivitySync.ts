@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
+import { breakEndsAt, plannedEndAt } from '../../domain/session';
 import { getStrings } from '../../i18n';
 import { endFocus, startFocus, status, updateFocus, type FocusInput } from '../liveActivity';
 
@@ -24,11 +25,19 @@ function currentInput(): FocusInput | null {
     return null;
   }
   const mode = useAppStore.getState().modes.find((m) => m.id === modeId);
+  // A session whose mode was deleted meanwhile still needs a name.
+  const modeName = mode?.name ?? getStrings().session.liveActivity.fallbackModeName;
+  const breakEnd = breakEndsAt(session);
+  if (breakEnd !== null && session.breakStartedAt !== null) {
+    // The break counts down on its own; the session waits behind it.
+    return { modeName, phase: 'break', startedAt: session.breakStartedAt, endsAt: breakEnd };
+  }
   return {
-    // A session whose mode was deleted meanwhile still needs a name.
-    modeName: mode?.name ?? getStrings().session.liveActivity.fallbackModeName,
+    modeName,
+    phase: session.open ? 'open' : 'focus',
     startedAt: session.startedAt,
-    endsAt: session.startedAt + session.plannedMs,
+    // Never null outside a break; the cap for an open session, which counts up anyway.
+    endsAt: plannedEndAt(session) ?? session.startedAt + session.plannedMs,
   };
 }
 
@@ -84,9 +93,14 @@ export function useLiveActivitySync(): void {
     sync();
 
     const unsubscribeFocus = useFocusStore.subscribe((state, previous) => {
-      // Only the session's identity matters: editing its intention changes nothing here.
+      // The identity decides whether there is an activity; a break changes what it shows.
       if (state.session?.id !== previous.session?.id) {
         sync();
+      } else if (
+        state.session?.breakStartedAt !== previous.session?.breakStartedAt ||
+        state.session?.breakMs !== previous.session?.breakMs
+      ) {
+        refresh();
       }
     });
     const unsubscribeApp = useAppStore.subscribe((state, previous) => {

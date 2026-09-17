@@ -1,6 +1,7 @@
 import type { Mode, NotificationPrefs, Schedule } from '../data/types';
 import { es, type Strings } from '../i18n/es';
 import { durationText } from '../lib/format';
+import { breakEndsAt, plannedEndAt } from './session';
 import type { Session } from './types';
 
 /**
@@ -19,7 +20,7 @@ import type { Session } from './types';
 
 export type ReminderStrings = Strings['notifications'];
 
-export type NotificationKind = 'sessionEnd' | 'schedule' | 'weeklyClose';
+export type NotificationKind = 'sessionEnd' | 'breakEnd' | 'schedule' | 'weeklyClose';
 
 type SpecBase = {
   id: string;
@@ -61,17 +62,43 @@ export function expoWeekday(mondayFirstIndex: number): number {
 }
 
 /**
- * The one notice at the planned end of a session. Its instant comes from
- * `startedAt + plannedMs`, never from "now": the OS keeps time while the app sleeps.
+ * The one notice at the planned end of a session. Its instant is the planned end on
+ * the wall clock (start, plan and breaks), never "now": the OS keeps time while the
+ * app sleeps. Null during a break, when the end is not known yet, and for an open
+ * session, which has no end to announce.
  */
-export function sessionEndReminder(session: Session, t: ReminderStrings = es.notifications): DateSpec {
+export function sessionEndReminder(session: Session, t: ReminderStrings = es.notifications): DateSpec | null {
+  const at = plannedEndAt(session);
+  if (at === null || session.open) {
+    return null;
+  }
   return {
     id: `session-end-${session.id}`,
     kind: 'sessionEnd',
     trigger: 'date',
-    at: session.startedAt + session.plannedMs,
+    at,
     title: t.sessionEnd.title,
     body: t.sessionEnd.body(durationText(session.plannedMs)),
+    sound: true,
+  };
+}
+
+/**
+ * The notice when a break runs out: the apps lock again and the session goes on.
+ * Its id changes with each break, so a new break is a new notice for the diff.
+ */
+export function breakEndReminder(session: Session, t: ReminderStrings = es.notifications): DateSpec | null {
+  const at = breakEndsAt(session);
+  if (at === null) {
+    return null;
+  }
+  return {
+    id: `break-end-${session.id}-${session.breakStartedAt}`,
+    kind: 'breakEnd',
+    trigger: 'date',
+    at,
+    title: t.breakEnd.title,
+    body: t.breakEnd.body,
     sound: true,
   };
 }
@@ -149,7 +176,11 @@ export function plannedNotifications(state: ReminderState, t: ReminderStrings = 
   const specs: NotificationSpec[] = [];
 
   if (state.prefs.sessionEnd && state.session !== null && state.session.outcome === 'running') {
-    specs.push(sessionEndReminder(state.session, t));
+    for (const spec of [sessionEndReminder(state.session, t), breakEndReminder(state.session, t)]) {
+      if (spec !== null) {
+        specs.push(spec);
+      }
+    }
   }
 
   if (state.prefs.coaching) {

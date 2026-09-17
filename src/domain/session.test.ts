@@ -2,21 +2,33 @@ import { describe, expect, it } from 'vitest';
 
 import { aDoneSession, anActivity, aRunningSession, T0 } from './fixtures';
 import {
+  allowsBreaks,
+  breakAvailableIn,
+  breakEndsAt,
   canGiveUp,
+  canTakeBreak,
   close,
   createSession,
   DEFAULT_DEPTH,
   DEFAULT_PLANNED_MS,
+  dueOutcome,
+  effectiveDepth,
   elapsed,
+  endBreak,
   expire,
   interrupt,
+  isBreakOver,
   isDepth,
   isDue,
   isValidPlannedMs,
+  OPEN_SESSION_CAP_MS,
+  plannedEndAt,
   remaining,
   resolveSessionConfig,
   served,
   sessionProgress,
+  settle,
+  startBreak,
   type SessionConfig,
 } from './session';
 import { HOUR, MINUTE } from './time';
@@ -340,5 +352,119 @@ describe('interrupt', () => {
 
   it('never cancels the session', () => {
     expect(interrupt(running({ depth: 'deep' })).outcome).toBe('running');
+  });
+});
+
+describe('open sessions (ADR-0022)', () => {
+  it('takes the cap as its plan and never runs deep', () => {
+    const session = running({ open: true, depth: 'deep', plannedMs: 5 * MINUTE });
+
+    expect(session.open).toBe(true);
+    expect(session.plannedMs).toBe(OPEN_SESSION_CAP_MS);
+    expect(session.depth).toBe('firm');
+    expect(running({ open: true, depth: 'soft' }).depth).toBe('soft');
+    expect(effectiveDepth('deep', false)).toBe('deep');
+  });
+
+  it('is due at the cap and expires rather than completes', () => {
+    const session = running({ open: true });
+
+    expect(isDue(session, T0 + OPEN_SESSION_CAP_MS - 1)).toBe(false);
+    expect(isDue(session, T0 + OPEN_SESSION_CAP_MS)).toBe(true);
+    expect(dueOutcome(session)).toBe('expired');
+    expect(dueOutcome(running())).toBe('completed');
+  });
+});
+
+describe('breaks (ADR-0022)', () => {
+  const at = (minutes: number) => T0 + minutes * MINUTE;
+
+  it('unlock after 25 minutes of focus, never in deep', () => {
+    const session = running({ plannedMs: HOUR });
+
+    expect(canTakeBreak(session, at(24))).toBe(false);
+    expect(breakAvailableIn(session, at(20))).toBe(5 * MINUTE);
+    expect(canTakeBreak(session, at(25))).toBe(true);
+    expect(allowsBreaks('deep')).toBe(false);
+    expect(canTakeBreak(running({ plannedMs: HOUR, depth: 'deep' }), at(30))).toBe(false);
+    expect(() => startBreak(session, at(10))).toThrow();
+  });
+
+  it('freeze the clock and end by themselves after 15 minutes', () => {
+    const session = startBreak(running({ plannedMs: HOUR }), at(30));
+
+    expect(elapsed(session, at(40))).toBe(30 * MINUTE);
+    expect(breakEndsAt(session)).toBe(at(45));
+    expect(isBreakOver(session, at(44))).toBe(false);
+    expect(isBreakOver(session, at(45))).toBe(true);
+    expect(plannedEndAt(session)).toBeNull();
+    expect(isDue(session, at(200))).toBe(false);
+    // Noticed late, the break still counts its full length and no more: the clock
+    // runs again from minute 45, and settle() ends the break at that instant.
+    expect(elapsed(session, at(70))).toBe(55 * MINUTE);
+  });
+
+  it('push the end back by what they took, and unlock the next one 25 minutes later', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+    const resumed = endBreak(paused, at(40));
+
+    expect(resumed.breakMs).toBe(10 * MINUTE);
+    expect(resumed.breakStartedAt).toBeNull();
+    expect(elapsed(resumed, at(50))).toBe(40 * MINUTE);
+    expect(plannedEndAt(resumed)).toBe(at(70));
+    expect(isDue(resumed, at(70))).toBe(true);
+    expect(resumed.nextBreakAtMs).toBe(55 * MINUTE);
+    expect(canTakeBreak(resumed, at(60))).toBe(false);
+    expect(canTakeBreak(resumed, at(65))).toBe(true);
+    expect(endBreak(resumed, at(50))).toBe(resumed);
+  });
+
+  it('are not focus when the session closes, and closing ends them', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+    const closed = close(paused, at(40), 'cancelled');
+
+    expect(closed.actualMs).toBe(30 * MINUTE);
+    expect(closed.breakMs).toBe(10 * MINUTE);
+    expect(closed.breakStartedAt).toBeNull();
+  });
+
+  it('do not count leaving the app as an interruption', () => {
+    const paused = startBreak(running({ plannedMs: HOUR, depth: 'firm' }), at(30));
+
+    expect(interrupt(paused)).toBe(paused);
+  });
+});
+
+describe('settle', () => {
+  const at = (minutes: number) => T0 + minutes * MINUTE;
+
+  it('returns the same session when nothing is owed', () => {
+    const session = running({ plannedMs: HOUR });
+    expect(settle(session, at(10))).toBe(session);
+    expect(settle(close(session, at(10), 'cancelled'), at(500))).toEqual(close(session, at(10), 'cancelled'));
+  });
+
+  it('ends an overdue break at its own end and keeps the session running', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+    const settled = settle(paused, at(50));
+
+    expect(settled.outcome).toBe('running');
+    expect(settled.breakMs).toBe(15 * MINUTE);
+    expect(settled.breakStartedAt).toBeNull();
+    expect(elapsed(settled, at(50)).toString()).toBe(String(35 * MINUTE));
+  });
+
+  it('expires a session past its end, at that end, breaks included', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30));
+    const settled = settle(paused, at(200));
+
+    expect(settled.outcome).toBe('expired');
+    expect(settled.actualMs).toBe(HOUR);
+    expect(settled.endedAt).toBe(at(75));
+    expect(settle(running({ plannedMs: HOUR }), at(60)).endedAt).toBe(at(60));
+  });
+
+  it('refuses to expire a session still on a break', () => {
+    expect(() => expire(startBreak(running({ plannedMs: HOUR }), at(30)))).toThrow();
   });
 });

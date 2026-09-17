@@ -45,4 +45,7 @@ export const demo: DemoStrings = {
     read: 'read',
     sleep: 'sleep 7h',
   },
+  challengeName: {
+    reading: 'Read',
+  },
 };

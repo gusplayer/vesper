@@ -1,7 +1,9 @@
+import { demoChallenge, demoChallengeMarks, demoKudos, demoMembers, demoMemberWeeks } from '../data/circleSeed';
 import { demoActivities, demoHabits, demoModes, demoSchedules, seedDemoSessions, seedHabitMarks } from '../data/seed';
 import type { Strings } from '../i18n/es';
 import { getDb } from './client';
 import * as activities from './repositories/activities';
+import * as circle from './repositories/circle';
 import * as habits from './repositories/habits';
 import * as modes from './repositories/modes';
 import * as schedules from './repositories/schedules';
@@ -78,6 +80,20 @@ function seedDemoData(now: number, demo: DemoStrings): boolean {
     for (const session of seedDemoSessions(now)) {
       sessions.insert({ ...session, activityId: resolveActivityId(session.activityId) });
     }
+    // The circle (ADR-0021): people, weeks, kudos and a challenge. Never the profile.
+    for (const member of demoMembers(now)) {
+      circle.upsertMember(member);
+    }
+    for (const week of demoMemberWeeks(now)) {
+      circle.upsertMemberWeek(week);
+    }
+    for (const kudos of demoKudos(now)) {
+      circle.insertKudos(kudos);
+    }
+    circle.upsertChallenge(demoChallenge(now, demo));
+    for (const mark of demoChallengeMarks(now)) {
+      circle.upsertChallengeMark(mark);
+    }
     const firstMode = seededModes[0];
     if (firstMode !== undefined) {
       settings.setActiveModeId(firstMode.id, now);
@@ -109,6 +125,11 @@ export function bootDatabase(now: number, demo: DemoStrings): BootResult {
 
 /** Children before parents, so the foreign keys let every DELETE through. */
 const TABLES_IN_DELETE_ORDER = [
+  'challenge_marks',
+  'challenges',
+  'kudos',
+  'member_weeks',
+  'circle_members',
   'habit_marks',
   'sessions',
   'habits',

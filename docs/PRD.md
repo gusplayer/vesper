@@ -45,7 +45,9 @@ manteniendo pulsado. Si fuera una página, un deslizamiento abandonaría una ses
 - Duración de la próxima sesión, grande, con la última configuración ya aplicada
 - Línea de contexto: `actividad · profundidad · sin bloqueo` en fase 1. Cuando llegue el
   bloqueo, el tercer término pasa a ser el perfil
-- Botón único: `empezar`. Si hay una sesión corriendo, dice `seguir` y vuelve a ella
+- Botón único: `Enfocarme 25 min` / `Enfocarme sin límite`, con la duración en una fila
+  tocable encima. Un toque arranca; solo un modo profundo pide mantener (ADR-0022). Si
+  hay una sesión corriendo, dice `Seguir` y vuelve a ella
 - Libro mayor del día abajo, en tipo pequeño, incluyendo el renglón `sin registrar`
 
 **Regla:** un tap desde abrir la app hasta estar en sesión.
@@ -80,6 +82,14 @@ Comportamiento por nivel de profundidad:
   espera hay un texto tocable `seguir` que vuelve a la sesión sin cerrarla
 - **Profundo** — mantener pulsado no responde; solo termina el timer
 
+**Pausas** (ADR-0022): en suave y firme, cada 25 minutos de foco se habilita una pausa
+de hasta 15 minutos (`Pausa de 15 min`, ghost, entre `Terminar` y la emergencia). Mientras
+dura, el bloqueo se levanta, la app vuelve al esquema claro y la pantalla es un reloj que
+cuenta hacia abajo con el primario `Volver ahora`. Al vencer vuelve sola, con aviso si la
+app está en segundo plano. La pausa no es foco y detiene el reloj: una sesión de 60 min
+con una pausa de 15 termina a los 60 de foco real. No gasta emergencias. Profundo no
+tiene pausas.
+
 ### 3. Vida
 
 - Semanas restantes, número grande
@@ -98,7 +108,7 @@ heredado de la última sesión. Cada cambio se guarda al instante; no hay botón
 
 | Decisión | Opciones | Default |
 |---|---|---|
-| Duración | 25 / 50 / 90 / `otra`, que abre un campo de 1 a 240 minutos | última usada |
+| Duración | 5 / 25 / 50 / 90 / 120 / `sin límite` (termina cuando el usuario diga o a las 12 h, y corre como firme si el modo es profundo) | última usada |
 | Actividad | chips de las actividades activas + `otra`, que crea una ahí mismo con el nombre tecleado | última usada |
 | Profundidad | suave / firme / profundo | última usada |
 | Perfil de bloqueo | `nada`, única opción en fase 1. `redes` y `todo menos esenciales` llegan en fase 2 | `nada` |
@@ -138,12 +148,30 @@ El **cierre del domingo** vive en la misma ruta de la meta: ese día el encabeza
 `cerrar la semana` y la ruta muestra primero cómo cerró, y debajo la meta de la que empieza.
 No es una cuarta pantalla. Ver ADR-0013.
 
+## Círculo (ADR-0021)
+
+Las metas en compañía se cumplen más que a solas. El círculo es la respuesta de Vesper
+a eso, con la condición de no convertirse en lo que combate:
+
+- **Personas, no seguidores.** Hasta 12, por invitación. Sin perfiles públicos ni feed.
+- **Silencio.** El círculo nunca notifica. Se ve en Actividad › Semanal y en `circle/`.
+- **Sin ranking.** La semana ordena por horas de foco y nada más. Un reto muestra quién
+  cumplió y quién no, sin puntos ni premios.
+- **Tú decides qué se ve**, métrica por métrica: foco, hábitos y retos, uso estimado de
+  redes (apagado por defecto y siempre presentado como piso estimado, aparte).
+- **Ánimo, no likes.** Un gesto de persona a persona, una vez al día, sin contador.
+- **Retos**: un hábito con testigos. Nombre, veces por semana, 1, 2 o 4 semanas, quiénes.
+  Unirse vincula (o crea) un hábito tuyo, y el máximo de 5 sigue valiendo.
+
+El perfil vive en el teléfono; el backend y la identidad real son un ADR posterior. En
+el prototipo el círculo es de demostración y las pantallas lo dicen.
+
 ## Fuera de alcance en v1
 
 - Bloqueo de apps (fase 2)
-- Cuenta de usuario, sync, backend
+- Sync y backend (el círculo tiene su capa de datos, pero nada viaja todavía)
 - Gráficos y estadísticas complejas
-- Rachas, badges, leaderboards, social
+- Rachas, badges, leaderboards, feed, seguidores, notificaciones sociales
 - Modo oscuro
 - Tablet / iPad
 - Widgets y Live Activities (fase 1.5)

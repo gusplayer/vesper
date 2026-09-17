@@ -2,14 +2,21 @@ import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-import { useAppStore, useFocusStore } from '../data';
+import { useAppStore, useCircleStore, useFocusStore } from '../data';
 import { dayBounds } from '../domain/day';
 import { MINUTE } from '../domain/time';
 import { applyPlan, configureShield } from '../platform/blocking';
 // The Android file by name: windows are an Android-only surface for now, and the
 // module inside is inert elsewhere (nativeModule() answers null off Android).
 import { scheduleWindow } from '../platform/blocking.android';
-import { DEV_BLOCK_TEST, DEV_SESSION, DEV_SKIP_ONBOARDING, DEV_START_ROUTE, DEV_WINDOW_TEST } from './route';
+import {
+  DEV_BLOCK_TEST,
+  DEV_CIRCLE_PROFILE,
+  DEV_SESSION,
+  DEV_SKIP_ONBOARDING,
+  DEV_START_ROUTE,
+  DEV_WINDOW_TEST,
+} from './route';
 
 const MINUTES_PER_DAY = 24 * 60;
 const WINDOW_TEST_LEAD_MIN = 2;
@@ -66,6 +73,9 @@ export function DevJump() {
   useEffect(() => {
     if (__DEV__ && DEV_SKIP_ONBOARDING && !useAppStore.getState().settings.onboardingDone) {
       useAppStore.getState().updateSettings({ onboardingDone: true });
+    }
+    if (__DEV__ && DEV_CIRCLE_PROFILE && useCircleStore.getState().profile === null) {
+      useCircleStore.getState().createProfile({ name: 'Gus', handle: 'gus' }, Date.now());
     }
     if (!__DEV__ || DEV_START_ROUTE === null) {
       return undefined;

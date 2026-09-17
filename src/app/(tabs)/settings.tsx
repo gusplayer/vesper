@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
-import { resetAndRehydrate, useSettings } from '../../data';
+import { resetAndRehydrate, useCircleMembers, useProfile, useSettings } from '../../data';
 import { Card, ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { useLocale, useLocaleStore, useStrings } from '../../i18n';
 import { birthDateText } from '../../lib/birthDate';
@@ -15,6 +15,8 @@ export default function SettingsScreen() {
   const t = useStrings();
   const { tag } = useLocale();
   const preference = useLocaleStore((state) => state.preference);
+  const profile = useProfile();
+  const circleMembers = useCircleMembers().filter((member) => member.status === 'member').length;
 
   const activeRules = Object.values(settings.rules).filter(Boolean).length;
   const onOff = (flag: boolean) => (flag ? t.settings.tab.enabled : t.settings.tab.disabled);
@@ -83,6 +85,12 @@ export default function SettingsScreen() {
       </ListGroup>
 
       <ListGroup>
+        <ListRow
+          icon="users"
+          label={t.settings.tab.circle}
+          value={profile === null ? t.settings.tab.circleNoProfile : t.settings.tab.circleValue(circleMembers)}
+          onPress={() => router.push('/settings/circle')}
+        />
         <ListRow
           icon="calendar"
           label={t.settings.tab.life}

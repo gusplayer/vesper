@@ -4,6 +4,9 @@ export const session: typeof shape = {
   stayFocused: 'Stay focused',
   active: {
     elapsedLabel: 'Focused for',
+    openSince: (time) => `No limit · since ${time}`,
+    takeBreak: '15 min break',
+    breakIn: (remaining) => `Break in ${remaining}`,
     focused: 'Focused',
     fallbackName: 'Session',
     modeLabel: (name) => `${name}. See what this mode does`,
@@ -17,8 +20,14 @@ export const session: typeof shape = {
   duration: {
     title: 'How long?',
     minutes: (minutes) => `${minutes} min`,
-    hint: 'Next time, hold the button to start without asking.',
-    start: (minutes) => `Focus ${minutes} min`,
+    open: 'No limit',
+    openHint: 'Ends when you say, or at 12 hours. A deep mode runs as firm.',
+  },
+  break: {
+    title: 'Break',
+    body: (time) => `You are back at ${time}. Apps are unblocked meanwhile.`,
+    resumeNow: 'Back now',
+    endSession: 'End the session',
   },
   emergency: {
     title: 'Emergency unlock',
@@ -63,12 +72,16 @@ export const session: typeof shape = {
     firstTitle: 'First session complete.',
     title: 'Session complete.',
     subtitle: 'You got your time back.',
+    cappedTitle: 'The session reached 12 hours.',
+    cappedSubtitle: 'It closed on its own. What you did counts.',
     mode: 'Mode',
     duration: 'Duration',
     intention: 'Intention',
   },
   liveActivity: {
     status: (remaining) => `Focused · ${remaining} left`,
+    statusOpen: 'Focused · no limit',
+    statusBreak: (remaining) => `Break · back in ${remaining}`,
     fallbackModeName: 'Focus',
     notIos: 'Live Activities only exist on iPhone.',
     oldIos: 'Live Activities need iOS 16.2 or newer.',

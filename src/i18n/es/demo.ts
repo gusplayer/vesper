@@ -17,6 +17,8 @@ export type DemoScheduleKey = 'work' | 'sleep' | 'walk';
 
 export type DemoHabitKey = 'gym' | 'read' | 'sleep';
 
+export type DemoChallengeKey = 'reading';
+
 export type DemoStrings = {
   /** The line under an app's name in the catalogue. */
   appCategory: Record<AppCategory, string>;
@@ -27,6 +29,8 @@ export type DemoStrings = {
   ideaDescription: Record<DemoIdeaKey, string>;
   scheduleName: Record<DemoScheduleKey, string>;
   habitName: Record<DemoHabitKey, string>;
+  /** The demo circle's challenge (ADR-0021). The people's names are data, not copy. */
+  challengeName: Record<DemoChallengeKey, string>;
 };
 
 export const demo: DemoStrings = {
@@ -73,5 +77,8 @@ export const demo: DemoStrings = {
     gym: 'gym',
     read: 'leer',
     sleep: 'dormir 7h',
+  },
+  challengeName: {
+    reading: 'Leer',
   },
 };
