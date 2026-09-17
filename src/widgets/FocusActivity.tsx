@@ -28,6 +28,8 @@ export type FocusActivityProps = {
   modeName: string;
   startedAt: number;
   endsAt: number;
+  /** An open session shows the time served, not the time left. */
+  countsUp: boolean;
   /** '21m', already formatted by the app, refreshed every minute while it runs. */
   remainingText: string;
   /** 'Enfocado · quedan 21m' or 'Focused · 21m left', in the app's language. */
@@ -61,7 +63,7 @@ function FocusActivityLayout(props: FocusActivityProps): LiveActivityLayout {
       <Spacer />
       <Text
         timerInterval={interval}
-        countsDown
+        countsDown={!props.countsUp}
         modifiers={[
           font({ size: clockSize, weight: 'medium' }),
           monospacedDigit(),

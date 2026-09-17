@@ -11,6 +11,12 @@ export const session = {
   stayFocused: 'Seguir enfocado',
   active: {
     elapsedLabel: 'Llevas enfocado',
+    /** Under the clock of an open session, instead of the progress bar. */
+    openSince: (time: string) => `Sin límite · desde las ${time}`,
+    /** The break button, when a break is available. */
+    takeBreak: 'Pausa de 15 min',
+    /** The same button while the next break is still locked. 'Pausa en 12m'. */
+    breakIn: (remaining: string) => `Pausa en ${remaining}`,
     /** Under the clock when the mode is gone. */
     focused: 'Enfocado',
     /** The heading when the mode is gone. */
@@ -27,8 +33,15 @@ export const session = {
     title: '¿Cuánto tiempo?',
     /** '25 min', the chips. */
     minutes: (minutes: string) => `${minutes} min`,
-    hint: 'La próxima vez, mantén el botón para empezar sin preguntar.',
-    start: (minutes: string) => `Enfocar ${minutes} min`,
+    open: 'Sin límite',
+    openHint: 'Termina cuando tú digas, o a las 12 horas. Un modo profundo corre como firme.',
+  },
+  break: {
+    title: 'Pausa',
+    /** Under the countdown: when the session resumes and what the break allows. */
+    body: (time: string) => `Vuelves a las ${time}. Mientras tanto, las apps se desbloquean.`,
+    resumeNow: 'Volver ahora',
+    endSession: 'Terminar la sesión',
   },
   emergency: {
     title: 'Desbloqueo de emergencia',
@@ -79,6 +92,9 @@ export const session = {
     firstTitle: 'Primera sesión completa.',
     title: 'Sesión completa.',
     subtitle: 'Recuperaste tu tiempo.',
+    /** An open session that hit its cap: closed by the app, not by the user. */
+    cappedTitle: 'La sesión llegó a las 12 horas.',
+    cappedSubtitle: 'Se cerró sola. Lo hecho queda contado.',
     mode: 'Modo',
     duration: 'Duración',
     intention: 'Intención',
@@ -86,6 +102,10 @@ export const session = {
   liveActivity: {
     /** 'Enfocado · quedan 21m', under the mode name on the lock screen. */
     status: (remaining: string) => `Enfocado · quedan ${remaining}`,
+    /** An open session counts up instead. */
+    statusOpen: 'Enfocado · sin límite',
+    /** 'Pausa · vuelves en 12m'. */
+    statusBreak: (remaining: string) => `Pausa · vuelves en ${remaining}`,
     /** A session whose mode was deleted meanwhile still needs a name. */
     fallbackModeName: 'Foco',
     notIos: 'Las Live Activities solo existen en iPhone.',

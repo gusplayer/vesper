@@ -14,20 +14,32 @@ import {
   Text,
 } from '../../design/components';
 import { useAppStore, useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
-import { elapsed, isDue, sessionProgress } from '../../domain/session';
+import {
+  allowsBreaks,
+  breakAvailableIn,
+  breakEndsAt,
+  canTakeBreak,
+  elapsed,
+  sessionProgress,
+} from '../../domain/session';
 import { EmergencySheet } from '../../features/session/EmergencySheet';
 import { ModeDetailsSheet } from '../../features/modes/ModeDetailsSheet';
 import { FocusArt } from '../../features/session/FocusArt';
 import { useStrings } from '../../i18n';
-import { timerText } from '../../lib/format';
+import { clockText, durationText, timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
+import { useBlockBack } from '../../lib/useBlockBack';
 import { useOrientation } from '../../lib/useOrientation';
 import { allowRotation, lockPortrait } from '../../platform/orientation';
 
 /**
  * The running session. The store already flipped the theme to dark. The clock is
  * `now - startedAt`, never accumulated ticks, so it survives the background. How the
- * session ends depends on the depth chosen on the mode (domain/session).
+ * session ends depends on the depth chosen on the mode (domain/session). The timer
+ * running out is handled by SessionGate, whether or not this screen is mounted.
+ *
+ * A break (ADR-0022) is a view of the same route: the store flipped the theme back to
+ * light, the clock counts the break down, and the one button brings the session back.
  */
 export default function ActiveSessionScreen() {
   const router = useRouter();
@@ -38,11 +50,14 @@ export default function ActiveSessionScreen() {
   const mode = useMode(modeId ?? undefined);
   const emergencyLeft = useSettings().emergencyLeft;
   const finish = useFocusStore((state) => state.finish);
+  const takeBreak = useFocusStore((state) => state.takeBreak);
+  const resume = useFocusStore((state) => state.resume);
   const registerInterruption = useFocusStore((state) => state.registerInterruption);
   const spendEmergency = useAppStore((state) => state.useEmergency);
   const now = useNow(1000);
   const orientation = useOrientation();
 
+  useBlockBack();
   // Only this screen may turn sideways; everything else is portrait.
   useFocusEffect(
     useCallback(() => {
@@ -56,7 +71,7 @@ export default function ActiveSessionScreen() {
   const params = useLocalSearchParams<{ art?: string }>();
   const [showingArt, setShowingArt] = useState(params.art === '1');
   const [showingMode, setShowingMode] = useState(false);
-  // The session closes exactly once, whichever path gets there first.
+  // The session closes from here at most once; the gate may beat it to it.
   const closedRef = useRef(false);
 
   // Leaving the app is an interruption in firm and deep; the domain ignores soft.
@@ -68,16 +83,6 @@ export default function ActiveSessionScreen() {
     });
     return () => subscription.remove();
   }, [registerInterruption]);
-
-  // The timer ran out: the session completes on its own.
-  const due = session !== null && isDue(session, now);
-  useEffect(() => {
-    if (due && !closedRef.current) {
-      closedRef.current = true;
-      finish('completed', Date.now());
-      router.replace('/session/complete');
-    }
-  }, [due, finish, router]);
 
   if (session === null) {
     return null;
@@ -93,6 +98,34 @@ export default function ActiveSessionScreen() {
     router.dismissTo('/(tabs)');
   };
 
+  // The break: the clock counts down to when the session comes back. No art, no
+  // emergency; the session is still there, only waiting.
+  const breakEnd = breakEndsAt(session);
+  if (breakEnd !== null) {
+    return (
+      <Screen
+        footer={
+          <>
+            <Button label={strings.break.resumeNow} onPress={() => resume(Date.now())} />
+            <Button variant="ghost" label={strings.break.endSession} onPress={() => router.push('/session/exit')} />
+          </>
+        }
+      >
+        <Spacer />
+        <Stack align="center" gap="sm">
+          <Text variant="label" tone="secondary">
+            {strings.break.title}
+          </Text>
+          <FlipClock value={timerText(Math.max(0, breakEnd - now))} />
+          <Text variant="body" tone="secondary" align="center">
+            {strings.break.body(clockText(breakEnd))}
+          </Text>
+        </Stack>
+        <Spacer />
+      </Screen>
+    );
+  }
+
   const endButton =
     session.depth === 'deep' ? (
       <Button label={t.deepOnlyTimer} onPress={() => undefined} disabled />
@@ -100,9 +133,19 @@ export default function ActiveSessionScreen() {
       <Button label={t.end} onPress={() => router.push('/session/exit')} />
     );
 
+  const breakButton = allowsBreaks(session.depth) ? (
+    <Button
+      variant="ghost"
+      label={canTakeBreak(session, now) ? t.takeBreak : t.breakIn(durationText(breakAvailableIn(session, now)))}
+      disabled={!canTakeBreak(session, now)}
+      onPress={() => takeBreak(Date.now())}
+    />
+  ) : null;
+
   const footer = (
     <>
       {endButton}
+      {breakButton}
       <Button
         variant="ghost"
         label={emergencyLeft > 0 ? t.emergencyLeft(emergencyLeft) : t.noEmergencyLeft}
@@ -110,6 +153,15 @@ export default function ActiveSessionScreen() {
         onPress={() => setAskingEmergency(true)}
       />
     </>
+  );
+
+  // An open session has no end to draw: the bar gives way to a line.
+  const progress = session.open ? (
+    <Text variant="caption" tone="secondary" align="center">
+      {t.openSince(clockText(session.startedAt))}
+    </Text>
+  ) : (
+    <ProgressBar progress={sessionProgress(session, now)} />
   );
 
   // Sideways, the session is a clock on a table: the time, the mode, the bar. No buttons;
@@ -128,7 +180,7 @@ export default function ActiveSessionScreen() {
             </Stack>
             <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} layout="landscape" />
           </Stack>
-          <ProgressBar progress={sessionProgress(session, now)} />
+          {progress}
         </Screen>
       );
     }
@@ -143,7 +195,7 @@ export default function ActiveSessionScreen() {
           <Button variant="ghost" label={t.art} onPress={() => setShowingArt(true)} />
         </Stack>
         <Spacer />
-        <ProgressBar progress={sessionProgress(session, now)} />
+        {progress}
       </Screen>
     );
   }
@@ -159,7 +211,7 @@ export default function ActiveSessionScreen() {
         <Spacer />
         <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} />
         <Spacer />
-        <ProgressBar progress={sessionProgress(session, now)} />
+        {progress}
         {askingEmergency ? (
           <EmergencySheet
             left={emergencyLeft}
@@ -208,7 +260,7 @@ export default function ActiveSessionScreen() {
       )}
 
       <Stack gap="sm">
-        <ProgressBar progress={sessionProgress(session, now)} />
+        {progress}
         {session.interruptions > 0 ? (
           <Text variant="caption" tone="secondary" align="right">
             {t.interruptions(session.interruptions)}

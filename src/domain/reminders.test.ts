@@ -10,10 +10,12 @@ import {
   expoWeekday,
   plannedNotifications,
   scheduleReminders,
+  breakEndReminder,
   sessionEndReminder,
   weeklyCloseReminder,
   type ReminderState,
 } from './reminders';
+import { startBreak } from './session';
 import { HOUR, MINUTE } from './time';
 
 const ES = es.notifications;
@@ -62,17 +64,17 @@ describe('sessionEndReminder', () => {
 
     const spec = sessionEndReminder(session, ES);
 
-    expect(spec.trigger).toBe('date');
-    expect(spec.at).toBe(T0 + 50 * MINUTE);
-    expect(spec.id).toBe('session-end-session-1');
+    expect(spec?.trigger).toBe('date');
+    expect(spec?.at).toBe(T0 + 50 * MINUTE);
+    expect(spec?.id).toBe('session-end-session-1');
   });
 
   it('spells the planned duration and makes a sound', () => {
     const spec = sessionEndReminder(aRunningSession({ plannedMs: HOUR + 15 * MINUTE }), ES);
 
-    expect(spec.title).toBe('Terminó tu sesión');
-    expect(spec.body).toBe('1h 15m de foco. Vuelve a Vesper para cerrarla.');
-    expect(spec.sound).toBe(true);
+    expect(spec?.title).toBe('Terminó tu sesión');
+    expect(spec?.body).toBe('1h 15m de foco. Vuelve a Vesper para cerrarla.');
+    expect(spec?.sound).toBe(true);
   });
 
   it('speaks English with the English slice, same id and instant', () => {
@@ -80,10 +82,44 @@ describe('sessionEndReminder', () => {
 
     const spec = sessionEndReminder(session, EN);
 
-    expect(spec.id).toBe(sessionEndReminder(session, ES).id);
-    expect(spec.at).toBe(sessionEndReminder(session, ES).at);
-    expect(spec.title).toBe('Your session ended');
-    expect(spec.body).toBe('1h 15m of focus. Come back to Vesper to close it.');
+    expect(spec?.id).toBe(sessionEndReminder(session, ES)?.id);
+    expect(spec?.at).toBe(sessionEndReminder(session, ES)?.at);
+    expect(spec?.title).toBe('Your session ended');
+    expect(spec?.body).toBe('1h 15m of focus. Come back to Vesper to close it.');
+  });
+
+  it('moves with the breaks and is silent during one', () => {
+    const rested = aRunningSession({ breakMs: 10 * MINUTE });
+    expect(sessionEndReminder(rested, ES)?.at).toBe(T0 + HOUR + 10 * MINUTE);
+
+    const onBreak = startBreak(aRunningSession({ nextBreakAtMs: 0 }), T0 + 30 * MINUTE);
+    expect(sessionEndReminder(onBreak, ES)).toBeNull();
+  });
+
+  it('has nothing to say about an open session', () => {
+    expect(sessionEndReminder(aRunningSession({ open: true }), ES)).toBeNull();
+  });
+});
+
+describe('breakEndReminder', () => {
+  it('fires when the break runs out, with an id per break', () => {
+    const onBreak = startBreak(aRunningSession({ nextBreakAtMs: 0 }), T0 + 30 * MINUTE);
+
+    const spec = breakEndReminder(onBreak, ES);
+
+    expect(spec?.at).toBe(T0 + 45 * MINUTE);
+    expect(spec?.id).toBe(`break-end-session-1-${T0 + 30 * MINUTE}`);
+    expect(spec?.title).toBe('Se acabó la pausa');
+    expect(breakEndReminder(onBreak, EN)?.title).toBe('Break is over');
+    expect(breakEndReminder(aRunningSession(), ES)).toBeNull();
+  });
+
+  it('replaces the session notice in the plan while the break lasts', () => {
+    const onBreak = startBreak(aRunningSession({ nextBreakAtMs: 0 }), T0 + 30 * MINUTE);
+
+    const kinds = plannedNotifications(aState({ session: onBreak, prefs: { ...ALL_OFF, sessionEnd: true } }), ES).map((s) => s.kind);
+
+    expect(kinds).toEqual(['breakEnd']);
   });
 });
 

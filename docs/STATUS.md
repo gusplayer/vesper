@@ -120,6 +120,21 @@ es la única fuente del idioma del teléfono y solo se importa en `src/i18n/devi
   cualquier store.
 - El reloj de horarios sigue en formato de 24 horas en los dos idiomas.
 
+## Botón de Focus: sin línea debajo, disolución y tinta (2026-09-17)
+
+- Bajo el botón ya no hay texto: la profundidad se cambia en el modo, y el botón de un
+  modo profundo dice "Mantén para enfocarme 25 min". `home.deepHint` se fue del
+  diccionario.
+- Mantener llena la pastilla de puntos de papel desde los extremos hacia el centro; al
+  cerrarse, `InkFlood` inunda la página de tinta punteada desde el botón y la sesión
+  aparece debajo. Tocar (suave o firme) pasa por la misma inundación. Sin dependencias:
+  `src/lib/dissolve.ts` reparte los puntos en capas y cada capa anima solo su opacidad.
+- Verificado en un segundo simulador (iPhone 17) manteniendo con `idb` y capturando a
+  mitad del gesto: puntos cerrándose, pastilla llena, página en tinta, sesión debajo. El
+  toque también se capturó en plena inundación. No verificado: el ritmo a ojo en un
+  teléfono real y "Reducir movimiento".
+- Convive con el ADR-0022 de otra sesión en el mismo árbol; se commitea junto.
+
 ## Círculo (2026-09-15)
 
 Comunidad pequeña y silenciosa (ADR-0021): hasta 12 personas por invitación, comparación
@@ -151,6 +166,46 @@ dos semanas de números, un reto "Leer", dos ánimos.
 - `tsc` limpio, 588 tests en 46 archivos (71 nuevos).
 - Para revisar las pantallas sin teclear: `DEV_CIRCLE_PROFILE = true` en `src/dev/route.ts`
   crea un perfil al arrancar. Volver a `false` antes de commitear.
+
+## Focus y la sesión como ruta sin salida (2026-09-16)
+
+- **Focus** dice solo hoy ("2h 15m enfocado hoy"); la semana y su meta viven en Actividad.
+  Antes la píldora mezclaba dos reglas (hoy contaba la sesión en curso, la semana no) y
+  podía decir "7h 59m hoy · 2h 45m esta semana". Se quitó "Ver actividad ›": la pestaña,
+  la píldora y la grilla ya llevan ahí.
+- Con sesión corriendo, Focus lo dice encima del botón: "En sesión · 12m de 25m".
+- **`SessionGate`** (`src/features/session/`) hace que la sesión sea de verdad una ruta
+  sin salida: al relanzar la app con una sesión viva abre directo en `/session/active`,
+  y cuando una rutina arranca una sesión sola también. Además cierra la sesión como
+  completada en el momento exacto en que vence, esté o no montada su pantalla (antes
+  solo `active.tsx` lo hacía, y una sesión vencida fuera de esa pantalla quedaba viva
+  hasta el siguiente relanzamiento).
+- El botón atrás de Android no saca de la sesión ni del cierre (`useBlockBack`).
+- Verificado en simulador: relanzar en frío con una sesión de 25 min a los 11 min abrió
+  en la sesión. Deuda: al recargar el JS con la app abierta, op-sqlite se cae al
+  destruir su caché de nombres (`ResultPropNames`, SIGSEGV); relanzar en frío no.
+
+## Botón de Focus, sesiones sin límite y pausas (2026-09-16, ADR-0022)
+
+- Focus: fila "25 min ⌄" encima del botón y el botón "Enfocarme 25 min" arranca con un
+  toque. Solo un modo profundo pide mantener. La hoja de duración suma "Sin límite".
+- Sesión sin límite: tope de 12 h, nunca profunda (corre como firme), sin barra ni aviso
+  de fin; al tope cierra como `expired` y el cierre lo dice.
+- Pausas: cada 25 min de foco, hasta 15 min, en suave y firme. Levantan el bloqueo, la
+  app pasa a claro, el reloj se detiene y la Live Activity cuenta la pausa. `SessionGate`
+  la termina sola; aviso "Se acabó la pausa" si la app está en segundo plano.
+- Migración 005 (cuatro columnas en `sessions`), `settle` en el dominio para lo que pasó
+  con la app dormida. 617 tests.
+- Verificado en simulador (2026-09-17): "Sin límite" desde la hoja, botón "Enfocarme sin
+  límite", sesión abierta con modo profundo corriendo como firme ("Terminar" activo,
+  "Pausa en 24m"); relanzar en frío a los 26 min rehidrata la sesión con la pausa
+  habilitada; la pausa pasa a claro con cuenta regresiva y "Vuelves a las 9:01";
+  "Volver ahora" devuelve el tema oscuro con el reloj congelado (26:53 tras 50 s de
+  pausa) y la siguiente pausa bloqueada; el ritual firme cierra y Focus dice "28m
+  enfocado hoy", sin la pausa.
+- Sin verificar en dispositivo: el aviso de fin de pausa, la Live Activity en pausa y
+  contando hacia arriba (el widget cambió: hay que recompilar el dev client), y el
+  escudo bajando y subiendo con la pausa (necesita el entitlement).
 
 ## Qué falta
 

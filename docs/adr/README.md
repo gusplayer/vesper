@@ -28,3 +28,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0019 | Las rutinas encienden sesiones (esperan si hay una) y Android bloquea sin AccessibilityService | aceptada |
 | 0020 | La app habla el idioma del teléfono: español e inglés, con override en Ajustes | aceptada |
 | 0021 | Círculo: comunidad pequeña, silenciosa y opcional; la cuenta vive en el teléfono y el backend llega después | aceptada |
+| 0022 | El botón de Focus dice qué hace y se toca; sesiones sin límite; pausas de 15 min que levantan el bloqueo | propuesta |

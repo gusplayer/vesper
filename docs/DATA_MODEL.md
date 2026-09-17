@@ -75,7 +75,11 @@ CREATE TABLE sessions (
   exit_reason   TEXT,                     -- texto escrito al rendirse en modo firme
   interruptions INTEGER NOT NULL DEFAULT 0,
   started_at    INTEGER NOT NULL,
-  ended_at      INTEGER
+  ended_at      INTEGER,
+  open          INTEGER NOT NULL DEFAULT 0, -- 1 = sin límite; planned_ms es el tope de 12 h (ADR-0022)
+  break_ms      INTEGER NOT NULL DEFAULT 0, -- tiempo en pausas terminadas; nunca es foco
+  break_started_at INTEGER,                 -- la pausa en curso, NULL si no hay
+  next_break_at_ms INTEGER NOT NULL DEFAULT 1500000 -- foco acumulado al que se habilita la próxima pausa
 );
 CREATE INDEX idx_sessions_started ON sessions(started_at);
 
@@ -337,7 +341,9 @@ onboarding donde declinarla.
 ## Invariantes
 
 1. Solo puede existir **una** sesión con `outcome = 'running'` a la vez.
-2. `actual_ms <= planned_ms` siempre. Una sesión nunca excede lo planeado.
+2. `actual_ms <= planned_ms` siempre. Una sesión nunca excede lo planeado. En una sesión
+   sin límite `planned_ms` es el tope de 12 horas. Las pausas no entran en `actual_ms`:
+   el reloj es `now - started_at - break_ms - (pausa en curso)`.
 3. Máximo 5 filas en `habits` con `archived_at IS NULL`.
 4. El tope de 6h declarables (21600000 ms) es una **advertencia**, no una resta: desde
    ADR-0010 el renglón `sin registrar` es una partición del reloj y no hay suma que romper.
@@ -347,10 +353,15 @@ onboarding donde declinarla.
    `UNIQUE(habit_id, day_key, source_ref)` con `source_ref TEXT NOT NULL DEFAULT ''`.
    Con `source_ref` nullable no funcionaría: en SQLite los NULL son distintos entre sí
    dentro de un índice UNIQUE, y se podrían insertar N marcas manuales el mismo día.
-7. Al arrancar la app, toda sesión con `outcome = 'running'` cuyo `started_at + planned_ms`
-   ya pasó se cierra como `expired`. Sin esa recuperación el invariante 1 bloquea la app
-   para siempre si el proceso muere en medio de una sesión. Una sesión todavía dentro de
-   su ventana se retoma: el store de foco la hidrata y vuelve a poner el tema oscuro.
+7. Al arrancar la app y al volver al frente, la sesión con `outcome = 'running'` se
+   asienta (`domain/session.settle`): una pausa que pasó sus 15 minutos termina en su
+   fin, y una sesión cuyo `started_at + planned_ms + break_ms` ya pasó se cierra como
+   `expired` en ese instante. Sin esa recuperación el invariante 1 bloquea la app para
+   siempre si el proceso muere en medio de una sesión. Una sesión todavía dentro de su
+   ventana se retoma: el store de foco la hidrata y vuelve a poner el tema oscuro.
+9. Una sesión sin límite nunca es `deep`: se crea como `firm`. Una pausa solo existe con
+   `depth` distinto de `deep`, dura 15 minutos como máximo, y hay una nueva cada 25
+   minutos de foco (ADR-0022).
 8. Los stores de `src/data/` son una caché de la base, nunca la fuente. Cada acción
    escribe por su repositorio **antes** de tocar el estado; `hydrate()` los rellena al
    arrancar y después de un reinicio.

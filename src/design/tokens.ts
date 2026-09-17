@@ -151,4 +151,14 @@ export const motion = {
   slideMs: 220,
   /** Holding the focus button: how long until it starts. */
   holdMs: 900,
+  /** The ink flood from the button over the page, before the session route opens. */
+  floodMs: 520,
+  /** Stipple dissolves: distance between dots and how many opacity layers they fold into. */
+  dissolve: { spacing: 9, layers: 24, buttonSpacing: 6, buttonLayers: 16 },
+  /** The recent-days grid lighting up: each square waits and takes its own time within these. */
+  lightDelayMaxMs: 1800,
+  lightMinMs: 700,
+  lightMaxMs: 1600,
+  /** Today's square breathing, one way. Slow enough to be noticed, not watched. */
+  breathMs: 2200,
 } as const;

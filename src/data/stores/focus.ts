@@ -5,7 +5,10 @@ import * as sessionsRepo from '../../db/repositories/sessions';
 import {
   close as closeSession,
   createSession,
+  endBreak,
   interrupt,
+  settle,
+  startBreak,
   type CloseOutcome,
 } from '../../domain/session';
 import type { Session } from '../../domain/types';
@@ -22,7 +25,14 @@ import { useAppStore } from './app';
  *
  * The mode a session runs is kept in the row's `blockProfile` column: the mode is
  * what decides what gets blocked, which is exactly what that column was reserved for.
+ *
+ * A break (ADR-0022) flips the theme back to light while it lasts: light is the app,
+ * dark is the session, and a break is not the session.
  */
+
+function schemeFor(session: Session | null): 'light' | 'dark' {
+  return session === null || session.breakStartedAt !== null ? 'light' : 'dark';
+}
 
 type FocusState = {
   session: Session | null;
@@ -37,8 +47,18 @@ type FocusState = {
    * in dark for it. Orphans whose time already ran out were expired by boot.
    */
   hydrate: () => void;
-  start: (modeId: string, plannedMs: number, now: number) => void;
+  /** `plannedMs` null starts an open session ("sin límite"). */
+  start: (modeId: string, plannedMs: number | null, now: number) => void;
   finish: (outcome: CloseOutcome, now: number, exitReason?: string | null) => Session | null;
+  /** Starts a break; a no-op when the domain says no. */
+  takeBreak: (now: number) => void;
+  /** Ends the running break, by hand or because its time is up; a no-op outside one. */
+  resume: (now: number) => void;
+  /**
+   * Catches up after the app was asleep: ends a break past its length and expires a
+   * session past its end (domain/session.settle). Returns what changed, if anything.
+   */
+  settleNow: (now: number) => Session | null;
   setIntention: (text: string) => void;
   registerInterruption: () => void;
 };
@@ -56,7 +76,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       modeId: session?.blockProfile ?? null,
       completedCount: sessionsRepo.countCompleted(),
     });
-    useSchemeStore.getState().setScheme(session === null ? 'light' : 'dark');
+    useSchemeStore.getState().setScheme(schemeFor(session));
   },
 
   start: (modeId, plannedMs, now) => {
@@ -68,7 +88,8 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       uuidv7(now),
       {
         activityId: resolveActivityId(mode?.activityId ?? 'trabajo'),
-        plannedMs,
+        plannedMs: plannedMs ?? 0,
+        open: plannedMs === null,
         depth: mode?.depth ?? 'soft',
         blockProfile: modeId,
       },
@@ -94,6 +115,56 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     }));
     useSchemeStore.getState().setScheme('light');
     return closed;
+  },
+
+  takeBreak: (now) => {
+    const current = get().session;
+    if (current === null || current.breakStartedAt !== null) {
+      return;
+    }
+    let updated: Session;
+    try {
+      updated = startBreak(current, now);
+    } catch {
+      return;
+    }
+    sessionsRepo.update(updated);
+    set({ session: updated });
+    useSchemeStore.getState().setScheme(schemeFor(updated));
+  },
+
+  resume: (now) => {
+    const current = get().session;
+    if (current === null) {
+      return;
+    }
+    const updated = endBreak(current, now);
+    if (updated === current) {
+      return;
+    }
+    sessionsRepo.update(updated);
+    set({ session: updated });
+    useSchemeStore.getState().setScheme(schemeFor(updated));
+  },
+
+  settleNow: (now) => {
+    const current = get().session;
+    if (current === null) {
+      return null;
+    }
+    const settled = settle(current, now);
+    if (settled === current) {
+      return null;
+    }
+    sessionsRepo.update(settled);
+    if (settled.outcome === 'running') {
+      set({ session: settled });
+    } else {
+      useAppStore.getState().recordFocus(now, settled.actualMs);
+      set({ session: null, lastClosed: settled });
+    }
+    useSchemeStore.getState().setScheme(schemeFor(settled.outcome === 'running' ? settled : null));
+    return settled;
   },
 
   setIntention: (text) => {

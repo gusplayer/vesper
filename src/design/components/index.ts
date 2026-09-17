@@ -52,3 +52,4 @@ export { HeatGrid, type HeatCell } from './HeatGrid';
 export { ScheduleCard } from './ScheduleCard';
 export { HoldButton } from './HoldButton';
 export { QrCode } from './QrCode';
+export { InkFlood } from './InkFlood';

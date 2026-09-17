@@ -58,11 +58,20 @@ export type Habit = {
 export type Session = {
   id: string;
   activityId: string;
+  /** For an open session this is the cap (OPEN_SESSION_CAP_MS), not a choice. */
   plannedMs: number;
   /** Never exceeds plannedMs. Invariant 2 in docs/DATA_MODEL.md. */
   actualMs: number;
   outcome: SessionOutcome;
   depth: Depth;
+  /** "Sin límite": ends when the user says, or at the cap (ADR-0022). */
+  open: boolean;
+  /** Time spent in finished breaks. Never focus, never counted. */
+  breakMs: number;
+  /** The break running right now, if any. The clock is frozen while it is set. */
+  breakStartedAt: Millis | null;
+  /** Focus time (elapsed) at which the next break unlocks. */
+  nextBreakAtMs: number;
   /** Always null in phase 1 — ADR-0003. */
   blockProfile: string | null;
   intention: string | null;

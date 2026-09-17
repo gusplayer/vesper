@@ -28,6 +28,8 @@ const SESSION_PATH = '/session/active';
 
 export type FocusInput = {
   modeName: string;
+  /** What the clock is counting: the session down, an open session up, a break down. */
+  phase: 'focus' | 'open' | 'break';
   startedAt: number;
   endsAt: number;
 };
@@ -87,13 +89,17 @@ export function status(): CapabilityStatus {
 }
 
 function propsOf(input: FocusInput, now: number): FocusActivityProps {
+  const t = getStrings().session.liveActivity;
   const remainingText = durationText(Math.max(0, input.endsAt - now));
+  const statusText =
+    input.phase === 'break' ? t.statusBreak(remainingText) : input.phase === 'open' ? t.statusOpen : t.status(remainingText);
   return {
     modeName: input.modeName,
     startedAt: input.startedAt,
     endsAt: input.endsAt,
+    countsUp: input.phase === 'open',
     remainingText,
-    statusText: getStrings().session.liveActivity.status(remainingText),
+    statusText,
   };
 }
 

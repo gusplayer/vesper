@@ -7,6 +7,7 @@ import {
   Card,
   HeatGrid,
   HoldButton,
+  InkFlood,
   Screen,
   Spacer,
   Stack,
@@ -23,28 +24,29 @@ import {
   useSchedules,
   useSettings,
   useTodayFocusMs,
-  useWeekProgress,
 } from '../../data';
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
-import { focusPillLabel, focusPillText } from '../../features/home/focusPill';
+import { focusPillLabel, focusPillText, focusSessionText } from '../../features/home/focusPill';
 import { ModePicker } from '../../features/home/ModePicker';
 import { nextRoutineText } from '../../features/home/nextRoutine';
 import { gridSummary, recentDayCells } from '../../features/home/recentDays';
-import { DurationSheet } from '../../features/session/DurationSheet';
+import { DurationPicker } from '../../features/session/DurationPicker';
 import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
 
 /**
- * Focus — the Brick home. Today's count on top, the object in the middle, the active
- * mode underneath, one button. A tap asks how long; a hold reuses the last answer.
+ * Focus — the Brick home. Today's count on top, the last four weeks in the middle, the
+ * active mode underneath, the duration, one button. A tap starts; only a deep mode asks
+ * for a hold, because it is the one session with no way out (ADR-0022). While a session
+ * runs the page says so above the button, and "Seguir" goes back to it; SessionGate
+ * normally gets there first.
  */
 export default function FocusScreen() {
   const router = useRouter();
   const t = useStrings();
   const now = useNow(15_000);
   const todayMs = useTodayFocusMs(now);
-  const week = useWeekProgress(now);
   const stats = useDayStats();
   const session = useRunningSession();
   const activeMode = useActiveMode();
@@ -60,31 +62,38 @@ export default function FocusScreen() {
   const setActiveMode = useAppStore((state) => state.setActiveMode);
   const start = useFocusStore((state) => state.start);
   const plannedMs = usePlannedStore((state) => state.plannedMs);
-  const [asking, setAsking] = useState(false);
   const cells = recentDayCells(stats, now);
   const routineLine = nextRoutineText(schedules, modes, now, t.focus.nextRoutine);
   const openActivity = () => router.push('/(tabs)/activity');
 
-  const begin = (ms: number) => {
+  // A tap floods the page with ink first, like the hold does; the route opens under it.
+  const [flooding, setFlooding] = useState(false);
+  const begin = () => {
     if (mode === null) {
+      setFlooding(false);
       return;
     }
-    setAsking(false);
-    start(mode.id, ms, Date.now());
+    start(mode.id, plannedMs, Date.now());
     router.push('/session/active');
+    setFlooding(false);
   };
 
+  const startLabel = plannedMs === null ? t.focus.home.focusOpen : t.focus.home.focusFor(minutesText(plannedMs));
+  const deep = mode?.depth === 'deep' && plannedMs !== null;
+  const holdLabel = deep ? t.focus.home.holdFor(minutesText(plannedMs)) : startLabel;
   const footer =
     session !== null ? (
       <Button label={t.focus.home.resume} onPress={() => router.push('/session/active')} />
     ) : (
-      <HoldButton
-        label={t.focus.home.holdToFocus}
-        hint={t.focus.home.holdHint(minutesText(plannedMs))}
-        onHold={() => begin(plannedMs)}
-        onPress={() => setAsking(true)}
-        disabled={mode === null}
-      />
+      <Stack gap="md">
+        <DurationPicker />
+        {deep ? (
+          <HoldButton label={holdLabel} onHold={begin} />
+        ) : (
+          <Button label={startLabel} onPress={() => setFlooding(true)} disabled={mode === null} />
+        )}
+        <InkFlood active={flooding} onDone={begin} />
+      </Stack>
     );
 
   return (
@@ -98,9 +107,9 @@ export default function FocusScreen() {
       )}
 
       <Stack align="center">
-        <Card onPress={openActivity} accessibilityLabel={focusPillLabel(todayMs, week, t)}>
+        <Card onPress={openActivity} accessibilityLabel={focusPillLabel(todayMs, t)}>
           <Text variant="label" weight="medium">
-            {focusPillText(todayMs, week, t)}
+            {focusPillText(todayMs, t)}
           </Text>
         </Card>
       </Stack>
@@ -146,13 +155,16 @@ export default function FocusScreen() {
                   {routineLine}
                 </Text>
               )}
+              {session === null ? null : (
+                <Text variant="label" tone="secondary">
+                  {focusSessionText(session, now, t)}
+                </Text>
+              )}
             </>
           )}
         </Stack>
       </Stack>
       <Spacer />
-
-      <DurationSheet visible={asking} onClose={() => setAsking(false)} onStart={begin} />
     </Screen>
   );
 }

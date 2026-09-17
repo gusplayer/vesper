@@ -51,6 +51,12 @@ export function durationText(ms: number): string {
   return `${hours}h ${minutes}m`;
 }
 
+/** '9:05', '14:30'. Local time, twenty-four hours, no leading zero on the hour. */
+export function clockText(at: number): string {
+  const date = new Date(at);
+  return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
 /** Whole minutes, for the duration chips. */
 export function minutesText(ms: number): string {
   return String(Math.round(ms / MINUTE));

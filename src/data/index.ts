@@ -16,6 +16,7 @@ import {
 import { dayBounds, dayKeyOf, weekStart } from '../domain/day';
 import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
+import { elapsed } from '../domain/session';
 import { DAY } from '../domain/time';
 import { ME, type Challenge, type Member, type Profile, type SharePrefs } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
@@ -160,8 +161,8 @@ export function useTodayFocusMs(now: number): number {
   const stats = useAppStore((state) => state.dayStats);
   const session = useFocusStore((state) => state.session);
   const today = stats.find((d) => d.dayKey === dayKeyOf(now));
-  const live = session === null ? 0 : Math.min(now - session.startedAt, session.plannedMs);
-  return (today?.focusMs ?? 0) + Math.max(0, live);
+  const live = session === null ? 0 : elapsed(session, now);
+  return (today?.focusMs ?? 0) + live;
 }
 
 export function useDayStats(): DayStat[] {

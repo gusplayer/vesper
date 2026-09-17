@@ -7,6 +7,10 @@ export const notifications: typeof shape = {
     title: 'Your session ended',
     body: (duration) => `${duration} of focus. Come back to Vesper to close it.`,
   },
+  breakEnd: {
+    title: 'Break is over',
+    body: 'Apps are blocked again. Your session goes on.',
+  },
   schedule: {
     title: (scheduleName) => `${scheduleName} starts`,
     body: (modeName) => `${modeName} mode. Tap to focus.`,

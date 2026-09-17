@@ -67,8 +67,13 @@ export function useNotificationSync(): void {
     // A language change rewrites every pending reminder.
     const unsubscribeLocale = useLocaleStore.subscribe(() => schedule());
     const unsubscribeFocus = useFocusStore.subscribe((state, previous) => {
-      // Only the session's identity matters: editing its intention changes nothing here.
-      if (state.session?.id !== previous.session?.id) {
+      // The identity and the breaks matter: a break moves the end and adds its own
+      // notice. Editing the intention changes nothing here.
+      if (
+        state.session?.id !== previous.session?.id ||
+        state.session?.breakStartedAt !== previous.session?.breakStartedAt ||
+        state.session?.breakMs !== previous.session?.breakMs
+      ) {
         schedule();
       }
     });
