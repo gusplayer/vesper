@@ -25,9 +25,17 @@ class PlanRecord : Record {
   @Field val mode: String = "block"
   /** Epoch ms; JS numbers arrive as Double. */
   @Field val endsAt: Double? = null
+  /** Epoch ms; the notification counts up from here when there is no end. Now when absent. */
+  @Field val startedAt: Double? = null
   @Field val shieldTitle: String = "Vesper"
   @Field val shieldSubtitle: String = ""
   @Field val shieldButton: String = "Volver"
+  /** "Se libera a las {time}"; null keeps the Spanish default. */
+  @Field val shieldReleasesAt: String? = null
+  @Field val channelName: String? = null
+  @Field val channelDescription: String? = null
+  @Field val sessionText: String? = null
+  @Field val breakText: String? = null
 }
 
 /** A routine window as JS sends it. Mirrors `NativeWindow` in index.ts. */
@@ -42,16 +50,39 @@ class WindowRecord : Record {
   @Field val shieldTitle: String = "Vesper"
   @Field val shieldSubtitle: String = ""
   @Field val shieldButton: String = "Volver"
+  @Field val shieldReleasesAt: String? = null
+  @Field val channelName: String? = null
+  @Field val channelDescription: String? = null
+  @Field val sessionText: String? = null
+  @Field val breakText: String? = null
+}
+
+/** The copy a record carries for the notification; a missing field keeps the default. */
+private fun notificationCopy(
+  channelName: String?,
+  channelDescription: String?,
+  sessionText: String?,
+  breakText: String?,
+): NotificationCopy {
+  val defaults = NotificationCopy()
+  return NotificationCopy(
+    channelName = channelName ?: defaults.channelName,
+    channelDescription = channelDescription ?: defaults.channelDescription,
+    sessionText = sessionText ?: defaults.sessionText,
+    breakText = breakText ?: defaults.breakText,
+  )
 }
 
 class UsageAccessMissingException : CodedException("E_USAGE_ACCESS", "Usage access is not granted", null)
 class BadPlanException(reason: String) : CodedException("E_BAD_PLAN", reason, null)
+class NoPlanException : CodedException("E_NO_PLAN", "No plan is applied", null)
 
 /**
  * The JS-facing surface of Android blocking. Thin on purpose: it checks the
  * permissions, opens their Settings pages, lists launchable apps, hands a plan to
- * BlockingService and a window to WindowScheduler. Everything user-facing on the
- * shield comes from JS, in Spanish.
+ * BlockingService and a window to WindowScheduler, and pauses or resumes the running
+ * plan for a break. Everything user-facing on the shield and the notification comes
+ * from JS, in the app's language.
  */
 class VesperBlockingModule : Module() {
   private val context: Context
@@ -164,7 +195,14 @@ class VesperBlockingModule : Module() {
         packageNames = record.packageNames.toSet(),
         mode = parseMode(record.mode),
         endsAt = record.endsAt?.toLong(),
-        shield = ShieldCopy(record.shieldTitle, record.shieldSubtitle, record.shieldButton),
+        shield = ShieldCopy(
+          record.shieldTitle,
+          record.shieldSubtitle,
+          record.shieldButton,
+          record.shieldReleasesAt ?: ShieldCopy.DEFAULT_RELEASE_TEMPLATE,
+        ),
+        startedAt = record.startedAt?.toLong() ?: System.currentTimeMillis(),
+        notification = notificationCopy(record.channelName, record.channelDescription, record.sessionText, record.breakText),
       )
       Log.i(TAG, "applyPlan: ${plan.packageNames.size} packages, ${plan.mode}, endsAt=${plan.endsAt}")
       BlockingService.apply(context, plan)
@@ -173,6 +211,22 @@ class VesperBlockingModule : Module() {
     AsyncFunction("release") {
       Log.i(TAG, "release")
       BlockingService.release(context)
+    }
+
+    AsyncFunction("pausePlan") { untilMs: Double ->
+      if (PlanStore.load(context) == null) {
+        throw NoPlanException()
+      }
+      Log.i(TAG, "pausePlan until ${untilMs.toLong()}")
+      BlockingService.pause(context, untilMs.toLong())
+    }
+
+    AsyncFunction("resumePlan") { endsAt: Double? ->
+      if (PlanStore.load(context) == null) {
+        throw NoPlanException()
+      }
+      Log.i(TAG, "resumePlan endsAt=${endsAt?.toLong()}")
+      BlockingService.resume(context, endsAt?.toLong())
     }
 
     AsyncFunction("scheduleWindow") { record: WindowRecord ->
@@ -193,7 +247,13 @@ class VesperBlockingModule : Module() {
         days = record.days,
         packageNames = record.packageNames.toSet(),
         mode = parseMode(record.mode),
-        shield = ShieldCopy(record.shieldTitle, record.shieldSubtitle, record.shieldButton),
+        shield = ShieldCopy(
+          record.shieldTitle,
+          record.shieldSubtitle,
+          record.shieldButton,
+          record.shieldReleasesAt ?: ShieldCopy.DEFAULT_RELEASE_TEMPLATE,
+        ),
+        notification = notificationCopy(record.channelName, record.channelDescription, record.sessionText, record.breakText),
       )
       Log.i(TAG, "scheduleWindow ${spec.id}: ${spec.startMinute}-${spec.endMinute ?: "cap ${spec.capMinutes}"} days=${spec.days} ${spec.packageNames.size} packages")
       WindowScheduler.schedule(context, spec)

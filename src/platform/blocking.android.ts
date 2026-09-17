@@ -3,8 +3,8 @@ import { AppState, type AppStateStatus } from 'react-native';
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { packageNamesFromToken } from '../domain/packageSelection';
 import { getStrings } from '../i18n';
-import type { NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
-import type { RoutineWindowSpec } from './blockingTypes';
+import type { NativeCopy, NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
+import type { PausePlan, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, type CapabilityStatus } from './capabilities';
 
 /**
@@ -20,6 +20,11 @@ import { isAndroid, type CapabilityStatus } from './capabilities';
  * Routine windows (phase 2) are AlarmManager alarms armed by `scheduleWindow`: the
  * shield rises and falls through the OS with the app closed. Their arithmetic is
  * src/platform/routineWindows.ts, mirrored in Kotlin.
+ *
+ * A break (ADR-0023, phase 4) is the service's: `pausePlan` leaves it alive with the
+ * notification counting the break down, and it resumes watching by itself; `resumePlan`
+ * only brings it back early with the session's new end. The notification's words and
+ * the shield's release line travel with every plan, so they follow the app language.
  *
  * Every native call is wrapped: a build without the module, or a stale one, must
  * degrade to "no disponible", never to a red screen.
@@ -220,6 +225,7 @@ export function applyPlan(plan: BlockPlan, endsAt?: number): void {
       shieldSubtitle: copy.subtitle,
       // The Android button goes home, not back to Vesper, so its label says just that.
       shieldButton: getStrings().session.shield.home,
+      ...nativeCopy(),
     }),
   );
 }
@@ -231,6 +237,51 @@ export function release(): void {
     return;
   }
   void safeAsync(() => mod.release());
+}
+
+/**
+ * A break until `untilMs`: the shield comes down and the service stops watching, but
+ * it stays alive with its notification counting the break down, and it resumes on
+ * its own at `untilMs` even if the app has died meanwhile (ADR-0023, decision 5).
+ * Without a plan applied there is nothing to pause, and the module says so quietly.
+ */
+export const pausePlan: PausePlan = (untilMs) => {
+  const mod = nativeModule();
+  if (mod === null || !Number.isFinite(untilMs)) {
+    return;
+  }
+  void safeAsync(() => mod.pausePlan(untilMs));
+};
+
+/**
+ * Ends the break early, or on time from JS's side, with the session's new end. When
+ * the service has no plan any more (it was killed and its plan cleared, or the app
+ * was reinstalled) the plan is applied from scratch instead, so the shield is back
+ * either way.
+ */
+export const resumePlan: ResumePlan = (plan, endsAt) => {
+  const mod = nativeModule();
+  if (mod === null) {
+    return;
+  }
+  const end = endsAt !== undefined && Number.isFinite(endsAt) ? endsAt : null;
+  void safeAsync(() => mod.resumePlan(end)).then((resumed) => {
+    if (!resumed) {
+      applyPlan(plan, endsAt);
+    }
+  });
+};
+
+/** The notification's words and the shield's release line, in the current language. */
+function nativeCopy(): NativeCopy {
+  const t = getStrings().session.shield;
+  return {
+    channelName: t.channelName,
+    channelDescription: t.channelDescription,
+    sessionText: t.session,
+    breakText: t.pause,
+    shieldReleasesAt: t.releasesAt,
+  };
 }
 
 /**
@@ -262,6 +313,7 @@ export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
       shieldTitle: spec.shieldTitle,
       shieldSubtitle: spec.shieldSubtitle,
       shieldButton: spec.shieldButton,
+      ...nativeCopy(),
     }),
   );
 }

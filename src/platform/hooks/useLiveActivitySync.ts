@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
-import { breakEndsAt, plannedEndAt } from '../../domain/session';
 import { getStrings } from '../../i18n';
 import { endFocus, startFocus, status, updateFocus, type FocusInput } from '../liveActivity';
+import { focusInputFor } from '../liveActivityProps';
 
 /**
  * Keeps the lock screen in step with the session. Subscribes to the stores from
@@ -14,10 +14,11 @@ import { endFocus, startFocus, status, updateFocus, type FocusInput } from '../l
  * The activity follows one identity: the id of the session it shows. A session that
  * is already running when this mounts (hydrated from a previous launch) is shown on
  * the spot; turning the setting off ends it and turning it back on brings it back.
+ *
+ * There is no timer here. The activity's clocks are native and count from the
+ * interval they were given (ADR-0023); an update goes out only when the interval or
+ * the words change: a break starts or ends, the mode is renamed.
  */
-
-/** The native clock ticks alone; this only refreshes the 'quedan Xm' line. */
-const REFRESH_MS = 60_000;
 
 function currentInput(): FocusInput | null {
   const { session, modeId } = useFocusStore.getState();
@@ -26,19 +27,7 @@ function currentInput(): FocusInput | null {
   }
   const mode = useAppStore.getState().modes.find((m) => m.id === modeId);
   // A session whose mode was deleted meanwhile still needs a name.
-  const modeName = mode?.name ?? getStrings().session.liveActivity.fallbackModeName;
-  const breakEnd = breakEndsAt(session);
-  if (breakEnd !== null && session.breakStartedAt !== null) {
-    // The break counts down on its own; the session waits behind it.
-    return { modeName, phase: 'break', startedAt: session.breakStartedAt, endsAt: breakEnd };
-  }
-  return {
-    modeName,
-    phase: session.open ? 'open' : 'focus',
-    startedAt: session.startedAt,
-    // Never null outside a break; the cap for an open session, which counts up anyway.
-    endsAt: plannedEndAt(session) ?? session.startedAt + session.plannedMs,
-  };
+  return focusInputFor(session, mode?.name ?? getStrings().session.liveActivity.fallbackModeName);
 }
 
 export function useLiveActivitySync(): void {
@@ -48,7 +37,6 @@ export function useLiveActivitySync(): void {
     }
 
     let shownSessionId: string | null = null;
-    let ticker: ReturnType<typeof setInterval> | null = null;
 
     const refresh = () => {
       const input = currentInput();
@@ -58,18 +46,8 @@ export function useLiveActivitySync(): void {
     };
 
     const stop = () => {
-      if (ticker !== null) {
-        clearInterval(ticker);
-        ticker = null;
-      }
       shownSessionId = null;
       void endFocus();
-    };
-
-    const begin = (sessionId: string, input: FocusInput) => {
-      startFocus(input);
-      shownSessionId = sessionId;
-      ticker = setInterval(refresh, REFRESH_MS);
     };
 
     const sync = () => {
@@ -85,7 +63,8 @@ export function useLiveActivitySync(): void {
       if (wanted !== null) {
         const input = currentInput();
         if (input !== null) {
-          begin(wanted, input);
+          startFocus(input);
+          shownSessionId = wanted;
         }
       }
     };

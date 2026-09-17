@@ -2,36 +2,55 @@ import { useEffect } from 'react';
 
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
-import { blockPlan } from '../../domain/blocking';
-import { plannedEndAt } from '../../domain/session';
+import { blockPlan, type BlockPlan } from '../../domain/blocking';
+import { breakEndsAt, plannedEndAt } from '../../domain/session';
 import type { Session } from '../../domain/types';
-import { applyPlan, configureShield, release, status } from '../blocking';
+import { applyPlan, configureShield, pausePlan, release, resumePlan, status } from '../blocking';
 
 /**
- * Keeps Screen Time in step with the focus store by subscribing to it from outside:
- * the stores never import the platform, so the app builds where Family Controls is
- * missing (ADR-0017).
+ * Keeps the platform's blocking in step with the focus store by subscribing to it
+ * from outside: the stores never import the platform, so the app builds where the
+ * capability is missing (ADR-0017).
  *
  * A session starting in a mode with a real selection puts the shield up; the session
- * ending takes it down. A break takes it down too and the break ending puts it back
- * (ADR-0022). The user's rules travel with the plan, and the platform applies
- * the ones it can. The plan carries when the session is due to end, so a backend that
- * can time its own release (Android) does; iOS ignores it and waits for release(). On mount with a session already running (the app came back with a
- * hydrated session) the shield is applied again: ManagedSettings survives relaunches,
- * so this is a no-op most of the time, and the safe thing the rest of the time.
+ * ending takes it down. A break pauses the plan until the break's end and the break
+ * ending resumes it with the session's new end (ADR-0022, ADR-0023): on Android the
+ * service stays alive through the break and comes back by itself; on iOS pausing is
+ * releasing and resuming is applying, and this hook never learns which. The user's
+ * rules travel with the plan, and the platform applies the ones it can. The plan
+ * carries when the session is due to end, so a backend that can time its own release
+ * (Android) does; iOS ignores it and waits for release(). On mount with a session
+ * already running (the app came back with a hydrated session) the shield is applied
+ * again: ManagedSettings survives relaunches, so this is a no-op most of the time,
+ * and the safe thing the rest of the time. On mount during a break nothing is done:
+ * the Android service is already counting it, and iOS has nothing up.
  */
 export function useBlockingSync(): void {
   useEffect(() => {
-    const apply = (modeId: string | null, session: Session) => {
-      if (!status().available) {
-        return;
-      }
+    const planFor = (modeId: string | null): BlockPlan => {
       const { modes, settings } = useAppStore.getState();
       const mode = modes.find((m) => m.id === modeId) ?? null;
       if (mode !== null) {
         configureShield(mode.name);
       }
-      applyPlan(blockPlan(mode, settings.rules), plannedEndAt(session) ?? session.startedAt + session.plannedMs);
+      return blockPlan(mode, settings.rules);
+    };
+
+    // Never null outside a break; the cap for an open session.
+    const endOf = (session: Session): number => plannedEndAt(session) ?? session.startedAt + session.plannedMs;
+
+    const apply = (modeId: string | null, session: Session) => {
+      if (!status().available) {
+        return;
+      }
+      applyPlan(planFor(modeId), endOf(session));
+    };
+
+    const resume = (modeId: string | null, session: Session) => {
+      if (!status().available) {
+        return;
+      }
+      resumePlan(planFor(modeId), endOf(session));
     };
 
     const current = useFocusStore.getState();
@@ -51,10 +70,13 @@ export function useBlockingSync(): void {
       } else if (ended) {
         release();
       } else if (state.session !== null && onBreak !== wasOnBreak) {
-        if (onBreak) {
-          release();
-        } else {
-          apply(state.modeId, state.session);
+        const breakEnd = breakEndsAt(state.session);
+        if (onBreak && breakEnd !== null) {
+          if (status().available) {
+            pausePlan(breakEnd);
+          }
+        } else if (!onBreak) {
+          resume(state.modeId, state.session);
         }
       }
     });

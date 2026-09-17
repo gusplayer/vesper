@@ -20,9 +20,12 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import java.text.DateFormat
+import java.util.Date
 
 /**
- * The full-screen dark view that covers a blocked app: a title, one line under it and
+ * The full-screen dark view that covers a blocked app: a title, one line under it,
+ * the time the plan releases when it has one ("Se libera a las 18:00", ADR-0023) and
  * a single pill button that sends the user home. Shown as a TYPE_APPLICATION_OVERLAY
  * window; when the window manager refuses (no overlay permission, or an app that keeps
  * overlays out) the same view opens inside ShieldActivity.
@@ -33,6 +36,8 @@ import androidx.core.content.ContextCompat
 object Shield {
   private const val TAG = "VesperBlocking"
   private const val HIDE_OVERLAYS_PERMISSION = "android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"
+  /** What JS leaves in the release template for the formatted time. */
+  private const val TIME_PLACEHOLDER = "{time}"
   private val OVERLAY_HIDERS = setOf(
     "com.android.settings",
     "com.android.permissioncontroller",
@@ -49,16 +54,29 @@ object Shield {
   var isShowing: Boolean = false
     private set
 
-  /** Covers `blockedPackage`, the app now in front, with `copy`. */
-  fun show(context: Context, copy: ShieldCopy, blockedPackage: String) {
-    main.post { showNow(context.applicationContext, copy, blockedPackage) }
+  /**
+   * Covers `blockedPackage`, the app now in front, with `copy` and, when the plan has
+   * an end, `releaseLine` under the subtitle.
+   */
+  fun show(context: Context, copy: ShieldCopy, releaseLine: String?, blockedPackage: String) {
+    main.post { showNow(context.applicationContext, copy, releaseLine, blockedPackage) }
+  }
+
+  /**
+   * "Se libera a las 18:00": the plan's template with `{time}` replaced by its end in
+   * the device's short time format and locale. Null for a plan with no end.
+   */
+  fun releaseLine(plan: Plan): String? {
+    val endsAt = plan.endsAt ?: return null
+    val time = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(endsAt))
+    return plan.shield.releaseTemplate.replace(TIME_PLACEHOLDER, time)
   }
 
   fun hide() {
     main.post { hideNow() }
   }
 
-  private fun showNow(context: Context, copy: ShieldCopy, blockedPackage: String) {
+  private fun showNow(context: Context, copy: ShieldCopy, releaseLine: String?, blockedPackage: String) {
     if (isShowing) {
       return
     }
@@ -67,11 +85,11 @@ object Shield {
       // addView would succeed and the window would be silently kept off screen
       // (mForceHideNonSystemOverlayWindow); the activity is the only shield that shows.
       Log.i(TAG, "$blockedPackage hides overlays; using ShieldActivity")
-      ShieldActivity.open(context, copy)
+      ShieldActivity.open(context, copy, releaseLine)
       return
     }
     val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    val view = build(context, copy) { goHome(context) }
+    val view = build(context, copy, releaseLine) { goHome(context) }
     try {
       wm.addView(view, overlayParams())
       overlay = view
@@ -81,7 +99,7 @@ object Shield {
       // WindowManager.BadTokenException without the permission, SecurityException on
       // some OEMs. The activity is the fallback; it looks the same.
       Log.w(TAG, "overlay refused (${error.javaClass.simpleName}); falling back to ShieldActivity")
-      ShieldActivity.open(context, copy)
+      ShieldActivity.open(context, copy, releaseLine)
     }
   }
 
@@ -150,7 +168,7 @@ object Shield {
    * scheme from res/values/colors.xml (a copy of src/design/tokens.ts). The root eats
    * the back key: leaving the shield means pressing its button.
    */
-  fun build(context: Context, copy: ShieldCopy, onBack: () -> Unit): View {
+  fun build(context: Context, copy: ShieldCopy, releaseLine: String?, onBack: () -> Unit): View {
     val bg = ContextCompat.getColor(context, R.color.vesper_dark_bg)
     val ink = ContextCompat.getColor(context, R.color.vesper_dark_ink)
     val inkSecondary = ContextCompat.getColor(context, R.color.vesper_dark_ink_secondary)
@@ -187,6 +205,15 @@ object Shield {
       gravity = Gravity.CENTER
       setPadding(0, dp(context, 8f), 0, 0)
     }
+    val release = releaseLine?.let { line ->
+      TextView(context).apply {
+        text = line
+        setTextColor(inkSecondary)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        gravity = Gravity.CENTER
+        setPadding(0, dp(context, 4f), 0, 0)
+      }
+    }
     val button = TextView(context).apply {
       text = copy.button
       setTextColor(onInk)
@@ -209,6 +236,9 @@ object Shield {
 
     column.addView(title, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     column.addView(subtitle, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    release?.let {
+      column.addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+    }
     column.addView(
       button,
       LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {

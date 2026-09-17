@@ -29,3 +29,4 @@ Las decisiones no se editan: se marcan como superadas por un ADR nuevo.
 | 0020 | La app habla el idioma del teléfono: español e inglés, con override en Ajustes | aceptada |
 | 0021 | Círculo: comunidad pequeña, silenciosa y opcional; la cuenta vive en el teléfono y el backend llega después | aceptada |
 | 0022 | El botón de Focus dice qué hace y se toca; sesiones sin límite; pausas de 15 min que levantan el bloqueo | propuesta |
+| 0023 | Las superficies fuera de la app: relojes nativos, pausa distinta, escudo con tinta, notificación de Android como pantalla bloqueada | aceptada |

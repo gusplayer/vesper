@@ -80,7 +80,7 @@ describe('shieldCopy', () => {
 
     expect(copy.title).toBe('Vesper · Sin redes');
     expect(copy.subtitle).toBe('Estás enfocado. Esta app espera.');
-    expect(copy.primaryButtonLabel).toBe('Volver a Vesper');
+    expect(copy.primaryButtonLabel).toBe('Cerrar');
   });
 
   it('trims the name and falls back to Vesper alone', () => {

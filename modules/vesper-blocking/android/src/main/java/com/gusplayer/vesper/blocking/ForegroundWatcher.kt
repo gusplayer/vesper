@@ -95,7 +95,7 @@ class ForegroundWatcher(private val context: Context, private val plan: Plan) {
     when (verdict(packageName, latestClass)) {
       Verdict.BLOCK -> {
         Log.i(TAG, "blocked app in front: $packageName")
-        Shield.show(context, plan.shield, packageName)
+        Shield.show(context, plan.shield, Shield.releaseLine(plan), packageName)
       }
       Verdict.CLEAR -> Shield.hide()
       Verdict.IGNORE -> Unit
@@ -152,8 +152,12 @@ class ForegroundWatcher(private val context: Context, private val plan: Plan) {
     private const val TAG = "VesperBlocking"
     private const val INTERVAL_MS = 800L
     private const val OVERLAP_MS = 2_000L
-    /** On start, look this far back to catch the app already in front. */
-    private const val LOOKBACK_MS = 5_000L
+    /**
+     * On start, look this far back to catch the app already in front. Only the newest
+     * resume in the window counts, so a long window is cheap and finds an app the user
+     * opened during a break, or before a routine window, and is still sitting in.
+     */
+    private const val LOOKBACK_MS = 30 * 60_000L
     private const val SYSTEM_UI = "com.android.systemui"
     private const val SETTINGS = "com.android.settings"
   }

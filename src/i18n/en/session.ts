@@ -79,9 +79,9 @@ export const session: typeof shape = {
     intention: 'Intention',
   },
   liveActivity: {
-    status: (remaining) => `Focused · ${remaining} left`,
+    statusFocus: 'Focused',
     statusOpen: 'Focused · no limit',
-    statusBreak: (remaining) => `Break · back in ${remaining}`,
+    statusBreak: 'Break',
     fallbackModeName: 'Focus',
     notIos: 'Live Activities only exist on iPhone.',
     oldIos: 'Live Activities need iOS 16.2 or newer.',
@@ -89,7 +89,12 @@ export const session: typeof shape = {
   },
   shield: {
     subtitle: 'You are focused. This app can wait.',
-    back: 'Back to Vesper',
+    close: 'Close',
     home: 'Back',
+    releasesAt: 'Unblocks at {time}',
+    channelName: 'Focus session',
+    channelDescription: 'Shown while a session blocks apps.',
+    session: 'Focus session',
+    pause: 'Break',
   },
 };

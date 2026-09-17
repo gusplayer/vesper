@@ -69,6 +69,20 @@ object WindowScheduler {
     alarms.cancel(planEndPending(context))
   }
 
+  /**
+   * The safety net under a break: the service resumes watching at `until` by itself
+   * while alive, and this alarm brings it back if it was killed during the break.
+   */
+  fun armPlanResume(context: Context, until: Long) {
+    val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    set(alarms, until, planResumePending(context))
+  }
+
+  fun cancelPlanResume(context: Context) {
+    val alarms = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    alarms.cancel(planResumePending(context))
+  }
+
   fun canScheduleExact(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
       return true
@@ -107,6 +121,13 @@ object WindowScheduler {
     val intent = Intent(context, AlarmReceiver::class.java)
       .setAction(AlarmReceiver.ACTION_PLAN_END)
       .setData(Uri.parse("vesper://plan/end"))
+    return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+  }
+
+  private fun planResumePending(context: Context): PendingIntent {
+    val intent = Intent(context, AlarmReceiver::class.java)
+      .setAction(AlarmReceiver.ACTION_PLAN_RESUME)
+      .setData(Uri.parse("vesper://plan/resume"))
     return PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
   }
 }

@@ -153,7 +153,7 @@ describe('routineWindowPlans', () => {
       kind: 'block',
       shieldTitle: 'Vesper · Sin redes',
       shieldSubtitle: 'Estás enfocado. Esta app espera.',
-      shieldButton: 'Volver a Vesper',
+      shieldButton: 'Cerrar',
     });
   });
 

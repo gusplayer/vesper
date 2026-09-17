@@ -3,9 +3,9 @@ import type { LiveActivity, LiveActivityFactory } from 'expo-widgets';
 import { Platform } from 'react-native';
 
 import { getStrings } from '../i18n';
-import { durationText } from '../lib/format';
 import type { FocusActivityProps } from '../widgets/FocusActivity';
 import { isIos, type CapabilityStatus } from './capabilities';
+import { focusActivityProps, type FocusInput } from './liveActivityProps';
 
 /**
  * The session's Live Activity through expo-widgets. This is the only file that talks
@@ -17,7 +17,8 @@ import { isIos, type CapabilityStatus } from './capabilities';
  * capability is not available, each function is a no-op.
  *
  * The widget extension cannot reach the dictionary, so every word it shows is
- * computed here with `getStrings()` at call time and travels as a prop.
+ * computed here with `getStrings()` at call time and travels as a prop. No clock
+ * text does: the widget counts natively from the interval it receives (ADR-0023).
  */
 
 /** ActivityKit shipped in 16.1; updates from the app need 16.2. */
@@ -26,13 +27,7 @@ const MIN_IOS = 16.2;
 /** Tapping the activity lands on the session, not the home page. */
 const SESSION_PATH = '/session/active';
 
-export type FocusInput = {
-  modeName: string;
-  /** What the clock is counting: the session down, an open session up, a break down. */
-  phase: 'focus' | 'open' | 'break';
-  startedAt: number;
-  endsAt: number;
-};
+export type { FocusInput } from './liveActivityProps';
 
 type Factory = LiveActivityFactory<FocusActivityProps>;
 type Instance = LiveActivity<FocusActivityProps>;
@@ -88,19 +83,8 @@ export function status(): CapabilityStatus {
   return loadFactory() === null ? unavailable(t.noModule) : { available: true, reason: null };
 }
 
-function propsOf(input: FocusInput, now: number): FocusActivityProps {
-  const t = getStrings().session.liveActivity;
-  const remainingText = durationText(Math.max(0, input.endsAt - now));
-  const statusText =
-    input.phase === 'break' ? t.statusBreak(remainingText) : input.phase === 'open' ? t.statusOpen : t.status(remainingText);
-  return {
-    modeName: input.modeName,
-    startedAt: input.startedAt,
-    endsAt: input.endsAt,
-    countsUp: input.phase === 'open',
-    remainingText,
-    statusText,
-  };
+function propsOf(input: FocusInput): FocusActivityProps {
+  return focusActivityProps(input, getStrings().session.liveActivity);
 }
 
 /**
@@ -131,19 +115,22 @@ export function startFocus(input: FocusInput): void {
   }
   endOrphans(loaded);
   try {
-    current = loaded.start(propsOf(input, Date.now()), Linking.createURL(SESSION_PATH, { scheme: 'vesper' }));
+    current = loaded.start(propsOf(input), Linking.createURL(SESSION_PATH, { scheme: 'vesper' }));
   } catch (error) {
     report('start', error);
     current = null;
   }
 }
 
-/** Refreshes the minutes left. The big clock counts down natively and needs no help. */
+/**
+ * Re-sends the interval, phase and words: a break starting or ending, a mode renamed,
+ * a language change. The clocks count natively and need no refresh between calls.
+ */
 export function updateFocus(input: FocusInput): void {
   if (current === null) {
     return;
   }
-  current.update(propsOf(input, Date.now())).catch((error: unknown) => report('update', error));
+  current.update(propsOf(input)).catch((error: unknown) => report('update', error));
 }
 
 /** Removes the activity right away. Also sweeps orphans when there is nothing current. */

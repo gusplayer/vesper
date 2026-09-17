@@ -26,19 +26,38 @@ export type LaunchableApp = {
   iconBase64: string | null;
 };
 
-export type NativePlan = {
+/**
+ * The words the notification and the shield's third line use, in the app's language
+ * (ADR-0023). Every field is optional: a missing one keeps the Kotlin default, which
+ * only exists for plans written by older builds.
+ */
+export type NativeCopy = {
+  /** Settings › Notifications shows these for the channel. */
+  channelName?: string;
+  channelDescription?: string;
+  /** Under the title while the session runs ('Sesión de foco'). */
+  sessionText?: string;
+  /** The same line during a break ('Pausa'). */
+  breakText?: string;
+  /** The shield's third line when the plan has an end; Kotlin fills `{time}`. */
+  shieldReleasesAt?: string;
+};
+
+export type NativePlan = NativeCopy & {
   packageNames: string[];
   /** 'block' shields the packages; 'allow' shields every other app. */
   mode: 'block' | 'allow';
-  /** Epoch ms; the service stops itself then. Omitted: until release(). */
+  /** Epoch ms; the service stops itself then and the notification counts down to it. Omitted: until release(), counting up. */
   endsAt?: number;
+  /** Epoch ms the count-up starts from when there is no end. Omitted: when the plan is applied. */
+  startedAt?: number;
   shieldTitle: string;
   shieldSubtitle: string;
   shieldButton: string;
 };
 
 /** A routine window with its token already opened into package names. See RoutineWindowSpec. */
-export type NativeWindow = {
+export type NativeWindow = NativeCopy & {
   id: string;
   /** Minutes from local midnight. */
   startMinute: number;
@@ -75,6 +94,18 @@ export type VesperBlockingNative = {
   listLaunchableApps(withIcons: boolean): Promise<LaunchableApp[]>;
   applyPlan(plan: NativePlan): Promise<void>;
   release(): Promise<void>;
+  /**
+   * A break: the shield comes down and nothing is watched until `untilMs` (epoch ms),
+   * but the service and its notification stay, counting the break down. Watching
+   * resumes then with no JS involved. Rejects with E_NO_PLAN when nothing is applied.
+   */
+  pausePlan(untilMs: number): Promise<void>;
+  /**
+   * Ends the break now. `endsAt` is the plan's new end (epoch ms); null keeps the
+   * old one pushed back by what the break took. Rejects with E_NO_PLAN when nothing
+   * is applied.
+   */
+  resumePlan(endsAt: number | null): Promise<void>;
   /** Registers (or replaces) a window and arms its next start and end. */
   scheduleWindow(window: NativeWindow): Promise<void>;
   cancelWindow(id: string): Promise<void>;

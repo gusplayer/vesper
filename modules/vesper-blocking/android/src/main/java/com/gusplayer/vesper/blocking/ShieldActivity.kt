@@ -22,7 +22,7 @@ class ShieldActivity : Activity() {
       subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: "",
       button = intent.getStringExtra(EXTRA_BUTTON) ?: "Volver",
     )
-    setContentView(Shield.build(this, copy) { goHome() })
+    setContentView(Shield.build(this, copy, intent.getStringExtra(EXTRA_RELEASE)) { goHome() })
   }
 
   override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -49,15 +49,17 @@ class ShieldActivity : Activity() {
     private const val EXTRA_TITLE = "title"
     private const val EXTRA_SUBTITLE = "subtitle"
     private const val EXTRA_BUTTON = "button"
+    private const val EXTRA_RELEASE = "release"
 
     private var current: WeakReference<ShieldActivity>? = null
 
-    fun open(context: Context, copy: ShieldCopy) {
+    fun open(context: Context, copy: ShieldCopy, releaseLine: String?) {
       val intent = Intent(context, ShieldActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
         .putExtra(EXTRA_TITLE, copy.title)
         .putExtra(EXTRA_SUBTITLE, copy.subtitle)
         .putExtra(EXTRA_BUTTON, copy.button)
+        .putExtra(EXTRA_RELEASE, releaseLine)
       try {
         context.startActivity(intent)
         Log.i(TAG, "shield up (activity)")

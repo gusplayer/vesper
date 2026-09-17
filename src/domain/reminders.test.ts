@@ -144,7 +144,7 @@ describe('scheduleReminders', () => {
 
     expect(spec?.weekday).toBe(EXPO_SUNDAY);
     expect(spec?.title).toBe('Empieza Trabajo');
-    expect(spec?.body).toBe('Modo Sin redes. Toca para enfocar.');
+    expect(spec?.body).toBe('Modo Sin redes. Toca para empezar la sesión.');
     expect(spec?.sound).toBe(false);
   });
 
@@ -153,7 +153,7 @@ describe('scheduleReminders', () => {
 
     expect(spec?.id).toBe('schedule-sched-1-1');
     expect(spec?.title).toBe('Trabajo starts');
-    expect(spec?.body).toBe('No social mode. Tap to focus.');
+    expect(spec?.body).toBe('No social mode. Tap to start the session.');
   });
 
   it('produces nothing for a disabled schedule', () => {
@@ -249,7 +249,7 @@ describe('plannedNotifications', () => {
       ES,
     );
 
-    expect(spec?.body).toBe('Modo Trabajo profundo. Toca para enfocar.');
+    expect(spec?.body).toBe('Modo Trabajo profundo. Toca para empezar la sesión.');
   });
 
   it('carries the words of the slice it is given: a language change is a change of plan', () => {
@@ -259,7 +259,7 @@ describe('plannedNotifications', () => {
     const [english] = plannedNotifications(state, EN);
 
     expect(english?.id).toBe(spanish?.id);
-    expect(english?.body).toBe('Trabajo profundo mode. Tap to focus.');
+    expect(english?.body).toBe('Trabajo profundo mode. Tap to start the session.');
     expect(english?.body).not.toBe(spanish?.body);
   });
 

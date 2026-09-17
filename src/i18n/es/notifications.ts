@@ -19,7 +19,8 @@ export const notifications = {
   },
   schedule: {
     title: (scheduleName: string) => `Empieza ${scheduleName}`,
-    body: (modeName: string) => `Modo ${modeName}. Toca para enfocar.`,
+    /** Tapping opens Vesper, and opening Vesper is what starts the session. */
+    body: (modeName: string) => `Modo ${modeName}. Toca para empezar la sesión.`,
   },
   weeklyClose: {
     title: 'Cierra la semana',

@@ -225,3 +225,41 @@ dos semanas de números, un reto "Leer", dos ánimos.
 - `t.depth.label` está en minúscula; `DepthCards` capitaliza localmente.
 - `ios/` no se versiona; regenerar con `npx expo prebuild --platform ios --clean` tras
   cambiar plugins. `targets/` y `patches/` sí se versionan.
+
+## Superficies fuera de la app (2026-09-17, ADR-0023)
+
+Lo que la sesión muestra con Vesper cerrada: pantalla bloqueada, Dynamic Island, escudo
+y aviso de rutina. Antes cada superficie se había hecho por separado; el ADR-0023 fija la
+regla común: **ningún texto con tiempo depende de un temporizador de JS** y la pausa se
+ve distinta (clara) en todas partes.
+
+- **Live Activity (iOS)**: relojes nativos (`Text timerInterval`) en el banner y en las
+  cinco regiones de la isla; la línea de estado solo dice la fase ("Enfocado", "Pausa").
+  Antes "quedan 21m" se congelaba al suspender iOS el JS. En pausa el banner pasa a papel
+  y el glifo a `pause.fill`. Lógica pura en `src/platform/liveActivityProps.ts` con tests.
+  Verificado en el iPhone 17 Pro: banner contando con la app fuera (23:–– → 22:––), isla
+  compacta y expandida en foco y en pausa, banner papel en pausa, tocar la isla abre la
+  sesión. Hallazgo: `ios/` no traía el target `ExpoWidgetsTarget`; `prebuild --clean`
+  lo regeneró. No verificado: sesión sin límite en la isla (solo tests).
+- **Escudo iOS**: tinta de la sesión (fondo ink, texto papel, icono `square.fill`,
+  botón papel) desde `src/design/shieldPalette.ts`, igual en sesión y en ventanas de
+  rutina. El botón dice "Cerrar": la acción `openApp` de la librería no funciona desde
+  la extensión (`NSExtensionContext()` sin anfitrión; issue #81 de la librería). Solo
+  compila: sin entitlement no hay escudo.
+- **Rutina con la app cerrada (iOS)**: verificado en el iPhone 17 con una rutina a las
+  11:15: el aviso "Empieza Lectures · Modo Deep work. Toca para empezar la sesión."
+  apareció en la pantalla bloqueada y traer la app al frente cayó en la sesión con
+  `lastRoutineStart` correcto. Copy corregido: la sesión empieza al abrir, no antes. La
+  Live Activity no puede arrancar desde la extensión ni sin push: aparece al abrir.
+- **Android**: la notificación del servicio es la pantalla bloqueada: cronómetro nativo
+  hacia el fin (o hacia arriba sin fin), pública, abre `vesper://session/active`, canal
+  `vesper_session` con importancia por defecto (con `IMPORTANCE_LOW` no salía en la
+  pantalla bloqueada) y textos del diccionario. La pausa vive en el servicio
+  (`pausePlan`/`resumePlan`): baja el escudo, cuenta la pausa y vuelve a vigilar sola
+  aunque el proceso muera. El escudo dice "Se libera a las 11:26". Android 16 promueve
+  la notificación (`setRequestPromotedOngoing`, compileSdk 36) sin poder verse aquí.
+  Verificado en el Pixel 6 (API 34): panel con cronómetro, pantalla bloqueada con PIN,
+  escudo con hora, notificación en pausa, reanudación al segundo tras `kill -9` con el
+  escudo subiendo sobre Ajustes. Pendiente: el hook sigue pasando el tope de 12 h como
+  fin en sesiones sin límite (`applyPlan` no sabe decir "abierta").
+- `tsc` limpio, 634 tests en 49 archivos.

@@ -42,7 +42,7 @@ class BootReceiver : BroadcastReceiver() {
     if (open != null) {
       val (spec, window) = open
       Log.i(TAG, "$action: window ${spec.id} is open; starting service until ${window.end}")
-      BlockingService.apply(context, spec.plan(window.end))
+      BlockingService.apply(context, spec.plan(window.start, window.end))
     } else if (action == Intent.ACTION_BOOT_COMPLETED) {
       val plan = PlanStore.load(context)
       if (plan != null && plan.windowId == null && plan.endsAt != null) {

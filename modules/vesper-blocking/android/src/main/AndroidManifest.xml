@@ -15,6 +15,11 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <!--
+    Android 16: the session notification asks to be promoted to a live update (the
+    chip in the status bar). A normal permission; the user can turn it off per app.
+  -->
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+  <!--
     Routine windows are AlarmManager alarms. Exact ones need this toggle (a Settings
     page on Android 12+, off by default from 13); without it the alarms are inexact
     and may land up to ten minutes late. Boot re-arms what a restart forgot.

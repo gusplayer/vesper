@@ -100,12 +100,15 @@ export const session = {
     intention: 'Intención',
   },
   liveActivity: {
-    /** 'Enfocado · quedan 21m', under the mode name on the lock screen. */
-    status: (remaining: string) => `Enfocado · quedan ${remaining}`,
+    /**
+     * Under the mode name on the lock screen and in the island. Only the phase: the
+     * time next to it is a native clock, so no minutes are written here (ADR-0023).
+     */
+    statusFocus: 'Enfocado',
     /** An open session counts up instead. */
     statusOpen: 'Enfocado · sin límite',
-    /** 'Pausa · vuelves en 12m'. */
-    statusBreak: (remaining: string) => `Pausa · vuelves en ${remaining}`,
+    /** The break counts down next to it. */
+    statusBreak: 'Pausa',
     /** A session whose mode was deleted meanwhile still needs a name. */
     fallbackModeName: 'Foco',
     notIos: 'Las Live Activities solo existen en iPhone.',
@@ -114,8 +117,22 @@ export const session = {
   },
   shield: {
     subtitle: 'Estás enfocado. Esta app espera.',
-    back: 'Volver a Vesper',
+    /** The iOS shield button. It only closes the blocked app, so it says just that. */
+    close: 'Cerrar',
     /** The Android shield button: it goes to the home screen, not to Vesper. */
     home: 'Volver',
+    /**
+     * The Android shield's third line when the session has an end. Not a function:
+     * Kotlin fills `{time}` with the device's short time format, so the placeholder
+     * must stay written exactly like this.
+     */
+    releasesAt: 'Se libera a las {time}',
+    /** The Android notification channel, as Settings › Notifications shows it. */
+    channelName: 'Sesión de foco',
+    channelDescription: 'Se muestra mientras una sesión bloquea apps.',
+    /** Under the title of the Android notification; the chronometer counts next to it. */
+    session: 'Sesión de foco',
+    /** The same line during a break, counting down to the session coming back. */
+    pause: 'Pausa',
   },
 };

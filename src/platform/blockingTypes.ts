@@ -1,3 +1,16 @@
+import type { BlockPlan } from '../domain/blocking';
+
+/**
+ * A break inside a session (ADR-0022) as both backends see it (ADR-0023, decision
+ * 5). `pausePlan` lifts the shield until `untilMs`, epoch ms; `resumePlan` puts it
+ * back with the plan's new end. Android keeps its service alive between the two and
+ * resumes by itself at `untilMs` even if the app has died; iOS has no service, so
+ * pausing is release() and resuming is applyPlan(). The shared hook calls these and
+ * never learns which platform answered.
+ */
+export type PausePlan = (untilMs: number) => void;
+export type ResumePlan = (plan: BlockPlan, endsAt?: number) => void;
+
 /**
  * The contract both blocking backends (iOS Screen Time, Android vesper-blocking)
  * implement for routine windows. A window is registered with the system so the

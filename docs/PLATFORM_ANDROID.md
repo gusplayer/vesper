@@ -265,3 +265,121 @@ Volver a poner `DEV_WINDOW_TEST = null` antes de commitear.
   desbloquea; el tiempo entre el encendido y el desbloqueo no está cubierto.
 - Un **cambio de hora o de zona horaria** rearma las ventanas desde el reloj nuevo; una
   ventana que estaba abierta puede cerrarse o abrirse según dónde caiga ahora.
+
+## Fase 4: pantalla bloqueada y pausa
+
+ADR-0023, decisiones 5, 6 y 7. La notificación del servicio es la pantalla bloqueada
+de Android; la pausa vive en el servicio, no en JS; y el escudo dice a qué hora se
+libera.
+
+### Qué existe
+
+- **Notificación con reloj nativo.** `BlockingService.buildFocusNotification` usa el
+  cronómetro del sistema (`setUsesChronometer`, `setChronometerCountDown`, `setWhen`):
+  cuenta hacia abajo hasta `endsAt`; si el plan no tiene fin, cuenta hacia arriba
+  desde `startedAt` (nuevo campo del plan; si no viene de JS, el momento de aplicar,
+  y al reaplicar la misma sesión se conserva el que ya había). Ningún temporizador
+  nuestro toca el texto. Es pública (`VISIBILITY_PUBLIC`, se lee sin desbloquear),
+  permanente, silenciosa, y tocarla abre `vesper://session/active` (un `ACTION_VIEW`
+  con `setPackage`, no el intent de lanzamiento).
+- **Canal y textos en el idioma de la app.** El nombre y la descripción del canal,
+  la línea "Sesión de foco" y la línea "Pausa" viajan con cada plan y cada ventana
+  (`NativeCopy` en `modules/vesper-blocking/index.ts`, llenado por
+  `blocking.android.ts` desde `session.shield`). `createNotificationChannel` sobre un
+  canal existente le cambia el nombre, así que Ajustes › Notificaciones sigue al
+  idioma. Kotlin conserva los textos en español solo como respaldo para un plan
+  guardado por una versión anterior (`NotificationCopy()` en `PlanStore.kt`).
+- **Canal nuevo, `vesper_session`, con importancia por defecto.** Android esconde
+  por defecto las notificaciones "silenciosas" (importancia baja) en la pantalla
+  bloqueada, y la de la fase 1 lo era: no aparecía ahí. La importancia de un canal no
+  se puede subir una vez creado, así que el servicio borra `vesper_focus` y crea
+  `vesper_session` sin sonido ni vibración; la notificación además lleva `setSilent`.
+  Sale en la sección principal del panel, no en "Silenciosas".
+- **El vigilante mira 30 minutos atrás al arrancar** (antes 5 s). Solo cuenta el
+  último `ACTIVITY_RESUMED`, así que la ventana larga es barata y encuentra la app
+  bloqueada en la que el usuario ya estaba cuando termina la pausa o abre una
+  ventana de rutina; con 5 s, esa app seguía descubierta hasta el siguiente cambio
+  de app.
+- **Pausa del servicio.** `pausePlan(untilMs)` guarda `pausedAt`/`pausedUntil` en
+  `PlanStore`, baja el escudo, detiene el vigilante (`watcher = null`, así la pantalla
+  al encenderse no lo despierta), deja el servicio en primer plano con la notificación
+  contando hacia abajo hasta `untilMs`, cancela la alarma `PLAN_END` (el fin se corre
+  con la pausa) y arma dos vías de vuelta: un callback en el main looper y una alarma
+  `PLAN_RESUME` en `AlarmManager`. Al vencer, `BlockingService.resume(context, null)`
+  corre el fin del plan lo que duró la pausa, rearma `PLAN_END` y vuelve a vigilar.
+  Sin JS en ningún punto.
+- **`resumePlan(endsAt?)`** desde JS termina la pausa antes de tiempo con el fin nuevo
+  que calcula `plannedEndAt`. Si el servicio ya no tiene plan (`E_NO_PLAN`),
+  `blocking.android.ts` aplica el plan desde cero.
+- **Reinicio durante la pausa.** `START_STICKY` trae el servicio de vuelta; en
+  `onStartCommand` lee `pausedUntil`: si aún no llegó, sigue en pausa (notificación de
+  pausa, callback y alarma otra vez); si ya pasó, corre el fin y vigila de inmediato.
+  `BootReceiver` reaplica el plan guardado y `PlanStore.save` borra la pausa: tras un
+  reinicio del teléfono el bloqueo vuelve sin esperar.
+- **Escudo con hora de salida.** `ShieldCopy.releaseTemplate` viene de JS con el
+  marcador `{time}` ("Se libera a las {time}"); `Shield.releaseLine(plan)` lo rellena
+  con `DateFormat.getTimeInstance(SHORT)` en la configuración regional del teléfono
+  ("11:17 AM" en inglés, "11:17" en español). Sin `endsAt` no hay tercera línea.
+  `ShieldActivity` recibe la línea ya formateada como extra.
+- **Android 16 (compileSdk 36).** El proyecto compila con `compileSdk = 36` (catálogo
+  de React Native, `targetSdkVersion="36"` en el manifest generado) y `androidx.core`
+  1.17.0, así que la notificación pide promoción a actualización en vivo con
+  `setRequestPromotedOngoing(true)` tras `SDK_INT >= 36`, y el manifest declara
+  `POST_PROMOTED_NOTIFICATIONS`. Sin `setShortCriticalText`: los minutos que faltan
+  necesitarían un temporizador nuestro; el chip muestra el icono y el cronómetro
+  vive en la notificación. Sin `ProgressStyle` por ahora.
+- **iOS** implementa `pausePlan` como `release()` y `resumePlan` como `applyPlan`, y
+  `useBlockingSync` llama a los dos sin saber qué plataforma responde.
+
+### Cómo probar con adb
+
+```sh
+# Gancho: DEV_BLOCK_TEST = 'com.android.settings' en src/dev/route.ts (plan sin fin:
+# la notificación cuenta hacia arriba). Para ver la cuenta regresiva y la hora del
+# escudo, pasar un endsAt a applyPlan en DevJump o arrancar una sesión real.
+adb shell cmd statusbar expand-notifications && adb exec-out screencap -p > shade.png
+adb shell am start -a android.settings.SETTINGS && adb exec-out screencap -p > shield.png
+adb shell input keyevent KEYCODE_SLEEP; adb shell input keyevent KEYCODE_WAKEUP
+adb exec-out screencap -p > lock.png                   # la notificación en la pantalla bloqueada
+
+# La pausa con el proceso muerto: pausePlan(Date.now() + 2 * MINUTE) desde JS, y luego
+adb root && adb shell kill -9 $(adb shell pidof com.gusplayer.vesper)
+adb logcat -s VesperBlocking   # paused until … / break over; resuming / watching 1 packages
+```
+
+Los timers de JS se detienen mientras la app está en segundo plano en Android, así
+que un `setTimeout` en DevJump solo dispara con Vesper al frente.
+
+### Qué se probó (emulador Pixel 6, API 34, 2026-09-17)
+
+Con `DEV_BLOCK_TEST = 'com.android.settings'` y, de forma temporal en DevJump, un
+`endsAt` a +20 min y `pausePlan(now + 2 min)` a los 45 s. Capturas en el bloc de
+notas de la sesión (`android/`).
+
+- **Panel de notificaciones** (`a-shade-focus.png`): "Vesper · Prueba • 19:14 /
+  Sesión de foco", el cronómetro del sistema contando hacia abajo, en la sección
+  principal. En la primera corrida, con la app en inglés, decía "Focus session":
+  el texto sigue al idioma de la app.
+- **Pantalla bloqueada** (`b-lock-screen.png`, con PIN puesto por adb y luego
+  borrado): la misma notificación, "19:05", visible sin desbloquear. Con el canal de
+  importancia baja no aparecía (`lock_screen_show_silent_notifications` sin valor,
+  el defecto de Android esconde las silenciosas).
+- **Escudo con hora** (`c-shield-release-time.png`, `e-shield-after-pause-no-js.png`):
+  "Vesper · Prueba / Estás enfocado. Esta app espera. / Se libera a las 11:26 AM /
+  Volver". La hora usa el formato corto del teléfono (inglés, con AM) y la etiqueta
+  el idioma de la app; en la primera corrida en inglés: "Unblocks at 11:17 AM".
+- **Pausa** (`d-shade-pause.png`): "Vesper · Prueba • 01:44 / Break", contando hacia
+  abajo hasta el fin de la pausa; `dumpsys alarm` muestra la alarma `PLAN_RESUME` a
+  la hora exacta y ninguna `PLAN_END` mientras dura.
+- **Pausa con el proceso muerto.** `adb root` y `kill -9` a mitad de la pausa:
+  `START_STICKY` trajo el servicio en un pid nuevo (2 a 7 s) que leyó `pausedUntil`
+  y siguió en pausa (`paused until …`). Al segundo exacto (`11:07:19.479 break over;
+  resuming`, `watching 1 packages`) volvió a vigilar sin JS (ninguna línea de
+  `ReactNativeJS` en ese pid), encontró Ajustes ya al frente
+  (`blocked app in front`) y subió el escudo 120 ms después. El fin del plan se
+  corrió los 2 min de la pausa (`PLAN_END` rearmada a +120 s; el panel pasó de
+  "18:58" a "19:14" tras la segunda pausa).
+- **Toque en la notificación**: no probado con adb (abre `vesper://session/active`,
+  el mismo esquema que `app.json` declara y que expo-router resuelve).
+- **Android 16**: no verificable en API 34. `setRequestPromotedOngoing` y el permiso
+  están; falta un emulador API 36 para ver el chip.

@@ -213,6 +213,43 @@ nombres.
   `requestAuthorization` salvo por el texto del error; cualquier fallo que no sea una
   cancelación se trata como entitlement ausente.
 
+### Escudo (ADR-0023)
+
+Lo que iOS dibuja encima de una app bloqueada lo decide la extensión
+`ShieldConfiguration` de la librería leyendo un diccionario del app group
+(`targets/ShieldConfiguration/ShieldConfigurationExtension.swift`, `buildShield`). La app
+lo escribe con `updateShield` (sesión) y `updateShieldWithId` (ventanas de rutina), y las
+dos llamadas pasan por `shieldConfiguration()` en `blocking.ios.ts`, así que la sesión y
+la rutina se ven igual:
+
+| Pieza | Valor | Token |
+|---|---|---|
+| Fondo | tinta `#1C1B1A` sobre desenfoque `dark` (`UIBlurEffectStyle.dark`) | `colors.light.ink` |
+| Título | `Vesper · <modo>`, en `#F2F1EE` | `colors.dark.ink` |
+| Subtítulo | "Estás enfocado. Esta app espera.", en `#A9A7A2` | `colors.dark.inkSecondary` |
+| Icono | SF Symbol `square.fill`, teñido de `#F2F1EE` | `SHIELD_ICON`, `colors.dark.ink` |
+| Botón | papel `#F8F7F5` con texto en tinta; dice **"Cerrar"** / **"Close"** | `colors.light.onInk`, `colors.light.ink` |
+
+Los colores salen de `src/design/shieldPalette.ts`, que convierte los tokens a los
+canales 0-255 que espera `getColor` en `ios/Shared.swift` (`UIColor(red: r / 255, …)`).
+Ningún color literal vive fuera de `src/design/`. Las palabras vienen de
+`session.shield` en `src/i18n` y pasan por `shieldCopy` (`src/domain/blocking.ts`).
+
+**El botón solo cierra la app bloqueada, y por eso dice "Cerrar".** La librería ofrece
+la acción `{ type: 'openApp' }`, que en `ios/Shared.swift` hace
+`openUrl(urlString: "device-activity://")` y luego `sleep(ms: 1000)`; `openUrl` crea un
+`NSExtensionContext()` nuevo y llama `context.open(url)`. Ese contexto no está ligado a
+ningún proceso anfitrión (el sistema entrega el suyo solo a los widgets de Hoy), una
+extensión no puede llamar a `UIApplication.shared.open`, y la propia librería lo tiene
+abierto como issue #81 ("`openApp` action does not work"). Prometer "Volver a Vesper" con
+un botón que no vuelve es peor que decir lo que hace. Por lo mismo no se registra el
+esquema `device-activity` en `app.json`. El único camino honesto para traer al usuario
+sería una notificación local desde la acción (`sendNotification`), que no está hecha.
+
+Nada de esto se ve en el simulador (no hay Tiempo de uso) ni en un teléfono sin el
+entitlement: se verifica con `tsc` contra las typings y leyendo el Swift que consume el
+diccionario.
+
 ### Ventanas de rutina (ADR-0019)
 
 Una rutina con hora también se programa en el sistema, para que el shield suba y baje
@@ -273,3 +310,70 @@ Límites honestos:
 - `requestExactAlarms`, `requestNotifications`, `serviceAlive` y `openBatterySettings`
   existen en iOS solo para que los hooks compartidos compilen en ambas plataformas:
   devuelven `true`, `true`, `status().available` y `false`.
+
+### Rutina que arranca con la app cerrada (ADR-0023)
+
+Lo que el usuario ve, en orden: a la hora de la rutina el sistema sube el escudo (solo
+con el entitlement) y llega el aviso de `expo-notifications` "Empieza Lectura · Modo
+Trabajo. Toca para empezar la sesión." La sesión **no** existe todavía: el motor de
+rutinas corre en JS, y iOS suspende el JS en segundo plano (verificado el 2026-09-17:
+con la app en segundo plano y el teléfono bloqueado, la base no tenía ninguna sesión
+`running` a la hora del aviso). Por eso el aviso dice que tocar empieza la sesión, y no
+"toca para enfocar" como si ya estuviera corriendo.
+
+Tocar el aviso trae la app al frente; ahí `useRoutineSync` (`AppState` → `active`, o el
+montaje si la app estaba muerta) llama `evaluateRoutines`, arranca la sesión de la ventana
+vigente y `SessionGate` abre `/session/active`. Nadie escucha
+`addNotificationResponseReceivedListener` ni lee un `url` del `data` del aviso: el
+aterrizaje lo decide el store, no la notificación, así que un aviso de rutina tocado, un
+aviso ignorado y la app abierta a mano llegan al mismo sitio. Verificado en el simulador
+(iPhone 17) trayendo la app al frente con la ventana abierta: aterriza en la sesión con el
+contador en 0:03. El toque sobre el aviso no se pudo entregar desde `idb` ni `maestro`
+(SpringBoard ignora sus toques en la pantalla bloqueada y en el centro de notificaciones);
+queda por confirmarlo en un teléfono.
+
+## Live Activity (ADR-0023)
+
+La sesión se ve en la pantalla bloqueada y en la Dynamic Island a través de
+`expo-widgets`. La disposición vive en `src/widgets/FocusActivity.tsx`: Babel convierte la
+función marcada `'widget'` en un string y la extensión `ExpoWidgetsTarget` lo evalúa con
+sus propios globales (`@expo/ui`). Por eso la función no importa nada de la app, declara
+sus tokens adentro (copiados de `src/design/tokens.ts`) y recibe cada palabra ya traducida
+como prop desde `src/platform/liveActivity.ts`.
+
+Qué manda el JS y qué cuenta el sistema:
+
+- El JS fija `startedAt`, `endsAt`, la fase (`focus`, `open`, `break`) y el texto de la
+  fase ("Enfocado", "Enfocado · sin límite", "Pausa"). **Ningún número con tiempo viaja
+  como texto.** Cada reloj es un `Text timerInterval` de SwiftUI que cuenta solo: hacia
+  abajo en foco y en pausa, hacia arriba en una sesión sin límite. Cuando iOS suspende el
+  JS, nada se congela. No hay `setInterval` en `useLiveActivitySync`; se actualiza solo
+  al empezar o terminar una pausa, al renombrar el modo y al cambiar el ajuste.
+- El foco usa la tinta (fondo oscuro) y la pausa el papel (fondo claro) en el banner de
+  la pantalla bloqueada, con `activityBackgroundTint`. La isla es negra siempre, el
+  sistema no la tiñe: ahí la pausa se ve por el glifo (`pause.fill` en vez de
+  `square.fill`) y por la línea "Pausa".
+- Regiones de la isla: compacta con glifo y reloj nativo; mínima con el glifo; expandida
+  con el glifo a la izquierda, el reloj a la derecha y, en la fila de abajo a todo el
+  ancho, el modo y la fase. Las regiones que flanquean el sensor son estrechas: un nombre
+  de modo ahí se corta ("No soci…"), por eso va abajo. La región central queda vacía a
+  propósito. El reloj de la isla lleva un `frame` fijo (46/66 pt compacto, 84/118 pt
+  expandido según muestre horas): un `Text timerInterval` reserva el ancho de su valor
+  más largo y sin el frame la píldora compacta se estira a casi toda la barra.
+- En la pantalla bloqueada atenuada iOS oculta los segundos del reloj nativo ("22:––") y
+  sigue contando los minutos; es del sistema, no de la app.
+- Tocarla abre `/session/active` (la URL viaja en `start()`).
+
+Límites honestos:
+
+- La actividad arranca solo desde la app. ActivityKit no permite crearla desde la
+  extensión de `DeviceActivity` ni sin servidor de push, y Vesper no tiene servidor.
+  Una rutina que arranca con la app cerrada muestra el aviso del sistema y el escudo;
+  la actividad aparece al abrir la app.
+- "Pausa · vuelves a las 9:01" no es posible sin formatear la hora en JS, y esa hora se
+  congelaría igual que los minutos. La pausa dice "Pausa" y el reloj nativo cuenta lo
+  que falta.
+- Cambiar la disposición del widget exige recompilar el dev client: el string se
+  evalúa en la extensión, pero los componentes que usa se compilan con ella.
+- La aritmética (qué intervalo cuenta cada fase, qué texto lleva) está en
+  `src/platform/liveActivityProps.ts` y tiene tests en `liveActivityProps.test.ts`.

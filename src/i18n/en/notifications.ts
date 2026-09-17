@@ -13,7 +13,7 @@ export const notifications: typeof shape = {
   },
   schedule: {
     title: (scheduleName) => `${scheduleName} starts`,
-    body: (modeName) => `${modeName} mode. Tap to focus.`,
+    body: (modeName) => `${modeName} mode. Tap to start the session.`,
   },
   weeklyClose: {
     title: 'Close the week',

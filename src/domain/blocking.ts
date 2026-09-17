@@ -58,16 +58,20 @@ export function isEmptyPlan(plan: BlockPlan): boolean {
   return plan.kind === 'none' && !plan.blockInstalls && !plan.blockPurchases && !plan.blockMature;
 }
 
-/** 'Vesper · Sin redes' on the shield. An empty mode name leaves just 'Vesper'. */
 /** The two lines the shield says, in the app's language (src/i18n, session.shield). */
-export type ShieldStrings = { subtitle: string; back: string };
+export type ShieldStrings = { subtitle: string; close: string };
 
+/**
+ * 'Vesper · Sin redes' on the shield. An empty mode name leaves just 'Vesper'. The
+ * button says what it does, and all it can do is close the blocked app: the shield
+ * extension cannot open Vesper (ADR-0023, docs/PLATFORM_IOS.md "Escudo").
+ */
 export function shieldCopy(modeName: string, t: ShieldStrings): ShieldCopy {
   const name = modeName.trim();
   return {
     title: name === '' ? 'Vesper' : `Vesper · ${name}`,
     subtitle: t.subtitle,
-    primaryButtonLabel: t.back,
+    primaryButtonLabel: t.close,
   };
 }
 

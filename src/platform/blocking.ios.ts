@@ -1,9 +1,10 @@
 import type * as DeviceActivity from 'react-native-device-activity';
 
-import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode } from '../domain/blocking';
+import { SHIELD_ICON, shieldPalette } from '../design/shieldPalette';
+import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { ACTIVITY_PREFIX, routineIdFromActivityName, routineIdsFromActivityNames, windowIntervals } from '../domain/routineWindows';
 import { getStrings } from '../i18n';
-import type { RoutineWindowSpec } from './blockingTypes';
+import type { PausePlan, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, isDevice, type CapabilityStatus } from './capabilities';
 
 /**
@@ -207,20 +208,41 @@ export function release(): void {
   safe(() => mod.clearWebContentFilterPolicy(TRIGGERED_BY));
 }
 
-/** What the shield says on top of a blocked app. The only button sends the user back. */
+/** What the shield says on top of a blocked app, in the session's ink (ADR-0023). */
 export function configureShield(modeName: string): void {
   const mod = nativeModule();
   if (mod === null || !status().available) {
     return;
   }
   const copy = shieldCopy(modeName, getStrings().session.shield);
-  safe(() =>
-    mod.updateShield(
-      { title: copy.title, subtitle: copy.subtitle, primaryButtonLabel: copy.primaryButtonLabel },
-      { primary: { behavior: 'close' } },
-      TRIGGERED_BY,
-    ),
-  );
+  safe(() => mod.updateShield(shieldConfiguration(mod, copy), SHIELD_ACTIONS, TRIGGERED_BY));
+}
+
+/**
+ * The only button closes the blocked app, and its label says so. The library's
+ * `openApp` action cannot do more: from the ShieldAction extension it calls
+ * `NSExtensionContext().open("device-activity://")` on a context it just created,
+ * with no host behind it, and iOS ignores it (extensions cannot open URLs; the
+ * library tracks it as issue #81). A promise the button cannot keep is worse than
+ * "Cerrar".
+ */
+const SHIELD_ACTIONS: DeviceActivity.ShieldActions = { primary: { behavior: 'close' } };
+
+/**
+ * The shield's copy and look, as the ShieldConfiguration extension consumes them:
+ * colors as 0-255 channels (src/design/shieldPalette), an SF Symbol for the icon, and
+ * a dark blur under the ink in case the system draws the ground before the color.
+ */
+function shieldConfiguration(mod: Module, copy: ShieldCopy): DeviceActivity.ShieldConfiguration {
+  const palette = shieldPalette();
+  return {
+    title: copy.title,
+    subtitle: copy.subtitle,
+    primaryButtonLabel: copy.primaryButtonLabel,
+    iconSystemName: SHIELD_ICON,
+    backgroundBlurStyle: mod.UIBlurEffectStyle.dark,
+    ...palette,
+  };
 }
 
 /** True while iOS is shielding something on our behalf. */
@@ -259,8 +281,8 @@ export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
   safe(() => mod.setFamilyActivitySelectionId({ id: key, familyActivitySelection: spec.token }));
   safe(() =>
     mod.updateShieldWithId(
-      { title: spec.shieldTitle, subtitle: spec.shieldSubtitle, primaryButtonLabel: spec.shieldButton },
-      { primary: { behavior: 'close' } },
+      shieldConfiguration(mod, { title: spec.shieldTitle, subtitle: spec.shieldSubtitle, primaryButtonLabel: spec.shieldButton }),
+      SHIELD_ACTIONS,
       key,
     ),
   );
@@ -412,3 +434,19 @@ function errorMessage(error: unknown): string {
   }
   return typeof error === 'string' ? error : String(error);
 }
+
+// ---------------------------------------------------------------------------------
+// Breaks (ADR-0022, ADR-0023 decision 5): iOS has no service to keep alive through a
+// break, so pausing is releasing and resuming is applying. The shared hook calls
+// these on both platforms and never learns which one answered.
+// ---------------------------------------------------------------------------------
+
+/** Takes the shield down for the break. `_untilMs` is Android's; iOS waits for resumePlan. */
+export const pausePlan: PausePlan = (_untilMs) => {
+  release();
+};
+
+/** Puts the shield back after the break, the same way the session put it up. */
+export const resumePlan: ResumePlan = (plan, endsAt) => {
+  applyPlan(plan, endsAt);
+};
