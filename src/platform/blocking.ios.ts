@@ -65,21 +65,22 @@ export function nativeModule(): Module | null {
 }
 
 export function status(): CapabilityStatus {
+  const t = getStrings().modes.blocking;
   if (isAndroid) {
-    return unavailable('solo iPhone');
+    return unavailable(t.iosOnly);
   }
   if (!isDevice) {
-    return unavailable('el simulador no tiene Tiempo de uso');
+    return unavailable(t.simulator);
   }
   const mod = nativeModule();
   if (mod === null) {
-    return unavailable('este build no trae Tiempo de uso');
+    return unavailable(t.noModule);
   }
   if (entitlementMissing) {
-    return unavailable('falta el entitlement de Family Controls de Apple');
+    return unavailable(t.noEntitlement);
   }
   if (authorizationStatus(mod) === mod.AuthorizationStatus.denied) {
-    return unavailable('el permiso de Tiempo de uso está denegado');
+    return unavailable(t.denied);
   }
   return { available: true, reason: null };
 }
@@ -139,18 +140,19 @@ export function selectionSummary(token: string | null): SelectionSummary {
 
 /** '3 apps · 1 categoría · 2 sitios', or 'Ninguna' when the token holds nothing. */
 export function selectionSummaryText(token: string | null): string {
+  const t = getStrings().modes.blocking;
   const summary = selectionSummary(token);
   const parts: string[] = [];
   if (summary.apps > 0) {
-    parts.push(count(summary.apps, 'app', 'apps'));
+    parts.push(t.apps(summary.apps));
   }
   if (summary.categories > 0) {
-    parts.push(count(summary.categories, 'categoría', 'categorías'));
+    parts.push(t.categories(summary.categories));
   }
   if (summary.websites > 0) {
-    parts.push(count(summary.websites, 'sitio', 'sitios'));
+    parts.push(t.sites(summary.websites));
   }
-  return parts.length === 0 ? 'Ninguna' : parts.join(' · ');
+  return parts.length === 0 ? t.none : parts.join(' · ');
 }
 
 /**
@@ -409,8 +411,4 @@ function errorMessage(error: unknown): string {
     return error.message;
   }
   return typeof error === 'string' ? error : String(error);
-}
-
-function count(n: number, singular: string, plural: string): string {
-  return `${n} ${n === 1 ? singular : plural}`;
 }

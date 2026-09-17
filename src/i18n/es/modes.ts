@@ -77,6 +77,22 @@ export const modes = {
       'Elige en Tiempo de uso qué apps, categorías y sitios limita este modo. Vesper guarda la selección sin ver qué hay adentro.',
     selectedSummary: (summary: string) => `Seleccionadas: ${summary}`,
   },
+  /** What src/platform/blocking reports: why blocking is off, and what a selection holds. */
+  blocking: {
+    iosOnly: 'solo iPhone',
+    simulator: 'el simulador no tiene Tiempo de uso',
+    noModule: 'este build no trae Tiempo de uso',
+    noEntitlement: 'falta el entitlement de Family Controls de Apple',
+    denied: 'el permiso de Tiempo de uso está denegado',
+    androidNoModule: 'este build no trae el módulo de bloqueo',
+    androidNoUsageAccess: 'falta el acceso de uso',
+    androidNoOverlay: 'falta mostrar sobre otras apps',
+    /** '3 apps · 1 categoría · 2 sitios', or 'Ninguna' when the selection holds nothing. */
+    none: 'Ninguna',
+    apps: (count: number) => `${count} ${count === 1 ? 'app' : 'apps'}`,
+    categories: (count: number) => `${count} ${count === 1 ? 'categoría' : 'categorías'}`,
+    sites: (count: number) => `${count} ${count === 1 ? 'sitio' : 'sitios'}`,
+  },
   websites: {
     blocked: 'Sitios bloqueados',
     allowed: 'Sitios permitidos',

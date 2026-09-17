@@ -76,14 +76,14 @@ export function nativeModule(): Module | null {
 export function status(): CapabilityStatus {
   const mod = nativeModule();
   if (mod === null) {
-    return unavailable('Este build no trae el módulo de bloqueo');
+    return unavailable(getStrings().modes.blocking.androidNoModule);
   }
   const native = nativeStatus(mod);
   if (!native.usageAccess) {
-    return unavailable('Falta el acceso de uso');
+    return unavailable(getStrings().modes.blocking.androidNoUsageAccess);
   }
   if (!native.overlay) {
-    return unavailable('Falta mostrar sobre otras apps');
+    return unavailable(getStrings().modes.blocking.androidNoOverlay);
   }
   return { available: true, reason: null };
 }
@@ -184,7 +184,8 @@ export function selectionSummary(token: string | null): SelectionSummary {
 /** '3 apps', or 'Ninguna' when the token holds nothing. */
 export function selectionSummaryText(token: string | null): string {
   const { apps } = selectionSummary(token);
-  return apps === 0 ? 'Ninguna' : count(apps, 'app', 'apps');
+  const t = getStrings().modes.blocking;
+  return apps === 0 ? t.none : t.apps(apps);
 }
 
 /** Puts the shield up for a mode. See applyPlan. */
@@ -392,8 +393,4 @@ function errorMessage(error: unknown): string {
     return error.message;
   }
   return typeof error === 'string' ? error : String(error);
-}
-
-function count(n: number, singular: string, plural: string): string {
-  return `${n} ${n === 1 ? singular : plural}`;
 }

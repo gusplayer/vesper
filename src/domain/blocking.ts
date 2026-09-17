@@ -62,9 +62,7 @@ export function isEmptyPlan(plan: BlockPlan): boolean {
 /** The two lines the shield says, in the app's language (src/i18n, session.shield). */
 export type ShieldStrings = { subtitle: string; back: string };
 
-const SHIELD_ES: ShieldStrings = { subtitle: 'Estás enfocado. Esta app espera.', back: 'Volver a Vesper' };
-
-export function shieldCopy(modeName: string, t: ShieldStrings = SHIELD_ES): ShieldCopy {
+export function shieldCopy(modeName: string, t: ShieldStrings): ShieldCopy {
   const name = modeName.trim();
   return {
     title: name === '' ? 'Vesper' : `Vesper · ${name}`,

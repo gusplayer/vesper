@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { es } from '../i18n/es';
+
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockRules } from './blocking';
 
 const NO_RULES: BlockRules = { blockInstalls: false, blockPurchases: false, blockMature: false };
@@ -74,7 +76,7 @@ describe('isEmptyPlan', () => {
 
 describe('shieldCopy', () => {
   it('names the mode in the title', () => {
-    const copy = shieldCopy('Sin redes');
+    const copy = shieldCopy('Sin redes', es.session.shield);
 
     expect(copy.title).toBe('Vesper · Sin redes');
     expect(copy.subtitle).toBe('Estás enfocado. Esta app espera.');
@@ -82,8 +84,8 @@ describe('shieldCopy', () => {
   });
 
   it('trims the name and falls back to Vesper alone', () => {
-    expect(shieldCopy('  Lectura ').title).toBe('Vesper · Lectura');
-    expect(shieldCopy('').title).toBe('Vesper');
-    expect(shieldCopy('   ').title).toBe('Vesper');
+    expect(shieldCopy('  Lectura ', es.session.shield).title).toBe('Vesper · Lectura');
+    expect(shieldCopy('', es.session.shield).title).toBe('Vesper');
+    expect(shieldCopy('   ', es.session.shield).title).toBe('Vesper');
   });
 });
