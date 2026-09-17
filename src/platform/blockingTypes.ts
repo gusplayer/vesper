@@ -9,7 +9,15 @@ import type { BlockPlan } from '../domain/blocking';
  * never learns which platform answered.
  */
 export type PausePlan = (untilMs: number) => void;
-export type ResumePlan = (plan: BlockPlan, endsAt?: number) => void;
+export type ResumePlan = (plan: BlockPlan, timing?: PlanTiming) => void;
+
+/**
+ * When the session runs, for a backend that can time itself (Android). `endsAt` is
+ * the planned end, or the cap of an open session: the service stops there whatever
+ * happens to the app. `open` says the session has no planned end, so the notification
+ * counts up from `startedAt` instead of down to the cap (ADR-0022, ADR-0023).
+ */
+export type PlanTiming = { startedAt: number; endsAt: number; open: boolean };
 
 /**
  * The contract both blocking backends (iOS Screen Time, Android vesper-blocking)

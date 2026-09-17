@@ -49,8 +49,10 @@ export type NativePlan = NativeCopy & {
   mode: 'block' | 'allow';
   /** Epoch ms; the service stops itself then and the notification counts down to it. Omitted: until release(), counting up. */
   endsAt?: number;
-  /** Epoch ms the count-up starts from when there is no end. Omitted: when the plan is applied. */
+  /** Epoch ms the count-up starts from when there is no end, or when `open`. Omitted: when the plan is applied. */
   startedAt?: number;
+  /** An open session: `endsAt` is only its cap, so the notification counts up from `startedAt`. */
+  open?: boolean;
   shieldTitle: string;
   shieldSubtitle: string;
   shieldButton: string;

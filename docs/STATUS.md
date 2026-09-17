@@ -289,6 +289,7 @@ ve distinta (clara) en todas partes.
   la notificación (`setRequestPromotedOngoing`, compileSdk 36) sin poder verse aquí.
   Verificado en el Pixel 6 (API 34): panel con cronómetro, pantalla bloqueada con PIN,
   escudo con hora, notificación en pausa, reanudación al segundo tras `kill -9` con el
-  escudo subiendo sobre Ajustes. Pendiente: el hook sigue pasando el tope de 12 h como
-  fin en sesiones sin límite (`applyPlan` no sabe decir "abierta").
+  escudo subiendo sobre Ajustes. Una sesión sin límite viaja como `PlanTiming` con
+  `open: true`: el servicio sigue apagándose en el tope de 12 h, pero la notificación
+  cuenta hacia arriba desde el inicio (solo compila: sin captura).
 - `tsc` limpio, 634 tests en 49 archivos.

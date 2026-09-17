@@ -198,11 +198,14 @@ class BlockingService : Service() {
     manager.createNotificationChannel(channel)
   }
 
-  /** Counting down to the end, or up from the start when there is none. */
+  /**
+   * Counting down to the end, or up from the start when there is none or the session
+   * is open (its `endsAt` is only a cap the service honours in silence).
+   */
   private fun buildFocusNotification(plan: Plan): Notification {
     val builder = baseNotification(plan).setContentText(plan.notification.sessionText)
     val endsAt = plan.endsAt
-    if (endsAt != null) {
+    if (endsAt != null && !plan.open) {
       builder.setWhen(endsAt).setChronometerCountDown(true)
     } else {
       builder.setWhen(plan.startedAt)

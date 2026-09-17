@@ -27,6 +27,8 @@ class PlanRecord : Record {
   @Field val endsAt: Double? = null
   /** Epoch ms; the notification counts up from here when there is no end. Now when absent. */
   @Field val startedAt: Double? = null
+  /** An open session: `endsAt` is only its cap and the notification counts up. */
+  @Field val open: Boolean = false
   @Field val shieldTitle: String = "Vesper"
   @Field val shieldSubtitle: String = ""
   @Field val shieldButton: String = "Volver"
@@ -202,9 +204,10 @@ class VesperBlockingModule : Module() {
           record.shieldReleasesAt ?: ShieldCopy.DEFAULT_RELEASE_TEMPLATE,
         ),
         startedAt = record.startedAt?.toLong() ?: System.currentTimeMillis(),
+        open = record.open,
         notification = notificationCopy(record.channelName, record.channelDescription, record.sessionText, record.breakText),
       )
-      Log.i(TAG, "applyPlan: ${plan.packageNames.size} packages, ${plan.mode}, endsAt=${plan.endsAt}")
+      Log.i(TAG, "applyPlan: ${plan.packageNames.size} packages, ${plan.mode}, endsAt=${plan.endsAt}, open=${plan.open}")
       BlockingService.apply(context, plan)
     }
 

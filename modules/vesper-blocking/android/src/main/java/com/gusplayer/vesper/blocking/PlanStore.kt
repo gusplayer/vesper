@@ -50,6 +50,8 @@ data class Plan(
   val windowId: String? = null,
   val startedAt: Long = System.currentTimeMillis(),
   val notification: NotificationCopy = NotificationCopy(),
+  /** An open session (ADR-0022): `endsAt` is only its cap, so the notification counts up. */
+  val open: Boolean = false,
 )
 
 /**
@@ -144,6 +146,7 @@ object PlanStore {
   private const val KEY_MODE = "mode"
   private const val KEY_ENDS_AT = "endsAt"
   private const val KEY_STARTED_AT = "startedAt"
+  private const val KEY_OPEN = "open"
   private const val KEY_TITLE = "shieldTitle"
   private const val KEY_SUBTITLE = "shieldSubtitle"
   private const val KEY_BUTTON = "shieldButton"
@@ -167,6 +170,7 @@ object PlanStore {
       .putString(KEY_MODE, plan.mode.name)
       .putLong(KEY_ENDS_AT, plan.endsAt ?: -1L)
       .putLong(KEY_STARTED_AT, plan.startedAt)
+      .putBoolean(KEY_OPEN, plan.open)
       .putString(KEY_TITLE, plan.shield.title)
       .putString(KEY_SUBTITLE, plan.shield.subtitle)
       .putString(KEY_BUTTON, plan.shield.button)
@@ -205,6 +209,7 @@ object PlanStore {
       windowId = prefs.getString(KEY_WINDOW_ID, null),
       // A plan from before startedAt existed counts up from now; nothing better is known.
       startedAt = prefs.getLong(KEY_STARTED_AT, -1L).takeIf { it > 0 } ?: System.currentTimeMillis(),
+      open = prefs.getBoolean(KEY_OPEN, false),
       notification = NotificationCopy(
         channelName = prefs.getString(KEY_CHANNEL_NAME, null) ?: defaults.channelName,
         channelDescription = prefs.getString(KEY_CHANNEL_DESCRIPTION, null) ?: defaults.channelDescription,

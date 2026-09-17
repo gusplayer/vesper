@@ -276,9 +276,12 @@ libera.
 
 - **Notificación con reloj nativo.** `BlockingService.buildFocusNotification` usa el
   cronómetro del sistema (`setUsesChronometer`, `setChronometerCountDown`, `setWhen`):
-  cuenta hacia abajo hasta `endsAt`; si el plan no tiene fin, cuenta hacia arriba
-  desde `startedAt` (nuevo campo del plan; si no viene de JS, el momento de aplicar,
-  y al reaplicar la misma sesión se conserva el que ya había). Ningún temporizador
+  cuenta hacia abajo hasta `endsAt`; si el plan no tiene fin, o es una sesión sin
+  límite (`open: true`, en cuyo caso `endsAt` es solo el tope de 12 h que el servicio
+  sigue honrando), cuenta hacia arriba desde `startedAt` (campo del plan; si no viene
+  de JS, el momento de aplicar, y al reaplicar la misma sesión se conserva el que ya
+  había). JS manda los tres como `PlanTiming` (`src/platform/blockingTypes.ts`); iOS
+  los ignora. Ningún temporizador
   nuestro toca el texto. Es pública (`VISIBILITY_PUBLIC`, se lee sin desbloquear),
   permanente, silenciosa, y tocarla abre `vesper://session/active` (un `ACTION_VIEW`
   con `setPackage`, no el intent de lanzamiento).

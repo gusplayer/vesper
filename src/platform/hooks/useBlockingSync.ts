@@ -6,6 +6,7 @@ import { blockPlan, type BlockPlan } from '../../domain/blocking';
 import { breakEndsAt, plannedEndAt } from '../../domain/session';
 import type { Session } from '../../domain/types';
 import { applyPlan, configureShield, pausePlan, release, resumePlan, status } from '../blocking';
+import type { PlanTiming } from '../blockingTypes';
 
 /**
  * Keeps the platform's blocking in step with the focus store by subscribing to it
@@ -36,21 +37,26 @@ export function useBlockingSync(): void {
       return blockPlan(mode, settings.rules);
     };
 
-    // Never null outside a break; the cap for an open session.
-    const endOf = (session: Session): number => plannedEndAt(session) ?? session.startedAt + session.plannedMs;
+    // The end is never null outside a break; for an open session it is the cap, which
+    // the Android service still honours while the notification counts up instead.
+    const timingOf = (session: Session): PlanTiming => ({
+      startedAt: session.startedAt,
+      endsAt: plannedEndAt(session) ?? session.startedAt + session.plannedMs,
+      open: session.open,
+    });
 
     const apply = (modeId: string | null, session: Session) => {
       if (!status().available) {
         return;
       }
-      applyPlan(planFor(modeId), endOf(session));
+      applyPlan(planFor(modeId), timingOf(session));
     };
 
     const resume = (modeId: string | null, session: Session) => {
       if (!status().available) {
         return;
       }
-      resumePlan(planFor(modeId), endOf(session));
+      resumePlan(planFor(modeId), timingOf(session));
     };
 
     const current = useFocusStore.getState();

@@ -4,7 +4,7 @@ import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, ty
 import { packageNamesFromToken } from '../domain/packageSelection';
 import { getStrings } from '../i18n';
 import type { NativeCopy, NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
-import type { PausePlan, ResumePlan, RoutineWindowSpec } from './blockingTypes';
+import type { PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, type CapabilityStatus } from './capabilities';
 
 /**
@@ -205,7 +205,7 @@ export function applyMode(mode: BlockableMode, rules: BlockRules = NO_RULES): vo
  * rules do not travel: Android has no ManagedSettings, and nothing here pretends
  * otherwise.
  */
-export function applyPlan(plan: BlockPlan, endsAt?: number): void {
+export function applyPlan(plan: BlockPlan, timing?: PlanTiming): void {
   const mod = nativeModule();
   const kind = plan.kind;
   if (mod === null || !status().available || isEmptyPlan(plan) || kind === 'none') {
@@ -220,7 +220,9 @@ export function applyPlan(plan: BlockPlan, endsAt?: number): void {
     mod.applyPlan({
       packageNames,
       mode: kind,
-      ...(endsAt !== undefined && Number.isFinite(endsAt) ? { endsAt } : {}),
+      ...(timing !== undefined && Number.isFinite(timing.endsAt)
+        ? { endsAt: timing.endsAt, startedAt: timing.startedAt, open: timing.open }
+        : {}),
       shieldTitle: copy.title,
       shieldSubtitle: copy.subtitle,
       // The Android button goes home, not back to Vesper, so its label says just that.
@@ -259,15 +261,15 @@ export const pausePlan: PausePlan = (untilMs) => {
  * was reinstalled) the plan is applied from scratch instead, so the shield is back
  * either way.
  */
-export const resumePlan: ResumePlan = (plan, endsAt) => {
+export const resumePlan: ResumePlan = (plan, timing) => {
   const mod = nativeModule();
   if (mod === null) {
     return;
   }
-  const end = endsAt !== undefined && Number.isFinite(endsAt) ? endsAt : null;
+  const end = timing !== undefined && Number.isFinite(timing.endsAt) ? timing.endsAt : null;
   void safeAsync(() => mod.resumePlan(end)).then((resumed) => {
     if (!resumed) {
-      applyPlan(plan, endsAt);
+      applyPlan(plan, timing);
     }
   });
 };

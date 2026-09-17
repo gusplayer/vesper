@@ -4,7 +4,7 @@ import { SHIELD_ICON, shieldPalette } from '../design/shieldPalette';
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { ACTIVITY_PREFIX, routineIdFromActivityName, routineIdsFromActivityNames, windowIntervals } from '../domain/routineWindows';
 import { getStrings } from '../i18n';
-import type { PausePlan, ResumePlan, RoutineWindowSpec } from './blockingTypes';
+import type { PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, isDevice, type CapabilityStatus } from './capabilities';
 
 /**
@@ -171,7 +171,7 @@ export function applyMode(mode: BlockableMode, rules: BlockRules = NO_RULES): vo
  * iOS ignores it, because ManagedSettings has no timer and useBlockingSync calls
  * release() when the session ends.
  */
-export function applyPlan(plan: BlockPlan, _endsAt?: number): void {
+export function applyPlan(plan: BlockPlan, _timing?: PlanTiming): void {
   const mod = nativeModule();
   if (mod === null || !status().available || isEmptyPlan(plan)) {
     return;
@@ -447,6 +447,6 @@ export const pausePlan: PausePlan = (_untilMs) => {
 };
 
 /** Puts the shield back after the break, the same way the session put it up. */
-export const resumePlan: ResumePlan = (plan, endsAt) => {
-  applyPlan(plan, endsAt);
+export const resumePlan: ResumePlan = (plan, timing) => {
+  applyPlan(plan, timing);
 };
