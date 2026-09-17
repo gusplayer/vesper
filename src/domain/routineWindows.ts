@@ -79,7 +79,7 @@ export type WindowInterval = {
 export function routineWindowPlans(
   routines: ReadonlyArray<RoutineLike>,
   modes: ReadonlyArray<WindowModeLike>,
-  t?: ShieldStrings,
+  t: ShieldStrings,
 ): RoutineWindowPlan[] {
   const plans: RoutineWindowPlan[] = [];
   for (const routine of routines) {

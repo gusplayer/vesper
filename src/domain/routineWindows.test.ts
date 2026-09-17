@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { es } from '../i18n/es';
+
 import { HOUR, MINUTE } from './time';
 import type { RoutineLike } from './routines';
 import {
@@ -138,7 +140,7 @@ describe('routineIdFromActivityName', () => {
 
 describe('routineWindowPlans', () => {
   it('builds a plan for an enabled timed routine whose mode has a selection', () => {
-    const plans = routineWindowPlans([routine()], [MODE]);
+    const plans = routineWindowPlans([routine()], [MODE], es.session.shield);
 
     expect(plans).toHaveLength(1);
     expect(plans[0]).toEqual({
@@ -156,7 +158,7 @@ describe('routineWindowPlans', () => {
   });
 
   it('caps an open end with the routine duration when it has one', () => {
-    const plans = routineWindowPlans([routine({ endMinutes: null, durationMs: 2 * HOUR + 30 * MINUTE })], [MODE]);
+    const plans = routineWindowPlans([routine({ endMinutes: null, durationMs: 2 * HOUR + 30 * MINUTE })], [MODE], es.session.shield);
 
     expect(plans[0]?.capMinutes).toBe(150);
   });
@@ -173,13 +175,14 @@ describe('routineWindowPlans', () => {
         routine({ id: 'ok' }),
       ],
       [MODE, noToken],
+      es.session.shield,
     );
 
     expect(plans.map((p) => p.id)).toEqual(['ok']);
   });
 
   it('carries the allow behavior', () => {
-    const plans = routineWindowPlans([routine()], [{ ...MODE, behavior: 'allow' }]);
+    const plans = routineWindowPlans([routine()], [{ ...MODE, behavior: 'allow' }], es.session.shield);
 
     expect(plans[0]?.kind).toBe('allow');
   });
