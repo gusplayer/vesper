@@ -85,7 +85,13 @@ export function bootAndHydrate(now: number): BootResult {
  * user through onboarding again, so its draft is cleared too.
  */
 export function resetAndRehydrate(now: number): BootResult {
-  const result = resetDatabase(now, stringsFor(freshInstallLocale()).demo);
+  // The language survives the reset: it was a deliberate choice, not data, and the
+  // demo data is written in the language the app is showing right now (ADR-0020).
+  const { preference, locale } = useLocaleStore.getState();
+  const result = resetDatabase(now, stringsFor(locale).demo);
+  if (preference !== 'auto') {
+    useLocaleStore.getState().setPreference(preference, now);
+  }
   useOnboardingDraft.getState().reset();
   hydrateStores(now);
   return result;
