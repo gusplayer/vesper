@@ -25,6 +25,40 @@ const COLUMNS = 4;
 const CELLS = COLUMNS * COLUMNS;
 /** The cells the icon draws in ink: the lived part of the grid, as in HeroObject. */
 const LIVED = 9;
+/** A frame this long or shorter means the UI thread is drawing at its normal pace again. */
+const STEADY_FRAME_MS = 40;
+const STEADY_FRAMES = 2;
+const STEADY_DEADLINE_MS = 1500;
+
+/**
+ * Calls back once the UI thread has drawn a couple of frames at its normal pace, or
+ * after a deadline. Frame callbacks reach JS from the UI thread, so a long native draw
+ * (the first raster of the dissolve layers, the system taking its splash window down)
+ * shows up as one long gap between them. Returns a cancel function.
+ */
+function afterSteadyFrames(callback: () => void): () => void {
+  let alive = true;
+  let last = Date.now();
+  const deadline = last + STEADY_DEADLINE_MS;
+  let steady = 0;
+  const tick = (): void => {
+    if (!alive) {
+      return;
+    }
+    const now = Date.now();
+    steady = now - last <= STEADY_FRAME_MS ? steady + 1 : 0;
+    last = now;
+    if (steady >= STEADY_FRAMES || now >= deadline) {
+      callback();
+      return;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return () => {
+    alive = false;
+  };
+}
 
 /**
  * The way into the app (ADR-0028). The native splash is a plain ink sheet; this picks
@@ -41,8 +75,14 @@ export function BootReveal({ ready, onPhase }: BootRevealProps) {
   const [progress] = useState(() => new Animated.Value(1));
   const [veil] = useState(() => new Animated.Value(1));
   // Nothing is announced before the ink sheet is painted: the splash must go first.
+  const [inkAnnounced, setInkAnnounced] = useState(false);
+  // The dissolve layers mount under the solid sheet once the splash has had its frames
+  // to leave, and the dissolve starts once their first raster is behind us.
+  const [layersMounted, setLayersMounted] = useState(false);
   const [inkShown, setInkShown] = useState(false);
   const [inkGone, setInkGone] = useState(false);
+  // Read once, before anything moves; null until the system has answered.
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const phase = useRef(onPhase);
   useEffect(() => {
     phase.current = onPhase;
@@ -60,46 +100,67 @@ export function BootReveal({ ready, onPhase }: BootRevealProps) {
     [width, height],
   );
 
-  // The ink leaves from the edges in, so the last of it lingers around the mark.
   useEffect(() => {
-    let animation: Animated.CompositeAnimation | null = null;
     let alive = true;
     readReduceMotion().then((reduced) => {
-      if (!alive) {
-        return;
+      if (alive) {
+        setReduceMotion(reduced);
       }
-      if (reduced) {
-        progress.setValue(0);
-        setInkGone(true);
-        return;
-      }
-      animation = Animated.timing(progress, {
-        toValue: 0,
-        duration: motion.revealMs,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      });
-      animation.start(({ finished }) => {
-        if (finished) {
-          setInkGone(true);
-        }
-      });
     });
     return () => {
       alive = false;
-      animation?.stop();
     };
-  }, [progress]);
+  }, []);
+
+  // The layers wait until the splash window is gone. Android takes it down only when
+  // the app's UI thread goes idle after its first frame, so nothing heavy may happen
+  // until the frames are steady, or the whole dissolve runs under the splash.
+  useEffect(() => {
+    if (!inkAnnounced) {
+      return undefined;
+    }
+    return afterSteadyFrames(() => setLayersMounted(true));
+  }, [inkAnnounced]);
+
+  // The ink leaves from the edges in, so the last of it lingers around the mark. It
+  // starts only once the sheet is on screen and the splash behind it has been dropped:
+  // whatever moves under the splash is lost.
+  useEffect(() => {
+    if (!inkShown || reduceMotion === null) {
+      return undefined;
+    }
+    if (reduceMotion) {
+      // Simply gone; `inkDone` below reads this branch without another render.
+      progress.setValue(0);
+      return undefined;
+    }
+    // In and out: the page starts from stillness, so the first dots leave gently, and
+    // the last ones linger around the mark. InkFlood eases out only: it follows a tap.
+    const animation = Animated.timing(progress, {
+      toValue: 0,
+      duration: motion.revealMs,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    });
+    animation.start(({ finished }) => {
+      if (finished) {
+        setInkGone(true);
+      }
+    });
+    return () => animation.stop();
+  }, [inkShown, reduceMotion, progress]);
+
+  const inkDone = inkShown && (inkGone || reduceMotion === true);
 
   useEffect(() => {
-    if (inkShown && inkGone) {
+    if (inkDone) {
       phase.current('mark');
     }
-  }, [inkShown, inkGone]);
+  }, [inkDone]);
 
   // The mark stays a beat once the app is under it, then the page shows through.
   useEffect(() => {
-    if (!inkShown || !inkGone || !ready) {
+    if (!inkDone || !ready) {
       return undefined;
     }
     const animation = Animated.timing(veil, {
@@ -115,18 +176,29 @@ export function BootReveal({ ready, onPhase }: BootRevealProps) {
       }
     });
     return () => animation.stop();
-  }, [inkShown, inkGone, ready, veil]);
+  }, [inkDone, ready, veil]);
 
   function announceInk(): void {
-    if (inkShown) {
+    if (inkAnnounced) {
       return;
     }
     // One frame later, so the sheet is painted before the splash behind it goes.
     requestAnimationFrame(() => {
       phase.current('ink');
-      setInkShown(true);
+      setInkAnnounced(true);
     });
   }
+
+  // The layers are laid out: their first raster comes with the next frame, and the
+  // dissolve clock starts only once that is over and the frames are steady again.
+  const armDissolve = useRef<(() => void) | null>(null);
+  function layersReady(): void {
+    if (inkShown || armDissolve.current !== null) {
+      return;
+    }
+    armDissolve.current = afterSteadyFrames(() => setInkShown(true));
+  }
+  useEffect(() => () => armDissolve.current?.(), []);
 
   const count = layers.length;
   const { cell, gap } = layout.mark;
@@ -156,25 +228,29 @@ export function BootReveal({ ready, onPhase }: BootRevealProps) {
           />
         ))}
       </View>
-      {layers.map((layer, index) => (
-        <Animated.View
-          key={index}
-          style={[
-            styles.fill,
-            {
-              opacity: progress.interpolate({
-                inputRange: [index / count, (index + 1) / count],
-                outputRange: [0, 1],
-                extrapolate: 'clamp',
-              }),
-            },
-          ]}
-        >
-          <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-            <Path d={layer.path} fill={palette.light.ink} />
-          </Svg>
-        </Animated.View>
-      ))}
+      {layersMounted ? (
+        <View style={styles.fill} onLayout={layersReady}>
+          {layers.map((layer, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.fill,
+                {
+                  opacity: progress.interpolate({
+                    inputRange: [index / count, (index + 1) / count],
+                    outputRange: [0, 1],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ]}
+            >
+              <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+                <Path d={layer.path} fill={palette.light.ink} />
+              </Svg>
+            </Animated.View>
+          ))}
+        </View>
+      ) : null}
       <Animated.View style={[styles.fill, { backgroundColor: palette.light.ink, opacity: sheetOpacity }]} />
     </Animated.View>
   );

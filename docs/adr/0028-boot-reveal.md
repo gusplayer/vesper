@@ -49,6 +49,28 @@ Restricciones que esto toca:
 6. **"Reducir movimiento"**: la tinta simplemente no está (la marca sobre la página) y
    solo queda el fade final. Se lee una vez al montar (`readReduceMotion`), no con el
    hook, porque la animación empieza antes de que el hook resuelva.
+7. **La curva es de entrada y salida** (`Easing.inOut(quad)`), no solo de salida como en
+   `InkFlood`: la página parte del reposo, así que los primeros puntos se van despacio y
+   los últimos se demoran alrededor de la marca. `InkFlood` sigue a un toque y arranca
+   rápido con razón.
+
+### Lo que Android obliga
+
+El splash de Android 12+ es una ventana del sistema, no una vista de la app, y eso
+cambia dos cosas que en iOS no existen (verificado en el emulador, build de Release):
+
+- **Se desvanece, no se quita.** `expo-splash-screen` la retira con un fade de 400 ms por
+  defecto; ese fundido uniforme se superponía a la disolución y convertía su primera
+  mitad en un simple crossfade. El layout raíz fija `setOptions({ duration: 0 })`.
+- **Se retira cuando la app queda ociosa, no cuando se le pide.** `hide()` solo deja
+  pasar el primer dibujado; el sistema transfiere y retira la ventana después, y si el
+  hilo de UI está ocupado (rasterizar 24 capas SVG a pantalla completa toma cientos de
+  ms en el emulador) la retirada llega tarde y la disolución entera corre debajo. Por
+  eso `BootReveal` va por etapas: primero solo la hoja sólida y la marca (baratas);
+  cuando los cuadros vuelven a un ritmo estable (`afterSteadyFrames`, dos cuadros
+  seguidos de ≤ 40 ms o 1,5 s de plazo) monta las capas debajo de la hoja, y cuando el
+  primer rasterizado de las capas quedó atrás, con el mismo criterio, arranca el reloj.
+  En iOS esto cuesta unos 50 ms de tinta quieta y nada más.
 
 ## Alternativas consideradas
 
@@ -78,4 +100,8 @@ Restricciones que esto toca:
   color, y lo único que se ve aparecer es la marca clara. Es correcto y raro; no se
   ajusta.
 - Con la app en dev client, el splash nativo se ve poco: el cliente muestra su propio
-  lanzador antes. La costura solo se juzga en una build instalada.
+  lanzador antes (y en Android lo oculta él mismo y deja papel en blanco mientras baja el
+  bundle). La costura solo se juzga en una build de Release: en Android,
+  `./gradlew :app:assembleRelease` firma con la clave de debug y se instala con `adb`.
+- El emulador de Android dibuja la disolución a unos 10 cuadros por segundo incluso con
+  `-gpu host`; en un teléfono real debería ir fluida, pero no se ha medido.

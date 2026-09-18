@@ -22,7 +22,10 @@ import { useStrings } from '../i18n';
 
 // The native splash is a plain ink sheet and stays up until BootReveal, the same ink,
 // is painted over the page; expo-router leaves it alone once this has been called.
+// It must go in one frame, not fade: Android's default 400 ms fade would sit on top of
+// the dissolve and turn its first half into a plain crossfade (ADR-0028).
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 0, fade: false });
 
 /**
  * Root layout. The app renders under BootReveal once Outfit is loaded: a flash of
