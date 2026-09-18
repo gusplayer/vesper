@@ -144,10 +144,6 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
   `ios/` viejo puede no traer `ExpoWidgetsTarget`: `--clean` lo arregla.
 - Los restos de la fase 1 (`repositories/sessionConfig.ts`, `queries/week.ts`, cinco
   claves viejas de `settings`) se borraron en la revisión del 2026-09-17 (ADR-0026).
-- Las ventanas nativas de rutina (`DeviceActivity` en iOS, `AlarmManager` en Android) no
-  aplican todavía la estampa `updated_at` de ADR-0026 §7: una rutina con selección real
-  guardada dentro de su ventana subiría el escudo esa misma vez. Hay que pasar
-  `updatedAt` en `RoutineWindowSpec` y saltar la primera ocurrencia cuando corresponda.
 - Círculo sin servidor: escribir un código ajeno responde "todavía no hay servidor"; solo
   la invitación sembrada (Mateo) se puede aceptar. Es lo honesto hasta el backend (ADR-0021).
 - Sin textos legales: Acerca de no tiene Términos ni Privacidad hasta que existan.

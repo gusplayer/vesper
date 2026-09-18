@@ -5,10 +5,10 @@ import { Platform } from 'react-native';
 import { useAppStore, useCircleStore, useFocusStore } from '../data';
 import { dayBounds } from '../domain/day';
 import { MINUTE } from '../domain/time';
-import { applyPlan, configureShield } from '../platform/blocking';
 // The Android file by name: windows are an Android-only surface for now, and the
-// module inside is inert elsewhere (nativeModule() answers null off Android).
-import { scheduleWindow } from '../platform/blocking.android';
+// module inside is inert elsewhere (nativeModule() answers null off Android). One
+// import for all three, since `../platform/blocking` resolves to this same file.
+import { applyPlan, configureShield, scheduleWindow } from '../platform/blocking.android';
 import {
   DEV_BLOCK_TEST,
   DEV_CIRCLE_PROFILE,
@@ -61,6 +61,7 @@ export function DevJump() {
         endMinute,
         capMinutes: WINDOW_TEST_LENGTH_MIN,
         days: [true, true, true, true, true, true, true],
+        notBefore: 0,
         token: JSON.stringify([DEV_WINDOW_TEST]),
         kind: 'block',
         shieldTitle: 'Prueba de ventana',

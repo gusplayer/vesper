@@ -48,6 +48,8 @@ export type RoutineWindowPlan = {
   endMinute: number | null;
   capMinutes: number;
   days: boolean[];
+  /** The routine's `updatedAt`: an occurrence that started before it never opens (ADR-0026 §7). 0 when unknown. */
+  notBefore: number;
   token: string;
   kind: 'block' | 'allow';
   shieldTitle: string;
@@ -74,7 +76,10 @@ export type WindowInterval = {
 /**
  * The windows the system should hold right now: every enabled, timed routine on at
  * least one day whose mode has a real selection. The cap of an open-ended window is
- * the routine's duration when it has one, like the in-app engine does.
+ * the routine's duration when it has one, like the in-app engine does, and the
+ * routine's `updatedAt` travels as `notBefore`, so the system skips the occurrence the
+ * routine was saved into, like the in-app engine does. A plan whose `updatedAt` moved
+ * is a different plan: the sync hands it over again.
  */
 export function routineWindowPlans(
   routines: readonly RoutineLike[],
@@ -98,6 +103,7 @@ export function routineWindowPlans(
       endMinute: routine.endMinutes,
       capMinutes: Math.round((routine.durationMs ?? OPEN_END_CAP_MS) / MINUTE),
       days: [...routine.days],
+      notBefore: routine.updatedAt ?? 0,
       token,
       kind: mode.behavior,
       shieldTitle: copy.title,

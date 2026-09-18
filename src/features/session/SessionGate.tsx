@@ -37,9 +37,12 @@ export function SessionGate() {
   const endAt = session === null ? null : plannedEndAt(session);
   const breakEnd = session === null ? null : breakEndsAt(session);
 
-  // The latest path, without re-running the effects every time it changes.
+  // The latest path, without re-running the effects every time it changes. Written in
+  // an effect, declared first so it lands before the two below read it.
   const pathRef = useRef(pathname);
-  pathRef.current = pathname;
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
   const insideSession = () => pathRef.current.startsWith(SESSION_PREFIX);
 
   // Pull into the session whenever one is running and the app is somewhere else.

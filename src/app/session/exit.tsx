@@ -72,6 +72,7 @@ export default function ExitScreen() {
   const steps = exitStepsFor(session.depth);
   const step = steps[index] ?? 'breathe';
   const cycles = breathCyclesFor(session.depth);
+  const totalMs = breathTotalMs(cycles);
   const heldMs = completedMs + (pressedAt === null ? 0 : Math.max(0, now - pressedAt));
   const breath = breathState(heldMs, cycles);
   const served = durationText(elapsed(session, now));
@@ -105,7 +106,7 @@ export default function ExitScreen() {
     const held = completedMs + Math.max(0, Date.now() - pressedAt);
     const banked = releaseBreath(held);
     // A round left halfway starts over; the screen says so until the next press.
-    setReleased(banked < held && banked < breathTotalMs(cycles));
+    setReleased(banked < held && banked < totalMs);
     setCompletedMs(banked);
     setPressedAt(null);
   };

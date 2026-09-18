@@ -70,8 +70,10 @@ export default function InviteScreen() {
     setResult(invite(codeFromInviteLink(codeText) ?? codeText));
   };
 
-  const accept = (member: Member) => {
-    setAcceptFull(acceptInvite(member.id, Date.now()) === 'full');
+  // The tap's moment comes in as a parameter, the way the store takes `now`: the row's
+  // handler reads the clock, not a helper the list closes over while rendering.
+  const accept = (member: Member, tappedAt: number) => {
+    setAcceptFull(acceptInvite(member.id, tappedAt) === 'full');
   };
 
   const confirmRemove = (member: Member) => {
@@ -114,7 +116,7 @@ export default function InviteScreen() {
                 description={`${t.circle.member.handle(member.handle)} · ${copy.invitedYou}`}
                 right={
                   <Stack direction="row" gap="sm">
-                    <Chip label={copy.accept} selected onPress={() => accept(member)} />
+                    <Chip label={copy.accept} selected onPress={() => accept(member, Date.now())} />
                     <Chip label={copy.decline} selected={false} onPress={() => declineInvite(member.id)} />
                   </Stack>
                 }

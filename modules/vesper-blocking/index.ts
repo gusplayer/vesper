@@ -68,6 +68,12 @@ export type NativeWindow = NativeCopy & {
   capMinutes: number;
   /** Monday first, seven entries. */
   days: boolean[];
+  /**
+   * Epoch ms. An occurrence whose start is before this is never armed, not even its
+   * end, and never raises the plan if it is open right now (ADR-0026 §7). 0 means
+   * every occurrence counts; Kotlin defaults to it for a record without the field.
+   */
+  notBefore: number;
   packageNames: string[];
   mode: 'block' | 'allow';
   shieldTitle: string;

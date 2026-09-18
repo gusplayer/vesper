@@ -19,7 +19,10 @@ const DEBOUNCE_MS = 500;
  * timed routine whose mode has a selection is scheduled, and every window the system
  * still holds for a routine that no longer wants one is cancelled. A window whose spec
  * did not change since it was last handed over is left alone, so editing one routine
- * does not restart the others. Where blocking is unavailable nothing is touched.
+ * does not restart the others; the spec carries the routine's `updatedAt` as
+ * `notBefore`, so saving or switching a routine on always hands it over again with the
+ * new stamp, and the platform skips the occurrence that was open at that moment
+ * (ADR-0026 §7). Where blocking is unavailable nothing is touched.
  */
 export function useRoutineWindowsSync(): void {
   useEffect(() => {
@@ -63,7 +66,8 @@ export function useRoutineWindowsSync(): void {
 
 /**
  * One pass. `applied` remembers, per routine, the serialized spec last handed to the
- * platform; a spec that matches and is still registered is skipped.
+ * platform; a spec that matches and is still registered is skipped. `notBefore` is
+ * part of the spec, so a new `updatedAt` never matches.
  */
 async function reconcile(applied: Map<string, string>): Promise<void> {
   if (!status().available) {

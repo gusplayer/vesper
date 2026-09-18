@@ -35,6 +35,14 @@ export type RoutineWindowSpec = {
   capMinutes: number;
   /** Monday first. */
   days: boolean[];
+  /**
+   * Epoch ms. An occurrence whose start is before this never opens: neither its start
+   * nor its end is armed, and if it is open right now it stays closed for the OS. The
+   * hook fills it with the routine's `updatedAt` (ADR-0026 §7: saving or switching on
+   * a routine inside its window is not asking for a shield right now). 0 means every
+   * occurrence counts.
+   */
+  notBefore: number;
   /** The mode's selection token (iOS: FamilyActivitySelection; Android: JSON package list). */
   token: string;
   kind: 'block' | 'allow';

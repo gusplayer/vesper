@@ -21,6 +21,9 @@ data class AlarmInstants(val nextStart: Long?, val nextEnd: Long?)
  * - A window that crossed midnight may have started yesterday, so "active now" looks
  *   at yesterday's occurrence as well as today's.
  * - The next start looks eight days ahead: a window on one weekday recurs in seven.
+ * - An occurrence that started before `notBefore` (the routine's last save, ADR-0026
+ *   §7) never counts: it is not active now and it is never the next start, so neither
+ *   of its alarms is armed.
  */
 object WindowSchedule {
   private const val MINUTE_MS = 60_000L
@@ -77,8 +80,8 @@ object WindowSchedule {
     return WindowInstants(start, end)
   }
 
-  /** The window containing `now`, if the spec is inside one right now. */
-  fun activeWindow(spec: WindowSpec, now: Long): WindowInstants? {
+  /** The occurrence containing `now`, `notBefore` or not. */
+  private fun containingWindow(spec: WindowSpec, now: Long): WindowInstants? {
     for (dayAt in longArrayOf(dayStartShifted(now, -1), now)) {
       val window = windowOnDay(spec, dayAt) ?: continue
       if (now >= window.start && now < window.end) {
@@ -88,11 +91,27 @@ object WindowSchedule {
     return null
   }
 
-  /** The first window whose start is at or after `at`, looking a week ahead. */
+  /** An occurrence that started before `notBefore` was already open when the routine was saved. */
+  private fun openedBeforeSave(spec: WindowSpec, window: WindowInstants): Boolean = window.start < spec.notBefore
+
+  /**
+   * The window containing `now`, if the spec is inside one right now. An occurrence
+   * that was already open at `notBefore` is not one of them.
+   */
+  fun activeWindow(spec: WindowSpec, now: Long): WindowInstants? {
+    val window = containingWindow(spec, now) ?: return null
+    return if (openedBeforeSave(spec, window)) null else window
+  }
+
+  /**
+   * The first window whose start is at or after `at` and not before `notBefore`,
+   * looking a week ahead from the later of the two.
+   */
   fun nextWindow(spec: WindowSpec, at: Long): WindowInstants? {
+    val from = maxOf(at, spec.notBefore)
     for (offset in 0 until LOOKAHEAD_DAYS) {
-      val window = windowOnDay(spec, if (offset == 0) at else dayStartShifted(at, offset)) ?: continue
-      if (window.start >= at) {
+      val window = windowOnDay(spec, if (offset == 0) from else dayStartShifted(from, offset)) ?: continue
+      if (window.start >= from) {
         return window
       }
     }
@@ -103,7 +122,9 @@ object WindowSchedule {
    * The two instants to arm at `now`. Inside a window the end is that window's and
    * the start is the following occurrence's (strictly after the one already open, so
    * a start alarm handled at its own instant never re-arms itself). Outside, both
-   * belong to the next occurrence. Both null when no day is on.
+   * belong to the next occurrence. Both null when no day is on. Inside an occurrence
+   * `notBefore` rules out, both belong to the following one: its end alarm is never
+   * armed, so it neither opens nor closes anything.
    */
   fun alarms(spec: WindowSpec, now: Long): AlarmInstants {
     val active = activeWindow(spec, now)

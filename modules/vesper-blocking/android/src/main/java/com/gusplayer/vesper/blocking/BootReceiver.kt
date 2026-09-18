@@ -9,7 +9,8 @@ import android.util.Log
  * A reboot forgets every alarm; so does an app update, and a clock or time-zone
  * change moves the instants they were set for. On each, every registered window is
  * armed again from the current clock, and a window that is open right now raises its
- * plan straight away. Runs without JS.
+ * plan straight away, unless that occurrence started before the window's `notBefore`
+ * (WindowSchedule.activeWindow says so; ADR-0026 §7). Runs without JS.
  *
  * BOOT_COMPLETED only, never LOCKED_BOOT_COMPLETED: SharedPreferences sit in
  * credential-encrypted storage and are unreadable before the first unlock.

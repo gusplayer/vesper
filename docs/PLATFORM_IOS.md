@@ -299,6 +299,28 @@ ese día; una ventana que cruza la medianoche (21:30 → 06:30) termina con el `
 del día siguiente. Una ventana abierta termina en `start + cap` (la duración de la
 rutina, o 8 h); si el resultado queda antes del inicio, es del día siguiente.
 
+**La ventana en la que se guardó la rutina no arranca (ADR-0026 §7).** El motor en la
+app ignora una ventana que ya estaba abierta cuando la rutina se guardó o se encendió
+(`schedules.updated_at`), y el sistema hace lo mismo. `RoutineWindowSpec.notBefore`
+lleva ese `updatedAt` (lo pone `routineWindowPlans`; como forma parte del spec, cada
+guardado vuelve a entregar la rutina a `scheduleWindow`). Un `DeviceActivitySchedule`
+se repite cada semana y no puede saltarse una sola ocurrencia, y si `startMonitoring`
+se llama dentro del intervalo, la extensión recibe `intervalDidStart` de inmediato. Por
+eso, cuando el reloj está dentro de una ocurrencia que empezó antes de `notBefore`
+(`skippedWindow` en `src/platform/routineWindows.ts`), las acciones de
+`intervalDidStart` llevan `neverTriggerBefore` = fin de esa ocurrencia:
+`shouldExecuteAction` (`Shared.swift`) descarta la acción mientras `now <
+neverTriggerBefore`, así que el `intervalDidStart` inmediato no sube nada y la
+ocurrencia siguiente, que empieza después de ese instante, corre normal. Las acciones de
+`intervalDidEnd` no se condicionan: sobre un escudo que nunca subió,
+`unblockSelection` resta la selección de una blocklist vacía y vuelve a aplicar lo
+mismo (`difference` + `updateBlock`), y `disableBlockAllMode` sobre un modo que no
+estaba activo tampoco cambia nada; y si un registro anterior de la misma rutina sí
+había subido el escudo (la rutina se editó con la ventana abierta y `stopMonitoring`
+no dispara `intervalDidEnd`), ese fin es el que lo baja. Fuera de una ventana abierta
+no se pasa `neverTriggerBefore`. Igual que el resto de esta sección, está escrito
+contra el Swift de la librería, no probado en un teléfono.
+
 Límites honestos:
 
 - **Presupuesto de actividades.** iOS acepta ~20 `DeviceActivityName` a la vez
@@ -314,6 +336,12 @@ Límites honestos:
   `release()` hace `resetBlocks`: el shield que puso la ventana también cae. Terminar
   antes fue una decisión (ADR-0019), y el sistema no lo vuelve a subir hasta el
   siguiente `intervalDidStart`.
+- **`neverTriggerBefore` es un instante, no una ocurrencia.** Solo cubre la ventana
+  abierta en el momento de programar. Si una rutina de 24 h (fin = inicio) encadena
+  ocurrencias sin hueco y iOS entrega el siguiente `intervalDidStart` antes del fin
+  exacto de la anterior, ese arranque se pierde también; con ventanas más cortas no
+  pasa. Y una rutina guardada fuera de su ventana no lleva la marca: se programa como
+  siempre.
 - **Nada de esto se puede probar sin el entitlement.** El simulador no tiene Tiempo de
   uso y el device sin Family Controls falla en `requestAuthorization`; las cuatro
   funciones (`scheduleWindow`, `cancelWindow`, `listWindowIds` y las acciones de la

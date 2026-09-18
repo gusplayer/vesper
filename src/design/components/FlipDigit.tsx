@@ -31,13 +31,14 @@ export function FlipDigit({ value, scale = 1 }: FlipDigitProps) {
   const [bottomProgress] = useState(() => new Animated.Value(0));
   const running = useRef(false);
 
+  // With "reduce motion" the digit changes, nothing falls: the shown value follows the
+  // new one on the same render, no animation and no effect.
+  if (reduceMotion && shown !== value) {
+    setShown(value);
+  }
+
   useEffect(() => {
-    if (value === shown || running.current) {
-      return;
-    }
-    // With "reduce motion" the digit changes, nothing falls.
-    if (reduceMotion) {
-      setShown(value);
+    if (value === shown || running.current || reduceMotion) {
       return;
     }
     running.current = true;

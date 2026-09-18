@@ -47,6 +47,8 @@ class WindowRecord : Record {
   @Field val endMinute: Int? = null
   @Field val capMinutes: Int = 8 * 60
   @Field val days: List<Boolean> = emptyList()
+  /** Epoch ms; a Double because that is what a JS number is. 0 means every occurrence counts. */
+  @Field val notBefore: Double = 0.0
   @Field val packageNames: List<String> = emptyList()
   @Field val mode: String = "block"
   @Field val shieldTitle: String = "Vesper"
@@ -257,8 +259,9 @@ class VesperBlockingModule : Module() {
           record.shieldReleasesAt ?: ShieldCopy.DEFAULT_RELEASE_TEMPLATE,
         ),
         notification = notificationCopy(record.channelName, record.channelDescription, record.sessionText, record.breakText),
+        notBefore = record.notBefore.toLong().coerceAtLeast(0L),
       )
-      Log.i(TAG, "scheduleWindow ${spec.id}: ${spec.startMinute}-${spec.endMinute ?: "cap ${spec.capMinutes}"} days=${spec.days} ${spec.packageNames.size} packages")
+      Log.i(TAG, "scheduleWindow ${spec.id}: ${spec.startMinute}-${spec.endMinute ?: "cap ${spec.capMinutes}"} days=${spec.days} notBefore=${spec.notBefore} ${spec.packageNames.size} packages")
       WindowScheduler.schedule(context, spec)
     }
 

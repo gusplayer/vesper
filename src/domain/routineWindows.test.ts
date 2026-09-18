@@ -149,12 +149,20 @@ describe('routineWindowPlans', () => {
       endMinute: 12 * 60,
       capMinutes: 480,
       days: WEEKDAYS,
+      notBefore: 0,
       token: 'dG9rZW4=',
       kind: 'block',
       shieldTitle: 'Vesper · Sin redes',
       shieldSubtitle: 'Estás enfocado. Esta app espera.',
       shieldButton: 'Cerrar',
     });
+  });
+
+  it('carries the routine’s updatedAt as notBefore, so the occurrence saved into is skipped', () => {
+    const savedAt = new Date(2026, 8, 16, 10, 0).getTime();
+    const plans = routineWindowPlans([routine({ updatedAt: savedAt })], [MODE], es.session.shield);
+
+    expect(plans[0]?.notBefore).toBe(savedAt);
   });
 
   it('caps an open end with the routine duration when it has one', () => {

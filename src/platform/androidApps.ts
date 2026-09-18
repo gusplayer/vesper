@@ -11,6 +11,7 @@ export async function listLaunchableApps(withIcons: boolean): Promise<Launchable
     return [];
   }
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: the module may be absent
     const { requireVesperBlocking } = require('../../modules/vesper-blocking') as typeof import('../../modules/vesper-blocking');
     return await requireVesperBlocking().listLaunchableApps(withIcons);
   } catch (error) {

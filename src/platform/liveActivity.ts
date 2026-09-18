@@ -63,6 +63,7 @@ function loadFactory(): Factory | null {
   }
   try {
     // Lazy on purpose: importing the widget file constructs the native factory.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: the module may be absent
     const widget = require('../widgets/FocusActivity') as typeof import('../widgets/FocusActivity');
     factory = widget.FocusActivity;
   } catch (error) {

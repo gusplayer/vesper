@@ -85,6 +85,7 @@ function loadModule(): HealthKitModule | null {
   try {
     // Lazy on purpose: a top-level import would throw at load time where the pod is
     // missing, and that takes the whole app down instead of one screen.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: the module may be absent
     const loaded = require('react-native-health') as { default?: HealthKitModule } | HealthKitModule;
     const candidate = 'default' in loaded && loaded.default !== undefined ? loaded.default : loaded;
     kitModule = typeof (candidate as HealthKitModule).isAvailable === 'function' ? (candidate as HealthKitModule) : null;

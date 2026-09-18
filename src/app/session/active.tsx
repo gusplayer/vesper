@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
 import {
@@ -81,10 +81,10 @@ export default function ActiveSessionScreen() {
   const params = useLocalSearchParams<{ art?: string }>();
   const [showingArt, setShowingArt] = useState(params.art === '1');
   const [showingMode, setShowingMode] = useState(false);
-  // The dissolve in flight, if any. The tone is remembered so the flood keeps its
-  // color while it lingers after `flood` drops back to null.
+  // The dissolve in flight, if any. The tone is state of its own so the flood keeps
+  // its color while it lingers after `flood` drops back to null.
   const [flood, setFlood] = useState<FloodTone | null>(null);
-  const floodTone = useRef<FloodTone>('ink');
+  const [floodTone, setFloodTone] = useState<FloodTone>('ink');
 
   // Leaving the app is an interruption in firm and deep; the domain ignores soft.
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function ActiveSessionScreen() {
   }
 
   const startFlood = (tone: FloodTone) => {
-    floodTone.current = tone;
+    setFloodTone(tone);
     setFlood(tone);
   };
   // The page is fully covered: swap what is under it, then let the flood linger.
@@ -118,7 +118,7 @@ export default function ActiveSessionScreen() {
   const withFlood = (view: ReactNode) => (
     <>
       {view}
-      <InkFlood active={flood !== null} tone={floodTone.current} onDone={flooded} />
+      <InkFlood active={flood !== null} tone={floodTone} onDone={flooded} />
     </>
   );
 

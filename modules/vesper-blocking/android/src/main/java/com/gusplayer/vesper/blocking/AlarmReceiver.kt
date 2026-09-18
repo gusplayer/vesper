@@ -10,8 +10,10 @@ import android.util.Log
  *
  * - Start: if the window is open right now (an inexact alarm can be late enough to
  *   miss a short one) the window's plan goes to PlanStore and the service starts.
- *   Android lets a foreground service start from here because the app holds
- *   SYSTEM_ALERT_WINDOW, which blocking needs anyway.
+ *   An occurrence that started before the spec's `notBefore` is not open for
+ *   WindowSchedule, so a start alarm armed before a re-registration moved the stamp
+ *   starts nothing either (ADR-0026 §7). Android lets a foreground service start
+ *   from here because the app holds SYSTEM_ALERT_WINDOW, which blocking needs anyway.
  * - End: releases only if the running plan is this window's. A session the user
  *   started by hand, or another window's, is never cut short by a stranger's alarm.
  * - Plan end: the safety net under a JS plan with `endsAt` whose service was killed.
@@ -27,7 +29,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val spec = window(context, intent) ?: return
         val active = WindowSchedule.activeWindow(spec, now)
         if (active == null) {
-          Log.w(TAG, "window ${spec.id} start alarm arrived outside the window; not starting")
+          Log.w(TAG, "window ${spec.id} start alarm arrived outside the window, or inside one saved into (notBefore=${spec.notBefore}); not starting")
         } else if (spec.packageNames.isEmpty()) {
           Log.w(TAG, "window ${spec.id} has no packages; not starting")
         } else if (PlanStore.sessionPlanRunning(context, now)) {

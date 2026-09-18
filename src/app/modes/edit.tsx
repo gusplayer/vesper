@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert } from 'react-native';
 
 import {
@@ -36,20 +36,14 @@ export default function ModeEditScreen() {
   const activities = useActivities();
   const upsertMode = useAppStore((state) => state.upsertMode);
   const deleteMode = useAppStore((state) => state.deleteMode);
+  // Loaded once, on arrival, before the first read of the draft below: a state
+  // initializer runs exactly once per mount, and `load` is idempotent, so the first
+  // render already shows this mode and the name field decides its autoFocus right.
+  // Coming back from a picker keeps this screen mounted, so the draft the picker
+  // edited is the one shown; later store changes never reload it.
+  useState(() => useModeDraftStore.getState().load(mode));
   const draft = useModeDraftStore();
   const editing = draft.id !== null;
-  // Loaded once, on arrival. Coming back from a picker keeps this screen mounted, so
-  // the draft the picker edited is the one shown.
-  const [ready, setReady] = useState(false);
-  useEffect(() => {
-    useModeDraftStore.getState().load(mode);
-    setReady(true);
-    // Only on mount, on purpose: later store changes must not reload the draft.
-  }, []);
-
-  if (!ready) {
-    return null;
-  }
 
   const behaviors: readonly { value: ModeBehavior; label: string }[] = [
     { value: 'block', label: t.modes.edit.behaviorBlock },

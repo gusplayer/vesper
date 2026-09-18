@@ -16,6 +16,7 @@ function plan(id: string, days: boolean[], startMinute: number): RoutineWindowPl
     endMinute: startMinute + 60,
     capMinutes: 480,
     days,
+    notBefore: 0,
     token: 'token',
     kind: 'block',
     shieldTitle: 'Vesper',

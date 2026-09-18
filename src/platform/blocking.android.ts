@@ -67,6 +67,7 @@ export function nativeModule(): Module | null {
     return cached;
   }
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: the module may be absent
     const { requireVesperBlocking } = require('../../modules/vesper-blocking') as typeof import('../../modules/vesper-blocking');
     cached = requireVesperBlocking();
   } catch (error) {
@@ -294,7 +295,8 @@ function nativeCopy(): NativeCopy {
 /**
  * Registers a routine window with AlarmManager, replacing one with the same id. The
  * OS raises the window's plan at its start and lowers it at its end, app closed or
- * not. A window whose token holds no package is cancelled instead: there would be
+ * not; an occurrence that started before `notBefore` gets neither alarm (ADR-0026 §7,
+ * WindowSchedule.kt). A window whose token holds no package is cancelled instead: there would be
  * nothing to shield. Needs both permissions, like applyPlan; without them the
  * window is not registered and status() says why. Resolves, never rejects.
  */
@@ -315,6 +317,7 @@ export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
       endMinute: spec.endMinute,
       capMinutes: spec.capMinutes,
       days: spec.days.slice(0, 7),
+      notBefore: spec.notBefore,
       packageNames,
       mode: spec.kind,
       shieldTitle: spec.shieldTitle,

@@ -16,12 +16,12 @@ module.exports = defineConfig([
     files: ['src/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',
-      // React Compiler rules from eslint-config-expo: kept visible as warnings until
-      // each site is reviewed; a new violation should not slip in as an error-free lint.
-      'react-hooks/refs': 'warn',
-      'react-hooks/purity': 'warn',
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/immutability': 'warn',
+      // React Compiler rules from eslint-config-expo, every site reviewed: an impure call,
+      // a ref read in render, a setState in an effect or a mutated prop fails the lint.
+      'react-hooks/refs': 'error',
+      'react-hooks/purity': 'error',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/immutability': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
       '@typescript-eslint/consistent-type-imports': [
         'error',

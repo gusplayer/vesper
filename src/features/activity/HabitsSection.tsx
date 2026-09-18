@@ -49,9 +49,11 @@ export function HabitsSection({ now }: HabitsSectionProps) {
   const lockedByHealth = (progress: HabitProgress) =>
     settings.healthConnected && progress.habit.countMode === 'verified';
 
-  const press = (progress: HabitProgress) => {
+  // The tap's moment comes in as a parameter, the way the store takes `now`: the row's
+  // handler reads the clock, not a helper the list closes over while rendering.
+  const press = (progress: HabitProgress, tappedAt: number) => {
     if (!lockedByHealth(progress)) {
-      toggleHabitToday(progress.habit.id, Date.now());
+      toggleHabitToday(progress.habit.id, tappedAt);
       return;
     }
     setTipVisible(true);
@@ -91,11 +93,11 @@ export function HabitsSection({ now }: HabitsSectionProps) {
                 <Chip
                   label={progress.markedToday ? t.habits.section.todayMarked : t.habits.section.today}
                   selected={progress.markedToday}
-                  onPress={() => press(progress)}
+                  onPress={() => press(progress, Date.now())}
                 />
               )
             }
-            onPress={() => press(progress)}
+            onPress={() => press(progress, Date.now())}
             accessibilityLabel={accessibilityLabelFor(progress)}
           />
         ))}

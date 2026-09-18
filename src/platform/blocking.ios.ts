@@ -6,6 +6,7 @@ import { ACTIVITY_PREFIX, routineIdFromActivityName, routineIdsFromActivityNames
 import { getStrings } from '../i18n';
 import type { PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, isDevice, type CapabilityStatus } from './capabilities';
+import { skippedWindow } from './routineWindows';
 
 /**
  * blocking: Screen Time (Family Controls) behind the platform seam of ADR-0017.
@@ -57,6 +58,7 @@ export function nativeModule(): Module | null {
   try {
     // A static require so Metro bundles it; wrapped so a build without the pod does
     // not take the app down at load time.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- lazy: the module may be absent
     const loaded = require('react-native-device-activity') as Module;
     cached = loaded.isAvailable() ? loaded : null;
   } catch {
@@ -268,6 +270,16 @@ export function isShielding(): boolean {
  * selection stored under the routine's id so the monitor extension can block and
  * unblock it without the app. Whatever this routine had scheduled before is replaced.
  * Resolves, never rejects.
+ *
+ * A schedule repeats weekly and cannot leave one occurrence out, and DeviceActivity
+ * calls intervalDidStart at once when monitoring begins inside the interval. So when
+ * the clock is inside an occurrence `notBefore` rules out (the routine was saved into
+ * it, ADR-0026 §7), the start actions carry `neverTriggerBefore` = that occurrence's
+ * end: the extension drops the immediate callback and every later occurrence, which
+ * starts after that instant, runs as usual. The end actions stay unconditional: on a
+ * shield that never rose, `unblockSelection` subtracts the selection from an empty
+ * blocklist and writes it back, which changes nothing; and if an earlier registration
+ * of the same routine did raise the shield, that end is what lowers it.
  */
 export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
   const mod = nativeModule();
@@ -279,6 +291,8 @@ export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
     return;
   }
   const key = windowKey(spec.id);
+  const skipped = skippedWindow(spec, Date.now());
+  const neverTriggerBefore = skipped === null ? undefined : new Date(skipped.end);
   // Days or hours may have changed: the old activities of this routine go first.
   stopWindow(mod, spec.id);
   safe(() => mod.setFamilyActivitySelectionId({ id: key, familyActivitySelection: spec.token }));
@@ -294,7 +308,7 @@ export async function scheduleWindow(spec: RoutineWindowSpec): Promise<void> {
       mod.configureActions({
         activityName: interval.activityName,
         callbackName: 'intervalDidStart',
-        actions: windowStartActions(spec.kind, key),
+        actions: windowStartActions(spec.kind, key, neverTriggerBefore),
       }),
     );
     safe(() =>
@@ -378,15 +392,17 @@ function stopWindow(mod: Module, id: string): void {
  * What the monitor extension does when the interval starts. 'block' shields the
  * selection under the routine's shield copy; 'allow' whitelists the selection first
  * and then shields everything else (the extension applies the whitelist inside
- * enableBlockAllMode).
+ * enableBlockAllMode). `neverTriggerBefore` rides on every action: the extension
+ * checks it before running each one (shouldExecuteAction in Shared.swift).
  */
-function windowStartActions(kind: RoutineWindowSpec['kind'], key: string): DeviceActivity.Action[] {
+function windowStartActions(kind: RoutineWindowSpec['kind'], key: string, neverTriggerBefore: Date | undefined): DeviceActivity.Action[] {
+  const gate = neverTriggerBefore === undefined ? {} : { neverTriggerBefore };
   if (kind === 'block') {
-    return [{ type: 'blockSelection', familyActivitySelectionId: key, shieldId: key }];
+    return [{ type: 'blockSelection', familyActivitySelectionId: key, shieldId: key, ...gate }];
   }
   return [
-    { type: 'addSelectionToWhitelist', familyActivitySelection: { activitySelectionId: key } },
-    { type: 'enableBlockAllMode', shieldId: key },
+    { type: 'addSelectionToWhitelist', familyActivitySelection: { activitySelectionId: key }, ...gate },
+    { type: 'enableBlockAllMode', shieldId: key, ...gate },
   ];
 }
 

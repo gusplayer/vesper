@@ -39,15 +39,20 @@ export function InkFlood({ active, origin = null, onDone, tone = 'ink' }: InkFlo
   const fill = tone === 'paper' ? palette.light.bg : colors.ink;
   const { width, height } = useWindowDimensions();
   const [progress] = useState(() => new Animated.Value(0));
-  // Stays up for one route fade after `active` drops, so the dark session route is
-  // already in place when the sheet goes.
-  const [shown, setShown] = useState(false);
+  // Up from the same render `active` turns on, and for one route fade after it drops,
+  // so the dark session route is already in place when the sheet goes.
+  const [shown, setShown] = useState(active);
+  if (active && !shown) {
+    setShown(true);
+  }
+  // The latest `onDone`, so the effects below never restart the flood over a new callback.
   const done = useRef(onDone);
-  done.current = onDone;
+  useEffect(() => {
+    done.current = onDone;
+  });
 
   useEffect(() => {
     if (active) {
-      setShown(true);
       return undefined;
     }
     const timer = setTimeout(() => setShown(false), motion.fadeMs);

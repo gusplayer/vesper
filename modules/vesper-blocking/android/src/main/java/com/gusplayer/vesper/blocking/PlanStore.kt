@@ -65,7 +65,11 @@ data class Pause(val startedAt: Long, val until: Long)
  * A routine window as JS registers it. Mirrors `RoutineWindowSpec` in
  * src/platform/blockingTypes.ts, with the token already opened into package names.
  * Minutes are from local midnight; `days` is Monday first; `endMinute` null means
- * start + capMinutes; an end at or before the start crosses midnight.
+ * start + capMinutes; an end at or before the start crosses midnight. `notBefore` is
+ * epoch ms: an occurrence that started before it is never armed and never raises the
+ * plan (ADR-0026 §7). It defaults to 0 (every occurrence counts) so a row written by
+ * a build before the field existed still parses under the same schema; JS hands every
+ * window over again on its first reconciliation anyway.
  */
 data class WindowSpec(
   val id: String,
@@ -77,6 +81,7 @@ data class WindowSpec(
   val mode: PlanMode,
   val shield: ShieldCopy,
   val notification: NotificationCopy = NotificationCopy(),
+  val notBefore: Long = 0L,
 ) {
   /** The plan this window raises when it opens, ending when the window does. */
   fun plan(startsAt: Long, endsAt: Long): Plan =
@@ -89,6 +94,7 @@ data class WindowSpec(
     .put("endMinute", endMinute ?: JSONObject.NULL)
     .put("capMinutes", capMinutes)
     .put("days", JSONArray().also { array -> days.forEach { array.put(it) } })
+    .put("notBefore", notBefore)
     .put("packageNames", JSONArray().also { array -> packageNames.forEach { array.put(it) } })
     .put("mode", mode.name)
     .put("shieldTitle", shield.title)
@@ -131,6 +137,7 @@ data class WindowSpec(
           sessionText = json.optString("sessionText", defaults.sessionText),
           breakText = json.optString("breakText", defaults.breakText),
         ),
+        notBefore = json.optLong("notBefore", 0L),
       )
     }
   }

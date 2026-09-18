@@ -175,6 +175,17 @@ terminar aunque la app esté cerrada. Sin JS en ningún punto del camino.
   `src/domain/routines.ts` (lunes primero, fin ≤ inicio cruza la medianoche, fin nulo =
   inicio + `capMinutes`). Tiene tests y es la referencia; `WindowSchedule.kt` la copia
   línea por línea.
+- **La ventana en la que se guardó la rutina no arranca (ADR-0026 §7).**
+  `RoutineWindowSpec.notBefore` lleva el `updatedAt` de la rutina (lo pone
+  `routineWindowPlans`; como forma parte del spec, cada guardado vuelve a entregar la
+  rutina). Una ocurrencia que empezó antes de `notBefore` no cuenta: `activeWindow` no
+  la ve y `nextWindow` busca desde `max(now, notBefore)`, así que `alarms()` no arma ni
+  su inicio ni su fin y `BootReceiver` tampoco la arranca tras un reinicio o un cambio
+  de hora. Si una alarma de inicio armada antes de que un nuevo guardado moviera la
+  marca llega igual, `AlarmReceiver` la encuentra "fuera de la ventana" y no arranca
+  nada. `WindowSpec` la guarda en el JSON con `optLong("notBefore", 0)`: el esquema
+  sigue en 1 porque una fila vieja sin el campo se lee con 0 (todas las ocurrencias
+  cuentan) y JS la vuelve a registrar en su primera reconciliación.
 - **`WindowScheduler.kt`**: dos alarmas por ventana (inicio y fin) en `AlarmManager`,
   cada una un `PendingIntent` con URI `vesper://window/<id>` para que nunca choquen.
   `setExactAndAllowWhileIdle` cuando `canScheduleExactAlarms()`; si no,

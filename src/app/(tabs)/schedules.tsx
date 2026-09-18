@@ -88,12 +88,14 @@ export default function SchedulesScreen() {
     explain(t.routines.list.createWhileRunning);
   };
 
-  const startByHand = (schedule: Schedule) => {
+  // The tap's moment comes in as a parameter, the way the store takes `now`: the row's
+  // handler reads the clock, not a helper the list closes over while rendering.
+  const startByHand = (schedule: Schedule, tappedAt: number) => {
     if (running !== null) {
       explain(t.routines.list.startWhileRunning);
       return;
     }
-    useFocusStore.getState().start(schedule.modeId, manualDurationMs(schedule), Date.now());
+    useFocusStore.getState().start(schedule.modeId, manualDurationMs(schedule), tappedAt);
     router.push('/session/active');
   };
 
@@ -166,7 +168,7 @@ export default function SchedulesScreen() {
                 onToggle={(enabled) => toggleSchedule(schedule.id, enabled)}
                 action={
                   manual
-                    ? { label: t.routines.list.start(schedule.name), onPress: () => startByHand(schedule) }
+                    ? { label: t.routines.list.start(schedule.name), onPress: () => startByHand(schedule, Date.now()) }
                     : undefined
                 }
                 onPress={() => router.push({ pathname: '/schedules/edit', params: { id: schedule.id } })}
