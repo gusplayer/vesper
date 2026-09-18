@@ -14,6 +14,8 @@ type FieldRowProps = {
   keyboardType?: 'default' | 'number-pad';
   /** 'none' for values kept lowercase, like a handle. Defaults to the keyboard's sentences. */
   autoCapitalize?: 'none' | 'sentences' | 'words';
+  /** Hard limit on what can be typed, for values with a fixed shape (an invite code). */
+  maxLength?: number;
 };
 
 /** 'Nombre ........ Familia' — a label on the left and the input on the right, in a card. */
@@ -25,6 +27,7 @@ export function FieldRow({
   autoFocus = false,
   keyboardType = 'default',
   autoCapitalize = 'sentences',
+  maxLength,
 }: FieldRowProps) {
   const { colors } = useTheme();
   return (
@@ -41,6 +44,7 @@ export function FieldRow({
           autoFocus={autoFocus}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          maxLength={maxLength}
           selectionColor={colors.accent}
           accessibilityLabel={label}
           textAlign="right"

@@ -34,7 +34,7 @@ compila con Gradle.
 | Ventanas de rutina con la app cerrada | `DeviceActivity` por día (sin verificar) | `AlarmManager` exactas o con 10 min de holgura, `BootReceiver` | Android: ventana abierta con el proceso muerto, cierre al minuto, alarmas de vuelta tras `adb reboot`, servicio revivido tras `kill -9`. iOS: aritmética con tests, nada en dispositivo |
 | Pausa con el bloqueo (`pausePlan`/`resumePlan`) | `release()` + `applyPlan()` (sin verificar) | del servicio, sin JS | Android: notificación en pausa, reanudación al segundo tras `kill -9`, escudo subiendo sobre Ajustes |
 | Escudo | tinta de la sesión, botón "Cerrar" (`openApp` no funciona desde la extensión) | superposición oscura, "Volver", "Se libera a las 11:26" | iOS: solo compila. Android: capturas en el emulador |
-| Notificación de Android como pantalla bloqueada: cronómetro nativo, canal `vesper_session`, pública, abre `vesper://session/active` | no aplica | real | Emulador: panel, pantalla bloqueada con PIN, pausa contando. Android 16 (`setRequestPromotedOnging`) sin emulador API 36 |
+| Notificación de Android como pantalla bloqueada: cronómetro nativo, canal `vesper_session`, pública, abre `vesper://session/active` | no aplica | real | Emulador: panel, pantalla bloqueada con PIN, pausa contando. Emulador Pixel 7 API 36: cuenta regresiva y hacia arriba, `requestPromotedOngoing=true` en `dumpsys`, pero el sistema no promovió la notificación (sin chip) |
 | Reglas "modo estricto", "bloquear instalaciones", "bloquear compras" | solo UI (la librería no expone esas claves) | solo UI (sin equivalente) | El pie de "Mis reglas" lo dice. Solo el filtro de contenido adulto llega al sistema, y solo en iOS |
 | Idioma español e inglés, override en Ajustes (ADR-0020) | real | real | `tsc` (una clave que falte no compila) y tests en los dos idiomas; cambio en caliente verificado en las pantallas del círculo |
 | Círculo: personas, semana sin posiciones, ánimo, retos, invitación por código, link y QR (ADR-0021) | UI y base local; **sin backend** (`platform/circle.status()` lo dice) | igual | Simulador con `idb`: flujo completo; QR leído por Vision desde la captura; `vesper://circle/join?code=…` con `simctl openurl`. Sin verificar: "Salir del círculo", "Quitar", los topes de 12 y 5 desde la UI, la línea de ánimo en el cierre, la cámara de un iPhone real |
@@ -121,7 +121,7 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 - **Play**: pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
   video y poner la URL en `PLAY_DECLARATIONS.md`; verificar el manifiesto fusionado del
   build de release.
-- **Android 16**: ver el chip de actualización en vivo en un emulador API 36.
+- **Android 16**: el emulador API 36 no promueve la notificación aunque la pide; verificar en un Pixel real con Android 16.
 - **Toque en la notificación de Android** y en el aviso de rutina de iOS: no se pueden
   entregar desde adb/idb; confirmar en teléfono.
 - Persistir la duración elegida en la hoja de sesión (`usePlannedStore` vive en memoria).

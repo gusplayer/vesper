@@ -302,7 +302,7 @@ export function challengeStandings(
 
 /** No 0, O, 1 or I: a code is read out loud or typed from a screenshot. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 6;
+export const CODE_LENGTH = 6;
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
 
 /** FNV-1a, 32 bits. Enough to spread a UUID over six symbols; not a secret. */

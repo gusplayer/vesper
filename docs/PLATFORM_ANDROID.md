@@ -348,7 +348,15 @@ libera.
   `setRequestPromotedOngoing(true)` tras `SDK_INT >= 36`, y el manifest declara
   `POST_PROMOTED_NOTIFICATIONS`. Sin `setShortCriticalText`: los minutos que faltan
   necesitarían un temporizador nuestro; el chip muestra el icono y el cronómetro
-  vive en la notificación. Sin `ProgressStyle` por ahora.
+  vive en la notificación. Sin `ProgressStyle` por ahora. **Visto en el emulador
+  Pixel 7 API 36 (2026-09-18)**: la notificación cuenta hacia abajo (24:23) y hacia
+  arriba sin fin, `dumpsys notification` muestra `android.requestPromotedOngoing=true`
+  y el permiso declarado, pero el sistema **no** le puso `FLAG_PROMOTED_ONGOING`: en la
+  barra de estado solo aparece el icono pequeño, sin chip. La imagen `google_apis`
+  de API 36 no expone el interruptor "Actualizaciones en vivo" por app ni el comando
+  para concederlo, así que no se puede afirmar si es el emulador o falta algo (los
+  requisitos documentados, estilo estándar, `ongoing`, título y canal por encima de
+  `IMPORTANCE_MIN`, se cumplen). Pendiente en un Pixel real con Android 16.
 - **iOS** implementa `pausePlan` como `release()` y `resumePlan` como `applyPlan`, y
   `useBlockingSync` llama a los dos sin saber qué plataforma responde.
 
@@ -402,5 +410,6 @@ notas de la sesión (`android/`).
   "18:58" a "19:14" tras la segunda pausa).
 - **Toque en la notificación**: no probado con adb (abre `vesper://session/active`,
   el mismo esquema que `app.json` declara y que expo-router resuelve).
-- **Android 16**: no verificable en API 34. `setRequestPromotedOngoing` y el permiso
-  están; falta un emulador API 36 para ver el chip.
+- **Android 16**: en el emulador API 36 la notificación pide la promoción y cuenta,
+  pero el sistema no la promovió (sin `FLAG_PROMOTED_ONGOING`, sin chip). Hace falta
+  un Pixel real con Android 16 para saber si el emulador es el límite.

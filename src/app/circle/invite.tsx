@@ -18,7 +18,7 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { codeFromInviteLink, inviteLinkFor } from '../../domain/circle';
+import { CODE_LENGTH, codeFromInviteLink, inviteLinkFor } from '../../domain/circle';
 import { MAX_CIRCLE, type Member } from '../../domain/types';
 import { useStrings } from '../../i18n';
 
@@ -140,6 +140,8 @@ export default function InviteScreen() {
             setResult(null);
           }}
           placeholder={copy.codePlaceholder}
+          autoCapitalize="none"
+          maxLength={CODE_LENGTH}
         />
         <Button label={copy.send} variant="secondary" onPress={send} disabled={codeText.trim() === ''} />
         <Text variant="label" tone={result === null ? 'tertiary' : 'danger'}>
