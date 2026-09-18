@@ -43,6 +43,7 @@ export const colors: Record<Scheme, Colors> = {
     bgElevated: '#EEECE8',
     card: '#F8F7F5',
     cardMuted: '#E3E1DC',
+    /** Also the native splash color in app.json: the boot reveal starts from one seamless ink sheet (ADR-0028). */
     ink: '#1C1B1A',
     inkSecondary: '#66645F',
     /** Placeholders and hints only: ~2:1 on the page, never text that informs. */
@@ -130,6 +131,8 @@ export const layout = {
   appIcon: { sm: 24, md: 40, lg: 56 },
   /** The invite QR code, quiet zone included. */
   qr: 168,
+  /** The mark alone, as on the app icon: four by four cells at boot (ADR-0028). */
+  mark: { cell: 26, gap: 6 },
 } as const;
 
 /** Opacity roles. A disabled control fades as a whole, on top of its muted colors. */
@@ -162,6 +165,12 @@ export const motion = {
   holdMs: 900,
   /** The ink flood from the button over the page, before the session route opens. */
   floodMs: 520,
+  /**
+   * Boot: the splash ink dissolves off the page until only the mark is left, the mark
+   * stays for a beat, then one route fade into the app (ADR-0028).
+   */
+  revealMs: 680,
+  revealHoldMs: 220,
   /** Stipple dissolves: distance between dots and how many opacity layers they fold into. */
   dissolve: { spacing: 9, layers: 24, buttonSpacing: 6, buttonLayers: 16 },
   /** The recent-days grid lighting up: each square waits and takes its own time within these. */

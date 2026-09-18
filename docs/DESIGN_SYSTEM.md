@@ -94,7 +94,7 @@ completas salvo `VESPER` y las etiquetas de `StatCard` y `PeriodStrip`.
 
 ## Componentes
 
-Lo que exporta `src/design/components/index.ts` (51 hoy). `AppImage` (icono real de
+Lo que exporta `src/design/components/index.ts` (52 hoy). `AppImage` (icono real de
 Android), `HeatSquare` (una celda de `HeatGrid`) y `FlipDigit` (una carta de `FlipClock`)
 existen pero no se exportan: son internos.
 
@@ -128,6 +128,7 @@ existen pero no se exportan: son internos.
 | `AppIcon`, `AppIconStack`, `Avatar` | Tile con letra que hace de icono de app; pila "+N"; iniciales de una persona |
 | `HeroObject` | El objeto central: tile con la grilla de semanas |
 | `BreathingObject` | El tile que respira con el dedo (ADR-0025) |
+| `BootReveal` | El arranque: la tinta del splash se disuelve de los bordes al centro hasta dejar la marca, que se funde con la app (ADR-0028) |
 | `HeatGrid` | La grilla de los últimos días en Focus, cuatro niveles, se enciende al aparecer |
 | `FlipClock` | Reloj split-flap de la sesión; `scale` para el modo horizontal |
 | `StippleCanvas` | El lienzo del arte de foco: los primeros N puntos como un path SVG |

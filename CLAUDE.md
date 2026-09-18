@@ -127,7 +127,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 ## Qué NO hacer
 
 - No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
-  `src/design/components/index.ts`, hoy 51) se escriben a mano; las barras, grillas y el QR se
+  `src/design/components/index.ts`, hoy 52) se escriben a mano; las barras, grillas y el QR se
   dibujan con `View` y `react-native-svg`.
 - No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal. En el
   círculo tampoco: sin puntos, sin medallas, sin contador de ánimos.

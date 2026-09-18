@@ -35,3 +35,4 @@ e-ink; ADR-0026 cerró lo que 0016 había dejado "vigente en su fondo".
 | 0024 | Sonido y vibración suaves al empezar y terminar la sesión; el interruptor de silencio manda; nada al abrir la app | propuesta (sin implementar) |
 | 0025 | Salir de la sesión: la tinta se disuelve en papel; respirar sosteniendo el objeto; la emergencia es una ruta; cierre breve para las canceladas | aceptada |
 | 0026 | Cierre de decisiones anteriores: 0011, 0013 y 0015 superados, 0012 superado en forma, 0022 fijado a lo construido, restos de fase 1 borrados | aceptada |
+| 0028 | Abrir la app: el splash es una hoja de tinta y `BootReveal` la disuelve de los bordes al centro hasta dejar la marca, que se funde con la app | aceptada |

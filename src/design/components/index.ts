@@ -54,3 +54,4 @@ export { HoldButton } from './HoldButton';
 export { QrCode } from './QrCode';
 export { InkFlood } from './InkFlood';
 export { BreathingObject, type BreathPhaseName } from './BreathingObject';
+export { BootReveal, type BootRevealPhase } from './BootReveal';

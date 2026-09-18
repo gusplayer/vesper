@@ -3,6 +3,7 @@ import { Outfit_500Medium } from '@expo-google-fonts/outfit/500Medium';
 import { Outfit_600SemiBold } from '@expo-google-fonts/outfit/600SemiBold';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -13,14 +14,18 @@ import { SessionGate } from '../features/session/SessionGate';
 import { PlatformEffects } from '../platform/PlatformEffects';
 import { lockPortrait } from '../platform/orientation';
 import { ChromeProvider } from '../design/chrome';
-import { FatalError } from '../design/components';
+import { BootReveal, FatalError, type BootRevealPhase } from '../design/components';
 import { ThemeProvider, useSchemeStore } from '../design/theme';
 import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
 import { useStrings } from '../i18n';
 
+// The native splash is a plain ink sheet and stays up until BootReveal, the same ink,
+// is painted over the page; expo-router leaves it alone once this has been called.
+SplashScreen.preventAutoHideAsync();
+
 /**
- * Root layout. Nothing renders until Outfit is loaded: a flash of system sans is
- * worse than a blank page.
+ * Root layout. The app renders under BootReveal once Outfit is loaded: a flash of
+ * system sans is worse than a blank page, and the ink covers the wait (ADR-0028).
  *
  * Two worlds behind guards: onboarding until it is done, the app after. The session
  * routes are full screen and cannot be swiped away (ADR-0009 still holds there);
@@ -46,6 +51,7 @@ export default function RootLayout() {
 
   const onboardingDone = useAppStore((state) => state.settings.onboardingDone);
   const scheme = useSchemeStore((state) => state.scheme);
+  const [reveal, setReveal] = useState<BootRevealPhase>('ink');
   // The design system's own chrome (back, close, cancel) speaks the app's language
   // without importing the dictionary: the words are handed in here, once.
   const { common } = useStrings();
@@ -59,6 +65,20 @@ export default function RootLayout() {
     lockPortrait();
   }, []);
 
+  // A fatal boot has no reveal to drop the splash: drop it here, or the error never shows.
+  useEffect(() => {
+    if (boot instanceof Error) {
+      SplashScreen.hide();
+    }
+  }, [boot]);
+
+  function handleReveal(phase: BootRevealPhase): void {
+    if (phase === 'ink') {
+      SplashScreen.hide();
+    }
+    setReveal(phase);
+  }
+
   useEffect(() => {
     if (__DEV__ && !(boot instanceof Error)) {
       console.log(
@@ -71,54 +91,53 @@ export default function RootLayout() {
     return <FatalError message={boot.message} />;
   }
 
-  if (!fontsLoaded) {
-    return null;
-  }
-
   return (
     <ThemeProvider>
-      <ChromeProvider strings={chrome}>
-        <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-        {__DEV__ ? <DevJump /> : null}
-        <PlatformEffects />
-        <SessionGate />
-        <Stack screenOptions={stackScreenOptions}>
-          <Stack.Protected guard={!onboardingDone}>
-            <Stack.Screen name="onboarding" />
-          </Stack.Protected>
-          <Stack.Protected guard={onboardingDone}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="session/active" options={lockedScreenOptions} />
-            <Stack.Screen name="session/complete" options={lockedScreenOptions} />
-            <Stack.Screen name="session/exit" options={lockedScreenOptions} />
-            <Stack.Screen name="session/emergency" options={lockedScreenOptions} />
-            <Stack.Screen name="session/closed" options={lockedScreenOptions} />
-            <Stack.Screen name="modes/index" />
-            <Stack.Screen name="modes/edit" />
-            <Stack.Screen name="modes/apps" />
-            <Stack.Screen name="modes/websites" />
-            <Stack.Screen name="modes/ideas" />
-            <Stack.Screen name="schedules/edit" />
-            <Stack.Screen name="settings/rules" />
-            <Stack.Screen name="settings/emergency" />
-            <Stack.Screen name="settings/notifications" />
-            <Stack.Screen name="settings/language" />
-            <Stack.Screen name="settings/live-activities" />
-            <Stack.Screen name="settings/health" />
-            <Stack.Screen name="settings/life" />
-            <Stack.Screen name="settings/help" />
-            <Stack.Screen name="settings/about" />
-            <Stack.Screen name="settings/circle" />
-            <Stack.Screen name="habits/edit" />
-            <Stack.Screen name="habits/new" />
-            <Stack.Screen name="circle/index" />
-            <Stack.Screen name="circle/invite" />
-            <Stack.Screen name="circle/join" />
-            <Stack.Screen name="circle/challenge" />
-            <Stack.Screen name="circle/challenge-new" />
-          </Stack.Protected>
-        </Stack>
-      </ChromeProvider>
+      <StatusBar style={reveal === 'ink' || scheme === 'dark' ? 'light' : 'dark'} />
+      {fontsLoaded ? (
+        <ChromeProvider strings={chrome}>
+          {__DEV__ ? <DevJump /> : null}
+          <PlatformEffects />
+          <SessionGate />
+          <Stack screenOptions={stackScreenOptions}>
+            <Stack.Protected guard={!onboardingDone}>
+              <Stack.Screen name="onboarding" />
+            </Stack.Protected>
+            <Stack.Protected guard={onboardingDone}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="session/active" options={lockedScreenOptions} />
+              <Stack.Screen name="session/complete" options={lockedScreenOptions} />
+              <Stack.Screen name="session/exit" options={lockedScreenOptions} />
+              <Stack.Screen name="session/emergency" options={lockedScreenOptions} />
+              <Stack.Screen name="session/closed" options={lockedScreenOptions} />
+              <Stack.Screen name="modes/index" />
+              <Stack.Screen name="modes/edit" />
+              <Stack.Screen name="modes/apps" />
+              <Stack.Screen name="modes/websites" />
+              <Stack.Screen name="modes/ideas" />
+              <Stack.Screen name="schedules/edit" />
+              <Stack.Screen name="settings/rules" />
+              <Stack.Screen name="settings/emergency" />
+              <Stack.Screen name="settings/notifications" />
+              <Stack.Screen name="settings/language" />
+              <Stack.Screen name="settings/live-activities" />
+              <Stack.Screen name="settings/health" />
+              <Stack.Screen name="settings/life" />
+              <Stack.Screen name="settings/help" />
+              <Stack.Screen name="settings/about" />
+              <Stack.Screen name="settings/circle" />
+              <Stack.Screen name="habits/edit" />
+              <Stack.Screen name="habits/new" />
+              <Stack.Screen name="circle/index" />
+              <Stack.Screen name="circle/invite" />
+              <Stack.Screen name="circle/join" />
+              <Stack.Screen name="circle/challenge" />
+              <Stack.Screen name="circle/challenge-new" />
+            </Stack.Protected>
+          </Stack>
+        </ChromeProvider>
+      ) : null}
+      {reveal === 'done' ? null : <BootReveal ready={fontsLoaded} onPhase={handleReveal} />}
     </ThemeProvider>
   );
 }
