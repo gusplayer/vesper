@@ -188,8 +188,8 @@ ALTER TABLE sessions ADD COLUMN next_break_at_ms INTEGER NOT NULL DEFAULT 150000
 
 ### Círculo (ADR-0021)
 
-Cinco tablas en `004_circle.ts`. Ninguna es fuente de verdad de nada que el usuario
-haga solo: son lo que un servidor entregaría cuando exista. Hoy las llena el seed de
+Cinco tablas en `004_circle.ts` y una sexta, `nudges`, en `007_streak_nudges.ts`
+(ADR-0027). Ninguna es fuente de verdad de nada que el usuario haga solo: son lo que un servidor entregaría cuando exista. Hoy las llena el seed de
 demostración (`src/data/circleSeed.ts`) y las acciones del store (`src/data/stores/circle.ts`);
 mañana las llenará el sync y nada más cambia.
 
@@ -240,7 +240,11 @@ CREATE TABLE kudos (
 CREATE INDEX idx_kudos_day ON kudos(day_key);
 
 -- Un hábito con testigos. participant_ids es un array JSON de 'me' y de ids de
--- circle_members. start_week_key y end_week_key son lunes, ambos inclusive.
+-- circle_members. start_week_key es el lunes de la primera semana. end_day_key
+-- (007, ADR-0027) es el último día, inclusive, o NULL para un reto sin límite: un
+-- reto de 21 días desde un lunes termina el domingo de la tercera semana.
+-- end_week_key es heredado de 004: sigue NOT NULL, se escribe derivado (el lunes de
+-- la semana de end_day_key, o start_week_key si no hay fin) y nadie lo lee.
 -- habit_id es el hábito del usuario que cuenta; NULL mientras no se haya unido.
 -- Un reto se archiva, nunca se borra: sus marcas son historia.
 CREATE TABLE challenges (
@@ -248,7 +252,8 @@ CREATE TABLE challenges (
   name            TEXT NOT NULL,
   weekly_target   INTEGER NOT NULL,     -- veces por semana
   start_week_key  TEXT NOT NULL,
-  end_week_key    TEXT NOT NULL,
+  end_week_key    TEXT NOT NULL,        -- heredado; derivado al escribir, nadie lo lee
+  end_day_key     TEXT,                 -- 007: último día inclusive, NULL = sin límite
   created_by      TEXT NOT NULL,        -- 'me' o un id de circle_members
   participant_ids TEXT NOT NULL DEFAULT '[]',
   habit_id        TEXT,
@@ -267,21 +272,65 @@ CREATE TABLE challenge_marks (
   UNIQUE(challenge_id, member_id, day_key)
 );
 CREATE INDEX idx_challenge_marks_challenge ON challenge_marks(challenge_id);
+
+-- 007_streak_nudges.ts (ADR-0027)
+
+-- Un empujón: una persona empuja a otra que no marcó hoy un reto que comparten,
+-- una vez al día por persona y reto. Cualquiera de los dos lados puede ser 'me'. La
+-- regla de "una vez al día" la aplica el store, no un UNIQUE: las filas de los demás
+-- llegarán del servidor tal cual. Mientras no hay backend, el empujón se guarda aquí
+-- y se muestra como enviado; entregarlo es trabajo del servidor.
+CREATE TABLE nudges (
+  id            TEXT PRIMARY KEY,
+  from_id       TEXT NOT NULL,
+  to_id         TEXT NOT NULL,
+  challenge_id  TEXT NOT NULL,
+  day_key       TEXT NOT NULL,
+  created_at    INTEGER NOT NULL
+);
+CREATE INDEX nudges_to_day ON nudges(to_id, day_key);
 ```
 
 Sin foreign keys a propósito: `'me'` participa y da ánimo sin ser fila de
 `circle_members`, las filas de personas llegarán de la red y se reemplazarán enteras, y
 archivar un hábito nunca debe rechazar un DELETE. Quién borra qué lo decide el
 repositorio (`src/db/repositories/circle.ts`) y el store: sacar a alguien del círculo
-borra sus semanas, sus kudos y sus marcas y lo quita de `participant_ids`; "salir del
-círculo" vacía las cuatro tablas de personas y archiva todos los retos, pero conserva el
-perfil y las preferencias de compartir.
+borra sus semanas, sus kudos, sus empujones y sus marcas y lo quita de
+`participant_ids`; "salir del círculo" vacía las cinco tablas de personas y archiva
+todos los retos, pero conserva el perfil y las preferencias de compartir.
 
 El perfil propio y qué se comparte no son tablas: son dos claves JSON en `settings`
 (ver la tabla de abajo). El perfil **no** se siembra con el demo: crearlo es parte del
-flujo. Todo lo demás del círculo (cuatro personas, dos semanas, dos kudos, un reto y
-una invitación pendiente) se siembra con el resto y se borra con "Borrar todo y
-reiniciar".
+flujo. Todo lo demás del círculo (cuatro personas, dos semanas, dos kudos, un reto de
+21 días, un empujón de hoy y una invitación pendiente) se siembra con el resto y se
+borra con "Borrar todo y reiniciar".
+
+### Racha (ADR-0027)
+
+La racha **no se guarda**: `src/db/queries/streak.ts` pliega `sessions` por día local
+(`loadDayFocus(now, days)`, una sesión cuenta entera en el día en que empezó, la que
+corre queda fuera) y `domain/streak.ts` cuenta los días seguidos que llegan a diez
+minutos. Lo único persistido son los **días de gracia** aplicados, en `007_streak_nudges.ts`:
+
+```sql
+-- Un día que la racha puenteó sola. day_key es 'YYYY-MM-DD' local, la misma excepción
+-- que habit_marks.day_key; month_key es su 'YYYY-MM', para que el cupo de tres por mes
+-- sea un COUNT. Se escribe con INSERT OR IGNORE: aplicar gracia dos veces al mismo
+-- día no hace nada.
+CREATE TABLE grace_days (
+  day_key     TEXT PRIMARY KEY,
+  month_key   TEXT NOT NULL,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX grace_days_month ON grace_days(month_key);
+```
+
+Escribe solo el store (`settleStreak`, en `src/data/stores/app.ts`) a través de
+`repositories/graceDays.ts`, al arrancar y en cada vuelta al primer plano: los días
+sin foco entre ayer y el último día que contó reciben gracia mientras a su mes le quede
+cupo; si el hueco es más largo que el cupo, la racha se rompe y no se gasta nada. Un
+día con fila en `grace_days` cuenta como si hubiera tenido foco. La tabla se vacía con
+"Borrar todo y reiniciar".
 
 ### Previsto y sin migración: salud, bloqueo y uso
 
@@ -350,7 +399,7 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 
 | key | valor | notas |
 |---|---|---|
-| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`), `rules`, `notifications`, `birthDate`, `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `pendingBanner`, `healthSyncedAt` y `lastRoutineStart` (la última ventana de rutina que arrancó, para no arrancarla dos veces). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
+| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`), `rules`, `notifications` (`coaching`, `updates`, `sessionEnd`, `weeklyClose` y, desde ADR-0027, `streak`, `noFocus`, `reactivation`, `nudges` y `reminderMinutes`, el minuto del día local del aviso diario, 1200 por defecto), `birthDate`, `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `pendingBanner`, `healthSyncedAt`, `lastRoutineStart` (la última ventana de rutina que arrancó, para no arrancarla dos veces) y `lastOpenedAt` (la última vez que la app se abrió o volvió al primer plano, epoch ms o `null`; los avisos de reactivación del ADR-0027 cuentan desde ahí). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
 | `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
 | `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
 | `language` | `auto` \| `es` \| `en` | Ajustes › Idioma (ADR-0020). Ausente o inválida se lee como `auto`, que sigue el idioma del teléfono. Se borra con todo lo demás en "Borrar todo y reiniciar" |

@@ -108,6 +108,11 @@ function notifications(value: unknown, fallback: NotificationPrefs): Notificatio
     updates: bool(raw.updates, fallback.updates),
     sessionEnd: bool(raw.sessionEnd, fallback.sessionEnd),
     weeklyClose: bool(raw.weeklyClose, fallback.weeklyClose),
+    streak: bool(raw.streak, fallback.streak),
+    noFocus: bool(raw.noFocus, fallback.noFocus),
+    reactivation: bool(raw.reactivation, fallback.reactivation),
+    nudges: bool(raw.nudges, fallback.nudges),
+    reminderMinutes: num(raw.reminderMinutes, fallback.reminderMinutes),
   };
 }
 
@@ -156,6 +161,7 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     pendingBanner: banner(value.pendingBanner, defaults.pendingBanner),
     healthSyncedAt: numOrNull(value.healthSyncedAt, defaults.healthSyncedAt),
     lastRoutineStart: routineMark(value.lastRoutineStart, defaults.lastRoutineStart),
+    lastOpenedAt: numOrNull(value.lastOpenedAt, defaults.lastOpenedAt),
   };
 }
 

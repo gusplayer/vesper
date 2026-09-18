@@ -8,15 +8,18 @@ type ChipProps = {
   label: string;
   selected: boolean;
   onPress: () => void;
+  /** What VoiceOver says when the label alone is not enough ('Empujar a Ana'). */
+  accessibilityLabel?: string;
 };
 
 /** A small pill option. Selected is ink on paper; unselected is a muted card. */
-export function Chip({ label, selected, onPress }: ChipProps) {
+export function Chip({ label, selected, onPress, accessibilityLabel }: ChipProps) {
   const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ selected }}
       style={({ pressed }) => [
         styles.chip,

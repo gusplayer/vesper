@@ -49,13 +49,16 @@ describe('splitStatements', () => {
     ]);
   });
 
-  it('produces only CREATE and ALTER statements from the real migrations', () => {
+  it('produces only CREATE, ALTER and backfilling UPDATE statements from the real migrations', () => {
     for (const migration of migrations) {
       const statements = splitStatements(migration.sql);
 
       expect(statements.length).toBeGreaterThan(0);
       for (const statement of statements) {
-        expect(statement.startsWith('CREATE ') || statement.startsWith('ALTER TABLE ')).toBe(true);
+        // An UPDATE only ever fills a column the same migration just added (007).
+        expect(
+          statement.startsWith('CREATE ') || statement.startsWith('ALTER TABLE ') || statement.startsWith('UPDATE '),
+        ).toBe(true);
       }
     }
   });

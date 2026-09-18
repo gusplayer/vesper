@@ -23,6 +23,7 @@ import {
   useRunningSession,
   useSchedules,
   useSettings,
+  useStreak,
   useTodayFocusMs,
 } from '../../data';
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
@@ -31,6 +32,7 @@ import { ModePicker } from '../../features/home/ModePicker';
 import { nextRoutineText } from '../../features/home/nextRoutine';
 import { gridSummary, recentDayCells } from '../../features/home/recentDays';
 import { DurationPicker } from '../../features/session/DurationPicker';
+import { streakLineText } from '../../features/streak/streakText';
 import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
@@ -47,6 +49,7 @@ export default function FocusScreen() {
   const t = useStrings();
   const now = useNow(15_000);
   const todayMs = useTodayFocusMs(now);
+  const streak = useStreak(now);
   const stats = useDayStats();
   const session = useRunningSession();
   const activeMode = useActiveMode();
@@ -109,12 +112,15 @@ export default function FocusScreen() {
         />
       )}
 
-      <Stack align="center">
+      <Stack align="center" gap="xs">
         <Card onPress={openActivity} accessibilityLabel={focusPillLabel(todayMs, t)}>
           <Text variant="label" weight="medium">
             {focusPillText(todayMs, t)}
           </Text>
         </Card>
+        <Text variant="caption" tone="secondary">
+          {streakLineText(streak, t)}
+        </Text>
       </Stack>
 
       <Spacer />

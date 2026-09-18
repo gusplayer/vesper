@@ -8,6 +8,7 @@ import { capitalize, monthLabel } from './dates';
 import { HabitsSection } from './HabitsSection';
 import { LifeSection } from './LifeSection';
 import { lifetimeTotals, recentMonths } from './selectors';
+import { StreakSection } from './StreakSection';
 import { daysText, hoursText } from './text';
 import { TodaySection } from './TodaySection';
 import { WeeklyGoalSection } from './WeeklyGoalSection';
@@ -60,6 +61,7 @@ export function LifetimeView({ stats, now }: LifetimeViewProps) {
         </Columns>
       </StatCard>
       <WeeklyGoalSection now={now} />
+      <StreakSection now={now} />
       <HabitsSection now={now} />
       <TodaySection now={now} />
       <LifeSection now={now} />

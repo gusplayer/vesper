@@ -1,23 +1,25 @@
 import { useMemo } from 'react';
 
 import {
+  challengeDaysLeft,
   challengeStandings,
   challengeStatus,
-  challengeWeeksLeft,
   circleWeek,
   inviteCodeFor,
   kudosReceivedInWeek,
   kudosSenderNames,
+  nudgesReceivedToday,
   seatsTaken,
   weekKeyOf,
   type ChallengeStatus,
   type CircleWeekRow,
   type Standing,
 } from '../domain/circle';
-import { dayBounds, dayKeyOf, weekDayKeys, weekStart } from '../domain/day';
+import { dayBounds, dayKeyOf, dayKeyStart, weekDayKeys, weekStart } from '../domain/day';
 import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import { elapsed } from '../domain/session';
+import { computeStreak, type StreakState } from '../domain/streak';
 import { ME, type Challenge, type Member, type Profile, type SharePrefs } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
@@ -26,6 +28,7 @@ import { freshInstallLocale, useLocaleStore } from '../i18n/store';
 import { useOnboardingDraft } from './onboardingDraft';
 import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
 import { useAppStore } from './stores/app';
+import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
 import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
@@ -38,6 +41,7 @@ import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } fr
 
 export { useAppStore, useFocusStore, useCircleStore };
 export { WEBSITES, HEALTH, USAGE };
+export { readStreak };
 export type { ChallengeStatus, CircleWeekRow, Standing };
 
 /**
@@ -169,6 +173,19 @@ export function useDayStats(): DayStat[] {
   return useAppStore((state) => state.dayStats);
 }
 
+/**
+ * The daily streak and the grace left this month (ADR-0027). Derived from the day
+ * stats the store already keeps, which the focus store refreshes after every close,
+ * and from the grace rows `settleStreak` maintains; the running session is not in
+ * either, so today counts once it is closed with its ten minutes.
+ */
+export function useStreak(now: number): StreakState {
+  const stats = useDayStats();
+  const graceDays = useAppStore((state) => state.graceDays);
+  const todayKey = dayKeyOf(now);
+  return useMemo(() => computeStreak(stats, graceDays, todayKey), [stats, graceDays, todayKey]);
+}
+
 /** The seven days of the week containing `now`, Monday first; future days have zero. */
 export function useWeekStats(now: number): DayStat[] {
   const stats = useDayStats();
@@ -297,7 +314,8 @@ export type ChallengeView = {
   challenge: Challenge;
   status: ChallengeStatus;
   joined: boolean;
-  weeksLeft: number;
+  /** Today included; null for a challenge with no end (ADR-0027). */
+  daysLeft: number | null;
   participants: { id: string; name: string; isMe: boolean }[];
 };
 
@@ -307,7 +325,7 @@ function challengeView(
   challenge: Challenge,
   members: readonly Member[],
   profile: Profile | null,
-  weekKey: string,
+  todayKey: string,
 ): ChallengeView {
   const participants: ChallengeView['participants'] = [];
   for (const id of challenge.participantIds) {
@@ -322,9 +340,9 @@ function challengeView(
   }
   return {
     challenge,
-    status: challengeStatus(challenge, weekKey),
+    status: challengeStatus(challenge, todayKey),
     joined: challenge.participantIds.includes(ME),
-    weeksLeft: challengeWeeksLeft(challenge, weekKey),
+    daysLeft: challengeDaysLeft(challenge, todayKey),
     participants,
   };
 }
@@ -335,10 +353,10 @@ export function useChallenges(now: number): ChallengeView[] {
   const members = useCircleMembers();
   const profile = useProfile();
   return useMemo(() => {
-    const weekKey = weekKeyOf(now);
+    const todayKey = dayKeyOf(now);
     return challenges
       .filter((c) => c.archivedAt === null)
-      .map((c) => challengeView(c, members, profile, weekKey))
+      .map((c) => challengeView(c, members, profile, todayKey))
       .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
   }, [challenges, members, profile, now]);
 }
@@ -348,7 +366,7 @@ export function useChallenge(id: string | undefined, now: number): ChallengeView
   const members = useCircleMembers();
   const profile = useProfile();
   return useMemo(
-    () => (challenge === null ? null : challengeView(challenge, members, profile, weekKeyOf(now))),
+    () => (challenge === null ? null : challengeView(challenge, members, profile, dayKeyOf(now))),
     [challenge, members, profile, now],
   );
 }
@@ -368,14 +386,38 @@ export function useChallengeStandings(id: string | undefined, now: number): Stan
       return [];
     }
     const current = weekKeyOf(now);
+    const lastWeekKey = challenge.endDayKey === null ? null : weekKeyOf(dayKeyStart(challenge.endDayKey));
     const weekKey =
       current < challenge.startWeekKey
         ? challenge.startWeekKey
-        : current > challenge.endWeekKey
-          ? challenge.endWeekKey
+        : lastWeekKey !== null && current > lastWeekKey
+          ? lastWeekKey
           : current;
     return challengeStandings(challenge, members, marks, myMarks, profile, weekKey);
   }, [challenge, members, marks, myMarks, profile, now]);
+}
+
+/** The ids of the participants the user already nudged today on that challenge. */
+export function useNudgesGivenToday(now: number, challengeId: string | undefined): Set<string> {
+  const nudges = useCircleStore((state) => state.nudges);
+  return useMemo(() => {
+    const todayKey = dayKeyOf(now);
+    return new Set(
+      nudges
+        .filter((n) => n.fromId === ME && n.challengeId === challengeId && n.dayKey === todayKey)
+        .map((n) => n.toId),
+    );
+  }, [nudges, challengeId, now]);
+}
+
+/** Who nudged the user today on that challenge, for the one line above the standings. */
+export function useNudgesReceivedToday(now: number, challengeId: string | undefined): { names: string[] } {
+  const nudges = useCircleStore((state) => state.nudges);
+  const members = useCircleMembers();
+  return useMemo(() => {
+    const received = nudgesReceivedToday(nudges, dayKeyOf(now)).filter((n) => n.challengeId === challengeId);
+    return { names: kudosSenderNames(received, members) };
+  }, [nudges, members, challengeId, now]);
 }
 
 /** The user's code to give to someone, or null before they have a profile. */

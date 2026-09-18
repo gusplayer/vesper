@@ -2,7 +2,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
-import { useAppStore, useChallenge, useChallengeStandings, useCircleStore } from '../../data';
+import {
+  useAppStore,
+  useChallenge,
+  useChallengeStandings,
+  useCircleStore,
+  useNudgesGivenToday,
+  useNudgesReceivedToday,
+} from '../../data';
 import { Button, Card, PageHeader, Screen, Section, Stack, Text } from '../../design/components';
 import { challengeStatusText, challengeSummaryText } from '../../features/circle/ChallengeCard';
 import { StandingsList } from '../../features/circle/StandingsList';
@@ -21,6 +28,8 @@ function weekdayIndex(now: number): number {
  * One challenge: who delivered what this week, and the one thing the user can do.
  * Joined and active: mark today, which is the mark of the linked habit. Not joined:
  * join, which takes a habit slot or says there is none. Leaving keeps the habit.
+ * Next to anyone who has not marked today, a nudge chip: once a day per person,
+ * recorded here and delivered once there is a server (ADR-0027).
  */
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -30,8 +39,11 @@ export default function ChallengeScreen() {
   const now = useNow(CLOCK_MS);
   const view = useChallenge(id, now);
   const standings = useChallengeStandings(id, now);
+  const nudgesGiven = useNudgesGivenToday(now, id);
+  const nudgesReceived = useNudgesReceivedToday(now, id);
   const joinChallenge = useCircleStore((state) => state.joinChallenge);
   const leaveChallenge = useCircleStore((state) => state.leaveChallenge);
+  const nudge = useCircleStore((state) => state.nudge);
   const toggleHabitToday = useAppStore((state) => state.toggleHabitToday);
   const [habitsFull, setHabitsFull] = useState(false);
   const sync = circleStatus();
@@ -56,8 +68,11 @@ export default function ChallengeScreen() {
 
   const { challenge } = view;
   const mine = standings.find((standing) => standing.isMe) ?? null;
-  const markedToday = mine?.days[weekdayIndex(now)] ?? false;
+  const todayIndex = weekdayIndex(now);
+  const markedToday = mine?.days[todayIndex] ?? false;
   const canMark = view.joined && challenge.habitId !== null && view.status === 'active';
+  // A nudge is between people who share the challenge, while it runs.
+  const canNudge = view.joined && view.status === 'active';
 
   const join = () => {
     setHabitsFull(joinChallenge(challenge.id, Date.now()) === 'habitsFull');
@@ -110,7 +125,24 @@ export default function ChallengeScreen() {
       </Stack>
 
       <Section title={t.challenge.thisWeek}>
-        <StandingsList standings={standings} />
+        {nudgesReceived.names.length > 0 ? (
+          <Text variant="label" tone="secondary">
+            {t.challenge.nudgedYou(nudgesReceived.names)}
+          </Text>
+        ) : null}
+        <StandingsList
+          standings={standings}
+          nudge={
+            canNudge
+              ? { todayIndex, givenTo: nudgesGiven, onNudge: (toId) => nudge(toId, challenge.id, Date.now()) }
+              : undefined
+          }
+        />
+        {canNudge ? (
+          <Text variant="caption" tone="tertiary">
+            {t.challenge.nudgeHint}
+          </Text>
+        ) : null}
         <Text variant="caption" tone="tertiary">
           {view.joined ? t.challenge.countsAsHabit : t.challenge.notJoined}
         </Text>

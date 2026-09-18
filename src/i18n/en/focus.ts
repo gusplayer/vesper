@@ -35,4 +35,11 @@ export const focus: typeof shape = {
     gridSummary: (days) =>
       `Last four weeks: ${days === 1 ? '1 day' : `${days} days`} with focus. Tap to see activity`,
   },
+  streak: {
+    line: (days, graceLeft) =>
+      `${days === 1 ? '1 day in a row' : `${days} days in a row`} · ${graceLeft === 1 ? '1 grace day' : `${graceLeft} grace days`}`,
+    none: (minutes) => `No streak yet. ${minutes} minutes today count.`,
+    graceYesterday: (days) =>
+      `You used a grace day yesterday. ${days === 1 ? '1 day' : `${days} days`} so far.`,
+  },
 };

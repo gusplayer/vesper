@@ -54,13 +54,15 @@ export const circle: typeof shape = {
     createProfile: 'Create your profile',
   },
   challenge: {
-    summary: (target, weeks) => `${target} times a week · ${weeks === 1 ? '1 week' : `${weeks} weeks`}`,
+    duration: (days) =>
+      days === null ? 'no limit' : days === 7 ? '1 week' : days % 7 === 0 && days !== 21 ? `${days / 7} weeks` : `${days} days`,
+    summary: (target, duration) => `${target} times a week · ${duration}`,
     withNames: (names) => `with ${joinNames(names)}`,
     alone: 'just you',
     nobody: 'no participants',
     status: {
       upcoming: 'Starts on Monday',
-      active: (weeksLeft) => (weeksLeft <= 1 ? 'Last week' : `${weeksLeft} weeks left`),
+      active: (daysLeft) => (daysLeft === null ? 'No limit' : daysLeft <= 1 ? 'Last day' : `${daysLeft} days left`),
       ended: 'Ended',
     },
     progress: (done, target) => `${done} of ${target}`,
@@ -80,6 +82,11 @@ export const circle: typeof shape = {
     habitsFull: 'You already have 5 habits. Archive one to join.',
     countsAsHabit: 'Your marks are those of your habit with this name. The others’ arrive as challenge marks.',
     notJoined: 'You are not in this challenge yet.',
+    nudge: 'Nudge',
+    nudged: 'Nudged',
+    nudgeA11y: (name) => `Nudge ${name}`,
+    nudgeHint: 'One nudge a day per person. It arrives once there is a server.',
+    nudgedYou: (names) => `${joinNames(names)} nudged you today.`,
   },
   challengeNew: {
     title: 'New challenge',
@@ -88,8 +95,9 @@ export const circle: typeof shape = {
     fromHabit: 'From a habit',
     fromHabitHint: 'Tap one to use its name and target.',
     timesPerWeek: 'Times a week',
-    weeks: 'How many weeks',
-    weeksOption: (weeks) => (weeks === 1 ? '1 week' : `${weeks} weeks`),
+    duration: 'How long',
+    durationOption: (days) =>
+      days === null ? 'No limit' : days === 7 ? '1 week' : days % 7 === 0 && days !== 21 ? `${days / 7} weeks` : `${days} days`,
     withWhom: 'With whom',
     noMembers: 'Invite someone first. A challenge without witnesses is a habit.',
     meToo: 'Me too',

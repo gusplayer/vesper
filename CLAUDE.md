@@ -38,9 +38,10 @@ sigue vigente y cuál fue superado.
    no (ADR-0017). El onboarding puede pedirlos, pero nunca los exige (ADR-0026).
 9. **Nunca sumar tiempo verificado y declarado en una misma métrica.** Ver ADR-0005.
 10. **Nunca persistir datos de `DeviceActivityReport`.** Es técnicamente imposible y arquitectónicamente prohibido. Ver ADR-0004.
-11. **El círculo no notifica, no rankea y no tiene feed.** Hasta 12 personas por invitación,
-    comparación sin posiciones, ánimo una vez al día, y cada métrica se comparte solo si el
-    usuario lo elige. Un reto ocupa un hábito (regla 4). Ver ADR-0021.
+11. **El círculo no rankea y no tiene feed.** Hasta 12 personas por invitación, comparación
+    sin posiciones, ánimo y empujón una vez al día, y cada métrica se comparte solo si el
+    usuario lo elige. Un reto ocupa un hábito (regla 4). Notifica solo lo que otra persona
+    hizo, con interruptor, y **nunca durante una sesión** (ADR-0021, enmendado por ADR-0027).
 12. **Nada que muestre el sistema con la app cerrada depende de un temporizador de JS.**
     Relojes nativos en la Live Activity y en la notificación de Android. Ver ADR-0023.
 
@@ -129,8 +130,13 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
   `src/design/components/index.ts`, hoy 52) se escriben a mano; las barras, grillas y el QR se
   dibujan con `View` y `react-native-svg`.
-- No agregues rachas diarias, badges, ni gamificación fuera de la meta semanal. En el
-  círculo tampoco: sin puntos, sin medallas, sin contador de ánimos.
+- No agregues badges, medallas, puntos ni ranking. La única racha es la diaria del
+  ADR-0027 (10 minutos de foco, tres días de gracia al mes), un número sin fuego ni
+  animación; la meta semanal sigue siendo la métrica. En el círculo tampoco hay contador
+  de ánimos ni de empujones.
+- Fuera de una sesión, máximo dos avisos al día además de los de sesión y rutina, y nada
+  entre 22:00 y 8:00. Durante una sesión o una pausa solo existen fin de sesión y fin de
+  pausa (ADR-0027).
 - No simules una capacidad con un flag. El bloqueo, Salud, las notificaciones y la Live
   Activity son reales detrás de `src/platform/`; lo que no está disponible lo dice
   `status().reason` y la pantalla lo muestra. No presentes como verificado lo que

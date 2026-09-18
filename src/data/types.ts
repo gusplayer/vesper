@@ -84,6 +84,16 @@ export type NotificationPrefs = {
   updates: boolean;
   sessionEnd: boolean;
   weeklyClose: boolean;
+  /** "Tu racha de 12 días termina a medianoche", at `reminderMinutes` (ADR-0027). */
+  streak: boolean;
+  /** "Hoy no has enfocado", at `reminderMinutes`, on a day with no session. */
+  noFocus: boolean;
+  /** Two notices after 3 and 7 days without opening the app, then nothing until it opens. */
+  reactivation: boolean;
+  /** A circle member pushing the user on a shared challenge. Delivery needs the backend. */
+  nudges: boolean;
+  /** Minute of the local day the streak and no-focus notices fire at. Default 20:00. */
+  reminderMinutes: number;
 };
 
 export type Settings = {
@@ -113,6 +123,8 @@ export type Settings = {
   healthSyncedAt: number | null;
   /** The routine window the engine last started, so it never starts it twice. */
   lastRoutineStart: { routineId: string; windowStart: number } | null;
+  /** Last time the app came to the front, epoch ms. The reactivation notices count from here (ADR-0027). */
+  lastOpenedAt: number | null;
 };
 
 export type DayStat = {

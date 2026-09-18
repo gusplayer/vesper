@@ -192,10 +192,22 @@ export const settings: typeof shape = {
     pendingTitle: 'Vesper cannot notify you yet',
     pendingBody: 'Without permission there is no notice when a session ends and no weekly close. It is asked once.',
     generalGroup: 'General',
+    dailyGroup: 'Every day',
+    circleGroup: 'Circle',
     systemGroup: 'System',
     coaching: { label: 'Coaching', description: 'A notice when a routine starts' },
     sessionEnd: { label: 'End of session', description: 'A notice when the timer ends' },
     weeklyClose: { label: 'Weekly close', description: 'Sunday at 20:00, how the week closed' },
+    streak: { label: 'Streak at risk', description: 'If today does not count yet at the reminder time' },
+    noFocus: { label: 'Day without focus', description: 'If you have not focused by the reminder time' },
+    reactivation: { label: 'Come back', description: 'After 3 and 7 days without opening Vesper' },
+    reminderTime: { label: 'Reminder time', sheet: 'Reminder time' },
+    dailyCaption:
+      'At most two notices a day besides the session and routine ones. Nothing between 22:00 and 8:00, and never during a session.',
+    nudges: {
+      label: 'Nudges',
+      description: 'When someone in your circle nudges you on a challenge. Arrives once there is a server.',
+    },
     updates: { label: 'Important news', description: 'Changes worth knowing about' },
   },
   rules: {

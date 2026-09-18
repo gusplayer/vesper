@@ -151,8 +151,12 @@ export const MAX_CIRCLE = 12;
 /** Times per week a challenge can ask for. */
 export const CHALLENGE_TARGET_OPTIONS = [2, 3, 4, 5, 6] as const;
 
-/** How long a challenge runs, in weeks. */
-export const CHALLENGE_WEEK_OPTIONS = [1, 2, 4] as const;
+/**
+ * How long a challenge runs, in days: one, two and four weeks, the 21 days that make
+ * a habit, or no end at all (ADR-0027). 21 is the default.
+ */
+export const CHALLENGE_DURATION_OPTIONS = [7, 14, 21, 28, null] as const;
+export const DEFAULT_CHALLENGE_DAYS = 21;
 
 /** The user's own identity inside a circle. Lives on this phone; no server yet. */
 export type Profile = {
@@ -204,6 +208,24 @@ export type MemberWeek = {
   updatedAt: Millis;
 };
 
+/** One person pushing another on a challenge they share, once a day at most (ADR-0027). */
+export type Nudge = {
+  id: string;
+  fromId: string;
+  toId: string;
+  challengeId: string;
+  dayKey: DayKey;
+  createdAt: Millis;
+};
+
+/** A day the daily streak was bridged automatically; three a month (ADR-0027). */
+export type GraceDay = {
+  dayKey: DayKey;
+  /** 'YYYY-MM' of `dayKey`. */
+  monthKey: string;
+  createdAt: Millis;
+};
+
 /** One person cheering another, once a day at most. Either side can be ME. */
 export type Kudos = {
   id: string;
@@ -221,9 +243,10 @@ export type Challenge = {
   id: string;
   name: string;
   weeklyTarget: number;
-  /** The Monday DayKey of the first and of the last week, inclusive. */
+  /** The Monday DayKey of the first week. */
   startWeekKey: DayKey;
-  endWeekKey: DayKey;
+  /** The last day, inclusive, or null for a challenge with no end (ADR-0027). */
+  endDayKey: DayKey | null;
   /** ME or a member id. */
   createdBy: string;
   /** ME and/or member ids. */

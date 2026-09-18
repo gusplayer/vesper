@@ -68,17 +68,26 @@ export const circle = {
   },
   /** A challenge, in the card and in its screen. */
   challenge: {
-    /** '4 veces por semana · 2 semanas'. */
-    summary: (target: number, weeks: number) =>
-      `${target} veces por semana · ${weeks === 1 ? '1 semana' : `${weeks} semanas`}`,
+    /** '2 semanas', '21 días', 'sin límite' (ADR-0027). Whole weeks read as weeks, except 21. */
+    duration: (days: number | null) =>
+      days === null
+        ? 'sin límite'
+        : days === 7
+          ? '1 semana'
+          : days % 7 === 0 && days !== 21
+            ? `${days / 7} semanas`
+            : `${days} días`,
+    /** '4 veces por semana · 21 días'. */
+    summary: (target: number, duration: string) => `${target} veces por semana · ${duration}`,
     /** 'con Ana y Luis'. */
     withNames: (names: readonly string[]) => `con ${joinNames(names)}`,
     alone: 'solo tú',
     nobody: 'sin participantes',
     status: {
       upcoming: 'Empieza el lunes',
-      /** 'Última semana', 'Quedan 2 semanas'. */
-      active: (weeksLeft: number) => (weeksLeft <= 1 ? 'Última semana' : `Quedan ${weeksLeft} semanas`),
+      /** 'Último día', 'Quedan 12 días', 'Sin límite'. */
+      active: (daysLeft: number | null) =>
+        daysLeft === null ? 'Sin límite' : daysLeft <= 1 ? 'Último día' : `Quedan ${daysLeft} días`,
       ended: 'Terminó',
     },
     /** '3 de 4'. */
@@ -102,6 +111,14 @@ export const circle = {
     habitsFull: 'Ya tienes 5 hábitos. Archiva uno para unirte.',
     countsAsHabit: 'Tus marcas son las de tu hábito con este nombre. Las de los demás llegan como marcas del reto.',
     notJoined: 'Todavía no estás en este reto.',
+    /** The chip next to someone who has not marked today (ADR-0027). */
+    nudge: 'Empujar',
+    nudged: 'Empujado',
+    nudgeA11y: (name: string) => `Empujar a ${name}`,
+    nudgeHint: 'Un empujón al día por persona. Llega cuando exista el servidor.',
+    /** 'Ana te empujó hoy.', 'Ana y Luis te empujaron hoy.' */
+    nudgedYou: (names: readonly string[]) =>
+      names.length === 1 ? `${names[0]} te empujó hoy.` : `${joinNames(names)} te empujaron hoy.`,
   },
   /** circle/challenge-new. */
   challengeNew: {
@@ -111,9 +128,10 @@ export const circle = {
     fromHabit: 'Desde un hábito',
     fromHabitHint: 'Toca uno para usar su nombre y su meta.',
     timesPerWeek: 'Veces por semana',
-    weeks: 'Cuántas semanas',
-    /** '1 semana', '2 semanas'. */
-    weeksOption: (weeks: number) => (weeks === 1 ? '1 semana' : `${weeks} semanas`),
+    duration: 'Cuánto dura',
+    /** '1 semana', '2 semanas', '21 días', '4 semanas', 'Sin límite' (CHALLENGE_DURATION_OPTIONS). */
+    durationOption: (days: number | null) =>
+      days === null ? 'Sin límite' : days === 7 ? '1 semana' : days % 7 === 0 && days !== 21 ? `${days / 7} semanas` : `${days} días`,
     withWhom: 'Con quién',
     noMembers: 'Invita a alguien primero. Un reto sin testigos es un hábito.',
     meToo: 'Yo también',

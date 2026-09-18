@@ -174,10 +174,17 @@ Se editan y archivan desde Actividad › De por vida (mantener la fila) o desde
 `habits/edit`. Archivar no borra: las marcas son historia, y el hábito deja de contar y
 libera un lugar.
 
-## Metas semanales, no rachas diarias
+## Meta semanal y racha diaria con gracia
 
-Un objetivo por semana, en horas de foco. Se reinicia el lunes.
-Las rachas diarias castigan a quien se enferma un martes.
+Un objetivo por semana, en horas de foco. Se reinicia el lunes. Es la métrica.
+
+Desde ADR-0027 hay además una **racha diaria**: un día cuenta con 10 minutos de foco en
+sesión (nunca declarado). Las rachas diarias castigan a quien se enferma un martes, así
+que hay **tres días de gracia por mes** que se aplican solos al primer día que falla. La
+racha es un número en Focus y en Actividad, sin fuego ni animación. Un aviso a la hora
+elegida (20:00 por defecto) dice cuando está en riesgo; otro, cuando el día no tuvo foco;
+y dos más a los 3 y 7 días sin abrir la app. Máximo dos avisos al día fuera de la sesión
+y la rutina, nada entre 22:00 y 8:00, y **ninguno durante una sesión o una pausa**.
 
 Se configura tocando su tarjeta en Actividad › De por vida, que es donde se lee (chips
 5 / 10 / 15 / 20 / ninguna). **No hay meta por defecto** para un usuario nuevo: la app no
@@ -210,7 +217,8 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 
 - Sync y backend (el círculo tiene su capa de datos, pero nada viaja todavía)
 - Gráficos y estadísticas complejas más allá de las vistas de Actividad
-- Rachas, badges, leaderboards, feed, seguidores, notificaciones sociales
+- Badges, leaderboards, feed, seguidores (la racha diaria y los avisos del círculo
+  entraron con ADR-0027)
 - Modo oscuro como ajuste (la sesión es oscura por diseño; la app no)
 - Tablet / iPad
 - Widget de pantalla de inicio (la Live Activity sí existe)

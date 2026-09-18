@@ -41,6 +41,9 @@ Opción 3. La capa se llama **Círculo** (en inglés, *Circle*) y obedece cinco 
    hasta 12 personas (`MAX_CIRCLE`). No hay perfiles públicos ni búsqueda de gente.
 2. **Silencio.** El círculo no genera notificaciones. Nunca. Ni un kudo, ni un reto, ni
    una invitación. Se ve cuando abres la app, en Actividad.
+   *Enmendado por ADR-0027 (2026-09-17): el círculo notifica solo lo que otra persona
+   hizo (empujón, ánimo agrupado al día, entrada, invitación), con interruptor y nunca
+   durante una sesión. Sigue sin feed y sin ranking.*
 3. **Sin ranking.** La comparación semanal ordena por horas de foco y nada más: sin
    posiciones, sin medallas, sin porcentajes contra el grupo. Un reto muestra quién
    cumplió y quién no, con una marca y una raya, no con puntos.

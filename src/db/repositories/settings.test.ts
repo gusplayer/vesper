@@ -92,7 +92,17 @@ const DEFAULTS: Settings = {
   emergencyLeft: 5,
   emergencyTotal: 5,
   rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
-  notifications: { coaching: true, updates: true, sessionEnd: true, weeklyClose: true },
+  notifications: {
+    coaching: true,
+    updates: true,
+    sessionEnd: true,
+    weeklyClose: true,
+    streak: true,
+    noFocus: true,
+    reactivation: true,
+    nudges: true,
+    reminderMinutes: 20 * 60,
+  },
   birthDate: 700_000_000_000,
   country: null,
   sex: null,
@@ -101,6 +111,7 @@ const DEFAULTS: Settings = {
   pendingBanner: null,
   healthSyncedAt: null,
   lastRoutineStart: null,
+  lastOpenedAt: null,
 };
 
 describe('parseSettings', () => {

@@ -193,3 +193,39 @@ en los documentos de plataforma.
 - **2026-09-17 · Revisión de QA y documentación (ADR-0026).** Cierre de los ADR 0011,
   0012, 0013, 0015 y las cifras de 0022; restos de la fase 1 borrados; todos los docs
   contrastados con el código.
+
+## Racha diaria, avisos que traen de vuelta y empujones (2026-09-17, ADR-0027)
+
+El dueño del producto reafirmó, tras las objeciones, que quiere que la app se use más:
+racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera el backend.
+
+- **Racha diaria** (`domain/streak.ts`): un día cuenta con 10 minutos de foco en sesión.
+  **Tres días de gracia por mes** (`grace_days`, migración 007) que se aplican solos al
+  abrir la app si hay una racha que proteger y el mes tiene presupuesto; si el hueco es
+  más largo que la gracia, no se gasta ninguno. Se ve en Focus bajo la píldora ("5 días
+  seguidos · 3 de gracia") y en Actividad › De por vida (sección "Racha"). Sin fuego, sin
+  animación; la meta semanal sigue siendo la métrica y su pie ya no dice "sin rachas".
+- **Silencio en sesión**: con una sesión corriendo o en pausa, el plan de avisos solo
+  contiene fin de sesión y fin de pausa; rutinas, cierre semanal y avisos diarios se
+  cancelan al arrancar y vuelven al cerrar (`domain/reminders.ts`).
+- **Avisos nuevos**, todos con interruptor en Ajustes › Notificaciones › "Cada día" y a
+  la hora elegida (8:00 a 21:00, 20:00 por defecto): racha en riesgo (hoy y mañana, si la
+  racha tiene 2 días o más y hoy no cuenta), día sin foco (si la racha es menor), y volver
+  a los 3 y 7 días sin abrir la app (`lastOpenedAt`). Máximo dos al día fuera de sesión y
+  rutina, nada entre 22:00 y 8:00. El interruptor "Empujones" existe pero la entrega
+  necesita servidor.
+- **Retos**: duración 1, 2, 4 semanas, **21 días** (por defecto) o **sin límite**
+  (`challenges.end_day_key`, null = sin fin). **Empujón**: chip "Empujar" bajo cada
+  participante que no marcó hoy, una vez al día por persona (`nudges`), y la línea "Ana te
+  empujó hoy." con datos de demostración.
+- Verificado en el simulador iPhone 17 Pro con base recién sembrada: la línea de racha en
+  Focus, la sección en Actividad, Ajustes › Notificaciones con los tres grupos y la hoja de
+  hora (20:00 → 19:00), el reto "Read · 21 días · quedan 18", "Ana te empujó hoy", "Empujar"
+  → "Empujado" en Ana, y los chips de duración en el reto nuevo. `tsc` limpio, 784 tests en
+  56 archivos.
+- No verificado: ningún aviso llegó (el simulador no tiene permiso); el plan se cubre con
+  tests. Tampoco la gracia aplicándose a un día real (cubierto por tests), ni nada en un
+  teléfono.
+- Enmiendas: regla 11 y "Qué NO hacer" en `CLAUDE.md`, PRD ("Meta semanal y racha diaria
+  con gracia"), ADR-0021 principio 2. Deuda: el chip "Empujar" sin seleccionar no se
+  distingue del fondo de la tarjeta, igual que el chip "Dar ánimo" que ya existía.

@@ -1,3 +1,4 @@
+import { dayKeyStart, weekKeyOf } from '../../domain/day';
 import type {
   Challenge,
   ChallengeMark,
@@ -5,14 +6,15 @@ import type {
   Member,
   MemberStatus,
   MemberWeek,
+  Nudge,
 } from '../../domain/types';
 import { getDb, rowsAs, transaction } from '../client';
 
 /**
- * The circle's five tables (ADR-0021). One repository: a member's weeks, kudos and
- * marks have no meaning without the member, and leaving the circle empties them all.
- * Every list reads a whole table; a circle is at most twelve people and the rows
- * grow by one per person per week.
+ * The circle's six tables (ADR-0021, nudges from ADR-0027). One repository: a
+ * member's weeks, kudos, nudges and marks have no meaning without the member, and
+ * leaving the circle empties them all. Every list reads a whole table; a circle is
+ * at most twelve people and the rows grow by one per person per week.
  */
 
 // --- Members -----------------------------------------------------------------------
@@ -168,6 +170,50 @@ export function deleteKudosByMember(memberId: string): void {
   getDb().executeSync('DELETE FROM kudos WHERE from_id = ? OR to_id = ?', [memberId, memberId]);
 }
 
+// --- Nudges ------------------------------------------------------------------------
+
+type NudgeRow = {
+  id: string;
+  from_id: string;
+  to_id: string;
+  challenge_id: string;
+  day_key: string;
+  created_at: number;
+};
+
+function toNudge(row: NudgeRow): Nudge {
+  return {
+    id: row.id,
+    fromId: row.from_id,
+    toId: row.to_id,
+    challengeId: row.challenge_id,
+    dayKey: row.day_key,
+    createdAt: row.created_at,
+  };
+}
+
+/** Every nudge, oldest first. */
+export function listNudges(): Nudge[] {
+  return rowsAs<NudgeRow>(
+    getDb().executeSync('SELECT * FROM nudges ORDER BY day_key, created_at, id'),
+  ).map(toNudge);
+}
+
+/** Records a nudge. "Once a day" is the store's rule; the table has no UNIQUE for it. */
+export function insertNudge(nudge: Nudge): void {
+  getDb().executeSync(
+    `INSERT INTO nudges
+       (id, from_id, to_id, challenge_id, day_key, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [nudge.id, nudge.fromId, nudge.toId, nudge.challengeId, nudge.dayKey, nudge.createdAt],
+  );
+}
+
+/** Both directions: what they sent and what they received. */
+export function deleteNudgesOf(memberId: string): void {
+  getDb().executeSync('DELETE FROM nudges WHERE from_id = ? OR to_id = ?', [memberId, memberId]);
+}
+
 // --- Challenges --------------------------------------------------------------------
 
 type ChallengeRow = {
@@ -176,6 +222,8 @@ type ChallengeRow = {
   weekly_target: number;
   start_week_key: string;
   end_week_key: string;
+  /** NULL for a challenge with no end. Missing on a row written before 007. */
+  end_day_key?: string | null;
   created_by: string;
   participant_ids: string;
   habit_id: string | null;
@@ -205,7 +253,7 @@ function toChallenge(row: ChallengeRow): Challenge {
     name: row.name,
     weeklyTarget: row.weekly_target,
     startWeekKey: row.start_week_key,
-    endWeekKey: row.end_week_key,
+    endDayKey: row.end_day_key ?? null,
     createdBy: row.created_by,
     participantIds: parseParticipantIds(row.participant_ids),
     habitId: row.habit_id,
@@ -221,17 +269,26 @@ export function listChallenges(): Challenge[] {
   ).map(toChallenge);
 }
 
+/**
+ * The Monday of the week holding the last day, for the legacy NOT NULL column that
+ * nothing reads any more: the start week for a challenge with no end.
+ */
+export function legacyEndWeekKey(challenge: Pick<Challenge, 'startWeekKey' | 'endDayKey'>): string {
+  return challenge.endDayKey === null ? challenge.startWeekKey : weekKeyOf(dayKeyStart(challenge.endDayKey));
+}
+
 /** Inserts or replaces the whole row by id; created_at stays on an update. */
 export function upsertChallenge(challenge: Challenge): void {
   getDb().executeSync(
     `INSERT INTO challenges
-       (id, name, weekly_target, start_week_key, end_week_key, created_by, participant_ids, habit_id, created_at, archived_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (id, name, weekly_target, start_week_key, end_week_key, end_day_key, created_by, participant_ids, habit_id, created_at, archived_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        weekly_target = excluded.weekly_target,
        start_week_key = excluded.start_week_key,
        end_week_key = excluded.end_week_key,
+       end_day_key = excluded.end_day_key,
        created_by = excluded.created_by,
        participant_ids = excluded.participant_ids,
        habit_id = excluded.habit_id,
@@ -241,7 +298,8 @@ export function upsertChallenge(challenge: Challenge): void {
       challenge.name,
       challenge.weeklyTarget,
       challenge.startWeekKey,
-      challenge.endWeekKey,
+      legacyEndWeekKey(challenge),
+      challenge.endDayKey,
       challenge.createdBy,
       JSON.stringify(challenge.participantIds),
       challenge.habitId,
@@ -305,15 +363,16 @@ export function deleteChallengeMarksByMember(memberId: string): void {
 // --- Leaving -----------------------------------------------------------------------
 
 /**
- * Takes a person out of the circle in one transaction: their marks, kudos and
- * weeks, their member row, and the challenges they were in, rewritten without them
- * (the store hands those over). All or nothing: a person half removed would be a
- * ghost in a challenge.
+ * Takes a person out of the circle in one transaction: their marks, kudos, nudges
+ * and weeks, their member row, and the challenges they were in, rewritten without
+ * them (the store hands those over). All or nothing: a person half removed would be
+ * a ghost in a challenge.
  */
 export function removeMemberEverywhere(memberId: string, challengesWithoutThem: readonly Challenge[]): void {
   transaction(() => {
     deleteChallengeMarksByMember(memberId);
     deleteKudosByMember(memberId);
+    deleteNudgesOf(memberId);
     deleteWeeksByMember(memberId);
     removeMember(memberId);
     for (const challenge of challengesWithoutThem) {
@@ -323,14 +382,15 @@ export function removeMemberEverywhere(memberId: string, challengesWithoutThem: 
 }
 
 /**
- * Empties the people tables: marks, kudos, weeks, members, children first. The
- * challenges stay, archived by the caller, and so do the profile and the share
+ * Empties the people tables: marks, kudos, nudges, weeks, members, children first.
+ * The challenges stay, archived by the caller, and so do the profile and the share
  * preferences: leaving a circle is not forgetting who you are.
  */
 export function clearAll(): void {
   const db = getDb();
   db.executeSync('DELETE FROM challenge_marks');
   db.executeSync('DELETE FROM kudos');
+  db.executeSync('DELETE FROM nudges');
   db.executeSync('DELETE FROM member_weeks');
   db.executeSync('DELETE FROM circle_members');
 }

@@ -11,6 +11,7 @@ import { bootAndHydrate, useAppStore } from '../data';
 import type { BootResult } from '../db/boot';
 import { DevJump } from '../dev/DevJump';
 import { SessionGate } from '../features/session/SessionGate';
+import { StreakSettle } from '../features/streak/StreakSettle';
 import { PlatformEffects } from '../platform/PlatformEffects';
 import { lockPortrait } from '../platform/orientation';
 import { ChromeProvider } from '../design/chrome';
@@ -99,6 +100,7 @@ export default function RootLayout() {
           {__DEV__ ? <DevJump /> : null}
           <PlatformEffects />
           <SessionGate />
+          <StreakSettle />
           <Stack screenOptions={stackScreenOptions}>
             <Stack.Protected guard={!onboardingDone}>
               <Stack.Screen name="onboarding" />

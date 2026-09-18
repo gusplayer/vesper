@@ -2,13 +2,16 @@ import { create } from 'zustand';
 
 import { resolveActivityId } from '../../db/boot';
 import { loadDayStats } from '../../db/queries/dayStats';
+import { loadDayFocus } from '../../db/queries/streak';
+import * as graceDaysRepo from '../../db/repositories/graceDays';
 import * as habitsRepo from '../../db/repositories/habits';
 import * as modesRepo from '../../db/repositories/modes';
 import * as schedulesRepo from '../../db/repositories/schedules';
 import * as settingsRepo from '../../db/repositories/settings';
 import { dayKeyOf, shiftDayKey } from '../../domain/day';
 import { activeHabitCount, canAddHabit } from '../../domain/habits';
-import type { Habit, HabitMark } from '../../domain/types';
+import { graceDaysToApply, monthKeyOf } from '../../domain/streak';
+import type { GraceDay, Habit, HabitMark } from '../../domain/types';
 import { uuidv7 } from '../../lib/uuid';
 import { SETTINGS } from '../seed';
 import type { DayStat, Mode, NotificationPrefs, Rules, Schedule, Settings } from '../types';
@@ -34,6 +37,8 @@ type AppState = {
   habits: Habit[];
   habitMarks: HabitMark[];
   dayStats: DayStat[];
+  /** The days the streak was bridged on its own, oldest first (ADR-0027). */
+  graceDays: GraceDay[];
 
   /** Reads everything from the database. Called once at boot and after a reset. */
   hydrate: (now?: number) => void;
@@ -84,6 +89,16 @@ type AppState = {
    * closing a session: the closed row is already in the database.
    */
   recordFocus: (now: number) => void;
+
+  // Streak (ADR-0027)
+  /**
+   * Bridges the days since the last counted one with grace, while the month still
+   * has some. Runs at boot and every time the app comes to the foreground, so the
+   * streak is settled before any screen or reminder reads it.
+   */
+  settleStreak: (now: number) => void;
+  /** Stamps the moment the app was opened, for the reactivation reminders. */
+  markOpened: (now: number) => void;
 };
 
 function marksWindowFrom(now: number): string {
@@ -110,6 +125,7 @@ export const useAppStore = create<AppState>((set, get) => {
     habits: [],
     habitMarks: [],
     dayStats: [],
+    graceDays: [],
 
     hydrate: (now = Date.now()) => {
       const modes = modesRepo.list();
@@ -124,7 +140,11 @@ export const useAppStore = create<AppState>((set, get) => {
         habits: habitsRepo.listActive(),
         habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKeyOf(now)),
         dayStats: loadDayStats(now, HISTORY_DAYS),
+        graceDays: graceDaysRepo.listGraceDays(),
       });
+      // With the settings and the grace rows in, the days missed since the last open
+      // get their grace before the first screen reads the streak.
+      get().settleStreak(now);
     },
 
     upsertMode: (input) => {
@@ -295,5 +315,19 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     recordFocus: (now) => set({ dayStats: loadDayStats(now, HISTORY_DAYS) }),
+
+    settleStreak: (now) => {
+      const toApply = graceDaysToApply(loadDayFocus(now), get().graceDays, dayKeyOf(now));
+      if (toApply.length === 0) {
+        return;
+      }
+      for (const dayKey of toApply) {
+        graceDaysRepo.insertGraceDay({ dayKey, monthKey: monthKeyOf(dayKey), createdAt: now });
+      }
+      // Re-read: INSERT OR IGNORE may have kept a row this cache did not know about.
+      set({ graceDays: graceDaysRepo.listGraceDays() });
+    },
+
+    markOpened: (now) => saveSettings({ ...get().settings, lastOpenedAt: now }),
   };
 });

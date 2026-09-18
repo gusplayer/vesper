@@ -1,12 +1,20 @@
-import { endWeekKeyFor, shiftDayKey, weekDayKeys, weekKeyOf } from '../domain/circle';
+import { endDayKeyFor, shiftDayKey, weekDayKeys, weekKeyOf } from '../domain/circle';
 import { dayKeyOf, dayStartShifted, weekStart } from '../domain/day';
 import { HOUR, MINUTE } from '../domain/time';
-import { ME, type Challenge, type ChallengeMark, type Kudos, type Member, type MemberWeek } from '../domain/types';
+import {
+  ME,
+  type Challenge,
+  type ChallengeMark,
+  type Kudos,
+  type Member,
+  type MemberWeek,
+  type Nudge,
+} from '../domain/types';
 import type { Strings } from '../i18n/es';
 
 /**
  * Demo data for the circle (ADR-0021): four people, two weeks of numbers, one active
- * challenge, two kudos and one pending invitation. Deterministic for a given `now`,
+ * challenge, two kudos, one nudge and one pending invitation. Deterministic for a given `now`,
  * so a screenshot today matches one tomorrow; every date is relative to `now` so the
  * week is always this week. Nothing here is real. The user's own profile is not
  * seeded: creating it is part of the flow.
@@ -102,8 +110,11 @@ export function demoKudos(now: number): Kudos[] {
   ];
 }
 
+/** The default length of a challenge (ADR-0027): the 21 days that make a habit. */
+export const DEMO_CHALLENGE_DAYS = 21;
+
 /**
- * One active challenge that started this Monday and runs two weeks, linked to the
+ * One active challenge that started this Monday and runs 21 days, linked to the
  * demo habit `habit-read` (src/data/seed.ts), which is what makes the user's own
  * marks count in it.
  */
@@ -114,13 +125,28 @@ export function demoChallenge(now: number, t: DemoStrings): Challenge {
     name: t.challengeName.reading,
     weeklyTarget: 4,
     startWeekKey,
-    endWeekKey: endWeekKeyFor(startWeekKey, 2),
+    endDayKey: endDayKeyFor(startWeekKey, DEMO_CHALLENGE_DAYS),
     createdBy: 'ana',
     participantIds: [ME, 'ana', 'luis'],
     habitId: 'habit-read',
     createdAt: weekStart(now),
     archivedAt: null,
   };
+}
+
+/** Ana nudged the user today on the demo challenge, so the line above the standings shows. */
+export function demoNudges(now: number): Nudge[] {
+  const todayKey = dayKeyOf(now);
+  return [
+    {
+      id: `nudge-ana-${todayKey}`,
+      fromId: 'ana',
+      toId: ME,
+      challengeId: DEMO_CHALLENGE_ID,
+      dayKey: todayKey,
+      createdAt: now,
+    },
+  ];
 }
 
 /** Ana on the first three days of the week, Luis on Monday, never past today. */

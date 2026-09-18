@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { Challenge, ChallengeMark, Kudos, Member, MemberWeek } from '../../domain/types';
+import type { Challenge, ChallengeMark, Kudos, Member, MemberWeek, Nudge } from '../../domain/types';
 import { CIRCLE_SQL } from '../migrations/004_circle';
+import { STREAK_NUDGES_SQL } from '../migrations/007_streak_nudges';
 import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as circle from './circle';
 import * as settings from './settings';
@@ -56,12 +57,31 @@ const weekRow = {
 
 const kudos: Kudos = { id: 'k-1', fromId: 'ana', toId: 'me', dayKey: '2026-08-18', createdAt: T0 };
 
+const nudge: Nudge = {
+  id: 'n-1',
+  fromId: 'ana',
+  toId: 'me',
+  challengeId: 'challenge-read',
+  dayKey: '2026-08-18',
+  createdAt: T0,
+};
+
+const nudgeRow = {
+  id: 'n-1',
+  from_id: 'ana',
+  to_id: 'me',
+  challenge_id: 'challenge-read',
+  day_key: '2026-08-18',
+  created_at: T0,
+};
+
+/** Two weeks from Monday the 17th: the last day is Sunday the 30th. */
 const challenge: Challenge = {
   id: 'challenge-read',
   name: 'leer',
   weeklyTarget: 4,
   startWeekKey: '2026-08-17',
-  endWeekKey: '2026-08-24',
+  endDayKey: '2026-08-30',
   createdBy: 'ana',
   participantIds: ['me', 'ana', 'luis'],
   habitId: 'habit-read',
@@ -75,6 +95,7 @@ const challengeRow = {
   weekly_target: 4,
   start_week_key: '2026-08-17',
   end_week_key: '2026-08-24',
+  end_day_key: '2026-08-30',
   created_by: 'ana',
   participant_ids: '["me","ana","luis"]',
   habit_id: 'habit-read',
@@ -186,6 +207,29 @@ describe('kudos', () => {
   });
 });
 
+describe('nudges', () => {
+  it('lists rows mapped to camelCase', () => {
+    fake.whenSql('FROM nudges', [nudgeRow]);
+
+    expect(circle.listNudges()).toEqual([nudge]);
+  });
+
+  it('inserts the whole row', () => {
+    circle.insertNudge(nudge);
+
+    const call = fake.callMatching(/INSERT INTO nudges/);
+    expect(call.params).toEqual(['n-1', 'ana', 'me', 'challenge-read', '2026-08-18', T0]);
+  });
+
+  it('deletes what a member sent and received', () => {
+    circle.deleteNudgesOf('ana');
+
+    const call = fake.callMatching(/DELETE FROM nudges/);
+    expect(call.sql).toContain('from_id = ? OR to_id = ?');
+    expect(call.params).toEqual(['ana', 'ana']);
+  });
+});
+
 describe('challenges', () => {
   it('lists rows, reading participant_ids from JSON and a corrupt one as nobody', () => {
     fake.whenSql('FROM challenges', [challengeRow, { ...challengeRow, id: 'c-2', participant_ids: '[me', habit_id: null, archived_at: T0 }]);
@@ -194,6 +238,16 @@ describe('challenges', () => {
 
     expect(listed[0]).toEqual(challenge);
     expect(listed[1]).toMatchObject({ id: 'c-2', participantIds: [], habitId: null, archivedAt: T0 });
+  });
+
+  it('reads a NULL end_day_key as a challenge with no end, and a missing one too', () => {
+    const { end_day_key: _dropped, ...before007 } = challengeRow;
+    fake.whenSql('FROM challenges', [{ ...challengeRow, end_day_key: null }, { ...before007, id: 'c-old' }]);
+
+    const [endless, old] = circle.listChallenges();
+
+    expect(endless?.endDayKey).toBeNull();
+    expect(old?.endDayKey).toBeNull();
   });
 
   it('upserts the whole row by id, participant_ids as JSON, keeping created_at', () => {
@@ -208,12 +262,26 @@ describe('challenges', () => {
       4,
       '2026-08-17',
       '2026-08-24',
+      '2026-08-30',
       'ana',
       '["me","ana","luis"]',
       'habit-read',
       T0,
       null,
     ]);
+  });
+
+  it('derives the legacy end_week_key from the last day, or the start week without an end', () => {
+    expect(circle.legacyEndWeekKey(challenge)).toBe('2026-08-24');
+    expect(circle.legacyEndWeekKey({ startWeekKey: '2026-08-17', endDayKey: '2026-09-06' })).toBe('2026-08-31');
+    expect(circle.legacyEndWeekKey({ startWeekKey: '2026-08-17', endDayKey: '2026-08-17' })).toBe('2026-08-17');
+    expect(circle.legacyEndWeekKey({ startWeekKey: '2026-08-17', endDayKey: null })).toBe('2026-08-17');
+
+    circle.upsertChallenge({ ...challenge, endDayKey: null });
+
+    const params = fake.callMatching(/INSERT INTO challenges/).params;
+    expect(params?.[4]).toBe('2026-08-17');
+    expect(params?.[5]).toBeNull();
   });
 
   it('archives one or every open challenge with an UPDATE', () => {
@@ -252,12 +320,13 @@ describe('challenge marks', () => {
 });
 
 describe('clearAll', () => {
-  it('empties the four people tables, children first, and leaves challenges alone', () => {
+  it('empties the five people tables, children first, and leaves challenges alone', () => {
     circle.clearAll();
 
     expect(fake.calls.map((call) => call.sql)).toEqual([
       'DELETE FROM challenge_marks',
       'DELETE FROM kudos',
+      'DELETE FROM nudges',
       'DELETE FROM member_weeks',
       'DELETE FROM circle_members',
     ]);
@@ -331,14 +400,15 @@ describe('schema', () => {
     circle.upsertMember(member);
     circle.upsertMemberWeek(week);
     circle.insertKudos(kudos);
+    circle.insertNudge(nudge);
     circle.upsertChallenge(challenge);
     circle.upsertChallengeMark(mark);
 
     const inserts = fake.calls.filter((call) => /INSERT/.test(call.sql));
-    expect(inserts).toHaveLength(5);
+    expect(inserts).toHaveLength(6);
     for (const call of inserts) {
       const { table, columns } = insertColumns(call.sql);
-      const declared = ddlColumns(CIRCLE_SQL, table);
+      const declared = ddlColumns(`${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}`, table);
       expect(declared).not.toContain('PRIMARY');
       for (const column of columns) {
         expect(declared).toContain(column);
@@ -349,6 +419,7 @@ describe('schema', () => {
       'circle_members',
       'member_weeks',
       'kudos',
+      'nudges',
       'challenges',
       'challenge_marks',
     ]);
@@ -361,7 +432,7 @@ describe('removeMemberEverywhere', () => {
     name: 'Leer',
     weeklyTarget: 4,
     startWeekKey: '2026-08-17',
-    endWeekKey: '2026-08-24',
+    endDayKey: '2026-08-30',
     createdBy: 'me',
     participantIds: ['me'],
     habitId: null,
@@ -369,16 +440,17 @@ describe('removeMemberEverywhere', () => {
     archivedAt: null,
   };
 
-  it('deletes marks, kudos, weeks and the row, rewrites the challenges, all in one transaction', () => {
+  it('deletes marks, kudos, nudges, weeks and the row, rewrites the challenges, all in one transaction', () => {
     circle.removeMemberEverywhere('ana', [challenge]);
 
     const verbs = fake.calls.map((call) => call.sql.trim().split(/\s+/)[0]);
-    expect(verbs).toEqual(['BEGIN', 'DELETE', 'DELETE', 'DELETE', 'DELETE', 'INSERT', 'COMMIT']);
+    expect(verbs).toEqual(['BEGIN', 'DELETE', 'DELETE', 'DELETE', 'DELETE', 'DELETE', 'INSERT', 'COMMIT']);
     expect(fake.calls[1]?.sql).toContain('challenge_marks');
     expect(fake.calls[2]?.sql).toContain('kudos');
-    expect(fake.calls[3]?.sql).toContain('member_weeks');
-    expect(fake.calls[4]?.sql).toContain('circle_members');
-    expect(fake.calls[5]?.params?.[6]).toBe('["me"]');
+    expect(fake.calls[3]?.sql).toContain('nudges');
+    expect(fake.calls[4]?.sql).toContain('member_weeks');
+    expect(fake.calls[5]?.sql).toContain('circle_members');
+    expect(fake.calls[6]?.params?.[7]).toBe('["me"]');
   });
 
   it('rolls back when a statement throws, so a person is never half removed', () => {

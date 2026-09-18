@@ -1,5 +1,5 @@
 import { dayKeyStart, shiftDayKey, weekDayKeys } from './day';
-import { WEEK } from './time';
+import { DAY } from './time';
 import {
   MAX_CIRCLE,
   ME,
@@ -10,6 +10,7 @@ import {
   type Kudos,
   type Member,
   type MemberWeek,
+  type Nudge,
   type Profile,
   type SharePrefs,
 } from './types';
@@ -36,18 +37,24 @@ export const DEFAULT_SHARE_PREFS: SharePrefs = { focus: true, habits: true, soci
  */
 export { dayKeyStart, shiftDayKey, weekDayKeys, weekKeyOf } from './day';
 
-/** The Monday DayKey of the last week of a challenge that starts on `startWeekKey`. */
-export function endWeekKeyFor(startWeekKey: DayKey, weeks: number): DayKey {
-  return shiftDayKey(startWeekKey, Math.max(0, weeks - 1) * 7);
+/**
+ * The last day, inclusive, of a challenge that starts on `startWeekKey` and runs
+ * `days` days: 21 days from a Monday end on a Sunday three weeks later. Null days is
+ * a challenge with no end (ADR-0027).
+ */
+export function endDayKeyFor(startWeekKey: DayKey, days: number | null): DayKey | null {
+  if (days === null) {
+    return null;
+  }
+  return shiftDayKey(startWeekKey, Math.max(1, days) - 1);
 }
 
 /**
- * Whole weeks from one Monday key to another, inclusive of both. Rounded, because
- * the ms distance between two local midnights is off by an hour across a DST change.
+ * Calendar days from one key to another, inclusive of both. Rounded, because the ms
+ * distance between two local midnights is off by an hour across a DST change.
  */
-function weeksInclusive(fromWeekKey: DayKey, toWeekKey: DayKey): number {
-  const span = Math.round((dayKeyStart(toWeekKey) - dayKeyStart(fromWeekKey)) / WEEK);
-  return span + 1;
+function daysInclusive(fromKey: DayKey, toKey: DayKey): number {
+  return Math.round((dayKeyStart(toKey) - dayKeyStart(fromKey)) / DAY) + 1;
 }
 
 // --- Seats -------------------------------------------------------------------------
@@ -173,34 +180,63 @@ export function kudosSenderNames(kudos: readonly Kudos[], members: readonly Memb
   return names;
 }
 
+// --- Nudges ------------------------------------------------------------------------
+
+/** Whether the user already nudged `toId` on that challenge on `dayKey`. Once a day. */
+export function nudgeGivenToday(
+  nudges: readonly Nudge[],
+  toId: string,
+  challengeId: string,
+  dayKey: DayKey,
+): boolean {
+  return nudges.some(
+    (n) => n.fromId === ME && n.toId === toId && n.challengeId === challengeId && n.dayKey === dayKey,
+  );
+}
+
+/** The nudges the user received on `dayKey`, on any challenge. */
+export function nudgesReceivedToday(nudges: readonly Nudge[], dayKey: DayKey): Nudge[] {
+  return nudges.filter((n) => n.toId === ME && n.dayKey === dayKey);
+}
+
 // --- Challenges --------------------------------------------------------------------
 
 export type ChallengeStatus = 'upcoming' | 'active' | 'ended';
 
-export function challengeStatus(challenge: Challenge, weekKey: DayKey): ChallengeStatus {
-  if (weekKey < challenge.startWeekKey) {
+/** Upcoming until its Monday, ended the day after its last day; never ended without one. */
+export function challengeStatus(challenge: Challenge, todayKey: DayKey): ChallengeStatus {
+  if (todayKey < challenge.startWeekKey) {
     return 'upcoming';
   }
-  if (weekKey > challenge.endWeekKey) {
+  if (challenge.endDayKey !== null && todayKey > challenge.endDayKey) {
     return 'ended';
   }
   return 'active';
 }
 
-/** How many weeks the challenge runs in total. */
-export function challengeWeeks(challenge: Challenge): number {
-  return Math.max(1, weeksInclusive(challenge.startWeekKey, challenge.endWeekKey));
+/** How many days the challenge runs in total, first and last included. Null for no end. */
+export function challengeDays(challenge: Challenge): number | null {
+  if (challenge.endDayKey === null) {
+    return null;
+  }
+  return Math.max(1, daysInclusive(challenge.startWeekKey, challenge.endDayKey));
 }
 
-/** Weeks still to run, the current one included. Every week before it starts; 0 once ended. */
-export function challengeWeeksLeft(challenge: Challenge, weekKey: DayKey): number {
-  switch (challengeStatus(challenge, weekKey)) {
+/**
+ * Days still to run, today included: every day before it starts, never 0 while
+ * active (the last day reads 1), 0 once ended. Null for a challenge with no end.
+ */
+export function challengeDaysLeft(challenge: Challenge, todayKey: DayKey): number | null {
+  if (challenge.endDayKey === null) {
+    return null;
+  }
+  switch (challengeStatus(challenge, todayKey)) {
     case 'ended':
       return 0;
     case 'upcoming':
-      return challengeWeeks(challenge);
+      return challengeDays(challenge);
     case 'active':
-      return weeksInclusive(weekKey, challenge.endWeekKey);
+      return daysInclusive(todayKey, challenge.endDayKey);
   }
 }
 

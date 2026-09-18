@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  challengeDays,
+  challengeDaysLeft,
   challengeStandings,
   challengeStatus,
-  challengeWeeks,
-  challengeWeeksLeft,
   circleFull,
   circleWeek,
   dayKeyStart,
   DEFAULT_SHARE_PREFS,
-  endWeekKeyFor,
+  endDayKeyFor,
   codeFromInviteLink,
   inviteCodeFor,
   inviteCodeOutcome,
@@ -19,6 +19,8 @@ import {
   kudosReceivedInWeek,
   kudosSenderNames,
   normalizeInviteCode,
+  nudgeGivenToday,
+  nudgesReceivedToday,
   seatsTaken,
   shiftDayKey,
   weekDayKeys,
@@ -27,7 +29,16 @@ import {
 import { dayKeyOf } from './day';
 import { aMark } from './fixtures';
 import { HOUR } from './time';
-import { MAX_CIRCLE, ME, type Challenge, type Kudos, type Member, type MemberWeek, type Profile } from './types';
+import {
+  MAX_CIRCLE,
+  ME,
+  type Challenge,
+  type Kudos,
+  type Member,
+  type MemberWeek,
+  type Nudge,
+  type Profile,
+} from './types';
 
 // Monday 2026-08-17 .. Sunday 2026-08-23. Wednesday is the 19th.
 const WEEK = '2026-08-17';
@@ -57,13 +68,18 @@ function kudos(fromId: string, toId: string, dayKey: string): Kudos {
   return { id: `${fromId}-${toId}-${dayKey}`, fromId, toId, dayKey, createdAt: 0 };
 }
 
+function nudge(fromId: string, toId: string, dayKey: string, challengeId = 'challenge-1'): Nudge {
+  return { id: `${fromId}-${toId}-${challengeId}-${dayKey}`, fromId, toId, challengeId, dayKey, createdAt: 0 };
+}
+
+/** Two weeks: Monday the 17th to Sunday the 30th. */
 function challenge(overrides: Partial<Challenge> = {}): Challenge {
   return {
     id: 'challenge-1',
     name: 'leer',
     weeklyTarget: 4,
     startWeekKey: WEEK,
-    endWeekKey: '2026-08-24',
+    endDayKey: '2026-08-30',
     createdBy: 'ana',
     participantIds: ['ana', ME, 'luis'],
     habitId: 'habit-read',
@@ -113,19 +129,25 @@ describe('week keys', () => {
     ]);
   });
 
-  it('endWeekKeyFor is the Monday of the last week, one week meaning the same Monday', () => {
-    expect(endWeekKeyFor(WEEK, 1)).toBe(WEEK);
-    expect(endWeekKeyFor(WEEK, 2)).toBe('2026-08-24');
-    expect(endWeekKeyFor(WEEK, 4)).toBe('2026-09-07');
-    expect(endWeekKeyFor(WEEK, 0)).toBe(WEEK);
+  it('endDayKeyFor is the last day inclusive: a week from Monday ends on Sunday', () => {
+    expect(endDayKeyFor(WEEK, 7)).toBe('2026-08-23');
+    expect(endDayKeyFor(WEEK, 14)).toBe('2026-08-30');
+    expect(endDayKeyFor(WEEK, 21)).toBe('2026-09-06');
+    expect(endDayKeyFor(WEEK, 28)).toBe('2026-09-13');
+    expect(endDayKeyFor(WEEK, 1)).toBe(WEEK);
+    expect(endDayKeyFor(WEEK, 0)).toBe(WEEK);
   });
 
-  it('endWeekKeyFor stays on a Monday across a DST change, whatever the zone', () => {
+  it('endDayKeyFor is null for a challenge with no end', () => {
+    expect(endDayKeyFor(WEEK, null)).toBeNull();
+  });
+
+  it('endDayKeyFor stays on a Sunday across a DST change, whatever the zone', () => {
     // 2026-03-08 (US) and 2026-03-29 (EU) are DST Sundays; both windows cross one.
-    expect(endWeekKeyFor('2026-03-02', 2)).toBe('2026-03-09');
-    expect(endWeekKeyFor('2026-03-23', 2)).toBe('2026-03-30');
-    expect(endWeekKeyFor('2026-10-26', 2)).toBe('2026-11-02');
-    expect(new Date(dayKeyStart('2026-03-09')).getDay()).toBe(1);
+    expect(endDayKeyFor('2026-03-02', 14)).toBe('2026-03-15');
+    expect(endDayKeyFor('2026-03-23', 14)).toBe('2026-04-05');
+    expect(endDayKeyFor('2026-10-26', 14)).toBe('2026-11-08');
+    expect(new Date(dayKeyStart('2026-03-15')).getDay()).toBe(0);
   });
 });
 
@@ -216,34 +238,82 @@ describe('kudos', () => {
   });
 });
 
-describe('challengeStatus / weeks', () => {
-  const twoWeeks = challenge();
+describe('nudges', () => {
+  const given = [
+    nudge(ME, 'ana', TODAY),
+    nudge(ME, 'luis', '2026-08-18'),
+    nudge(ME, 'sofia', TODAY, 'other'),
+    nudge('ana', ME, TODAY),
+  ];
 
-  it('is upcoming before the start, active inside, ended after', () => {
+  it('nudgeGivenToday is true only for my nudge to that person on that challenge and day', () => {
+    expect(nudgeGivenToday(given, 'ana', 'challenge-1', TODAY)).toBe(true);
+    expect(nudgeGivenToday(given, 'luis', 'challenge-1', TODAY)).toBe(false);
+    expect(nudgeGivenToday(given, 'luis', 'challenge-1', '2026-08-18')).toBe(true);
+    expect(nudgeGivenToday(given, 'sofia', 'challenge-1', TODAY)).toBe(false);
+    expect(nudgeGivenToday(given, 'sofia', 'other', TODAY)).toBe(true);
+    expect(nudgeGivenToday(given, 'ana', 'other', TODAY)).toBe(false);
+    expect(nudgeGivenToday([], 'ana', 'challenge-1', TODAY)).toBe(false);
+  });
+
+  it('nudgesReceivedToday keeps what came to me today, on any challenge', () => {
+    const received = [
+      nudge('ana', ME, TODAY),
+      nudge('luis', ME, TODAY, 'other'),
+      nudge('sofia', ME, '2026-08-18'),
+      nudge(ME, 'ana', TODAY),
+    ];
+
+    expect(nudgesReceivedToday(received, TODAY).map((n) => n.fromId)).toEqual(['ana', 'luis']);
+    expect(nudgesReceivedToday(received, '2026-08-20')).toEqual([]);
+  });
+
+  it('the sender names come out through kudosSenderNames, since a nudge is shaped like a kudos', () => {
+    expect(kudosSenderNames(nudgesReceivedToday([nudge('luis', ME, TODAY), nudge('gone', ME, TODAY)], TODAY), members)).toEqual(['Luis']);
+  });
+});
+
+describe('challengeStatus / days', () => {
+  const twoWeeks = challenge();
+  const endless = challenge({ endDayKey: null });
+
+  it('is upcoming before the start, active through the last day, ended the day after', () => {
+    expect(challengeStatus(twoWeeks, '2026-08-16')).toBe('upcoming');
     expect(challengeStatus(twoWeeks, LAST_WEEK)).toBe('upcoming');
     expect(challengeStatus(twoWeeks, WEEK)).toBe('active');
-    expect(challengeStatus(twoWeeks, '2026-08-24')).toBe('active');
+    expect(challengeStatus(twoWeeks, TODAY)).toBe('active');
+    expect(challengeStatus(twoWeeks, '2026-08-30')).toBe('active');
     expect(challengeStatus(twoWeeks, '2026-08-31')).toBe('ended');
   });
 
-  it('counts the total weeks from the two Monday keys', () => {
-    expect(challengeWeeks(challenge({ endWeekKey: WEEK }))).toBe(1);
-    expect(challengeWeeks(twoWeeks)).toBe(2);
-    expect(challengeWeeks(challenge({ endWeekKey: '2026-09-07' }))).toBe(4);
+  it('never ends a challenge without an end', () => {
+    expect(challengeStatus(endless, LAST_WEEK)).toBe('upcoming');
+    expect(challengeStatus(endless, WEEK)).toBe('active');
+    expect(challengeStatus(endless, '2036-01-01')).toBe('active');
   });
 
-  it('counts weeks left including the current one, all of them before the start, none after', () => {
-    expect(challengeWeeksLeft(twoWeeks, LAST_WEEK)).toBe(2);
-    expect(challengeWeeksLeft(twoWeeks, WEEK)).toBe(2);
-    expect(challengeWeeksLeft(twoWeeks, '2026-08-24')).toBe(1);
-    expect(challengeWeeksLeft(twoWeeks, '2026-08-31')).toBe(0);
+  it('counts the total days, both ends included, and null for no end', () => {
+    expect(challengeDays(challenge({ endDayKey: WEEK }))).toBe(1);
+    expect(challengeDays(challenge({ endDayKey: '2026-08-23' }))).toBe(7);
+    expect(challengeDays(twoWeeks)).toBe(14);
+    expect(challengeDays(challenge({ endDayKey: '2026-09-06' }))).toBe(21);
+    expect(challengeDays(endless)).toBeNull();
   });
 
-  it('counts weeks across a DST change', () => {
-    const spring = challenge({ startWeekKey: '2026-03-02', endWeekKey: '2026-03-23' });
+  it('counts days left with today included: all before the start, 1 on the last day, 0 after', () => {
+    expect(challengeDaysLeft(twoWeeks, LAST_WEEK)).toBe(14);
+    expect(challengeDaysLeft(twoWeeks, WEEK)).toBe(14);
+    expect(challengeDaysLeft(twoWeeks, TODAY)).toBe(12);
+    expect(challengeDaysLeft(twoWeeks, '2026-08-30')).toBe(1);
+    expect(challengeDaysLeft(twoWeeks, '2026-08-31')).toBe(0);
+    expect(challengeDaysLeft(endless, TODAY)).toBeNull();
+  });
 
-    expect(challengeWeeks(spring)).toBe(4);
-    expect(challengeWeeksLeft(spring, '2026-03-16')).toBe(2);
+  it('counts days across a DST change', () => {
+    const spring = challenge({ startWeekKey: '2026-03-02', endDayKey: '2026-03-22' });
+
+    expect(challengeDays(spring)).toBe(21);
+    expect(challengeDaysLeft(spring, '2026-03-16')).toBe(7);
   });
 });
 

@@ -3,26 +3,72 @@ import { describe, expect, it } from 'vitest';
 import type { NotificationPrefs, Schedule } from '../data/types';
 import { en } from '../i18n/en';
 import { es } from '../i18n/es';
+import { atMinuteOfDay, dayKeyOf, dayStartShifted } from './day';
 import { aRunningSession, T0 } from './fixtures';
 import {
+  applyDailyBudget,
+  DAILY_BUDGET,
   EXPO_SATURDAY,
   EXPO_SUNDAY,
   expoWeekday,
+  inQuietHours,
+  noFocusReminders,
   plannedNotifications,
+  reactivationReminders,
   scheduleReminders,
   breakEndReminder,
   sessionEndReminder,
+  streakRiskReminders,
   weeklyCloseReminder,
+  withoutQuietHours,
+  type DateSpec,
   type ReminderState,
 } from './reminders';
 import { startBreak } from './session';
+import type { StreakState } from './streak';
 import { HOUR, MINUTE } from './time';
 
 const ES = es.notifications;
 const EN = en.notifications;
 
-const ALL_ON: NotificationPrefs = { coaching: true, updates: true, sessionEnd: true, weeklyClose: true };
-const ALL_OFF: NotificationPrefs = { coaching: false, updates: false, sessionEnd: false, weeklyClose: false };
+const REMINDER_MINUTES = 20 * 60;
+
+const ALL_ON: NotificationPrefs = {
+  coaching: true,
+  updates: true,
+  sessionEnd: true,
+  weeklyClose: true,
+  streak: true,
+  noFocus: true,
+  reactivation: true,
+  nudges: true,
+  reminderMinutes: REMINDER_MINUTES,
+};
+const ALL_OFF: NotificationPrefs = {
+  coaching: false,
+  updates: false,
+  sessionEnd: false,
+  weeklyClose: false,
+  streak: false,
+  noFocus: false,
+  reactivation: false,
+  nudges: false,
+  reminderMinutes: REMINDER_MINUTES,
+};
+
+/** Tuesday 2023-11-14, noon, local: the reminder hour is still ahead. */
+const NOON = new Date(2023, 10, 14, 12, 0).getTime();
+/** The same day at 21:00 local: the reminder hour has passed. */
+const EVENING = new Date(2023, 10, 14, 21, 0).getTime();
+const TODAY_AT = atMinuteOfDay(NOON, REMINDER_MINUTES);
+const TOMORROW_AT = atMinuteOfDay(dayStartShifted(NOON, 1), REMINDER_MINUTES);
+const TODAY_KEY = dayKeyOf(NOON);
+const TOMORROW_KEY = dayKeyOf(TOMORROW_AT);
+
+function aStreak(overrides: Partial<StreakState> = {}): StreakState {
+  // A two-day streak with today counted: only tomorrow's streak notice by default.
+  return { days: 2, todayCounts: true, graceLeft: 3, graceYesterday: false, ...overrides };
+}
 
 function aSchedule(overrides: Partial<Schedule> = {}): Schedule {
   return {
@@ -46,8 +92,16 @@ function aState(overrides: Partial<ReminderState> = {}): ReminderState {
     modes: [{ id: 'mode-1', name: 'Trabajo profundo' }],
     prefs: ALL_ON,
     allowed: true,
+    now: NOON,
+    streak: aStreak(),
+    lastOpenedAt: null,
+    hasCircle: false,
     ...overrides,
   };
+}
+
+function ids(specs: readonly { id: string }[]): string[] {
+  return specs.map((s) => s.id);
 }
 
 describe('expoWeekday', () => {
@@ -264,12 +318,279 @@ describe('plannedNotifications', () => {
     expect(english?.body).not.toBe(spanish?.body);
   });
 
-  it('is the full set: session, schedules and weekly close together, with unique ids', () => {
-    const state = aState({ session: aRunningSession(), schedules: [aSchedule(), aSchedule({ id: 'sched-2', days: [false, false, false, false, false, true, true] })] });
+  it('is the full set: schedules, weekly close and the daily notices together, with unique ids', () => {
+    const state = aState({
+      schedules: [aSchedule(), aSchedule({ id: 'sched-2', days: [false, false, false, false, false, true, true] })],
+      streak: aStreak({ days: 5, todayCounts: false }),
+      lastOpenedAt: NOON,
+    });
 
     const specs = plannedNotifications(state, ES);
 
-    expect(specs).toHaveLength(1 + 5 + 2 + 1);
+    expect(specs).toHaveLength(5 + 2 + 1 + 2 + 2);
     expect(new Set(specs.map((s) => s.id)).size).toBe(specs.length);
+  });
+
+  describe('silence in session (ADR-0027 §1)', () => {
+    const loud = (session: ReminderState['session']) =>
+      aState({
+        session,
+        schedules: [aSchedule()],
+        streak: aStreak({ days: 5, todayCounts: false }),
+        lastOpenedAt: NOON,
+      });
+
+    it('holds only the session notice while a session runs, whatever else is on', () => {
+      const specs = plannedNotifications(loud(aRunningSession()), ES);
+
+      expect(specs.map((s) => s.kind)).toEqual(['sessionEnd']);
+    });
+
+    it('holds only the break notice during a break', () => {
+      const onBreak = startBreak(aRunningSession({ nextBreakAtMs: 0 }), T0 + 30 * MINUTE);
+
+      const specs = plannedNotifications(loud(onBreak), ES);
+
+      expect(specs.map((s) => s.kind)).toEqual(['breakEnd']);
+    });
+
+    it('holds nothing at all while a session runs with sessionEnd off', () => {
+      const state = { ...loud(aRunningSession()), prefs: { ...ALL_ON, sessionEnd: false } };
+
+      expect(plannedNotifications(state, ES)).toEqual([]);
+    });
+
+    it('puts everything back once the session closes', () => {
+      const closed = aRunningSession({ outcome: 'completed', actualMs: HOUR, endedAt: T0 + HOUR });
+
+      const kinds = new Set(plannedNotifications(loud(closed), ES).map((s) => s.kind));
+
+      expect(kinds).toEqual(new Set(['schedule', 'weeklyClose', 'streakRisk', 'reactivation']));
+    });
+  });
+
+  it('gates each daily kind by its own preference', () => {
+    const state = aState({ streak: aStreak({ days: 5, todayCounts: false }), lastOpenedAt: NOON });
+
+    expect(plannedNotifications({ ...state, prefs: { ...ALL_OFF, streak: true } }, ES).every((s) => s.kind === 'streakRisk')).toBe(true);
+    expect(plannedNotifications({ ...state, prefs: { ...ALL_OFF, reactivation: true } }, ES).every((s) => s.kind === 'reactivation')).toBe(true);
+    expect(plannedNotifications({ ...state, prefs: { ...ALL_OFF, noFocus: true } }, ES)).toEqual([]);
+  });
+
+  it('drops a daily notice whose hour falls in quiet hours, even if the preference asks for it', () => {
+    const state = aState({
+      prefs: { ...ALL_ON, reminderMinutes: 23 * 60 },
+      streak: aStreak({ days: 5, todayCounts: false }),
+      lastOpenedAt: NOON,
+    });
+
+    const kinds = plannedNotifications(state, ES).map((s) => s.kind);
+
+    expect(kinds).toEqual(['weeklyClose']);
+  });
+});
+
+describe('streakRiskReminders', () => {
+  it('plans today and tomorrow when the hour is ahead, the streak is 2+ and today does not count', () => {
+    const specs = streakRiskReminders(aState({ streak: aStreak({ days: 12, todayCounts: false }) }), ES);
+
+    expect(ids(specs)).toEqual([`streak-risk-${TODAY_KEY}`, `streak-risk-${TOMORROW_KEY}`]);
+    expect(specs.map((s) => s.at)).toEqual([TODAY_AT, TOMORROW_AT]);
+    expect(specs[0]?.title).toBe('Tu racha de 12 días termina a medianoche');
+    expect(specs[0]?.body).toBe('10 minutos bastan.');
+    expect(specs.every((s) => s.kind === 'streakRisk' && s.trigger === 'date' && !s.sound)).toBe(true);
+  });
+
+  it('plans only tomorrow once the hour has passed', () => {
+    const specs = streakRiskReminders(aState({ now: EVENING, streak: aStreak({ days: 12, todayCounts: false }) }), ES);
+
+    expect(ids(specs)).toEqual([`streak-risk-${TOMORROW_KEY}`]);
+  });
+
+  it('plans only tomorrow, with the same number, when today already counts', () => {
+    const specs = streakRiskReminders(aState({ streak: aStreak({ days: 12, todayCounts: true }) }), ES);
+
+    expect(ids(specs)).toEqual([`streak-risk-${TOMORROW_KEY}`]);
+    expect(specs[0]?.title).toBe('Tu racha de 12 días termina a medianoche');
+  });
+
+  it('says nothing under two days, or with the preference off', () => {
+    expect(streakRiskReminders(aState({ streak: aStreak({ days: 1, todayCounts: false }) }), ES)).toEqual([]);
+    expect(streakRiskReminders(aState({ streak: aStreak({ days: 1, todayCounts: true }) }), ES)).toEqual([]);
+    expect(streakRiskReminders(aState({ prefs: { ...ALL_ON, streak: false }, streak: aStreak({ days: 12, todayCounts: false }) }), ES)).toEqual([]);
+  });
+
+  it('speaks English with the English slice, same ids', () => {
+    const state = aState({ streak: aStreak({ days: 12, todayCounts: false }) });
+
+    const [spec] = streakRiskReminders(state, EN);
+
+    expect(spec?.id).toBe(streakRiskReminders(state, ES)[0]?.id);
+    expect(spec?.title).toBe('Your 12-day streak ends at midnight');
+    expect(spec?.body).toBe('10 minutes are enough.');
+  });
+});
+
+describe('noFocusReminders', () => {
+  it('plans today and tomorrow when there is no streak and today does not count', () => {
+    const specs = noFocusReminders(aState({ streak: aStreak({ days: 1, todayCounts: false }) }), ES);
+
+    expect(ids(specs)).toEqual([`no-focus-${TODAY_KEY}`, `no-focus-${TOMORROW_KEY}`]);
+    expect(specs.map((s) => s.at)).toEqual([TODAY_AT, TOMORROW_AT]);
+    expect(specs[0]?.title).toBe('Hoy no has enfocado');
+    expect(specs[0]?.body).toBe('25 minutos y listo.');
+    expect(specs.every((s) => s.kind === 'noFocus' && !s.sound)).toBe(true);
+    expect(noFocusReminders(aState({ streak: aStreak({ days: 0, todayCounts: false }) }), EN)[0]?.title).toBe('No focus yet today');
+  });
+
+  it('plans only tomorrow once the hour has passed', () => {
+    const specs = noFocusReminders(aState({ now: EVENING, streak: aStreak({ days: 0, todayCounts: false }) }), ES);
+
+    expect(ids(specs)).toEqual([`no-focus-${TOMORROW_KEY}`]);
+  });
+
+  it('plans only tomorrow when today counts but the streak is still short', () => {
+    const specs = noFocusReminders(aState({ streak: aStreak({ days: 1, todayCounts: true }) }), ES);
+
+    expect(ids(specs)).toEqual([`no-focus-${TOMORROW_KEY}`]);
+  });
+
+  it('says nothing when there is a streak to warn about, or with the preference off', () => {
+    expect(noFocusReminders(aState({ streak: aStreak({ days: 2, todayCounts: false }) }), ES)).toEqual([]);
+    expect(noFocusReminders(aState({ streak: aStreak({ days: 12, todayCounts: true }) }), ES)).toEqual([]);
+    expect(noFocusReminders(aState({ prefs: { ...ALL_ON, noFocus: false }, streak: aStreak({ days: 0, todayCounts: false }) }), ES)).toEqual([]);
+  });
+
+  it('never coincides with the streak notice, and tomorrow always holds exactly one of the two', () => {
+    for (const days of [0, 1, 2, 3, 12]) {
+      for (const todayCounts of [false, true]) {
+        const state = aState({ streak: aStreak({ days, todayCounts }) });
+        const tomorrow = [...streakRiskReminders(state, ES), ...noFocusReminders(state, ES)].filter((s) => s.at === TOMORROW_AT);
+        expect(tomorrow).toHaveLength(1);
+      }
+    }
+  });
+});
+
+describe('reactivationReminders', () => {
+  const openedKey = dayKeyOf(NOON);
+
+  it('plans one notice 3 and 7 days after the last open, at the reminder hour', () => {
+    const specs = reactivationReminders(aState({ lastOpenedAt: NOON }), ES);
+
+    expect(ids(specs)).toEqual([`reactivation-3-${openedKey}`, `reactivation-7-${openedKey}`]);
+    expect(specs.map((s) => s.at)).toEqual([
+      atMinuteOfDay(dayStartShifted(NOON, 3), REMINDER_MINUTES),
+      atMinuteOfDay(dayStartShifted(NOON, 7), REMINDER_MINUTES),
+    ]);
+    expect(specs.map((s) => s.title)).toEqual(['Llevas 3 días sin enfocar', 'Llevas 7 días sin enfocar']);
+    expect(specs.every((s) => s.kind === 'reactivation' && !s.sound)).toBe(true);
+  });
+
+  it('drops the ones already behind now', () => {
+    const fiveDaysLater = dayStartShifted(NOON, 5) + 12 * HOUR;
+
+    const specs = reactivationReminders(aState({ lastOpenedAt: NOON, now: fiveDaysLater }), ES);
+
+    expect(ids(specs)).toEqual([`reactivation-7-${openedKey}`]);
+  });
+
+  it('says what the app knows: circle first, then the streak that stopped, else the plain line', () => {
+    const plain = reactivationReminders(aState({ lastOpenedAt: NOON, streak: aStreak({ days: 1 }) }), ES);
+    const withStreak = reactivationReminders(aState({ lastOpenedAt: NOON, streak: aStreak({ days: 12 }) }), ES);
+    const withCircle = reactivationReminders(aState({ lastOpenedAt: NOON, streak: aStreak({ days: 12 }), hasCircle: true }), ES);
+
+    expect(plain[0]?.body).toBe('Una sesión corta cuenta.');
+    expect(withStreak[0]?.body).toBe('Tu racha se detuvo en 12. Puedes empezar otra hoy.');
+    expect(withCircle[0]?.body).toBe('Tu círculo sigue ahí.');
+    expect(reactivationReminders(aState({ lastOpenedAt: NOON, hasCircle: true }), EN)[0]?.body).toBe('Your circle is still there.');
+    expect(reactivationReminders(aState({ lastOpenedAt: NOON, streak: aStreak({ days: 0 }) }), EN)[0]?.body).toBe('A short session counts.');
+    expect(reactivationReminders(aState({ lastOpenedAt: NOON }), EN)[0]?.title).toBe('It has been 3 days without focus');
+  });
+
+  it('says nothing before the first open, or with the preference off', () => {
+    expect(reactivationReminders(aState({ lastOpenedAt: null }), ES)).toEqual([]);
+    expect(reactivationReminders(aState({ lastOpenedAt: NOON, prefs: { ...ALL_ON, reactivation: false } }), ES)).toEqual([]);
+  });
+});
+
+describe('quiet hours', () => {
+  it('runs from 22:00 up to 8:00, wrapping midnight', () => {
+    expect(inQuietHours(22 * 60)).toBe(true);
+    expect(inQuietHours(23 * 60 + 59)).toBe(true);
+    expect(inQuietHours(0)).toBe(true);
+    expect(inQuietHours(7 * 60 + 59)).toBe(true);
+    expect(inQuietHours(8 * 60)).toBe(false);
+    expect(inQuietHours(12 * 60)).toBe(false);
+    expect(inQuietHours(21 * 60 + 59)).toBe(false);
+  });
+
+  it('drops the date specs whose local minute falls inside', () => {
+    const at = (minutes: number): DateSpec => ({
+      id: `x-${minutes}`,
+      kind: 'noFocus',
+      trigger: 'date',
+      at: atMinuteOfDay(NOON, minutes),
+      title: '',
+      body: '',
+      sound: false,
+    });
+
+    const kept = withoutQuietHours([at(7 * 60), at(8 * 60), at(20 * 60), at(22 * 60), at(23 * 60 + 30)]);
+
+    expect(ids(kept)).toEqual(['x-480', 'x-1200']);
+  });
+});
+
+describe('applyDailyBudget', () => {
+  const daily = (kind: DateSpec['kind'], at: number, id = `${kind}-${at}`): DateSpec => ({
+    id,
+    kind,
+    trigger: 'date',
+    at,
+    title: '',
+    body: '',
+    sound: false,
+  });
+
+  it('keeps at most two per local day, streak first, then no focus, then reactivation', () => {
+    const specs = [daily('reactivation', TODAY_AT), daily('noFocus', TODAY_AT), daily('streakRisk', TODAY_AT)];
+
+    const kept = applyDailyBudget(specs);
+
+    expect(DAILY_BUDGET).toBe(2);
+    expect(kept.map((s) => s.kind)).toEqual(['noFocus', 'streakRisk']);
+  });
+
+  it('counts each day on its own and leaves the other kinds alone', () => {
+    const specs = [
+      weeklyCloseReminder(ES),
+      daily('reactivation', TODAY_AT),
+      daily('noFocus', TODAY_AT),
+      daily('streakRisk', TODAY_AT),
+      daily('reactivation', TOMORROW_AT),
+      daily('streakRisk', TOMORROW_AT),
+    ];
+
+    const kept = applyDailyBudget(specs);
+
+    expect(ids(kept)).toEqual(['weekly-close', `noFocus-${TODAY_AT}`, `streakRisk-${TODAY_AT}`, `reactivation-${TOMORROW_AT}`, `streakRisk-${TOMORROW_AT}`]);
+  });
+
+  it('is never exceeded by the plan itself: streak and no focus are exclusive, reactivation days differ', () => {
+    const state = aState({ streak: aStreak({ days: 5, todayCounts: false }), lastOpenedAt: dayStartShifted(NOON, -3) + 12 * HOUR });
+
+    const specs = plannedNotifications(state, ES);
+    const perDay = new Map<string, number>();
+    for (const spec of specs) {
+      if (spec.trigger === 'date') {
+        const key = dayKeyOf(spec.at);
+        perDay.set(key, (perDay.get(key) ?? 0) + 1);
+      }
+    }
+
+    expect(specs.some((s) => s.kind === 'reactivation')).toBe(true);
+    expect(specs.some((s) => s.kind === 'streakRisk')).toBe(true);
+    expect(Math.max(...perDay.values())).toBeLessThanOrEqual(DAILY_BUDGET);
   });
 });

@@ -231,10 +231,23 @@ export const settings = {
     pendingTitle: 'Vesper todavía no puede avisarte',
     pendingBody: 'Sin permiso no hay aviso al terminar una sesión ni cierre semanal. Se pide una sola vez.',
     generalGroup: 'General',
+    dailyGroup: 'Cada día',
+    circleGroup: 'Círculo',
     systemGroup: 'Sistema',
     coaching: { label: 'Acompañamiento', description: 'Aviso cuando empieza una rutina' },
     sessionEnd: { label: 'Fin de sesión', description: 'Aviso cuando el timer termina' },
     weeklyClose: { label: 'Cierre semanal', description: 'El domingo a las 20:00, cómo cerró la semana' },
+    streak: { label: 'Racha en riesgo', description: 'Si a la hora del aviso hoy todavía no cuenta' },
+    noFocus: { label: 'Día sin foco', description: 'Si a la hora del aviso no has enfocado' },
+    reactivation: { label: 'Volver', description: 'A los 3 y a los 7 días sin abrir Vesper' },
+    /** The row and the sheet share the name. */
+    reminderTime: { label: 'Hora del aviso', sheet: 'Hora del aviso' },
+    dailyCaption:
+      'Máximo dos avisos al día fuera de la sesión y la rutina. Nada entre 22:00 y 8:00, y nunca durante una sesión.',
+    nudges: {
+      label: 'Empujones',
+      description: 'Cuando alguien de tu círculo te empuja en un reto. Llega cuando exista el servidor.',
+    },
     updates: { label: 'Novedades importantes', description: 'Cambios que vale la pena saber' },
   },
   rules: {

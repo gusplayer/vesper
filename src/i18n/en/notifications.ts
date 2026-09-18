@@ -19,6 +19,20 @@ export const notifications: typeof shape = {
     title: 'Close the week',
     body: 'See how it went. The one starting tomorrow begins at zero.',
   },
+  streakRisk: {
+    title: (days) => `Your ${days}-day streak ends at midnight`,
+    body: '10 minutes are enough.',
+  },
+  noFocus: {
+    title: 'No focus yet today',
+    body: '25 minutes and you are done.',
+  },
+  reactivation: {
+    title: (days) => `It has been ${days} ${days === 1 ? 'day' : 'days'} without focus`,
+    body: 'A short session counts.',
+    bodyStreak: (days) => `Your streak stopped at ${days}. You can start another today.`,
+    bodyCircle: 'Your circle is still there.',
+  },
   test: {
     title: 'This is what a notice looks like',
     body: 'Vesper will talk to you like this. Tap to go back.',

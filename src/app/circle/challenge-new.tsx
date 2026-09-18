@@ -15,13 +15,17 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { CHALLENGE_TARGET_OPTIONS, CHALLENGE_WEEK_OPTIONS, type Habit } from '../../domain/types';
+import {
+  CHALLENGE_DURATION_OPTIONS,
+  CHALLENGE_TARGET_OPTIONS,
+  DEFAULT_CHALLENGE_DAYS,
+  type Habit,
+} from '../../domain/types';
 import { useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 
 const CLOCK_MS = 60_000;
 const DEFAULT_TARGET = 4;
-const DEFAULT_WEEKS = 2;
 
 /** A challenge's weekly target has to be one of the offered chips. */
 function targetOption(value: number): number {
@@ -30,9 +34,9 @@ function targetOption(value: number): number {
 
 /**
  * Nuevo reto: a name (or one of the user's habits, which prefills it), how many times
- * a week, for how long, and who is in. Joining uses a habit slot: when the five are
- * taken the store says 'habitsFull', the line under the button says so, and nothing
- * is created (rule 4, ADR-0021).
+ * a week, for how long (21 days by default, or no end at all, ADR-0027), and who is
+ * in. Joining uses a habit slot: when the five are taken the store says 'habitsFull',
+ * the line under the button says so, and nothing is created (rule 4, ADR-0021).
  */
 export default function NewChallengeScreen() {
   const router = useRouter();
@@ -45,7 +49,7 @@ export default function NewChallengeScreen() {
 
   const [name, setName] = useState('');
   const [weeklyTarget, setWeeklyTarget] = useState<number>(DEFAULT_TARGET);
-  const [weeks, setWeeks] = useState<number>(DEFAULT_WEEKS);
+  const [days, setDays] = useState<number | null>(DEFAULT_CHALLENGE_DAYS);
   const [participantIds, setParticipantIds] = useState<readonly string[]>([]);
   const [join, setJoin] = useState(true);
   const [habitsFull, setHabitsFull] = useState(false);
@@ -66,7 +70,7 @@ export default function NewChallengeScreen() {
 
   const create = () => {
     const outcome = createChallenge(
-      { name: trimmed, weeklyTarget, weeks, participantIds: [...participantIds], join },
+      { name: trimmed, weeklyTarget, days, participantIds: [...participantIds], join },
       Date.now(),
     );
     if (outcome === 'habitsFull') {
@@ -134,14 +138,14 @@ export default function NewChallengeScreen() {
         </Stack>
       </Section>
 
-      <Section title={t.weeks}>
+      <Section title={t.duration}>
         <Stack direction="row" gap="sm" wrap>
-          {CHALLENGE_WEEK_OPTIONS.map((count) => (
+          {CHALLENGE_DURATION_OPTIONS.map((option) => (
             <Chip
-              key={count}
-              label={t.weeksOption(count)}
-              selected={weeks === count}
-              onPress={() => setWeeks(count)}
+              key={option ?? 'none'}
+              label={t.durationOption(option)}
+              selected={days === option}
+              onPress={() => setDays(option)}
             />
           ))}
         </Stack>

@@ -48,4 +48,14 @@ export const focus = {
     gridSummary: (days: number) =>
       `Últimas cuatro semanas: ${days === 1 ? '1 día' : `${days} días`} con foco. Toca para ver la actividad`,
   },
+  streak: {
+    /** '12 días seguidos · 2 de gracia', the line under the pill (ADR-0027). */
+    line: (days: number, graceLeft: number) =>
+      `${days === 1 ? '1 día seguido' : `${days} días seguidos`} · ${graceLeft === 1 ? '1 de gracia' : `${graceLeft} de gracia`}`,
+    /** Without a streak: what a day needs. The minutes come from the domain. */
+    none: (minutes: number) => `Sin racha todavía. Hoy cuentan ${minutes} minutos.`,
+    /** The morning after a grace day bridged yesterday. Said once, never notified. */
+    graceYesterday: (days: number) =>
+      `Ayer usaste un día de gracia. Llevas ${days === 1 ? '1 día' : `${days} días`}.`,
+  },
 };

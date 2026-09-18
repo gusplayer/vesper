@@ -116,10 +116,27 @@ export const activity = {
     met: 'Meta cumplida',
     /** '3 días para el cierre'. */
     untilClose: (days: string) => `${days} para el cierre`,
-    footer: 'Se reinicia el lunes. Una meta por semana, sin rachas.',
+    footer: 'Se reinicia el lunes. Una meta por semana.',
     sheetTitle: 'Horas por semana',
     /** Feminine, for "meta": not `common.none`. */
     none: 'Ninguna',
+  },
+  streak: {
+    title: 'Racha',
+    /** '12 días seguidos', the card's heading (ADR-0027). */
+    days: (count: number, tag: string) =>
+      count === 1 ? '1 día seguido' : `${count.toLocaleString(tag)} días seguidos`,
+    none: 'Sin racha todavía',
+    /** What a day needs and the grace left this month. The minutes come from the domain. */
+    explain: (minutes: number, graceLeft: number) =>
+      `Un día cuenta con ${minutes} minutos de foco. ${
+        graceLeft === 0
+          ? 'No te quedan días de gracia este mes.'
+          : graceLeft === 1
+            ? 'Te queda 1 día de gracia este mes.'
+            : `Te quedan ${graceLeft} días de gracia este mes.`
+      }`,
+    footer: 'Los días de gracia se aplican solos al primer día que falla. Tres por mes.',
   },
   ledger,
 };

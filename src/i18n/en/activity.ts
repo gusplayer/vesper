@@ -85,9 +85,23 @@ export const activity: typeof shape = {
     noGoal: 'No goal. Tap to pick one.',
     met: 'Goal met',
     untilClose: (days) => `${days} until the week closes`,
-    footer: 'Resets on Monday. One goal per week, no streaks.',
+    footer: 'Resets on Monday. One goal a week.',
     sheetTitle: 'Hours per week',
     none: 'None',
+  },
+  streak: {
+    title: 'Streak',
+    days: (count, tag) => (count === 1 ? '1 day in a row' : `${count.toLocaleString(tag)} days in a row`),
+    none: 'No streak yet',
+    explain: (minutes, graceLeft) =>
+      `A day counts with ${minutes} minutes of focus. ${
+        graceLeft === 0
+          ? 'No grace days left this month.'
+          : graceLeft === 1
+            ? 'You have 1 grace day left this month.'
+            : `You have ${graceLeft} grace days left this month.`
+      }`,
+    footer: 'Grace days apply on their own to the first day that fails. Three a month.',
   },
   ledger,
 };

@@ -12,6 +12,7 @@ import {
   demoKudos,
   demoMembers,
   demoMemberWeeks,
+  demoNudges,
 } from './circleSeed';
 import { demoHabits } from './seed';
 
@@ -102,15 +103,30 @@ describe('demoKudos', () => {
   });
 });
 
+describe('demoNudges', () => {
+  it('has Ana nudging me today on the demo challenge, and nothing else', () => {
+    const nudges = demoNudges(NOW);
+
+    expect(nudges.map((n) => [n.fromId, n.toId, n.challengeId, n.dayKey])).toEqual([
+      ['ana', ME, DEMO_CHALLENGE_ID, '2026-08-19'],
+    ]);
+  });
+
+  it('gives the same id on every call for the same day', () => {
+    expect(demoNudges(NOW).map((n) => n.id)).toEqual(demoNudges(NOW).map((n) => n.id));
+    expect(demoNudges(NOW)[0]?.id).not.toBe(demoNudges(MONDAY)[0]?.id);
+  });
+});
+
 describe('demoChallenge', () => {
-  it('starts this Monday, runs two weeks, and links the demo reading habit', () => {
+  it('starts this Monday, runs 21 days to a Sunday, and links the demo reading habit', () => {
     const challenge = demoChallenge(NOW, es.demo);
 
     expect(challenge).toMatchObject({
       id: DEMO_CHALLENGE_ID,
       weeklyTarget: 4,
       startWeekKey: '2026-08-17',
-      endWeekKey: '2026-08-24',
+      endDayKey: '2026-09-06',
       createdBy: 'ana',
       participantIds: [ME, 'ana', 'luis'],
       habitId: 'habit-read',

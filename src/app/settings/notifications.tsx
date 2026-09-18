@@ -13,13 +13,15 @@ import {
   Text,
   Toggle,
 } from '../../design/components';
+import { ReminderTimeSheet, reminderTimeText } from '../../features/settings/ReminderTimeSheet';
 import { useStrings } from '../../i18n';
 import { hasPermission, presentNow, requestPermission, status } from '../../platform/notifications';
 
 /**
  * Notificaciones: the real OS permission first, then the switches for each kind of
- * notice, grouped like Brick. The switches do nothing until the permission exists;
- * the sync hook reads both.
+ * notice, grouped like Brick: general, the daily ones with their hour (ADR-0027), the
+ * circle, the system. The switches do nothing until the permission exists; the sync
+ * hook reads both.
  */
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -36,6 +38,7 @@ export default function NotificationsScreen() {
   const [asking, setAsking] = useState(false);
   /** The OS said no. iOS will not ask again; only the system settings can flip it. */
   const [denied, setDenied] = useState(false);
+  const [choosingTime, setChoosingTime] = useState(false);
 
   // The user can revoke the permission in the system settings behind our back. Keep
   // the flag honest, so the screen asks again instead of pretending.
@@ -160,6 +163,64 @@ export default function NotificationsScreen() {
         />
       </ListGroup>
 
+      <ListGroup title={page.dailyGroup}>
+        <ListRow
+          label={page.streak.label}
+          description={page.streak.description}
+          right={
+            <Toggle
+              value={notifications.streak}
+              onValueChange={(streak) => updateNotifications({ streak })}
+              accessibilityLabel={page.streak.label}
+            />
+          }
+        />
+        <ListRow
+          label={page.noFocus.label}
+          description={page.noFocus.description}
+          right={
+            <Toggle
+              value={notifications.noFocus}
+              onValueChange={(noFocus) => updateNotifications({ noFocus })}
+              accessibilityLabel={page.noFocus.label}
+            />
+          }
+        />
+        <ListRow
+          label={page.reactivation.label}
+          description={page.reactivation.description}
+          right={
+            <Toggle
+              value={notifications.reactivation}
+              onValueChange={(reactivation) => updateNotifications({ reactivation })}
+              accessibilityLabel={page.reactivation.label}
+            />
+          }
+        />
+        <ListRow
+          label={page.reminderTime.label}
+          value={reminderTimeText(notifications.reminderMinutes)}
+          onPress={() => setChoosingTime(true)}
+        />
+      </ListGroup>
+      <Text variant="caption" tone="tertiary" align="center">
+        {page.dailyCaption}
+      </Text>
+
+      <ListGroup title={page.circleGroup}>
+        <ListRow
+          label={page.nudges.label}
+          description={page.nudges.description}
+          right={
+            <Toggle
+              value={notifications.nudges}
+              onValueChange={(nudges) => updateNotifications({ nudges })}
+              accessibilityLabel={page.nudges.label}
+            />
+          }
+        />
+      </ListGroup>
+
       <ListGroup title={page.systemGroup}>
         <ListRow
           label={page.updates.label}
@@ -173,6 +234,13 @@ export default function NotificationsScreen() {
           }
         />
       </ListGroup>
+
+      <ReminderTimeSheet
+        visible={choosingTime}
+        value={notifications.reminderMinutes}
+        onChange={(reminderMinutes) => updateNotifications({ reminderMinutes })}
+        onClose={() => setChoosingTime(false)}
+      />
     </Screen>
   );
 }

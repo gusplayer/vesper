@@ -1,6 +1,6 @@
 import { useChallengeStandings, type ChallengeView } from '../../data';
 import { Card, Stack, Text } from '../../design/components';
-import { challengeWeeks } from '../../domain/circle';
+import { challengeDays } from '../../domain/circle';
 import { useStrings, type Strings } from '../../i18n';
 
 type CircleStrings = Strings['circle'];
@@ -11,7 +11,7 @@ type ChallengeCardProps = {
   onPress: () => void;
 };
 
-/** 'Empieza el lunes', 'Quedan 2 semanas', 'Terminó'. */
+/** 'Empieza el lunes', 'Quedan 12 días', 'Último día', 'Sin límite', 'Terminó'. */
 export function challengeStatusText(view: ChallengeView, t: CircleStrings): string {
   if (view.status === 'upcoming') {
     return t.challenge.status.upcoming;
@@ -19,15 +19,16 @@ export function challengeStatusText(view: ChallengeView, t: CircleStrings): stri
   if (view.status === 'ended') {
     return t.challenge.status.ended;
   }
-  return t.challenge.status.active(view.weeksLeft);
+  return t.challenge.status.active(view.daysLeft);
 }
 
-/** '4 veces por semana · 2 semanas · con Ana y Luis'. */
+/** '4 veces por semana · 21 días · con Ana y Luis'. */
 export function challengeSummaryText(view: ChallengeView, t: CircleStrings): string {
   const others = view.participants.filter((participant) => !participant.isMe).map((participant) => participant.name);
   const who =
     others.length > 0 ? t.challenge.withNames(others) : view.joined ? t.challenge.alone : t.challenge.nobody;
-  return `${t.challenge.summary(view.challenge.weeklyTarget, challengeWeeks(view.challenge))} · ${who}`;
+  const duration = t.challenge.duration(challengeDays(view.challenge));
+  return `${t.challenge.summary(view.challenge.weeklyTarget, duration)} · ${who}`;
 }
 
 /**

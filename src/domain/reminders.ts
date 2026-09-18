@@ -1,7 +1,9 @@
 import type { Mode, NotificationPrefs, Schedule } from '../data/types';
 import { es, type Strings } from '../i18n/es';
 import { durationText } from '../lib/format';
+import { atMinuteOfDay, dayKeyOf, dayStartShifted } from './day';
 import { breakEndsAt, plannedEndAt } from './session';
+import type { StreakState } from './streak';
 import type { Session } from './types';
 
 /**
@@ -11,7 +13,19 @@ import type { Session } from './types';
  * plan must be a complete, deterministic function of the state — never "add one".
  *
  * Ids are stable and derived from the thing they announce (`session-end-<id>`,
- * `schedule-<id>-<weekday>`), which is what makes the diff possible.
+ * `schedule-<id>-<weekday>`, `streak-risk-<dayKey>`), which is what makes the diff
+ * possible.
+ *
+ * Three rules from ADR-0027 sit on top of the per-kind switches:
+ *
+ * - **Silence in session.** While a session runs (break included) the plan holds only
+ *   the end of the session and the end of the break. Everything else is dropped, so the
+ *   diff cancels it when the session starts and puts it back when it closes.
+ * - **Quiet hours.** No daily notice between 22:00 and 8:00. The hour picker only
+ *   offers 8:00–21:00, but the guard stays here so the plan never depends on the UI.
+ * - **Daily budget.** At most two daily notices per local day (streak at risk, day
+ *   without focus, reactivation), by priority. Session, routine and Sunday notices are
+ *   appointments the user made and stay outside the budget.
  *
  * The words come in as the `notifications` slice of the dictionary (ADR-0020). The
  * caller passes `getStrings().notifications`; the Spanish default only keeps callers
@@ -20,7 +34,14 @@ import type { Session } from './types';
 
 export type ReminderStrings = Strings['notifications'];
 
-export type NotificationKind = 'sessionEnd' | 'breakEnd' | 'schedule' | 'weeklyClose';
+export type NotificationKind =
+  | 'sessionEnd'
+  | 'breakEnd'
+  | 'schedule'
+  | 'weeklyClose'
+  | 'streakRisk'
+  | 'noFocus'
+  | 'reactivation';
 
 type SpecBase = {
   id: string;
@@ -50,6 +71,19 @@ export const EXPO_SATURDAY = 7;
 /** When the Sunday closing knocks: 20:00 local. */
 export const WEEKLY_CLOSE_HOUR = 20;
 export const WEEKLY_CLOSE_MINUTE = 0;
+
+/** Quiet hours, as minutes of the local day: from 22:00 up to (not including) 8:00. */
+export const QUIET_START_MINUTES = 22 * 60;
+export const QUIET_END_MINUTES = 8 * 60;
+
+/** Daily notices per local day, at most, outside the session and routine ones. */
+export const DAILY_BUDGET = 2;
+
+/** Days without opening the app after which a reactivation notice knocks, once each. */
+export const REACTIVATION_DAYS: readonly number[] = [3, 7];
+
+/** The daily kinds the budget counts, best first. */
+const DAILY_KINDS: readonly NotificationKind[] = ['streakRisk', 'noFocus', 'reactivation'];
 
 const MINUTES_PER_HOUR = 60;
 
@@ -158,13 +192,184 @@ export type ReminderState = {
   prefs: NotificationPrefs;
   /** The OS permission and the user's own switch, together. Nothing is planned without it. */
   allowed: boolean;
+  /** The instant the plan is made. A daily notice whose hour already passed is not planned. */
+  now: number;
+  /** Today's streak, as `readStreak(now)` sees it (ADR-0027 §3). */
+  streak: StreakState;
+  /** When the app was last opened; null before the first open. Drives reactivation. */
+  lastOpenedAt: number | null;
+  /** A profile with at least one accepted member: the reactivation notice mentions them. */
+  hasCircle: boolean;
 };
+
+/**
+ * The reminder hour on the day containing `at`, and the same hour tomorrow. Both on
+ * the wall clock, so 20:00 is 20:00 across a DST change.
+ */
+function reminderInstants(state: ReminderState): { today: number; tomorrow: number } {
+  const { now, prefs } = state;
+  return {
+    today: atMinuteOfDay(now, prefs.reminderMinutes),
+    tomorrow: atMinuteOfDay(dayStartShifted(now, 1), prefs.reminderMinutes),
+  };
+}
+
+/**
+ * "Your 12-day streak ends at midnight": at the reminder hour, when the streak is two
+ * days or longer. Today's notice only if today does not count yet and the hour is
+ * still ahead; tomorrow's always, so a phone that is not opened tomorrow still hears
+ * it (the next sync replaces it with what is true then). `days` already includes
+ * today when it counts, so tomorrow's number is the same streak, not one more.
+ */
+export function streakRiskReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+  if (!state.prefs.streak) {
+    return [];
+  }
+  const { days, todayCounts } = state.streak;
+  if (days < 2) {
+    return [];
+  }
+  const { today, tomorrow } = reminderInstants(state);
+  const spec = (at: number): DateSpec => ({
+    id: `streak-risk-${dayKeyOf(at)}`,
+    kind: 'streakRisk',
+    trigger: 'date',
+    at,
+    title: t.streakRisk.title(days),
+    body: t.streakRisk.body,
+    sound: false,
+  });
+  const specs: DateSpec[] = [];
+  if (!todayCounts && today > state.now) {
+    specs.push(spec(today));
+  }
+  specs.push(spec(tomorrow));
+  return specs;
+}
+
+/**
+ * "No focus yet today": the soft one, at the reminder hour, when there is no streak
+ * to warn about (fewer than two days). Today's if today does not count yet and the
+ * hour is ahead, and tomorrow's once more; after that nothing until the app opens
+ * again and the plan is remade (ADR-0027 §4). Never together with the streak notice:
+ * the two are exclusive on `days`, so tomorrow holds exactly one of them.
+ */
+export function noFocusReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+  if (!state.prefs.noFocus) {
+    return [];
+  }
+  const { days, todayCounts } = state.streak;
+  if (days >= 2) {
+    return [];
+  }
+  const { today, tomorrow } = reminderInstants(state);
+  const spec = (at: number): DateSpec => ({
+    id: `no-focus-${dayKeyOf(at)}`,
+    kind: 'noFocus',
+    trigger: 'date',
+    at,
+    title: t.noFocus.title,
+    body: t.noFocus.body,
+    sound: false,
+  });
+  const specs: DateSpec[] = [];
+  if (!todayCounts && today > state.now) {
+    specs.push(spec(today));
+  }
+  specs.push(spec(tomorrow));
+  return specs;
+}
+
+/**
+ * One notice 3 and 7 days after the app was last opened, at the reminder hour, and
+ * nothing after that until it opens again. The ids carry the day it was last opened,
+ * so a new open is a new pair for the diff. The body says what the app knows: the
+ * circle if there is one, the streak that stopped if there was one, else the plain line.
+ */
+export function reactivationReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+  if (!state.prefs.reactivation || state.lastOpenedAt === null) {
+    return [];
+  }
+  const { lastOpenedAt, hasCircle, streak } = state;
+  const body = hasCircle
+    ? t.reactivation.bodyCircle
+    : streak.days >= 2
+      ? t.reactivation.bodyStreak(streak.days)
+      : t.reactivation.body;
+  const openedKey = dayKeyOf(lastOpenedAt);
+  const specs: DateSpec[] = [];
+  for (const n of REACTIVATION_DAYS) {
+    const at = atMinuteOfDay(dayStartShifted(lastOpenedAt, n), state.prefs.reminderMinutes);
+    if (at > state.now) {
+      specs.push({
+        id: `reactivation-${n}-${openedKey}`,
+        kind: 'reactivation',
+        trigger: 'date',
+        at,
+        title: t.reactivation.title(n),
+        body,
+        sound: false,
+      });
+    }
+  }
+  return specs;
+}
+
+/** True from 22:00 up to 8:00, wrapping midnight. `minutesOfDay` is minutes past local midnight. */
+export function inQuietHours(minutesOfDay: number): boolean {
+  return minutesOfDay >= QUIET_START_MINUTES || minutesOfDay < QUIET_END_MINUTES;
+}
+
+function localMinutesOfDay(at: number): number {
+  const date = new Date(at);
+  return date.getHours() * MINUTES_PER_HOUR + date.getMinutes();
+}
+
+/** Drops the date specs that would fire inside quiet hours, by their local minute. */
+export function withoutQuietHours<S extends DateSpec>(specs: readonly S[]): S[] {
+  return specs.filter((spec) => !inQuietHours(localMinutesOfDay(spec.at)));
+}
+
+/**
+ * At most `DAILY_BUDGET` daily notices per local day, kept by priority: streak at
+ * risk, then day without focus, then reactivation. Only the three daily kinds count;
+ * everything else passes through untouched, in its place. The Sunday close is weekly
+ * and stays outside the cap.
+ *
+ * Structurally the cap is never exceeded: streak and no-focus are exclusive, and the
+ * two reactivation days are different days, so a day holds at most one of the first
+ * two plus one reactivation. The cap is the guardrail for the next kind that arrives.
+ */
+export function applyDailyBudget(specs: readonly NotificationSpec[]): NotificationSpec[] {
+  const perDay = new Map<string, DateSpec[]>();
+  for (const spec of specs) {
+    if (spec.trigger === 'date' && DAILY_KINDS.includes(spec.kind)) {
+      const key = dayKeyOf(spec.at);
+      const bucket = perDay.get(key) ?? [];
+      bucket.push(spec);
+      perDay.set(key, bucket);
+    }
+  }
+  const kept = new Set<DateSpec>();
+  for (const bucket of perDay.values()) {
+    [...bucket]
+      .sort((a, b) => DAILY_KINDS.indexOf(a.kind) - DAILY_KINDS.indexOf(b.kind))
+      .slice(0, DAILY_BUDGET)
+      .forEach((spec) => kept.add(spec));
+  }
+  return specs.filter((spec) => spec.trigger !== 'date' || !DAILY_KINDS.includes(spec.kind) || kept.has(spec));
+}
 
 /**
  * The full set the OS should hold. Each kind is gated by its preference: session end
  * by `sessionEnd`, schedule starts by `coaching` (they are the reminders that sustain
- * the habit), the Sunday closing by `weeklyClose`. A schedule whose mode no longer
- * exists announces nothing: there would be nothing to start.
+ * the habit), the Sunday closing by `weeklyClose`, the daily notices by `streak`,
+ * `noFocus` and `reactivation`. A schedule whose mode no longer exists announces
+ * nothing: there would be nothing to start.
+ *
+ * While a session runs, break included, the plan is only the session's own notices
+ * (ADR-0027 §1): the diff cancels the rest and puts it back when the session closes.
+ * The daily notices then go through quiet hours and the daily budget.
  *
  * The plan carries its words, so a language change is a change of plan: the diff
  * reschedules every pending notice in the new language.
@@ -173,15 +378,17 @@ export function plannedNotifications(state: ReminderState, t: ReminderStrings = 
   if (!state.allowed) {
     return [];
   }
-  const specs: NotificationSpec[] = [];
 
-  if (state.prefs.sessionEnd && state.session !== null && state.session.outcome === 'running') {
-    for (const spec of [sessionEndReminder(state.session, t), breakEndReminder(state.session, t)]) {
-      if (spec !== null) {
-        specs.push(spec);
-      }
+  if (state.session !== null && state.session.outcome === 'running') {
+    if (!state.prefs.sessionEnd) {
+      return [];
     }
+    return [sessionEndReminder(state.session, t), breakEndReminder(state.session, t)].filter(
+      (spec): spec is DateSpec => spec !== null,
+    );
   }
+
+  const specs: NotificationSpec[] = [];
 
   if (state.prefs.coaching) {
     for (const schedule of state.schedules) {
@@ -195,6 +402,13 @@ export function plannedNotifications(state: ReminderState, t: ReminderStrings = 
   if (state.prefs.weeklyClose) {
     specs.push(weeklyCloseReminder(t));
   }
+
+  const daily = withoutQuietHours([
+    ...streakRiskReminders(state, t),
+    ...noFocusReminders(state, t),
+    ...reactivationReminders(state, t),
+  ]);
+  specs.push(...applyDailyBudget(daily));
 
   return specs;
 }

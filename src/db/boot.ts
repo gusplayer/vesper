@@ -1,4 +1,11 @@
-import { demoChallenge, demoChallengeMarks, demoKudos, demoMembers, demoMemberWeeks } from '../data/circleSeed';
+import {
+  demoChallenge,
+  demoChallengeMarks,
+  demoKudos,
+  demoMembers,
+  demoMemberWeeks,
+  demoNudges,
+} from '../data/circleSeed';
 import { demoActivities, demoHabits, demoModes, demoSchedules, seedDemoSessions, seedHabitMarks } from '../data/seed';
 import type { Strings } from '../i18n/es';
 import { getDb, transaction } from './client';
@@ -70,7 +77,7 @@ function seedDemoData(now: number, demo: DemoStrings): boolean {
     for (const session of seedDemoSessions(now)) {
       sessions.insert({ ...session, activityId: resolveActivityId(session.activityId) });
     }
-    // The circle (ADR-0021): people, weeks, kudos and a challenge. Never the profile.
+    // The circle (ADR-0021): people, weeks, kudos, a challenge and a nudge. Never the profile.
     for (const member of demoMembers(now)) {
       circle.upsertMember(member);
     }
@@ -83,6 +90,9 @@ function seedDemoData(now: number, demo: DemoStrings): boolean {
     circle.upsertChallenge(demoChallenge(now, demo));
     for (const mark of demoChallengeMarks(now)) {
       circle.upsertChallengeMark(mark);
+    }
+    for (const nudge of demoNudges(now)) {
+      circle.insertNudge(nudge);
     }
     const firstMode = seededModes[0];
     if (firstMode !== undefined) {
@@ -115,6 +125,8 @@ export function bootDatabase(now: number, demo: DemoStrings): BootResult {
 
 /** Children before parents, so the foreign keys let every DELETE through. */
 const TABLES_IN_DELETE_ORDER = [
+  'nudges',
+  'grace_days',
   'challenge_marks',
   'challenges',
   'kudos',

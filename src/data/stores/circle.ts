@@ -5,9 +5,10 @@ import * as settingsRepo from '../../db/repositories/settings';
 import {
   circleFull,
   DEFAULT_SHARE_PREFS,
-  endWeekKeyFor,
+  endDayKeyFor,
   inviteCodeOutcome,
   kudosGivenToday,
+  nudgeGivenToday,
   weekKeyOf,
   type InviteCodeOutcome,
 } from '../../domain/circle';
@@ -20,6 +21,7 @@ import {
   type Kudos,
   type Member,
   type MemberWeek,
+  type Nudge,
   type Profile,
   type SharePrefs,
 } from '../../domain/types';
@@ -32,9 +34,10 @@ import { useAppStore } from './app';
  * through its repository first, then updates the cache, like the app store.
  *
  * There is no server yet, so a code typed in goes nowhere: `invite` answers with why
- * and creates nothing; `src/platform/circle.ts` says the same to the screens. Nothing
- * here schedules a notification, and nothing ever will: the circle is silent by
- * decision.
+ * and creates nothing; `src/platform/circle.ts` says the same to the screens. A nudge
+ * (ADR-0027) is recorded here and shown as sent; delivering it is the backend's job.
+ * Nothing here schedules a notification: what the circle notifies is someone else's
+ * act, and that arrives with the server.
  */
 
 export type InviteResult = InviteCodeOutcome;
@@ -44,7 +47,8 @@ export type JoinResult = 'ok' | 'habitsFull';
 type ChallengeInput = {
   name: string;
   weeklyTarget: number;
-  weeks: number;
+  /** How many days it runs, or null for no end (CHALLENGE_DURATION_OPTIONS). */
+  days: number | null;
   participantIds: string[];
   /** Whether the user takes part from the start, which links or creates a habit. */
   join: boolean;
@@ -56,6 +60,7 @@ type CircleState = {
   members: Member[];
   memberWeeks: MemberWeek[];
   kudos: Kudos[];
+  nudges: Nudge[];
   challenges: Challenge[];
   challengeMarks: ChallengeMark[];
 
@@ -78,12 +83,19 @@ type CircleState = {
   invite: (code: string) => InviteResult;
   acceptInvite: (memberId: string, now: number) => AcceptResult;
   declineInvite: (memberId: string) => void;
-  /** Also drops their weeks, kudos and marks, and takes them out of every challenge. */
+  /** Also drops their weeks, kudos, nudges and marks, and takes them out of every challenge. */
   removeMember: (memberId: string) => void;
 
   // Kudos
   /** False when already given today, or when the target is the user. */
   giveKudos: (toId: string, now: number) => boolean;
+
+  // Nudges
+  /**
+   * Pushes a participant on a challenge, once a day per person (ADR-0027). False
+   * when the target is the user, is not in that challenge, or was nudged today.
+   */
+  nudge: (toId: string, challengeId: string, now: number) => boolean;
 
   // Challenges
   createChallenge: (input: ChallengeInput, now: number) => { id: string } | 'habitsFull';
@@ -146,6 +158,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
     members: [],
     memberWeeks: [],
     kudos: [],
+    nudges: [],
     challenges: [],
     challengeMarks: [],
 
@@ -156,6 +169,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         members: circleRepo.listMembers(),
         memberWeeks: circleRepo.listMemberWeeks(),
         kudos: circleRepo.listKudos(),
+        nudges: circleRepo.listNudges(),
         challenges: circleRepo.listChallenges(),
         challengeMarks: circleRepo.listChallengeMarks(),
       });
@@ -241,6 +255,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         members: state.members.filter((m) => m.id !== memberId),
         memberWeeks: state.memberWeeks.filter((w) => w.memberId !== memberId),
         kudos: state.kudos.filter((k) => k.fromId !== memberId && k.toId !== memberId),
+        nudges: state.nudges.filter((n) => n.fromId !== memberId && n.toId !== memberId),
         challengeMarks: state.challengeMarks.filter((m) => m.memberId !== memberId),
         challenges,
       }));
@@ -260,6 +275,24 @@ export const useCircleStore = create<CircleState>((set, get) => {
       return true;
     },
 
+    nudge: (toId, challengeId, now) => {
+      if (toId === ME) {
+        return false;
+      }
+      const challenge = get().challenges.find((c) => c.id === challengeId);
+      if (challenge === undefined || !challenge.participantIds.includes(toId)) {
+        return false;
+      }
+      const dayKey = dayKeyOf(now);
+      if (nudgeGivenToday(get().nudges, toId, challengeId, dayKey)) {
+        return false;
+      }
+      const nudge: Nudge = { id: uuidv7(now), fromId: ME, toId, challengeId, dayKey, createdAt: now };
+      circleRepo.insertNudge(nudge);
+      set((state) => ({ nudges: [...state.nudges, nudge] }));
+      return true;
+    },
+
     createChallenge: (input, now) => {
       const name = input.name.trim();
       let habitId: string | null = null;
@@ -276,7 +309,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         name,
         weeklyTarget: input.weeklyTarget,
         startWeekKey,
-        endWeekKey: endWeekKeyFor(startWeekKey, input.weeks),
+        endDayKey: endDayKeyFor(startWeekKey, input.days),
         createdBy: ME,
         participantIds: input.join ? [ME, ...others] : others,
         habitId,
@@ -332,6 +365,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         members: [],
         memberWeeks: [],
         kudos: [],
+        nudges: [],
         challengeMarks: [],
         challenges: state.challenges.map((c) => (c.archivedAt === null ? { ...c, archivedAt: now } : c)),
       }));
