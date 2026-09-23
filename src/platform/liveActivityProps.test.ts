@@ -54,14 +54,14 @@ describe('focusActivityProps', () => {
       phase: 'focus',
       startedAt: T0,
       endsAt: T0 + 25 * MINUTE,
-      statusText: 'Enfocado',
+      statusText: 'En foco',
     });
     expect(JSON.stringify(props)).not.toMatch(/\d+m\b/);
   });
 
   it('names each phase in both languages', () => {
-    expect(statusTextFor('focus', es.liveActivity)).toBe('Enfocado');
-    expect(statusTextFor('open', es.liveActivity)).toBe('Enfocado · sin límite');
+    expect(statusTextFor('focus', es.liveActivity)).toBe('En foco');
+    expect(statusTextFor('open', es.liveActivity)).toBe('En foco · sin límite');
     expect(statusTextFor('break', es.liveActivity)).toBe('Pausa');
     expect(statusTextFor('focus', en.liveActivity)).toBe('Focused');
     expect(statusTextFor('open', en.liveActivity)).toBe('Focused · no limit');

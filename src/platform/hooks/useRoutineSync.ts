@@ -11,8 +11,8 @@ const TICK_MS = 30 * SECOND;
 /**
  * The routine engine's clock. Every half minute, on foreground, and whenever a
  * session ends, it asks the pure engine what to do: start the due routine's session,
- * wait because one is running, or nothing. What it started is remembered in settings
- * so a window never starts twice.
+ * wait because one is running, or nothing. What it started is remembered in settings,
+ * one window per routine, so a window never starts twice.
  *
  * Inside the app only. While the app is closed, the reminders (notifications) carry
  * the routine, and on iOS with the entitlement the shield is scheduled natively.
@@ -20,13 +20,16 @@ const TICK_MS = 30 * SECOND;
 export function evaluateRoutines(now = Date.now()): void {
   const app = useAppStore.getState();
   const focus = useFocusStore.getState();
-  const decision = routineDecision(app.schedules, focus.session !== null, app.settings.lastRoutineStart, now);
+  const decision = routineDecision(app.schedules, focus.session !== null, app.settings.routineStarts, now);
   if (decision.action !== 'start') {
     return;
   }
   focus.start(decision.routine.modeId, decision.plannedMs, now);
+  // One mark per routine: an overlapping routine's mark must never erase this one, or
+  // this window would read as never started and run again on its own (ADR-0019).
+  const current = useAppStore.getState().settings.routineStarts;
   app.updateSettings({
-    lastRoutineStart: { routineId: decision.routine.id, windowStart: decision.window.start },
+    routineStarts: { ...current, [decision.routine.id]: decision.window.start },
   });
 }
 

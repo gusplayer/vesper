@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PackageUsage } from '../../modules/vesper-blocking';
 import { MINUTE } from '../domain/time';
-import { foldUsage, initialOf } from './usageReading';
+import { foldUsage, initialOf, MAX_USAGE_ROWS } from './usageReading';
 
 function row(packageName: string, ms: number, label = packageName, iconBase64: string | null = null): PackageUsage {
   return { packageName, label, iconBase64, ms };
@@ -36,6 +36,24 @@ describe('foldUsage', () => {
   it('never lets the week fall under today, even with a short event history', () => {
     const reading = foldUsage([row('com.a', 30 * MINUTE)], [row('com.a', 10 * MINUTE)]);
     expect(reading.weekMs).toBe(30 * MINUTE);
+  });
+
+  it('shows at most MAX_USAGE_ROWS apps, the most used ones', () => {
+    const today = Array.from({ length: MAX_USAGE_ROWS + 3 }, (_, i) => row(`com.app${i}`, (i + 1) * MINUTE));
+    const reading = foldUsage(today, today);
+    expect(reading.byApp).toHaveLength(MAX_USAGE_ROWS);
+    expect(reading.byApp[0]?.id).toBe(`com.app${MAX_USAGE_ROWS + 2}`);
+    expect(reading.byApp.at(-1)?.id).toBe('com.app3');
+  });
+
+  it('keeps the total over every app read, not only the ones shown', () => {
+    // The breakdown is a ledger of the top apps; the "redes" line is the floor of all
+    // of them, so the rows may add up to less than the total but never to more.
+    const today = Array.from({ length: MAX_USAGE_ROWS + 2 }, (_, i) => row(`com.app${i}`, 10 * MINUTE));
+    const reading = foldUsage(today, today);
+    expect(reading.todayMs).toBe((MAX_USAGE_ROWS + 2) * 10 * MINUTE);
+    const shown = reading.byApp.reduce((total, app) => total + app.ms, 0);
+    expect(shown).toBeLessThan(reading.todayMs);
   });
 
   it('ignores negative rows and answers empty for empty reads', () => {
