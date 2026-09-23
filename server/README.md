@@ -45,6 +45,10 @@ Todo menos `POST /account` y `GET /health` necesita
 | POST | `/challenge/join` | Entra a un reto de alguien de tu círculo. |
 | POST | `/sync` | Sube lo que el llamante posee y baja lo que cambió en su círculo desde `since`. Devuelve `now` como próximo cursor y `rejected` con lo que no pasó las reglas. |
 
+En `weeks`, **null es "no lo comparte"**, nunca cero: cero diría que esa persona no hizo
+nada esa semana, que es otra cosa. Los tres interruptores de Ajustes › Círculo (foco,
+hábitos, uso de redes) llegan aquí como nulls.
+
 Cada escritura se fuerza al llamante: una semana es suya, una marca es suya, el ánimo y
 el empujón salen de él. Nada confía en un id que venga en el cuerpo.
 

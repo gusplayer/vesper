@@ -26,14 +26,19 @@ export type Link = {
   updatedAt: number;
 };
 
+/**
+ * One person's week, as the circle sees it. Every metric is null when its switch in
+ * Ajustes › Círculo is off: null is "not shared", and it is not zero — zero says the
+ * person did nothing this week, which is a different and false thing to say.
+ */
 export type Week = {
   accountId: string;
   weekKey: string;
-  focusMs: number;
-  /** Null when the person does not share it. Never summed with focus (ADR-0005). */
+  focusMs: number | null;
+  /** An estimated floor, never summed with focus (ADR-0005). */
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  habitsDone: number | null;
+  habitsTarget: number | null;
   updatedAt: number;
 };
 

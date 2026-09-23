@@ -269,13 +269,16 @@ export function createApp(deps: Deps) {
       if (weekKey === null) {
         continue;
       }
+      // A metric the phone did not send is one its owner does not share: it stays
+      // null. Defaulting it to zero here would publish "did nothing this week" about
+      // someone who only said "not this one" (ADR-0021 §4).
       const week: Week = {
         accountId: me.id,
         weekKey,
-        focusMs: num(row.focusMs) ?? 0,
+        focusMs: num(row.focusMs),
         socialMs: num(row.socialMs),
-        habitsDone: num(row.habitsDone) ?? 0,
-        habitsTarget: num(row.habitsTarget) ?? 0,
+        habitsDone: num(row.habitsDone),
+        habitsTarget: num(row.habitsTarget),
         updatedAt: at,
       };
       await store.putWeek(week);

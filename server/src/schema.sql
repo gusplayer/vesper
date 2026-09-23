@@ -38,17 +38,27 @@ create table if not exists links (
 create index if not exists links_member on links (member_id);
 
 -- What ADR-0021 called "what a server would deliver": one row per person and week.
+--
+-- Every metric is nullable, and null means "this person does not share it" — never
+-- zero, which reads as "did nothing this week". The three switches of Ajustes › Círculo
+-- (focus, habits, social) each reach here as a null.
 create table if not exists weeks (
   account_id    text   not null references accounts (id) on delete cascade,
   week_key      text   not null,
-  focus_ms      bigint not null,
-  -- Null when the person does not share their social floor. Never summed (ADR-0005).
+  focus_ms      bigint,
+  -- An estimated floor, shown on its own line and never summed (ADR-0005).
   social_ms     bigint,
-  habits_done   int    not null,
-  habits_target int    not null,
+  habits_done   int,
+  habits_target int,
   updated_at    bigint not null,
   primary key (account_id, week_key)
 );
+
+-- Databases created before the switches reached the server: dropping NOT NULL is
+-- idempotent, so this runs clean on every boot, old database or new.
+alter table weeks alter column focus_ms drop not null;
+alter table weeks alter column habits_done drop not null;
+alter table weeks alter column habits_target drop not null;
 
 create table if not exists challenges (
   id              text    primary key,

@@ -175,14 +175,14 @@ export function createPgStore(connectionString: string): PgStore {
       if (accountIds.length === 0) {
         return [];
       }
-      const rows = await query<{ account_id: string; week_key: string; focus_ms: string; social_ms: string | null; habits_done: number; habits_target: number; updated_at: string }>(
+      const rows = await query<{ account_id: string; week_key: string; focus_ms: string | null; social_ms: string | null; habits_done: number | null; habits_target: number | null; updated_at: string }>(
         'select * from weeks where account_id = any($1) and updated_at > $2',
         [[...accountIds], since],
       );
       return rows.map((row) => ({
         accountId: row.account_id,
         weekKey: row.week_key,
-        focusMs: ms(row.focus_ms),
+        focusMs: msOrNull(row.focus_ms),
         socialMs: msOrNull(row.social_ms),
         habitsDone: row.habits_done,
         habitsTarget: row.habits_target,

@@ -171,6 +171,28 @@ describe('sync', () => {
     ]);
   });
 
+  it('keeps a metric the phone does not share as null, never as zero', async () => {
+    const { call, gus, ana } = await circle();
+
+    // Ana shares her habits but not her focus hours nor her social floor.
+    await call('POST', '/sync', {
+      token: ana.token,
+      body: { since: 0, weeks: [{ weekKey: '2026-09-21', habitsDone: 3, habitsTarget: 4 }] },
+    });
+
+    const mine = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+
+    expect(mine.body.weeks).toEqual([
+      expect.objectContaining({
+        accountId: 'ana-1',
+        focusMs: null,
+        socialMs: null,
+        habitsDone: 3,
+        habitsTarget: 4,
+      }),
+    ]);
+  });
+
   it('writes a week as the caller, whatever the body claims', async () => {
     const { call, gus, store } = await circle();
 
