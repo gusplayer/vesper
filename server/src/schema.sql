@@ -1,0 +1,99 @@
+-- The circle's tables (ADR-0033). One row, one owner: every write checks that the
+-- caller owns the row, so a sync is last-write-wins per row and never loses anything.
+--
+-- Shapes mirror src/db/migrations/004_circle.ts on the phone, minus everything that
+-- never leaves it: sessions, intentions, modes, apps, Screen Time, Health.
+
+create table if not exists accounts (
+  id            text primary key,
+  -- SHA-256 of the device secret. The secret itself never touches the server's disk.
+  secret_hash   text        not null,
+  name          text        not null,
+  -- Unique, lowercase: two @gus in one challenge is impersonation (ADR-0032).
+  handle        text        not null unique,
+  -- The invite code the device derives from its profile (domain/circle.inviteCodeFor).
+  invite_code   text,
+  -- Expo push token, null until the phone registers one or the user turns notices off.
+  push_token    text,
+  -- IANA name, for the end-of-day grouping of cheers. Null until the phone says.
+  time_zone     text,
+  nudges_on     boolean     not null default true,
+  created_at    bigint      not null,
+  updated_at    bigint      not null
+);
+
+create index if not exists accounts_invite_code on accounts (invite_code);
+
+-- Who is in whose circle. One row per direction: A sees B when (A, B) is 'member'.
+-- A code redeemed by B writes (A, B, 'pending'); A accepting writes both directions.
+create table if not exists links (
+  owner_id   text   not null references accounts (id) on delete cascade,
+  member_id  text   not null references accounts (id) on delete cascade,
+  status     text   not null check (status in ('pending', 'member')),
+  created_at bigint not null,
+  updated_at bigint not null,
+  primary key (owner_id, member_id)
+);
+
+create index if not exists links_member on links (member_id);
+
+-- What ADR-0021 called "what a server would deliver": one row per person and week.
+create table if not exists weeks (
+  account_id    text   not null references accounts (id) on delete cascade,
+  week_key      text   not null,
+  focus_ms      bigint not null,
+  -- Null when the person does not share their social floor. Never summed (ADR-0005).
+  social_ms     bigint,
+  habits_done   int    not null,
+  habits_target int    not null,
+  updated_at    bigint not null,
+  primary key (account_id, week_key)
+);
+
+create table if not exists challenges (
+  id              text    primary key,
+  created_by      text    not null references accounts (id) on delete cascade,
+  name            text    not null,
+  weekly_target   int     not null,
+  start_week_key  text    not null,
+  end_day_key     text,
+  -- Account ids. The phone keeps its own participation as ME plus a habit of its own.
+  participant_ids jsonb   not null,
+  archived_at     bigint,
+  created_at      bigint  not null,
+  updated_at      bigint  not null
+);
+
+create table if not exists challenge_marks (
+  challenge_id text   not null references challenges (id) on delete cascade,
+  account_id   text   not null references accounts (id) on delete cascade,
+  day_key      text   not null,
+  updated_at   bigint not null,
+  primary key (challenge_id, account_id, day_key)
+);
+
+create table if not exists kudos (
+  id         text   primary key,
+  from_id    text   not null references accounts (id) on delete cascade,
+  to_id      text   not null references accounts (id) on delete cascade,
+  day_key    text   not null,
+  created_at bigint not null,
+  updated_at bigint not null,
+  unique (from_id, to_id, day_key)
+);
+
+create table if not exists nudges (
+  id           text   primary key,
+  from_id      text   not null references accounts (id) on delete cascade,
+  to_id        text   not null references accounts (id) on delete cascade,
+  challenge_id text   not null references challenges (id) on delete cascade,
+  day_key      text   not null,
+  created_at   bigint not null,
+  updated_at   bigint not null,
+  unique (from_id, to_id, challenge_id, day_key)
+);
+
+create index if not exists kudos_to on kudos (to_id, updated_at);
+create index if not exists nudges_to on nudges (to_id, updated_at);
+create index if not exists weeks_updated on weeks (updated_at);
+create index if not exists marks_updated on challenge_marks (updated_at);

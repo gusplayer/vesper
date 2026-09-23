@@ -273,3 +273,26 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 - Pendiente de decisión: ADR-0032 (retos públicos) está en propuesta y depende del ADR del
   backend. Deuda heredada: el chip "Empujar" sin seleccionar sigue sin distinguirse del
   fondo de la tarjeta.
+
+- **2026-09-22 · El servidor del círculo existe y corre (ADR-0033).** `server/` es un
+  paquete aparte (Hono sobre Node, Postgres con `pg`, fuera del bundle de Expo por
+  `metro.config.js`) con la forma que el ADR-0021 dejó escrita: la cuenta es un id que
+  elige el teléfono más un secreto que el servidor entrega una sola vez y guarda
+  hasheado, los alias son únicos, y `POST /sync` sube lo que el llamante posee y baja lo
+  que cambió en su círculo desde un cursor. Cada escritura se fuerza al llamante: una
+  semana es suya, una marca es suya, el ánimo y el empujón salen de él, y lo que no
+  cumple vuelve en `rejected`. El empujón sale por Expo push y respeta el interruptor de
+  quien lo recibe; el presupuesto, las horas de silencio y el silencio en sesión siguen
+  siendo del teléfono (ADR-0027). `DELETE /account` borra la cuenta y sus filas.
+- Verificado: `tsc` y `vitest` del servidor en verde (16 tests sobre las reglas de dueño
+  y de cursor), y el flujo completo corriendo de verdad contra `localhost:8787` con
+  curl: dos cuentas, código redimido, aceptación, semana de Ana visible para Gus, reto
+  creado, marca de Ana viajando, marca de un desconocido rechazada y empujón entregado.
+  La app sigue igual de verde (`tsc`, `eslint`, 824 tests) y su bundle compila sin nada
+  de `server/` adentro.
+- No verificado: nada contra un Postgres real (el `PgStore` solo está cubierto por el
+  esquema y por tipos; los tests corren sobre la tienda en memoria), ningún push real de
+  Expo, y la app todavía **no habla con el servidor**: `platform/circle.ts` sigue
+  diciendo que no hay conexión. Ese cliente es la siguiente tanda.
+- Pendiente de decisión: desplegar en Railway + Neon (cuesta dinero y usa las cuentas del
+  dueño), y el ADR-0032, que depende de que esto esté desplegado.

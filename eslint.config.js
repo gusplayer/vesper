@@ -10,7 +10,8 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*', 'coverage/*', 'android/*', 'ios/*', 'node_modules/*', 'targets/*', 'modules/*/android/*'],
+    // `server/*` is the backend (ADR-0033): its own package, its own tsc and vitest.
+    ignores: ['dist/*', 'coverage/*', 'android/*', 'ios/*', 'node_modules/*', 'targets/*', 'modules/*/android/*', 'server/*'],
   },
   {
     files: ['src/**/*.{ts,tsx}'],
