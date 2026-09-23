@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { useActiveMode } from '../../data';
 import { useKeysStore } from '../../data/stores/keys';
 import { useFocusStore } from '../../data/stores/focus';
-import { Button, NativeHost, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { Button, FieldRow, NativeHost, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { TYPED_CODE_LENGTH } from '../../domain/key';
 import { useStrings } from '../../i18n';
 import { CameraScanner } from '../../platform/CameraScanner';
 import { requestPermission, status as cameraStatus } from '../../platform/camera';
@@ -22,8 +23,11 @@ export default function ScanKeyScreen() {
   const t = useStrings();
   const mode = useActiveMode();
   const verify = useKeysStore((state) => state.verify);
+  const verifyTyped = useKeysStore((state) => state.verifyTyped);
   const startWithKey = useFocusStore((state) => state.startWithKey);
   const [asked, setAsked] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState('');
   // One scan wins: a second read must not pop the route the session just pushed.
   const startedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +40,26 @@ export default function ScanKeyScreen() {
     if (result !== 'granted') {
       setError(cameraStatus().reason ?? t.keys.platform.denied);
     }
+  };
+
+  /**
+   * Starting with a code read out over the phone. No counter here and none needed: a
+   * guessed code only locks the guesser's own phone, which is not an attack (ADR-0037).
+   */
+  const onTyped = async () => {
+    if (startedRef.current || mode === null) {
+      setError(mode === null ? t.keys.session.noMode : null);
+      return;
+    }
+    const now = Date.now();
+    const verified = await verifyTyped(typed, now);
+    if (verified === null) {
+      setError(t.keys.typed.wrong);
+      return;
+    }
+    startedRef.current = true;
+    startWithKey(mode.id, now, { id: verified.keyId, step: verified.step });
+    router.back();
   };
 
   const onCode = async (text: string) => {
@@ -62,19 +86,50 @@ export default function ScanKeyScreen() {
     <Screen
       scroll
       footer={
-        camera.available || asked ? undefined : (
-          <Button
-            label={t.keys.platform.permissionAsk}
-            onPress={() => {
-              void ask();
-            }}
-          />
-        )
+        <>
+          {camera.available || asked || typing ? null : (
+            <Button
+              label={t.keys.platform.permissionAsk}
+              onPress={() => {
+                void ask();
+              }}
+            />
+          )}
+          {typing ? (
+            <Button
+              label={t.keys.typed.use}
+              onPress={() => {
+                void onTyped();
+              }}
+              disabled={typed.trim() === ''}
+            />
+          ) : (
+            <Button variant="ghost" label={t.keys.typed.use} onPress={() => setTyping(true)} />
+          )}
+        </>
       }
     >
       <PageHeader onBack={() => router.back()} title={t.keys.session.scanToStart} />
 
-      {camera.available ? (
+      {typing ? (
+        <Stack gap="md">
+          <FieldRow
+            label={t.keys.typed.field}
+            value={typed}
+            onChangeText={(text) => {
+              setTyped(text);
+              setError(null);
+            }}
+            placeholder={t.keys.typed.placeholder}
+            autoCapitalize="none"
+            maxLength={TYPED_CODE_LENGTH + 1}
+            autoFocus
+          />
+          <Text variant="label" tone={error === null ? 'secondary' : 'danger'} align="center">
+            {error ?? t.keys.session.startHint}
+          </Text>
+        </Stack>
+      ) : camera.available ? (
         <Stack gap="md">
           <NativeHost>
             <CameraScanner

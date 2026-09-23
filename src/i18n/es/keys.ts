@@ -73,6 +73,26 @@ export const keys = {
     cut: 'Terminó antes',
   },
 
+  /** El código dictado (ADR-0037): la llave a distancia, por teléfono. */
+  typed: {
+    /** En la llave, tras un toque: ocho caracteres se leen desde el otro lado de la sala. */
+    reveal: 'Mostrar el código para dictar',
+    hide: 'Ocultar',
+    title: 'Dícta este código',
+    hint: 'Sirve unos minutos y una sola vez. Quien lo teclea decide: tú no bloqueas nada a distancia.',
+    /** El interruptor por llave, en el detalle. */
+    enable: 'Se puede dictar',
+    enableHint: 'Además de escanear, esta llave abre y cierra con un código que puedes leer por teléfono.',
+    /** Donde se teclea. */
+    use: 'Escribir un código',
+    field: 'Código',
+    placeholder: 'ocho letras o números',
+    wrong: 'Un código son ocho letras o números, sin ceros ni oes.',
+    tooSoon: 'Un código dictado no termina una sesión en sus primeros quince minutos.',
+    spent: 'Demasiados intentos. En esta sesión ya no se puede por código; queda escanear o la emergencia.',
+    left: (n: number) => (n === 1 ? 'Queda un intento.' : `Quedan ${n} intentos.`),
+  },
+
   /** De qué lado está cada llave, en la lista. */
   role: {
     shows: 'Este teléfono la muestra',

@@ -81,7 +81,8 @@ CREATE TABLE sessions (
   started_at    INTEGER NOT NULL,
   ended_at      INTEGER,
   key_id        TEXT,                     -- 008: la llave que abrio la sesion (ADR-0035)
-  key_step      INTEGER                   -- 008: la ventana de 30 s del codigo que la abrio
+  key_step      INTEGER,                  -- 008: la ventana de 30 s del codigo que la abrio
+  key_tries     INTEGER NOT NULL DEFAULT 0 -- 010: codigos dictados fallidos en esta sesion
   -- más las cuatro columnas de 005, abajo
 );
 CREATE INDEX idx_sessions_started ON sessions(started_at);
@@ -93,12 +94,18 @@ CREATE INDEX idx_sessions_started ON sessions(started_at);
 -- telefono ES, 'scans' es una llave que ABRE este telefono, y un telefono nunca dibuja
 -- el codigo de la segunda. last_step es la ventana mas nueva en la que la llave fue
 -- aceptada: el tiempo de una llave solo avanza, asi que un codigo vale una vez.
+-- 010 agrega el segundo transporte (ADR-0037): typed_enabled dice si esta llave ademas
+-- responde a un codigo leido en voz alta, y viene en 0 porque dictar cambia la friccion
+-- que hace que el candado signifique algo. last_typed_step es su marca de agua, en
+-- ventanas de cinco minutos: no puede compartir el entero de last_step, que va en 30 s.
 CREATE TABLE paired_keys (
-  id         TEXT PRIMARY KEY,
-  name       TEXT NOT NULL,
-  role       TEXT NOT NULL DEFAULT 'scans',  -- 'shows' | 'scans'
-  last_step  INTEGER NOT NULL DEFAULT 0,
-  paired_at  INTEGER NOT NULL
+  id               TEXT PRIMARY KEY,
+  name             TEXT NOT NULL,
+  role             TEXT NOT NULL DEFAULT 'scans',  -- 'shows' | 'scans'
+  last_step        INTEGER NOT NULL DEFAULT 0,
+  typed_enabled    INTEGER NOT NULL DEFAULT 0,
+  last_typed_step  INTEGER NOT NULL DEFAULT 0,
+  paired_at        INTEGER NOT NULL
 );
 
 CREATE TABLE habit_marks (

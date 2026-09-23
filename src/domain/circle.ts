@@ -1,4 +1,5 @@
 import { dayKeyStart, daysLeftInWeek, shiftDayKey, weekDayKeys } from './day';
+import { DICTATION_ALPHABET, dictationPattern } from './dictation';
 import { DAY } from './time';
 import {
   MAX_CIRCLE,
@@ -400,10 +401,10 @@ export function challengeWeeksMet(weeks: readonly ChallengeWeek[]): { met: numbe
 
 // --- Invite codes ------------------------------------------------------------------
 
-/** No 0, O, 1 or I: a code is read out loud or typed from a screenshot. */
-const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/** The shared alphabet: no 0, O, 1 or I, because a code is read out loud (ADR-0037). */
+const CODE_ALPHABET = DICTATION_ALPHABET;
 export const CODE_LENGTH = 6;
-const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{6}$/;
+const CODE_PATTERN = dictationPattern(CODE_LENGTH);
 
 /** FNV-1a, 32 bits. Enough to spread a UUID over six symbols; not a secret. */
 function hash32(text: string, seed: number): number {

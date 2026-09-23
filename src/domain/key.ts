@@ -1,4 +1,5 @@
 import { fromHex, hmacSha256, toHex, utf8 } from '../lib/sha256';
+import { groupDictated, normalizeDictated, toDictation } from './dictation';
 import type { Millis, PairedKey } from './types';
 
 /**
@@ -54,6 +55,43 @@ export const KEY_ID_CHARS = 12;
  */
 export const KEY_MIN_SESSION_MS = 2 * 60_000;
 
+// --- The dictated code (ADR-0037) ---------------------------------------------------
+
+/**
+ * Eight symbols of the dictation alphabet: forty bits. Six digits fall to a bluetooth
+ * keyboard and a macro in nine hours; forty bits still hold when every other defence —
+ * the counter, the throttle, the clock — has been tampered with by the phone's owner.
+ */
+export const TYPED_CODE_LENGTH = 8;
+
+/**
+ * Five minutes, with one window either side: a dictated code lives ten to fifteen
+ * minutes, because a phone call does not fit in ninety seconds. A longer *step*, never a
+ * wider skew: keeping 30 s steps and accepting twenty either way would leave forty-one
+ * codes alive at once and give away five bits for the same result.
+ */
+export const TYPED_STEP_MS = 5 * 60_000;
+
+/**
+ * How long a session must run before a dictated code may close it. Fifteen minutes, not
+ * two: the two-minute rule of ADR-0035 was arithmetic against a code that lived ninety
+ * seconds, and the invariant it encodes is that the minimum age outlives the longest
+ * code that could already have been captured when the session began.
+ */
+export const TYPED_MIN_SESSION_MS = 15 * 60_000;
+
+/**
+ * Wrong entries allowed in one session before the dictated code stops working until the
+ * next one. Counted per session and not per hour on purpose: the attacker owns the
+ * clock, so any "wait ten minutes" is skipped by moving it, and a counter in memory is
+ * cleared by relaunching. At ten tries a blind guess lands with probability 2.7e-11.
+ */
+export const MAX_TYPED_TRIES = 10;
+
+const TYPED_PREFIX = 'VKT1';
+/** Forty bits, five per symbol. */
+const TYPED_BYTES = 5;
+
 export type KeyCode = {
   keyId: string;
   code: string;
@@ -70,6 +108,63 @@ export type Pairing = {
 /** Which 30 s window `now` falls in. */
 export function keyStep(now: Millis): number {
   return Math.floor(now / KEY_STEP_MS);
+}
+
+/** Which five-minute window `now` falls in. The dictated code's clock. */
+export function typedStep(now: Millis): number {
+  return Math.floor(now / TYPED_STEP_MS);
+}
+
+/**
+ * The code the key device shows to be read out loud, already grouped: `K7QM-3PFX`.
+ * Derived from its own message, so it is never a slice of the scanned one and seeing
+ * either says nothing about the other.
+ */
+export function typedCodeAt(key: PairedKey, now: Millis): string {
+  return groupDictated(typedCodeFor(key, typedStep(now)));
+}
+
+/**
+ * The window a dictated code belongs to, or null when it is not this key's, is outside
+ * the accepted range, or falls at or below a window this key has already spent.
+ * Accepts the code however it was typed: lowercase, spaced, hyphenated.
+ */
+export function verifyTypedCode(key: PairedKey, text: string, now: Millis): number | null {
+  const typed = normalizeDictated(text, TYPED_CODE_LENGTH);
+  if (typed === null) {
+    return null;
+  }
+  const current = typedStep(now);
+  for (let offset = -KEY_SKEW_STEPS; offset <= KEY_SKEW_STEPS; offset += 1) {
+    const step = current + offset;
+    if (step <= key.lastTypedStep) {
+      continue;
+    }
+    if (equals(typedCodeFor(key, step), typed)) {
+      return step;
+    }
+  }
+  return null;
+}
+
+/**
+ * Which key a dictated code belongs to, among the ones this phone holds. Only keys whose
+ * holder turned dictation on are considered: a key is scan-only until someone says
+ * otherwise (ADR-0037).
+ */
+export function matchTypedKey(keys: readonly PairedKey[], text: string, now: Millis): KeyCode | null {
+  for (const key of keys) {
+    if (!key.typedEnabled) {
+      continue;
+    }
+    const step = verifyTypedCode(key, text, now);
+    if (step !== null) {
+      // The code itself is not returned: nothing needs it, and a caller that logged the
+      // result would be logging a live credential.
+      return { keyId: key.id, code: '', step };
+    }
+  }
+  return null;
 }
 
 /**
@@ -173,6 +268,16 @@ export function matchKey(keys: readonly PairedKey[], text: string, now: Millis, 
     }
   }
   return null;
+}
+
+/** HMAC of the window under the secret, forty bits as dictation symbols. */
+function typedCodeFor(key: PairedKey, step: number): string {
+  const secret = fromHex(key.secret);
+  if (secret === null) {
+    return '';
+  }
+  const mac = hmacSha256(secret, utf8(`${TYPED_PREFIX}:${key.id}:${step}`));
+  return toDictation(mac.slice(0, TYPED_BYTES), TYPED_CODE_LENGTH);
 }
 
 /** HMAC of the step under the secret, first six bytes as hex. */

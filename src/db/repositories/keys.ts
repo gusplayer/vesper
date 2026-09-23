@@ -18,6 +18,8 @@ type KeyRow = {
   name: string;
   role: KeyRole;
   last_step: number;
+  typed_enabled: number;
+  last_typed_step: number;
   paired_at: number;
 };
 
@@ -28,6 +30,8 @@ function toKey(row: KeyRow): PairedKey {
     secret: '',
     role: row.role,
     lastStep: row.last_step,
+    typedEnabled: row.typed_enabled === 1,
+    lastTypedStep: row.last_typed_step,
     pairedAt: row.paired_at,
   };
 }
@@ -61,6 +65,16 @@ export function rename(id: string, name: string): void {
  */
 export function markStep(id: string, step: number): void {
   getDb().executeSync('UPDATE paired_keys SET last_step = MAX(last_step, ?) WHERE id = ?', [step, id]);
+}
+
+/** The same, for the dictated code's five-minute clock. Also only ever raised. */
+export function markTypedStep(id: string, step: number): void {
+  getDb().executeSync('UPDATE paired_keys SET last_typed_step = MAX(last_typed_step, ?) WHERE id = ?', [step, id]);
+}
+
+/** Turns the dictated code on or off for one key. Off is what a new key gets. */
+export function setTypedEnabled(id: string, enabled: boolean): void {
+  getDb().executeSync('UPDATE paired_keys SET typed_enabled = ? WHERE id = ?', [enabled ? 1 : 0, id]);
 }
 
 /** The row only. The secret is the keychain's, and the caller forgets it first. */

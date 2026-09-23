@@ -68,6 +68,12 @@ type FocusState = {
    */
   settleNow: (now: number) => Session | null;
   setIntention: (text: string) => void;
+  /**
+   * Records a wrong dictated code against the running session (ADR-0037). The count
+   * lives on the session and not on a clock, because the phone's owner owns the clock;
+   * it dies with the session, which is the point.
+   */
+  recordKeyTry: () => void;
   registerInterruption: () => void;
 };
 
@@ -146,6 +152,16 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     }));
     useSchemeStore.getState().setScheme('light');
     return closed;
+  },
+
+  recordKeyTry: () => {
+    const current = get().session;
+    if (current === null) {
+      return;
+    }
+    const updated: Session = { ...current, keyTries: current.keyTries + 1 };
+    sessionsRepo.update(updated);
+    set({ session: updated });
   },
 
   takeBreak: (now) => {

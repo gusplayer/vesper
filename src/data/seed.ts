@@ -347,6 +347,7 @@ export function seedDemoSessions(now: number, days = DEMO_HISTORY_DAYS): Session
         exitReason: null,
         keyId: null,
         keyStep: null,
+        keyTries: 0,
         interruptions: 0,
         startedAt,
         endedAt: startedAt + perSession,

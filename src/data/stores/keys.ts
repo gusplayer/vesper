@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import * as keysRepo from '../../db/repositories/keys';
-import { keyCodeAt, matchKey, pairingCode, parsePairingCode } from '../../domain/key';
+import { keyCodeAt, matchKey, matchTypedKey, pairingCode, parsePairingCode, typedCodeAt } from '../../domain/key';
 import type { PairedKey } from '../../domain/types';
 import * as keyStore from '../../platform/keyStore';
 
@@ -47,6 +47,15 @@ type KeysState = {
   verify: (text: string, now: number, after?: number | null) => Promise<Verified | null>;
   /** What this phone shows when it is acting as `keyId`. Null when the secret is gone. */
   codeFor: (keyId: string, now: number) => Promise<string | null>;
+  /**
+   * The same, as a code to read out loud: `K7QM-3PFX`. Null when the key does not show
+   * codes, has no secret, or its holder never turned dictation on (ADR-0037).
+   */
+  typedCodeFor: (keyId: string, now: number) => Promise<string | null>;
+  /** Which key a dictated code belongs to, or null. Only keys that dictate are tried. */
+  verifyTyped: (text: string, now: number) => Promise<Verified | null>;
+  /** Turns the dictated code on or off for one key. */
+  setTypedEnabled: (keyId: string, enabled: boolean) => void;
 };
 
 export const useKeysStore = create<KeysState>((set, get) => ({
@@ -119,6 +128,38 @@ export const useKeysStore = create<KeysState>((set, get) => ({
     keysRepo.markStep(match.keyId, match.step);
     set({ keys: keysRepo.list() });
     return { keyId: match.keyId, step: match.step };
+  },
+
+  typedCodeFor: async (keyId, now) => {
+    const key = get().keys.find((entry) => entry.id === keyId);
+    if (key === undefined || key.role !== 'shows' || !key.typedEnabled) {
+      return null;
+    }
+    const secret = await keyStore.readSecret(keyId);
+    return secret === null ? null : typedCodeAt({ ...key, secret }, now);
+  },
+
+  verifyTyped: async (text, now) => {
+    const withSecrets: PairedKey[] = [];
+    for (const key of get().keys) {
+      const secret = await keyStore.readSecret(key.id);
+      if (secret !== null) {
+        withSecrets.push({ ...key, secret });
+      }
+    }
+    const match = matchTypedKey(withSecrets, text, now);
+    if (match === null) {
+      return null;
+    }
+    // Spent the moment it is accepted, on its own clock: the scanned code keeps its.
+    keysRepo.markTypedStep(match.keyId, match.step);
+    set({ keys: keysRepo.list() });
+    return { keyId: match.keyId, step: match.step };
+  },
+
+  setTypedEnabled: (keyId, enabled) => {
+    keysRepo.setTypedEnabled(keyId, enabled);
+    set({ keys: keysRepo.list() });
   },
 
   codeFor: async (keyId, now) => {

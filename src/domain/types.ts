@@ -82,6 +82,8 @@ export type Session = {
   keyId: string | null;
   /** The 30 s window the opening code belonged to; the same code may not close it. */
   keyStep: number | null;
+  /** Wrong dictated codes typed in this session. The throttle of ADR-0037 counts here. */
+  keyTries: number;
   interruptions: number;
   startedAt: Millis;
   endedAt: Millis | null;
@@ -290,5 +292,9 @@ export type PairedKey = {
   role: KeyRole;
   /** The newest step this key was ever accepted in. Time only goes forward for a key. */
   lastStep: number;
+  /** Whether this key also answers to a code read out loud (ADR-0037). Off by default. */
+  typedEnabled: boolean;
+  /** The newest five-minute window a dictated code of this key was accepted in. */
+  lastTypedStep: number;
   pairedAt: Millis;
 };

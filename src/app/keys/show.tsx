@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 
 import { useKeys } from '../../data';
 import { useKeysStore } from '../../data/stores/keys';
-import { Button, FieldRow, KeyPattern, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { Button, FieldRow, KeyPattern, ListGroup, ListRow, PageHeader, Screen, Stack, Text, Toggle } from '../../design/components';
 import { KEY_STEP_MS } from '../../domain/key';
 import { useLocale, useStrings } from '../../i18n';
 
@@ -25,12 +25,17 @@ export default function ShowKeyScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const keys = useKeys();
   const codeFor = useKeysStore((state) => state.codeFor);
+  const typedCodeFor = useKeysStore((state) => state.typedCodeFor);
+  const setTypedEnabled = useKeysStore((state) => state.setTypedEnabled);
   const rename = useKeysStore((state) => state.rename);
   const remove = useKeysStore((state) => state.remove);
   const [code, setCode] = useState<string | null>(null);
   // Null until the user types: the field shows the stored name without an effect
   // copying it into state on every render of a row that may not exist yet.
   const [draftName, setDraftName] = useState<string | null>(null);
+  // The dictated code stays hidden until asked for: eight characters are legible from
+  // across a room, and a dot field is not (ADR-0037).
+  const [typed, setTyped] = useState<string | null>(null);
 
   const key = keys.find((entry) => entry.id === id) ?? null;
   const shows = key?.role === 'shows';
@@ -65,6 +70,13 @@ export default function ShowKeyScreen() {
       }
     };
   }, [key, shows, codeFor]);
+
+  const showTyped = async () => {
+    if (key === null) {
+      return;
+    }
+    setTyped(await typedCodeFor(key.id, Date.now()));
+  };
 
   const confirmRemove = () => {
     if (key === null) {
@@ -122,6 +134,50 @@ export default function ShowKeyScreen() {
           </Text>
 
           {shows ? (
+            <ListGroup>
+              <ListRow
+                label={t.keys.typed.enable}
+                description={t.keys.typed.enableHint}
+                right={
+                  <Toggle
+                    value={key.typedEnabled}
+                    onValueChange={(next) => {
+                      setTypedEnabled(key.id, next);
+                      setTyped(null);
+                    }}
+                    accessibilityLabel={t.keys.typed.enable}
+                  />
+                }
+              />
+            </ListGroup>
+          ) : null}
+
+          {shows && key.typedEnabled ? (
+            typed === null ? (
+              <Button
+                variant="ghost"
+                label={t.keys.typed.reveal}
+                onPress={() => {
+                  void showTyped();
+                }}
+              />
+            ) : (
+              <Stack gap="xs">
+                <Text variant="label" tone="secondary">
+                  {t.keys.typed.title}
+                </Text>
+                <Text variant="title" align="center">
+                  {typed}
+                </Text>
+                <Text variant="caption" tone="tertiary">
+                  {t.keys.typed.hint}
+                </Text>
+                <Button variant="ghost" label={t.keys.typed.hide} onPress={() => setTyped(null)} />
+              </Stack>
+            )
+          ) : null}
+
+          {shows ? (
             code === null ? (
               <Text variant="label" tone="secondary" align="center">
                 {t.keys.show.gone}
@@ -140,6 +196,7 @@ export default function ShowKeyScreen() {
               {t.keys.role.scans}
             </Text>
           )}
+
         </Stack>
       )}
     </Screen>

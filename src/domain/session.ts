@@ -103,6 +103,7 @@ export function createSession(id: string, config: SessionConfig, now: Millis): S
     exitReason: null,
     keyId: key?.id ?? null,
     keyStep: key?.step ?? null,
+    keyTries: 0,
     interruptions: 0,
     startedAt: now,
     endedAt: null,

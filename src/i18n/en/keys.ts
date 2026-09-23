@@ -63,6 +63,22 @@ export const keys: Strings['keys'] = {
     cut: 'Ended early',
   },
 
+  typed: {
+    reveal: 'Show the code to dictate',
+    hide: 'Hide',
+    title: 'Read out this code',
+    hint: 'It works for a few minutes and once only. Whoever types it decides: you lock nothing from afar.',
+    enable: 'Can be dictated',
+    enableHint: 'As well as scanning, this key opens and closes with a code you can read over the phone.',
+    use: 'Type a code',
+    field: 'Code',
+    placeholder: 'eight letters or numbers',
+    wrong: 'A code is eight letters or numbers, with no zeros or Os.',
+    tooSoon: 'A dictated code does not end a session in its first fifteen minutes.',
+    spent: 'Too many tries. This session can no longer be ended by code; scanning and the emergency remain.',
+    left: (n: number) => (n === 1 ? 'One try left.' : `${n} tries left.`),
+  },
+
   role: {
     shows: 'This phone shows it',
     scans: 'Opens this phone',

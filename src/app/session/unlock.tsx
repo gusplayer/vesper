@@ -3,8 +3,8 @@ import { useRef, useState } from 'react';
 
 import { useFocusStore, useRunningSession } from '../../data';
 import { useKeysStore } from '../../data/stores/keys';
-import { Button, InkFlood, NativeHost, Screen, Spacer, Stack, Text } from '../../design/components';
-import { KEY_EXIT_REASON, KEY_MIN_SESSION_MS } from '../../domain/key';
+import { Button, FieldRow, InkFlood, NativeHost, Screen, Spacer, Stack, Text } from '../../design/components';
+import { KEY_EXIT_REASON, KEY_MIN_SESSION_MS, MAX_TYPED_TRIES, TYPED_CODE_LENGTH, TYPED_MIN_SESSION_MS } from '../../domain/key';
 import { elapsed } from '../../domain/session';
 import { useStrings } from '../../i18n';
 import { useBlockBack } from '../../lib/useBlockBack';
@@ -28,10 +28,14 @@ export default function UnlockScreen() {
   const t = useStrings();
   const session = useRunningSession();
   const verify = useKeysStore((state) => state.verify);
+  const verifyTyped = useKeysStore((state) => state.verifyTyped);
+  const recordKeyTry = useFocusStore((state) => state.recordKeyTry);
   const finish = useFocusStore((state) => state.finish);
   const [asked, setAsked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leaving, setLeaving] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState('');
   const leftRef = useRef(false);
 
   const camera = cameraStatus();
@@ -75,6 +79,35 @@ export default function UnlockScreen() {
   };
 
   /**
+   * A code read out over the phone (ADR-0037). The session must be older than fifteen
+   * minutes — the window a dictated code lives in — and the tries are counted on the
+   * session itself, so relaunching the app or moving the clock does not clear them.
+   */
+  const onTyped = async () => {
+    if (leftRef.current) {
+      return;
+    }
+    const now = Date.now();
+    if (session.keyTries >= MAX_TYPED_TRIES) {
+      setError(t.keys.typed.spent);
+      return;
+    }
+    if (elapsed(session, now) < TYPED_MIN_SESSION_MS) {
+      setError(t.keys.typed.tooSoon);
+      return;
+    }
+    const verified = await verifyTyped(typed, now);
+    if (verified === null || verified.keyId !== session.keyId) {
+      recordKeyTry();
+      const left = MAX_TYPED_TRIES - session.keyTries - 1;
+      setError(left > 0 ? `${t.keys.typed.wrong} ${t.keys.typed.left(left)}` : t.keys.typed.spent);
+      return;
+    }
+    leftRef.current = true;
+    setLeaving(true);
+  };
+
+  /**
    * The page floods to paper; the session closes under it and `closed` shows the
    * receipt. A key session has no time it was supposed to reach, so there is nothing
    * to pass or fail: it closes the way every session left by hand does, and the
@@ -91,7 +124,19 @@ export default function UnlockScreen() {
       footer={
         <>
           <Button label={t.session.stayFocused} onPress={() => router.back()} />
-          {camera.available || asked ? null : (
+          {typing ? (
+            <Button
+              variant="ghost"
+              label={t.keys.typed.use}
+              onPress={() => {
+                void onTyped();
+              }}
+              disabled={typed.trim() === ''}
+            />
+          ) : (
+            <Button variant="ghost" label={t.keys.typed.use} onPress={() => setTyping(true)} />
+          )}
+          {camera.available || asked || typing ? null : (
             <Button
               variant="ghost"
               label={t.keys.platform.permissionAsk}
@@ -106,7 +151,25 @@ export default function UnlockScreen() {
       <Spacer />
       <Text variant="title">{t.keys.session.scanToEnd}</Text>
 
-      {camera.available ? (
+      {typing ? (
+        <Stack gap="md">
+          <FieldRow
+            label={t.keys.typed.field}
+            value={typed}
+            onChangeText={(text) => {
+              setTyped(text);
+              setError(null);
+            }}
+            placeholder={t.keys.typed.placeholder}
+            autoCapitalize="none"
+            maxLength={TYPED_CODE_LENGTH + 1}
+            autoFocus
+          />
+          <Text variant="label" tone={error === null ? 'secondary' : 'danger'} align="center">
+            {error ?? t.keys.session.locked}
+          </Text>
+        </Stack>
+      ) : camera.available ? (
         <Stack gap="md">
           <NativeHost>
             <CameraScanner

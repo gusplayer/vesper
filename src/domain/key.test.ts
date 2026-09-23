@@ -6,6 +6,11 @@ import {
   KEY_ID_CHARS,
   KEY_STEP_MS,
   keyCodeAt,
+  matchTypedKey,
+  TYPED_CODE_LENGTH,
+  typedCodeAt,
+  typedStep,
+  verifyTypedCode,
   keyStep,
   matchKey,
   pairingCode,
@@ -18,8 +23,8 @@ import type { PairedKey } from './types';
 const SECRET = 'a'.repeat(64);
 const OTHER_SECRET = 'b'.repeat(64);
 
-const key: PairedKey = { id: 'k1', name: 'El teléfono de Ana', secret: SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
-const other: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
+const key: PairedKey = { id: 'k1', name: 'El teléfono de Ana', secret: SECRET, role: 'scans', lastStep: 0, typedEnabled: true, lastTypedStep: 0, pairedAt: 0 };
+const other: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, role: 'scans', lastStep: 0, typedEnabled: true, lastTypedStep: 0, pairedAt: 0 };
 
 // Tuesday 2026-09-22, 21:00:00 local, and the middle of its 30 s step.
 const NOW = new Date(2026, 8, 22, 21, 0, 0).getTime();
@@ -120,7 +125,7 @@ describe('pairing', () => {
 
 describe('matchKey', () => {
   const k1 = key;
-  const k2: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
+  const k2: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, role: 'scans', lastStep: 0, typedEnabled: true, lastTypedStep: 0, pairedAt: 0 };
 
   it('picks the key the code belongs to, out of several', () => {
     expect(matchKey([k1, k2], keyCodeAt(k1, NOW), NOW)?.keyId).toBe('k1');
@@ -128,7 +133,7 @@ describe('matchKey', () => {
   });
 
   it('answers null when no key of ours made that code', () => {
-    const stranger: PairedKey = { id: 'k9', name: 'ajena', secret: OTHER_SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
+    const stranger: PairedKey = { id: 'k9', name: 'ajena', secret: OTHER_SECRET, role: 'scans', lastStep: 0, typedEnabled: true, lastTypedStep: 0, pairedAt: 0 };
     expect(matchKey([k1, k2], keyCodeAt(stranger, NOW), NOW)).toBeNull();
     expect(matchKey([], keyCodeAt(k1, NOW), NOW)).toBeNull();
     expect(matchKey([k1], 'rubbish', NOW)).toBeNull();
@@ -184,5 +189,81 @@ describe('the id budget', () => {
     expect(isKeyIdUsable(uuid)).toBe(false);
     expect(parsePairingCode(`VKP1:${uuid}:${SECRET}`)).toBeNull();
     expect(isKeyIdUsable('a'.repeat(KEY_ID_CHARS))).toBe(true);
+  });
+});
+
+describe('the dictated code', () => {
+  const dictating: PairedKey = { ...key, typedEnabled: true };
+
+  it('is eight symbols of the dictation alphabet, shown in two groups', () => {
+    const shown = typedCodeAt(dictating, NOW);
+    expect(shown).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/);
+    expect(shown.replace('-', '')).toHaveLength(TYPED_CODE_LENGTH);
+  });
+
+  it('is not a slice of the scanned code: seeing one says nothing about the other', () => {
+    const scanned = keyCodeAt(dictating, NOW).split(':')[2] ?? '';
+    const dictated = typedCodeAt(dictating, NOW).replace('-', '');
+    expect(dictated.toLowerCase()).not.toContain(scanned.slice(0, 4));
+    expect(scanned.toUpperCase()).not.toContain(dictated.slice(0, 4));
+  });
+
+  it('lives ten to fifteen minutes, not ninety seconds', () => {
+    const code = typedCodeAt(dictating, NOW);
+    // Still good nine minutes later, because the window either side is five minutes.
+    expect(verifyTypedCode(dictating, code, NOW + 9 * 60_000)).not.toBeNull();
+    // Gone twenty minutes later.
+    expect(verifyTypedCode(dictating, code, NOW + 20 * 60_000)).toBeNull();
+  });
+
+  it('is accepted however a person types it back', () => {
+    const shown = typedCodeAt(dictating, NOW);
+    const bare = shown.replace('-', '');
+    for (const typed of [shown, bare, bare.toLowerCase(), ` ${bare} `, `${bare.slice(0, 4)} ${bare.slice(4)}`]) {
+      expect(verifyTypedCode(dictating, typed, NOW)).not.toBeNull();
+    }
+  });
+
+  it('is worth one use: the window it was accepted in is spent', () => {
+    const code = typedCodeAt(dictating, NOW);
+    const step = verifyTypedCode(dictating, code, NOW);
+    expect(step).toBe(typedStep(NOW));
+
+    const spent: PairedKey = { ...dictating, lastTypedStep: step ?? 0 };
+    expect(verifyTypedCode(spent, code, NOW)).toBeNull();
+    // And winding the clock back to its window does not bring it back.
+    expect(verifyTypedCode(spent, code, NOW - 4 * 60_000)).toBeNull();
+  });
+
+  it('keeps its own clock, so spending one transport does not spend the other', () => {
+    const scanSpent: PairedKey = { ...dictating, lastStep: keyStep(NOW) + 100 };
+    expect(verifyTypedCode(scanSpent, typedCodeAt(dictating, NOW), NOW)).not.toBeNull();
+  });
+
+  it('refuses another key, and rubbish, without throwing', () => {
+    const other: PairedKey = { ...dictating, id: 'k9' };
+    expect(verifyTypedCode(other, typedCodeAt(dictating, NOW), NOW)).toBeNull();
+    for (const bad of ['', 'K7QM3PF', 'K7QM3PF0', 'nope', keyCodeAt(dictating, NOW)]) {
+      expect(verifyTypedCode(dictating, bad, NOW)).toBeNull();
+    }
+  });
+});
+
+describe('matchTypedKey', () => {
+  const on: PairedKey = { ...key, id: 'kon', typedEnabled: true };
+  const off: PairedKey = { ...key, id: 'koff', secret: OTHER_SECRET, typedEnabled: false };
+
+  it('finds a key that dictates', () => {
+    expect(matchTypedKey([on, off], typedCodeAt(on, NOW), NOW)?.keyId).toBe('kon');
+  });
+
+  it('ignores a key whose holder never turned dictation on', () => {
+    // The code is this key's and is otherwise valid; the switch is the whole answer.
+    expect(verifyTypedCode(off, typedCodeAt(off, NOW), NOW)).not.toBeNull();
+    expect(matchTypedKey([off], typedCodeAt(off, NOW), NOW)).toBeNull();
+  });
+
+  it('never hands back the code it just matched', () => {
+    expect(matchTypedKey([on], typedCodeAt(on, NOW), NOW)?.code).toBe('');
   });
 });
