@@ -161,10 +161,32 @@ describe('invitations', () => {
 
     expect(redeemed.body).toEqual({ ok: true, status: 'pending' });
     expect(push.sent.map((one) => one.to)).toEqual([GUS]);
+    // A stranger who guessed a code does not get to write a line in someone's shade:
+    // the push is silent, and identifies them by handle, never by the name they typed.
+    expect(push.sent[0]?.message).toEqual({
+      data: { kind: 'invite', from: ANA, fromHandle: 'ana', at: expect.any(String) },
+    });
     // Nobody is in anybody's circle until the owner says yes.
     const anaSync = await call('POST', '/sync', { token: ana.token, body: { since: 0 } });
     expect(anaSync.body.members).toEqual([
       expect.objectContaining({ id: GUS, status: 'invited' }),
+    ]);
+  });
+
+  it('tells the person who was accepted, and tells them nothing to read', async () => {
+    const { call, join, push } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+    const ana = await join(ANA, 'Ana', 'ana');
+    await call('POST', '/device', { token: ana.token, body: { pushToken: 'ExponentPushToken[ana]' } });
+    await call('POST', '/invite/redeem', { token: ana.token, body: { code: GUS_CODE } });
+
+    await call('POST', '/invite/accept', { token: gus.token, body: { memberId: ANA } });
+
+    expect(push.sent).toEqual([
+      {
+        to: ANA,
+        message: { data: { kind: 'accepted', from: GUS, fromHandle: 'gus', at: expect.any(String) } },
+      },
     ]);
   });
 
@@ -384,12 +406,18 @@ describe('sync', () => {
       body: { since: 0, nudges: [{ id: N1, toId: ANA, challengeId: CH1, dayKey: '2026-09-22' }] },
     });
 
+    // Silent and data only (ADR-0037 §1): the server sends the fact, the phone writes
+    // the sentence when rule 11 lets it. No title, no body, no challenge name.
     expect(push.sent).toEqual([
       {
         to: ANA,
-        message: expect.objectContaining({ title: 'Gus te empuja', body: 'hoy no has marcado Leer.' }),
+        message: {
+          data: { kind: 'nudge', from: GUS, fromHandle: 'gus', at: expect.any(String), challengeId: CH1 },
+          requiresNudges: true,
+        },
       },
     ]);
+    expect(Number(push.sent[0]?.message.data.at)).toBeGreaterThan(T0);
 
     // With nudges off, the row still travels; the phone just does not ring.
     await call('POST', '/device', { token: ana.token, body: { pushToken: 'ExponentPushToken[ana]', nudgesOn: false } });
@@ -693,8 +721,47 @@ describe('budgets', () => {
     // The rows are all there — the sync never drops what it is allowed to write.
     const hers = await call('POST', '/sync', { token: ana.token, body: { since: 0 } });
     expect(hers.body.nudges.length).toBe(7);
-    // The notifications stop at the budget: a person in your challenge cannot ring your
-    // phone all afternoon with a title they wrote.
+    // The wake-ups stop at the budget: a person in your challenge cannot poke your
+    // phone all afternoon. ADR-0037 leaves this limit exactly where it was.
     expect(push.sent.length).toBe(5);
+  });
+});
+
+/**
+ * The rule this file stands guard over, across every endpoint that can cause a push:
+ * nothing the server sends is a visible alert (ADR-0037 §1). The reason is rule 11 —
+ * the circle never notifies during a session — and a visible alert is drawn by the
+ * operating system before the app can decide anything about it.
+ */
+describe('no push carries anything to show', () => {
+  it('sends facts, never sentences, whatever the endpoint', async () => {
+    const { call, join, push, gus, ana } = await circleWithChallenge();
+    // Sofía redeems Gus's code and he accepts: the two other push paths.
+    const sofia = await join(SOF, 'Sofía', 'sofia');
+    await call('POST', '/device', { token: gus.token, body: { pushToken: 'ExponentPushToken[gus]' } });
+    await call('POST', '/device', { token: sofia.token, body: { pushToken: 'ExponentPushToken[sofia]' } });
+    await call('POST', '/invite/redeem', { token: sofia.token, body: { code: GUS_CODE } });
+    await call('POST', '/invite/accept', { token: gus.token, body: { memberId: SOF } });
+    await call('POST', '/sync', {
+      token: gus.token,
+      body: { since: 0, nudges: [{ id: N1, toId: ana.id, challengeId: CH1, dayKey: '2026-09-22' }] },
+    });
+
+    expect(push.sent.map((one) => one.message.data.kind).sort()).toEqual([
+      'accepted',
+      'invite',
+      'nudge',
+    ]);
+    for (const { message } of push.sent) {
+      // Not a sentence anywhere, and not the sender's free-text name: a handle, ids, a
+      // kind and an instant. Nothing a person would read.
+      expect(message).not.toHaveProperty('title');
+      expect(message).not.toHaveProperty('body');
+      for (const value of Object.values(message.data)) {
+        expect(value).not.toMatch(/\s/);
+      }
+      expect(Object.values(message.data)).not.toContain('Gus');
+      expect(Object.values(message.data)).not.toContain('Leer');
+    }
   });
 });

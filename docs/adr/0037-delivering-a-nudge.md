@@ -1,6 +1,6 @@
 # ADR-0037 — Cómo llega un empujón del círculo al teléfono
 
-**Estado:** propuesta · 2026-09-23
+**Estado:** aceptada · 2026-09-23 (el servidor, hecho; el cliente, pendiente)
 
 ## Contexto
 
@@ -23,11 +23,17 @@ Hoy no rompe nada porque la app todavía no habla con el servidor. El día que s
 un empujón enviado a las 10:40 suena a mitad de una sesión de foco profundo, que es
 exactamente lo que la regla 11 prohíbe.
 
-## Decisión propuesta
+## Decisión
 
 1. **El servidor manda un push silencioso**, sin `title` ni `body`: solo datos, con
-   `_contentAvailable: true` (iOS) y prioridad normal. El servidor no sabe si quien
-   recibe está en sesión, y no debería: esa es información del teléfono.
+   `contentAvailable: true` y prioridad normal. (Expo deprecó `_contentAvailable` en
+   favor de `contentAvailable` y sigue aceptando los dos, con precedencia del nuevo; el
+   servidor manda ambos mientras el viejo exista.) El servidor no sabe si quien recibe
+   está en sesión, y no debería: esa es información del teléfono.
+   Del emisor viaja el **alias**, no el nombre: el alias es único y validado
+   (`[a-z0-9_]{3,20}`), mientras que el nombre es texto libre que escribe su dueño, y
+   mandarlo le devolvería a un desconocido una línea de su propia escritura en la barra
+   de otra persona — el vector que este ADR cierra.
 2. **La notificación la compone el teléfono**, con el diccionario del idioma del
    aparato, y pasa por el mismo presupuesto de ADR-0027 que todo lo demás: máximo dos
    avisos al día fuera de sesión, nada entre 22:00 y 8:00, y **silencio absoluto durante

@@ -123,9 +123,48 @@ duplican, y ese día se mueven a Postgres. No se disfrazan de distribuidos.
 | `POST /account` | 30 por dirección; 10 si son cuentas nuevas | Cada cuenta nueva es una identidad más para adivinar, y es lo que hace falta para enumerar alias. |
 | `/invite/accept`, `/challenge/join`, `/device` | 60 por cuenta | Son toques de dedo. |
 | `/sync` | 180 por cuenta | Uno cada veinte segundos, más de lo que la app pide. |
-| Push de una persona a otra | 5 por par | La fila del empujón siempre se guarda; lo que tiene presupuesto es el aviso. Sin esto, resincronizar el mismo empujón suena el teléfono ajeno otra vez, con un título que escribe quien lo manda. |
+| Push de una persona a otra | 5 por par | La fila del empujón siempre se guarda; lo que tiene presupuesto es el push. Sin esto, resincronizar el mismo empujón despierta el teléfono ajeno una y otra vez. |
 
 Un tope que se pasa responde `429` con `Retry-After`.
+
+## El push es silencioso, y tiene que seguir siéndolo
+
+Todo lo que sale hacia Expo es un mensaje **solo de datos**: sin `title`, sin `body`, sin
+`sound`, sin `badge`, sin `channelId`. Lleva `contentAvailable` y `_contentAvailable` en
+`true` y `priority: 'normal'` (ADR-0037 §1).
+
+La razón es la regla 11: **el círculo nunca notifica durante una sesión.** Una alerta
+visible la dibuja el sistema operativo antes de que la app la vea, así que ningún código
+del cliente puede retenerla; un empujón mandado a las 10:40 sonaría a mitad de una sesión
+de foco. El ADR-0033 daba por escrito un cliente que retenía esos push; nunca existió, y
+su nota al pie ya lo dice.
+
+Entonces el servidor manda **un hecho, no una frase**:
+
+```json
+{ "kind": "nudge", "from": "<uuid v7>", "fromHandle": "gus", "at": "1790000000000",
+  "challengeId": "<uuid v7>" }
+```
+
+`kind` es `nudge`, `invite` o `accepted`. El remitente viaja como id **y** como alias,
+nunca con su nombre: el id es lo que el teléfono busca para usar el nombre que ya
+sincronizó, el alias es el respaldo para alguien que todavía no conoce (que es justo el
+caso de una invitación). Un alias es `[a-z0-9_]{3,20}` y único; un nombre es texto libre
+que escribe su dueño, y mandarlo le regalaría a un desconocido que adivine un código de
+invitación una línea suya en la barra de notificaciones ajena.
+
+El nombre del reto tampoco sale: quien recibe el empujón está en ese reto y ya lo tiene.
+`challengeId` es lo que abre el toque.
+
+**No le devuelvas el título.** Un push que se ve vacío no se arregla agregando texto: se
+arregla en el teléfono, que es el único que sabe si hay una sesión corriendo. Si el push
+silencioso no despierta la app (Doze en Android, presupuesto agotado en iOS), la fila ya
+está en la base y el teléfono la ve en el próximo sync (ADR-0037 §4). Eso es el respaldo,
+nunca una alerta.
+
+Lo que falta del lado del cliente para cerrar el ADR-0037: registrar el token de Expo,
+recibir en segundo plano (`UIBackgroundModes: remote-notification` en iOS) y componer la
+frase con el diccionario del idioma del aparato, pasando por el presupuesto del ADR-0027.
 
 ## Verificar un despliegue
 

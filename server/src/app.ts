@@ -367,13 +367,12 @@ export function createApp(deps: Deps) {
       createdAt: existing?.createdAt ?? now(),
       updatedAt: now(),
     });
-    // Redeeming again is how one caller could notify the same person over and over,
-    // with their own name as the title. The link is already written either way.
+    // Redeeming again is how one caller could wake the same person over and over. The
+    // link is already written either way, and the message itself carries no text of
+    // theirs to show: it is silent and data only (push.ts, ADR-0037).
     if (owner.pushToken !== null && fits(`push:${me.id}:${owner.id}`, LIMITS.pushPerPair)) {
       await push.send(owner, {
-        title: me.name,
-        body: 'quiere entrar a tu círculo',
-        data: { kind: 'invite', from: me.id },
+        data: { kind: 'invite', from: me.id, fromHandle: me.handle, at: String(now()) },
       });
     }
     return c.json({ ok: true, status: 'pending' });
@@ -409,9 +408,7 @@ export function createApp(deps: Deps) {
     });
     if (other.pushToken !== null && fits(`push:${me.id}:${other.id}`, LIMITS.pushPerPair)) {
       await push.send(other, {
-        title: me.name,
-        body: 'te aceptó en su círculo',
-        data: { kind: 'accepted', from: me.id },
+        data: { kind: 'accepted', from: me.id, fromHandle: me.handle, at: String(now()) },
       });
     }
     return c.json({ ok: true });
@@ -623,18 +620,25 @@ export function createApp(deps: Deps) {
       };
       await store.putNudge(nudge);
       const target = await store.getAccount(toId);
-      // The row is always written; the notification is the part with a budget. Re-syncing
-      // the same nudge is how a person inside a challenge could turn one allowed nudge
-      // into a stream of notifications, and the text carries their own name.
+      // The row is always written; the push is the part with a budget. Re-syncing the
+      // same nudge is how a person inside a challenge could turn one allowed nudge into
+      // a stream of wake-ups. The message is silent and carries no wording of theirs:
+      // the phone writes the line, in its own language, when rule 11 lets it (ADR-0037).
+      // The challenge name is not sent because the receiver is in that challenge and
+      // already has it; `challengeId` is what the tap opens.
       if (
         target !== null &&
         target.pushToken !== null &&
         fits(`push:${me.id}:${toId}`, LIMITS.pushPerPair)
       ) {
         await push.send(target, {
-          title: `${me.name} te empuja`,
-          body: `hoy no has marcado ${challenge.name}.`,
-          data: { kind: 'nudge', challengeId },
+          data: {
+            kind: 'nudge',
+            from: me.id,
+            fromHandle: me.handle,
+            at: String(at),
+            challengeId,
+          },
           /** The receiver's switch, and only for nudges (ADR-0027 §5). */
           requiresNudges: true,
         });
