@@ -16,7 +16,8 @@ import type { DayKey, Session } from './types';
  * `schedule-<id>-<weekday>`, `streak-risk-<dayKey>`), which is what makes the diff
  * possible.
  *
- * Three rules from ADR-0027 sit on top of the per-kind switches:
+ * Four rules sit on top of the per-kind switches — three from ADR-0027 and the
+ * stagger ADR-0040 added:
  *
  * - **Silence in session.** While a session runs (break included) the plan holds only
  *   the end of the session and the end of the break. Everything else is dropped, so the
@@ -27,6 +28,10 @@ import type { DayKey, Session } from './types';
  *   challenge slipping away, a challenge that ended, day without focus,
  *   reactivation), by priority. Session, routine and Sunday notices are
  *   appointments the user made and stay outside the budget.
+ * - **Staggered daily notices.** Each of those five classes has a fixed offset inside
+ *   the chosen hour, three minutes apart, in that same priority order
+ *   (`dailyOffsetMinutes`). Two allowed notices then land at two instants instead of
+ *   one buzz. Only the daily ones are staggered; nothing else moves.
  *
  * The words come in as the `notifications` slice of the dictionary (ADR-0020), and
  * every function here takes it. There is no default: a Spanish one would let a caller
@@ -99,6 +104,31 @@ const DAILY_KINDS: readonly NotificationKind[] = [
   'noFocus',
   'reactivation',
 ];
+
+/** Minutes between one daily class and the next inside the reminder hour (ADR-0040). */
+export const DAILY_STAGGER_MINUTES = 3;
+
+/**
+ * How far into the reminder hour a daily class knocks, in minutes. Derived from the
+ * class's place in `DAILY_KINDS` — the same priority order the budget sorts by, so the
+ * stagger is not a second list to keep in step with the first. `streakRisk` lands on
+ * the chosen minute and each next class three minutes later: with the default hour,
+ * 20:00, 20:03, 20:06, 20:09 and 20:12.
+ *
+ * Fixed, never random: the same class always arrives at the same time, so the tray is
+ * predictable and the second message is read instead of being folded into the first
+ * buzz (ADR-0040). Everything that is not a daily notice — session end, break end,
+ * routine starts, the Sunday close — has an instant of its own and gets no offset.
+ *
+ * The hour picker tops out at 21:00 and the largest offset is twelve minutes, so no
+ * staggered notice comes near 22:00 and quiet hours need no special case.
+ * `withoutQuietHours` stays as the guard for a preference that did not come from the
+ * picker.
+ */
+export function dailyOffsetMinutes(kind: NotificationKind): number {
+  const index = DAILY_KINDS.indexOf(kind);
+  return index === -1 ? 0 : index * DAILY_STAGGER_MINUTES;
+}
 
 const MINUTES_PER_HOUR = 60;
 
@@ -244,15 +274,20 @@ export type ChallengeReminder = {
   endsOn: { dayKey: DayKey; met: number; total: number } | null;
 };
 
+/** The minute of the local day one daily class fires at: the chosen hour plus its offset. */
+function dailyMinuteOfDay(state: ReminderState, kind: NotificationKind): number {
+  return state.prefs.reminderMinutes + dailyOffsetMinutes(kind);
+}
+
 /**
- * The reminder hour on the day containing `at`, and the same hour tomorrow. Both on
- * the wall clock, so 20:00 is 20:00 across a DST change.
+ * This class's minute of the reminder hour on the day containing `now`, and the same
+ * minute tomorrow. Both on the wall clock, so 20:03 is 20:03 across a DST change.
  */
-function reminderInstants(state: ReminderState): { today: number; tomorrow: number } {
-  const { now, prefs } = state;
+function reminderInstants(state: ReminderState, kind: NotificationKind): { today: number; tomorrow: number } {
+  const minutes = dailyMinuteOfDay(state, kind);
   return {
-    today: atMinuteOfDay(now, prefs.reminderMinutes),
-    tomorrow: atMinuteOfDay(dayStartShifted(now, 1), prefs.reminderMinutes),
+    today: atMinuteOfDay(state.now, minutes),
+    tomorrow: atMinuteOfDay(dayStartShifted(state.now, 1), minutes),
   };
 }
 
@@ -271,7 +306,7 @@ export function streakRiskReminders(state: ReminderState, t: ReminderStrings): D
   if (days < 2) {
     return [];
   }
-  const { today, tomorrow } = reminderInstants(state);
+  const { today, tomorrow } = reminderInstants(state, 'streakRisk');
   const spec = (at: number): DateSpec => ({
     id: `streak-risk-${dayKeyOf(at)}`,
     kind: 'streakRisk',
@@ -304,7 +339,7 @@ export function noFocusReminders(state: ReminderState, t: ReminderStrings): Date
   if (days >= 2) {
     return [];
   }
-  const { today, tomorrow } = reminderInstants(state);
+  const { today, tomorrow } = reminderInstants(state, 'noFocus');
   const spec = (at: number): DateSpec => ({
     id: `no-focus-${dayKeyOf(at)}`,
     kind: 'noFocus',
@@ -341,7 +376,7 @@ export function reactivationReminders(state: ReminderState, t: ReminderStrings):
   const openedKey = dayKeyOf(lastOpenedAt);
   const specs: DateSpec[] = [];
   for (const n of REACTIVATION_DAYS) {
-    const at = atMinuteOfDay(dayStartShifted(lastOpenedAt, n), state.prefs.reminderMinutes);
+    const at = atMinuteOfDay(dayStartShifted(lastOpenedAt, n), dailyMinuteOfDay(state, 'reactivation'));
     if (at > state.now) {
       specs.push({
         id: `reactivation-${n}-${openedKey}`,
@@ -370,7 +405,7 @@ export function challengeRiskReminders(state: ReminderState, t: ReminderStrings)
   if (!state.prefs.challenges) {
     return [];
   }
-  const { today } = reminderInstants(state);
+  const { today } = reminderInstants(state, 'challengeRisk');
   if (today <= state.now) {
     return [];
   }
@@ -413,7 +448,7 @@ export function challengeEndReminders(state: ReminderState, t: ReminderStrings):
     if (ends === null) {
       continue;
     }
-    const at = atMinuteOfDay(dayStartShifted(dayKeyStart(ends.dayKey), 1), state.prefs.reminderMinutes);
+    const at = atMinuteOfDay(dayStartShifted(dayKeyStart(ends.dayKey), 1), dailyMinuteOfDay(state, 'challengeEnd'));
     if (at <= state.now) {
       continue;
     }

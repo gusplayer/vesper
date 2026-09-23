@@ -10,12 +10,15 @@ import {
   challengeEndReminders,
   challengeRiskReminders,
   DAILY_BUDGET,
+  DAILY_STAGGER_MINUTES,
+  dailyOffsetMinutes,
   EXPO_SATURDAY,
   EXPO_SUNDAY,
   expoWeekday,
   inQuietHours,
   noFocusReminders,
   plannedNotifications,
+  QUIET_START_MINUTES,
   reactivationReminders,
   scheduleReminders,
   breakEndReminder,
@@ -25,6 +28,7 @@ import {
   withoutQuietHours,
   type ChallengeReminder,
   type DateSpec,
+  type NotificationKind,
   type ReminderState,
 } from './reminders';
 import { startBreak } from './session';
@@ -69,6 +73,14 @@ const TODAY_AT = atMinuteOfDay(NOON, REMINDER_MINUTES);
 const TOMORROW_AT = atMinuteOfDay(dayStartShifted(NOON, 1), REMINDER_MINUTES);
 const TODAY_KEY = dayKeyOf(NOON);
 const TOMORROW_KEY = dayKeyOf(TOMORROW_AT);
+
+/**
+ * The instant one daily class fires at, `days` calendar days from noon: the chosen
+ * hour plus the class's fixed offset inside it (ADR-0040).
+ */
+function dailyAt(kind: NotificationKind, days: number, from: number = NOON): number {
+  return atMinuteOfDay(dayStartShifted(from, days), REMINDER_MINUTES + dailyOffsetMinutes(kind));
+}
 
 function aStreak(overrides: Partial<StreakState> = {}): StreakState {
   // A two-day streak with today counted: only tomorrow's streak notice by default.
@@ -442,7 +454,7 @@ describe('noFocusReminders', () => {
     const specs = noFocusReminders(aState({ streak: aStreak({ days: 1, todayCounts: false }) }), ES);
 
     expect(ids(specs)).toEqual([`no-focus-${TODAY_KEY}`, `no-focus-${TOMORROW_KEY}`]);
-    expect(specs.map((s) => s.at)).toEqual([TODAY_AT, TOMORROW_AT]);
+    expect(specs.map((s) => s.at)).toEqual([dailyAt('noFocus', 0), dailyAt('noFocus', 1)]);
     expect(specs[0]?.title).toBe('Hoy no has enfocado');
     expect(specs[0]?.body).toBe('25 minutos y listo.');
     expect(specs.every((s) => s.kind === 'noFocus' && !s.sound)).toBe(true);
@@ -471,7 +483,9 @@ describe('noFocusReminders', () => {
     for (const days of [0, 1, 2, 3, 12]) {
       for (const todayCounts of [false, true]) {
         const state = aState({ streak: aStreak({ days, todayCounts }) });
-        const tomorrow = [...streakRiskReminders(state, ES), ...noFocusReminders(state, ES)].filter((s) => s.at === TOMORROW_AT);
+        const tomorrow = [...streakRiskReminders(state, ES), ...noFocusReminders(state, ES)].filter(
+          (s) => dayKeyOf(s.at) === TOMORROW_KEY,
+        );
         expect(tomorrow).toHaveLength(1);
       }
     }
@@ -496,7 +510,7 @@ describe('challengeRiskReminders', () => {
     const specs = challengeRiskReminders(aState({ challenges: [aChallenge()] }), ES);
 
     expect(ids(specs)).toEqual([`challenge-risk-challenge-1-${TODAY_KEY}`]);
-    expect(specs[0]?.at).toBe(TODAY_AT);
+    expect(specs[0]?.at).toBe(dailyAt('challengeRisk', 0));
     expect(specs[0]?.title).toBe('Leer se te está yendo');
     expect(specs[0]?.body).toBe('Te faltan 3 y quedan 3 días. Márcalo hoy.');
     expect(specs.every((s) => s.kind === 'challengeRisk' && s.trigger === 'date' && !s.sound)).toBe(true);
@@ -556,7 +570,7 @@ describe('challengeEndReminders', () => {
     const specs = challengeEndReminders(aState({ challenges: [ending(TODAY_KEY)] }), ES);
 
     expect(ids(specs)).toEqual([`challenge-end-challenge-1-${TODAY_KEY}`]);
-    expect(specs[0]?.at).toBe(TOMORROW_AT);
+    expect(specs[0]?.at).toBe(dailyAt('challengeEnd', 1));
     expect(specs[0]?.title).toBe('Terminó Leer');
     expect(specs[0]?.body).toBe('Cumpliste 2 de 3 semanas.');
   });
@@ -578,7 +592,7 @@ describe('challengeEndReminders', () => {
     const specs = challengeEndReminders(aState({ challenges: [ending(lastDay)] }), ES);
 
     expect(ids(specs)).toEqual([`challenge-end-challenge-1-${lastDay}`]);
-    expect(specs[0]?.at).toBe(atMinuteOfDay(dayStartShifted(NOON, 4), REMINDER_MINUTES));
+    expect(specs[0]?.at).toBe(dailyAt('challengeEnd', 4));
     expect(specs[0]?.body).toBe('Cumpliste 2 de 3 semanas.');
   });
 
@@ -615,10 +629,7 @@ describe('reactivationReminders', () => {
     const specs = reactivationReminders(aState({ lastOpenedAt: NOON }), ES);
 
     expect(ids(specs)).toEqual([`reactivation-3-${openedKey}`, `reactivation-7-${openedKey}`]);
-    expect(specs.map((s) => s.at)).toEqual([
-      atMinuteOfDay(dayStartShifted(NOON, 3), REMINDER_MINUTES),
-      atMinuteOfDay(dayStartShifted(NOON, 7), REMINDER_MINUTES),
-    ]);
+    expect(specs.map((s) => s.at)).toEqual([dailyAt('reactivation', 3), dailyAt('reactivation', 7)]);
     expect(specs.map((s) => s.title)).toEqual(['Llevas 3 días sin enfocar', 'Llevas 7 días sin enfocar']);
     expect(specs.every((s) => s.kind === 'reactivation' && !s.sound)).toBe(true);
   });
@@ -647,6 +658,100 @@ describe('reactivationReminders', () => {
   it('says nothing before the first open, or with the preference off', () => {
     expect(reactivationReminders(aState({ lastOpenedAt: null }), ES)).toEqual([]);
     expect(reactivationReminders(aState({ lastOpenedAt: NOON, prefs: { ...ALL_ON, reactivation: false } }), ES)).toEqual([]);
+  });
+});
+
+describe('the daily stagger (ADR-0040)', () => {
+  const aChallenge = (overrides: Partial<ChallengeReminder> = {}): ChallengeReminder => ({
+    id: 'challenge-1',
+    name: 'Leer',
+    needed: 3,
+    daysLeft: 3,
+    atRisk: true,
+    markedToday: false,
+    endsOn: null,
+    ...overrides,
+  });
+
+  it('gives each daily class a fixed offset, three minutes apart, in the priority order', () => {
+    const offsets = (['streakRisk', 'challengeRisk', 'challengeEnd', 'noFocus', 'reactivation'] as const).map(
+      dailyOffsetMinutes,
+    );
+
+    expect(DAILY_STAGGER_MINUTES).toBe(3);
+    expect(offsets).toEqual([0, 3, 6, 9, 12]);
+  });
+
+  it('leaves the notices that are not part of the daily batch where they are', () => {
+    const others = (['sessionEnd', 'breakEnd', 'schedule', 'weeklyClose'] as const).map(dailyOffsetMinutes);
+
+    expect(others).toEqual([0, 0, 0, 0]);
+    // The Sunday close keeps its own hour, on the hour.
+    expect(weeklyCloseReminder(ES).minute).toBe(0);
+    // And a routine keeps the minute the user set for it.
+    expect(scheduleReminders(aSchedule(), 'Trabajo profundo', ES)[0]?.minute).toBe(30);
+  });
+
+  it('lands the two notices a day may hold at two instants, best one first', () => {
+    // A streak about to break and a challenge slipping away, the same evening.
+    const state = aState({ streak: aStreak({ days: 12, todayCounts: false }), challenges: [aChallenge()] });
+
+    const today = plannedNotifications(state, ES).filter(
+      (spec): spec is DateSpec => spec.trigger === 'date' && dayKeyOf(spec.at) === TODAY_KEY,
+    );
+
+    expect(today.map((s) => s.kind)).toEqual(['streakRisk', 'challengeRisk']);
+    expect(today.map((s) => s.at)).toEqual([TODAY_AT, TODAY_AT + DAILY_STAGGER_MINUTES * MINUTE]);
+    expect(new Set(today.map((s) => s.at)).size).toBe(today.length);
+  });
+
+  it('is the same offset on every run: fixed, never random', () => {
+    const state = aState({ streak: aStreak({ days: 12, todayCounts: false }), challenges: [aChallenge()] });
+
+    const runs = [1, 2, 3].map(() => plannedNotifications(state, ES).map((spec) => `${spec.id}@${spec.trigger === 'date' ? spec.at : spec.minute}`));
+
+    expect(runs[1]).toEqual(runs[0]);
+    expect(runs[2]).toEqual(runs[0]);
+  });
+
+  it('keeps every offset inside the evening at the last hour the picker offers', () => {
+    const lastHour = 21 * 60;
+    const state = aState({
+      prefs: { ...ALL_ON, reminderMinutes: lastHour },
+      streak: aStreak({ days: 12, todayCounts: false }),
+      challenges: [aChallenge(), aChallenge({ id: 'ending', endsOn: { dayKey: TODAY_KEY, met: 2, total: 3 } })],
+      lastOpenedAt: NOON,
+    });
+
+    const daily = plannedNotifications(state, ES).filter(
+      (spec): spec is DateSpec => spec.trigger === 'date',
+    );
+    const minutes = daily.map((spec) => new Date(spec.at).getHours() * 60 + new Date(spec.at).getMinutes());
+
+    // Nothing was dropped by quiet hours, and nothing reaches 22:00: 21:12 is the latest.
+    expect(daily.length).toBeGreaterThan(0);
+    expect(Math.max(...minutes)).toBe(lastHour + dailyOffsetMinutes('reactivation'));
+    expect(minutes.every((minute) => !inQuietHours(minute))).toBe(true);
+    expect(Math.max(...minutes)).toBeLessThan(QUIET_START_MINUTES);
+  });
+
+  it('does not spend the budget: still two a day, and still the best two', () => {
+    const state = aState({
+      streak: aStreak({ days: 12, todayCounts: false }),
+      challenges: [aChallenge(), aChallenge({ id: 'ending', endsOn: { dayKey: TODAY_KEY, met: 2, total: 3 } })],
+      lastOpenedAt: dayStartShifted(NOON, -3) + 12 * HOUR,
+    });
+
+    const perDay = new Map<string, string[]>();
+    for (const spec of plannedNotifications(state, ES)) {
+      if (spec.trigger === 'date') {
+        const key = dayKeyOf(spec.at);
+        perDay.set(key, [...(perDay.get(key) ?? []), spec.kind]);
+      }
+    }
+
+    expect(Math.max(...[...perDay.values()].map((kinds) => kinds.length))).toBe(DAILY_BUDGET);
+    expect(perDay.get(TODAY_KEY)).toEqual(['streakRisk', 'challengeRisk']);
   });
 });
 

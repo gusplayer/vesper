@@ -249,8 +249,9 @@ export const settings = {
     },
     /** The row and the sheet share the name. */
     reminderTime: { label: 'Hora del aviso', sheet: 'Hora del aviso' },
+    /** The stagger of ADR-0040: the daily notices start at the chosen hour, minutes apart. */
     dailyCaption:
-      'Máximo dos avisos al día fuera de la sesión y la rutina. Nada entre 22:00 y 8:00, y nunca durante una sesión.',
+      'Máximo dos avisos al día fuera de la sesión y la rutina, desde esa hora y con unos minutos entre uno y otro. Nada entre 22:00 y 8:00, y nunca durante una sesión.',
     nudges: {
       label: 'Empujones',
       description: 'Cuando alguien de tu círculo te empuja en un reto. Llega cuando exista el servidor.',

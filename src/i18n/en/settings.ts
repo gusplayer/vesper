@@ -209,7 +209,7 @@ export const settings: typeof shape = {
     },
     reminderTime: { label: 'Reminder time', sheet: 'Reminder time' },
     dailyCaption:
-      'At most two notices a day besides the session and routine ones. Nothing between 22:00 and 8:00, and never during a session.',
+      'At most two notices a day besides the session and routine ones, from that hour on and a few minutes apart. Nothing between 22:00 and 8:00, and never during a session.',
     nudges: {
       label: 'Nudges',
       description: 'When someone in your circle nudges you on a challenge. Arrives once there is a server.',
