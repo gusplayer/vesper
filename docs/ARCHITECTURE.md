@@ -93,10 +93,11 @@ src/
     capabilities.ts       isIos, isAndroid, isDevice, CapabilityStatus
     notifications.ts, health.ts, liveActivity.ts (+ liveActivityProps.ts),
     blocking.ios.ts, blocking.android.ts (+ blockingTypes.ts, androidApps.ts,
-    BlockingSelectionView.tsx, routineWindows.ts), orientation.ts, circle.ts
+    BlockingSelectionView.tsx, routineWindows.ts), usage.ts (+ usageReading.ts),
+    orientation.ts, circle.ts
     hooks/                useNotificationSync, useHealthSync, useLiveActivitySync,
-                          useBlockingSync, useRoutineSync, useRoutineWindowsSync
-    PlatformEffects.tsx   monta los seis hooks una vez, bajo el layout raíz
+                          useBlockingSync, useRoutineSync, useRoutineWindowsSync, useUsageSync
+    PlatformEffects.tsx   monta los siete hooks una vez, bajo el layout raíz
   widgets/FocusActivity.tsx   la Live Activity; no importa nada de la app
   dev/                    route.ts (banderas) y DevJump.tsx. Solo en __DEV__
 modules/vesper-blocking/  módulo Expo local (Kotlin): servicio, vigilante, escudo, alarmas

@@ -11,7 +11,8 @@ referencia; "Módulo `vesper-blocking`" en adelante describe lo que hay en el re
 Da eventos `ACTIVITY_RESUMED` / `ACTIVITY_PAUSED` por paquete con timestamps reales.
 
 Todo lo que iOS niega: desglose por app, nombres reales, histórico de ~7-14 días
-anterior a la instalación, precisión de milisegundos.
+anterior a la instalación, precisión de milisegundos. Desde ADR-0029 Actividad › Hoy
+muestra ese desglose (piso, con icono real) para las apps reales de los modos.
 
 El permiso no se pide con un diálogo — hay que mandar al usuario a
 `Settings.ACTION_USAGE_ACCESS_SETTINGS`. Fricción alta. Pedirlo tarde en el onboarding.
@@ -85,7 +86,13 @@ de terceros y sin `AccessibilityService` (ADR-0019). Se autoenlaza desde `module
   lo lee y lo escribe.
 - **Selector de apps**: `src/platform/BlockingSelectionView.tsx` lista las apps con
   actividad de lanzador (`AppCatalog.kt`, vía `<queries>`; nunca `QUERY_ALL_PACKAGES`)
-  con su icono real (`AppImage`), búsqueda y casilla.
+  con su icono real (`AppTile`), búsqueda y casilla.
+- **Uso por app** `UsageQuery.kt` (ADR-0029): `queryUsage(from, to, packages, withIcons)`
+  pliega `queryEvents` por actividad: un paquete está al frente mientras alguna de sus
+  actividades siga resumida (Chrome cambia de actividad al abrir y el `STOPPED` de la
+  primera cerraría el intervalo si se plegara por paquete); lo abierto se corta en `to` y devuelve etiqueta, icono y ms, de mayor a menor. Se lee al abrir la app y al
+  volver al frente (`platform/hooks/useUsageSync.ts`, cada 5 min como máximo) y nunca se
+  guarda. Sin el acceso de uso rechaza con `E_USAGE_ACCESS`.
 - **Servicio** `BlockingService.kt`: primer plano, tipo `specialUse`, canal
   `vesper_session` (el `vesper_focus` de la fase 1 se borra al arrancar; ver fase 4),
   notificación con el título del escudo, "Sesión de foco" y el cronómetro del sistema.

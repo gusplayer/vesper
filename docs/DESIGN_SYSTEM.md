@@ -94,8 +94,7 @@ completas salvo `VESPER` y las etiquetas de `StatCard` y `PeriodStrip`.
 
 ## Componentes
 
-Lo que exporta `src/design/components/index.ts` (52 hoy). `AppImage` (icono real de
-Android), `HeatSquare` (una celda de `HeatGrid`) y `FlipDigit` (una carta de `FlipClock`)
+Lo que exporta `src/design/components/index.ts` (53 hoy). `HeatSquare` (una celda de `HeatGrid`) y `FlipDigit` (una carta de `FlipClock`)
 existen pero no se exportan: son internos.
 
 | Componente | Qué es |
@@ -112,7 +111,7 @@ existen pero no se exportan: son internos.
 | `IconCircle`, `Icon` | Botón redondo con icono Feather; icono suelto |
 | `Card` | Superficie: `default`, `muted`, `ink` |
 | `ListGroup`, `ListRow` | Tarjeta de filas con hairline; fila con icono, valor, control o chevron |
-| `AppRow` | Una `ListRow` encabezada por un `AppIcon`: selectores de apps, lista de uso |
+| `AppRow` | Una `ListRow` encabezada por un `AppTile`: selectores de apps, desglose de uso (con `value` a la derecha) |
 | `ScheduleCard` | Tarjeta de rutina: título, líneas de estado, toggle o botón de arranque |
 | `Toggle` | Switch nativo en `accent` |
 | `SegmentedControl` | Dos o tres pastillas, la elegida en tinta |
@@ -125,7 +124,7 @@ existen pero no se exportan: son internos.
 | `Banner`, `Tooltip` | Aviso oscuro arriba; burbuja que explica un no |
 | `ExplainerBlock` | Icono en círculo, encabezado y párrafo: las páginas de permiso apilan tres |
 | `ProgressDots`, `ProgressBar` | Puntos del onboarding; barra fina, con segmentos |
-| `AppIcon`, `AppIconStack`, `Avatar` | Tile con letra que hace de icono de app; pila "+N"; iniciales de una persona |
+| `AppTile`, `AppIconStack`, `Avatar` | Cómo se ve una app (ADR-0029): el icono real si la plataforma lo da (Android), si no un tile con letra y color del catálogo, o apagado sin color; pila "+N"; iniciales de una persona |
 | `HeroObject` | El objeto central: tile con la grilla de semanas |
 | `BreathingObject` | El tile que respira con el dedo (ADR-0025) |
 | `BootReveal` | El arranque: la tinta del splash se disuelve de los bordes al centro hasta dejar la marca, que se funde con la app (ADR-0028) |

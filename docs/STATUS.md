@@ -1,4 +1,4 @@
-# Estado — 2026-09-17
+# Estado — 2026-09-23
 
 Qué existe, dónde se verificó y qué falta. Se actualiza al cerrar cada tanda de trabajo.
 El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, históricas, en
@@ -11,8 +11,9 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **817 tests en 58 archivos**, todos en verde; el módulo
-Kotlin compila con Gradle.
+avisos y `npx vitest run` con **825 tests en 59 archivos**, todos en verde; el módulo
+Kotlin compila con Gradle. El servidor del círculo (`server/`) tiene sus propios 17
+tests y está desplegado; la app todavía no le habla (ADR-0033).
 
 ## Estado actual
 
@@ -38,6 +39,7 @@ Kotlin compila con Gradle.
 | Idioma español e inglés, override en Ajustes (ADR-0020) | real | real | `tsc` (una clave que falte no compila) y tests en los dos idiomas; cambio en caliente verificado en las pantallas del círculo |
 | Círculo: personas, semana sin posiciones, ánimo, retos, invitación por código, link y QR (ADR-0021) | UI y base local; **sin backend** (`platform/circle.status()` lo dice) | igual | Simulador con `idb`: flujo completo; QR leído por Vision desde la captura; `vesper://circle/join?code=…` con `simctl openurl`. Sin verificar: "Salir del círculo", "Quitar", los topes de 12 y 5 desde la UI, la línea de ánimo en el cierre, la cámara de un iPhone real |
 | Declaraciones de Play y ficha (`PLAY_DECLARATIONS.md`, `STORE_LISTING.md`, `docs/media/`) | — | escritas | Falta la pantalla de divulgación destacada y subir el video |
+| Uso por app en Actividad › Hoy: piso por app con icono real, proyección de vida y círculo con la misma lectura (ADR-0029) | no existe fuera del Report (`platform/usage.status()` lo dice; la pantalla muestra el desglose de demostración con la razón) | real (`UsageQuery.kt`, a demanda, sin persistir) | Emulador Pixel 7 (API 36) con `adb`: Chrome elegido como app real del modo, 4 min en primer plano → Actividad › Hoy muestra "Social (estimate) ≥ 4m", la fila Chrome con su icono real y "≥ 4m", y "Read at 6:25"; el selector de apps reales dibuja los iconos con `AppTile`. El plegado se corrigió ahí mismo: es por actividad, no por paquete (Chrome cambia de actividad al abrir y el `STOPPED` de la primera cerraba el intervalo). La tarjeta Vida con dato real dice "1 week of that would go to social media" y "Estimate from this week's real use, always a floor". Sin verificar: el desglose de demostración en iOS con su razón, y un teléfono real |
 
 **Nada se ha verificado en un teléfono real de ningún fabricante.** Todo lo de arriba se
 probó en el simulador iPhone 17 / 17 Pro y en el emulador Pixel 6 (API 34).
@@ -380,3 +382,31 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 - Consecuencia para el cliente que falta: al sincronizar debe **omitir la métrica que no
   se comparte**, no mandar 0. Lo encontró la sesión que conectó los tres interruptores
   del lado de la app.
+
+- **2026-09-23 · Actividad › Hoy dice en qué app se fue el tiempo (ADR-0029).** El uso
+  por app es una lectura efímera detrás de `platform/usage.ts`: en Android lo responde
+  `UsageQuery.kt` con el acceso de uso que el bloqueo ya pide, plegando `queryEvents`
+  **por actividad** y no por paquete (Chrome cambia de actividad al abrir y el `STOPPED`
+  de la primera cerraba el intervalo). No se persiste nada: `useUsageSync` lee al montar,
+  al cambiar los modos o el idioma y al volver al frente, como mucho cada cinco minutos,
+  y deja el resultado en `data/stores/usage.ts`. La fila "redes" abre hasta cinco
+  `AppRow` con el icono real y "≥ X min"; la tarjeta Vida proyecta ese piso y el círculo
+  comparte el mismo número. Donde el teléfono no puede responder queda el estimado de
+  demostración con la razón escrita (rule 8): iOS fuera del Report, sin módulo, sin
+  acceso de uso, o sin apps reales en ningún modo. `AppIcon` y `AppImage` se funden en
+  un solo `AppTile`, que dibuja el PNG real cuando lo hay y el cuadro con inicial cuando
+  no; no se dibujan logos de marcas.
+- Verificado en el emulador Pixel 7 (API 36) con `adb`: Chrome elegido como app real de
+  un modo, 4 min en primer plano → "Social (estimate) ≥ 4m", la fila Chrome con su icono
+  real y "Read at 6:25"; la tarjeta Vida con dato real dice "1 week of that would go to
+  social media" y la nota "Estimate from this week's real use, always a floor"; el
+  selector de apps reales dibuja los iconos con `AppTile`. En este árbol: `npx tsc
+  --noEmit` limpio, `npm run lint` sin avisos y **825 tests en 59 archivos** en verde.
+- No verificado: el desglose de demostración en iOS con su razón, y nada en un teléfono
+  real.
+- ADR-0030 (tarjeta para compartir un momento cerrado) queda **propuesta**, sin una línea
+  de código.
+- Reparado al commitear: las ediciones de docs venían de una base anterior y borraban
+  las filas 0033 y 0034 del índice de ADR y las cuatro últimas entradas de esta bitácora.
+  Se restauraron desde `HEAD` y encima se aplicó lo de ADR-0029. Dos sesiones sobre el
+  mismo árbol: revisar el diff de docs antes de dar por buena una tanda.

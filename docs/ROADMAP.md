@@ -65,14 +65,14 @@ verificar**: el simulador no tiene datos de Salud.
 bloquea llamadas ni mapas. **Sin verificar** en teléfono; en Android el escudo nunca
 cubre el marcador, el launcher, Ajustes ni SystemUI.
 
-## Fase 3 — estimación de uso — sin empezar
+## Fase 3 — estimación de uso — empezada en Android (ADR-0029)
 
 - [ ] iOS: eventos de umbral con reparto de presupuesto de schedules (`PLATFORM_IOS.md`)
-- [ ] Android: `UsageStatsManager` como historial (hoy solo se lee el evento actual y se descarta)
+- [x] Android: `UsageStatsManager` por app, leído a demanda para hoy y la semana (`UsageQuery.kt`, ADR-0029). Sin historial persistido
 - [ ] Pestaña "realidad" con `DeviceActivityReport` embebido (iOS)
-- [ ] Proyección de vida en redes, alimentada por datos reales
+- [x] Proyección de vida en redes, alimentada por datos reales en Android (ADR-0029); iOS sigue en el estimado
 
-Hoy "tiempo consumido" y "redes" son el estimado de demostración (`data/seed USAGE`).
+En iOS "tiempo consumido" y "redes" siguen siendo el estimado de demostración (`data/seed USAGE`), y la pantalla lo dice.
 
 **Criterio de salida:** el número estimado nunca es mayor que el de Ajustes.
 
