@@ -18,6 +18,10 @@ export type StreakSectionStrings = Pick<Strings, 'activity'>;
  * morning after a grace day it says so once; without a streak it says what a day needs.
  */
 export function streakLineText(streak: StreakState, t: StreakLineStrings): string {
+  // Zero wins over the grace line on purpose. Since ADR-0039 a grace day holds the
+  // chain without counting itself, so `days: 0` with `graceYesterday` is reachable at
+  // the edge of the window: saying "yesterday cost a grace day" over a streak of zero
+  // explains nothing, while what a day needs still does.
   if (streak.days === 0) {
     return t.focus.streak.none(MIN_MINUTES);
   }

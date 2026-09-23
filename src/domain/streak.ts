@@ -3,11 +3,13 @@ import { MINUTE } from './time';
 import type { DayKey, GraceDay } from './types';
 
 /**
- * The daily streak with grace days (ADR-0027). A day counts with ten minutes of
- * verified focus; the streak is the run of counted days ending today or yesterday,
- * because today is still open. When a day fails, one of the month's three grace days
- * bridges it on its own, so the streak survives a sick Tuesday. Pure: the day totals
- * come folded from `sessions` (db/queries/streak) and the grace rows from their table.
+ * The daily streak with grace days (ADR-0027, amended by ADR-0039). A day counts with
+ * ten minutes of verified focus; the streak is the run of counted days ending today or
+ * yesterday, because today is still open. When a day fails, one of the month's three
+ * grace days bridges it on its own, so the streak survives a sick Tuesday — but the
+ * bridged day does not count itself (ADR-0039): the chain holds, the number does not
+ * grow on a day with no focus. Pure: the day totals come folded from `sessions`
+ * (db/queries/streak) and the grace rows from their table.
  */
 
 export const STREAK_DAY_MIN_MS = 10 * MINUTE;
@@ -25,8 +27,13 @@ export const STREAK_WINDOW_DAYS = 400;
 export type DayFocus = { dayKey: DayKey; focusMs: number };
 
 export type StreakState = {
-  /** Consecutive counted days ending today (if today counts) or yesterday. 0 when none. */
+  /**
+   * Days with ten minutes of focus in the run ending today (if today counts) or
+   * yesterday. Days a grace row bridged keep the run alive without being counted
+   * (ADR-0039), so this is never more than the days the user actually focused. 0 when none.
+   */
   days: number;
+  /** Today already has the ten minutes. A grace row on today is not focus, so it is false. */
   todayCounts: boolean;
   /** Grace days left in today's month. */
   graceLeft: number;
@@ -51,14 +58,17 @@ export function graceLeftIn(monthKey: string, grace: readonly GraceDay[]): numbe
 type Ledger = {
   /** The oldest day the window knows about. Nothing before it is walked. */
   edge: DayKey | null;
-  counts: (dayKey: DayKey) => boolean;
+  /** Ten minutes of verified focus. The only thing that adds a day to the number. */
+  counted: (dayKey: DayKey) => boolean;
+  /** The day does not break the chain: it was focused, or a grace row bridges it. */
+  holds: (dayKey: DayKey) => boolean;
   hasGrace: (dayKey: DayKey) => boolean;
 };
 
 /**
- * The window as one question per day: does it count? A day counts when its focus
- * meets the minimum or a grace row exists for it; a day the window does not list has
- * no focus.
+ * The window as two questions per day: did the user focus, and does the day hold the
+ * chain? A day the window does not list has no focus. The two questions differ exactly
+ * on a bridged day, which holds without being counted (ADR-0039).
  */
 function ledgerOf(days: readonly DayFocus[], grace: readonly GraceDay[]): Ledger {
   const focus = new Map<DayKey, number>();
@@ -70,9 +80,11 @@ function ledgerOf(days: readonly DayFocus[], grace: readonly GraceDay[]): Ledger
     }
   }
   const graced = new Set(grace.map((day) => day.dayKey));
+  const counted = (dayKey: DayKey): boolean => dayCounts(focus.get(dayKey) ?? 0);
   return {
     edge,
-    counts: (dayKey) => dayCounts(focus.get(dayKey) ?? 0) || graced.has(dayKey),
+    counted,
+    holds: (dayKey) => counted(dayKey) || graced.has(dayKey),
     hasGrace: (dayKey) => graced.has(dayKey),
   };
 }
@@ -82,8 +94,11 @@ function inWindow(ledger: Ledger, dayKey: DayKey): boolean {
 }
 
 /**
- * Walks back from today: today counting adds one; then yesterday, the day before,
- * and so on until a day that does not count or the edge of the window.
+ * Walks back from today: ten minutes today adds one; then yesterday, the day before,
+ * and so on until a day that neither focus nor grace holds, or the edge of the window.
+ * A bridged day is walked through and adds nothing (ADR-0039), so the walk can end
+ * with a number smaller than the days it crossed — never smaller than zero, and never
+ * zero because of a bridge, since a bridge only ever continues the walk.
  */
 export function computeStreak(
   days: readonly DayFocus[],
@@ -91,11 +106,13 @@ export function computeStreak(
   todayKey: DayKey,
 ): StreakState {
   const ledger = ledgerOf(days, grace);
-  const todayCounts = ledger.counts(todayKey);
+  const todayCounts = ledger.counted(todayKey);
   let count = todayCounts ? 1 : 0;
   let key = shiftDayKey(todayKey, -1);
-  while (inWindow(ledger, key) && ledger.counts(key)) {
-    count += 1;
+  while (inWindow(ledger, key) && ledger.holds(key)) {
+    if (ledger.counted(key)) {
+      count += 1;
+    }
     key = shiftDayKey(key, -1);
   }
   return {
@@ -107,9 +124,11 @@ export function computeStreak(
 }
 
 /**
- * The days before today that a grace day should bridge right now, newest first:
- * the gap between yesterday and the last counted day. Empty when there is no gap,
- * when nothing counted before it (there is no streak to protect), or when any gap
+ * The days before today that a grace day should bridge right now, newest first: the
+ * gap between yesterday and the last day that holds the chain (focused, or already
+ * bridged). Unchanged by ADR-0039 — grace is still spent the same way, it just no
+ * longer adds to the number. Empty when there is no gap,
+ * when nothing held before it (there is no streak to protect), or when any gap
  * day's month has no grace left once the earlier gap days in that month are counted.
  */
 export function graceDaysToApply(
@@ -120,7 +139,7 @@ export function graceDaysToApply(
   const ledger = ledgerOf(days, grace);
   const gap: DayKey[] = [];
   let key = shiftDayKey(todayKey, -1);
-  while (inWindow(ledger, key) && !ledger.counts(key)) {
+  while (inWindow(ledger, key) && !ledger.holds(key)) {
     gap.push(key);
     key = shiftDayKey(key, -1);
   }

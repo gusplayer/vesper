@@ -96,25 +96,72 @@ describe('computeStreak', () => {
     expect(computeStreak(windowOf(30, focused), [], TODAY).days).toBe(2);
   });
 
-  it('bridges a gap with an existing grace row', () => {
+  it('walks through a bridged gap without counting it: five focused days, not six (ADR-0039)', () => {
     const focused = { ...focusedRun(TODAY, 2), ...focusedRun(shiftDayKey(TODAY, -3), 3) };
     const grace = graceOn(shiftDayKey(TODAY, -2));
 
     const streak = computeStreak(windowOf(30, focused), grace, TODAY);
 
-    expect(streak.days).toBe(6);
+    expect(streak.days).toBe(5);
     expect(streak.graceLeft).toBe(2);
     expect(streak.graceYesterday).toBe(false);
   });
 
-  it('says so when yesterday was the bridged day', () => {
+  it('says so when yesterday was the bridged day, and counts the four focused days', () => {
     const focused = { ...focusedRun(TODAY, 1), ...focusedRun(shiftDayKey(TODAY, -2), 3) };
     const grace = graceOn(shiftDayKey(TODAY, -1));
 
     const streak = computeStreak(windowOf(30, focused), grace, TODAY);
 
-    expect(streak.days).toBe(5);
+    expect(streak.days).toBe(4);
     expect(streak.graceYesterday).toBe(true);
+  });
+
+  it('counts only today when the run behind it is a single bridged day', () => {
+    // Nothing before yesterday; grace held the chain, so the number is today alone.
+    const streak = computeStreak(
+      windowOf(30, focusedRun(TODAY, 1)),
+      graceOn(shiftDayKey(TODAY, -1)),
+      TODAY,
+    );
+
+    expect(streak.days).toBe(1);
+    expect(streak.todayCounts).toBe(true);
+    expect(streak.graceYesterday).toBe(true);
+  });
+
+  it('subtracts every day of a run of bridged days, down to the month’s three', () => {
+    const focused = { ...focusedRun(TODAY, 2), ...focusedRun(shiftDayKey(TODAY, -5), 4) };
+    const grace = graceOn(shiftDayKey(TODAY, -2), shiftDayKey(TODAY, -3), shiftDayKey(TODAY, -4));
+
+    const streak = computeStreak(windowOf(30, focused), grace, TODAY);
+
+    expect(streak.days).toBe(6);
+    expect(streak.graceLeft).toBe(0);
+  });
+
+  it('holds the chain when today itself is bridged, without counting today', () => {
+    const focused = focusedRun(shiftDayKey(TODAY, -1), 3);
+    const streak = computeStreak(windowOf(30, focused), graceOn(TODAY), TODAY);
+
+    expect(streak.days).toBe(3);
+    expect(streak.todayCounts).toBe(false);
+  });
+
+  it('is zero, never negative, when a bridged day is all there is', () => {
+    const today = computeStreak(windowOf(30, {}), graceOn(TODAY), TODAY);
+    const yesterday = computeStreak(windowOf(30, {}), graceOn(shiftDayKey(TODAY, -1)), TODAY);
+
+    expect(today.days).toBe(0);
+    expect(today.todayCounts).toBe(false);
+    expect(yesterday.days).toBe(0);
+  });
+
+  it('counts the focused days it can see when a bridged day sits on the window edge', () => {
+    // The oldest day in the window is bridged: it holds nothing older into view.
+    const focused = focusedRun(TODAY, 2);
+
+    expect(computeStreak(windowOf(3, focused), graceOn(shiftDayKey(TODAY, -2)), TODAY).days).toBe(2);
   });
 
   it('stops at the edge of the window instead of counting days it cannot see', () => {
