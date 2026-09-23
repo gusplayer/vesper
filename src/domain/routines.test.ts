@@ -113,17 +113,15 @@ describe('routineStatus and sortRoutines', () => {
   });
 
   it('is started, never active, once the engine started this window', () => {
-    const mark = { routineId: 'r-work', windowStart: WED_9 };
-    expect(routineStatus(routine(), WED_10, mark)).toEqual({
+    expect(routineStatus(routine(), WED_10, { 'r-work': WED_9 })).toEqual({
       kind: 'started',
       until: new Date(2026, 8, 16, 18).getTime(),
       next: THU_9,
     });
     // Another routine's mark, or yesterday's window, leaves it active.
-    expect(routineStatus(routine(), WED_10, { routineId: 'other', windowStart: WED_9 }).kind).toBe('active');
-    expect(routineStatus(routine(), WED_10, { routineId: 'r-work', windowStart: WED_9 - 24 * HOUR }).kind).toBe(
-      'active',
-    );
+    expect(routineStatus(routine(), WED_10, { other: WED_9 }).kind).toBe('active');
+    expect(routineStatus(routine(), WED_10, { 'r-work': WED_9 - 24 * HOUR }).kind).toBe('active');
+    expect(routineStatus(routine(), WED_10, {}).kind).toBe('active');
     expect(routineStatus(routine(), WED_10, null).kind).toBe('active');
   });
 
@@ -145,8 +143,7 @@ describe('routineStatus and sortRoutines', () => {
       'off',
     ]);
     // A started window keeps its place at the top: it is still today's routine.
-    const mark = { routineId: 'active', windowStart: WED_9 };
-    expect(sortRoutines([off, later, manual, sooner, active], WED_10, mark)[0]?.id).toBe('active');
+    expect(sortRoutines([off, later, manual, sooner, active], WED_10, { active: WED_9 })[0]?.id).toBe('active');
   });
 });
 
@@ -176,10 +173,34 @@ describe('routineDecision', () => {
 
   it('does nothing when nothing is due, or when this window already started', () => {
     expect(routineDecision([work], false, null, WED_22).action).toBe('none');
-    const mark = { routineId: 'r-work', windowStart: WED_9 };
-    expect(routineDecision([work], false, mark, WED_10).action).toBe('none');
-    const otherDay = { routineId: 'r-work', windowStart: WED_9 - 24 * HOUR };
-    expect(routineDecision([work], false, otherDay, WED_10).action).toBe('start');
+    expect(routineDecision([work], false, { 'r-work': WED_9 }, WED_10).action).toBe('none');
+    expect(routineDecision([work], false, { 'r-work': WED_9 - 24 * HOUR }, WED_10).action).toBe('start');
+  });
+
+  it('keeps one mark per routine, so an overlapping routine never revives another', () => {
+    // "Trabajo" 09:00–18:00 and "Lectura" 13:00–13:30, both on weekdays. Trabajo
+    // starts at 09:00 and the user ends its session at 09:30; Lectura starts at 13:00
+    // and is over at 13:30, with Trabajo's window still open. With a single mark,
+    // Lectura's would have erased Trabajo's and the engine would open a four-and-a-half
+    // hour session at 13:30 that nobody asked for.
+    const reading = routine({ id: 'r-reading', startMinutes: 13 * 60, endMinutes: 13 * 60 + 30 });
+    const routines = [work, reading];
+    const AT_13 = new Date(2026, 8, 16, 13).getTime();
+    const AT_13_30 = new Date(2026, 8, 16, 13, 30).getTime();
+
+    const first = routineDecision(routines, false, {}, WED_9);
+    expect(first.action === 'start' ? first.routine.id : null).toBe('r-work');
+
+    // The user ends that session at 09:30; at 13:00 Lectura is the due one.
+    const starts: Record<string, number> = { 'r-work': WED_9 };
+    const second = routineDecision(routines, false, starts, AT_13);
+    expect(second.action === 'start' ? second.routine.id : null).toBe('r-reading');
+
+    starts['r-reading'] = AT_13;
+    expect(routineDecision(routines, false, starts, AT_13 + MINUTE).action).toBe('none');
+    // 13:30: Lectura closed, Trabajo's window runs to 18:00 — and stays marked.
+    expect(routineDecision(routines, false, starts, AT_13_30).action).toBe('none');
+    expect(routineStatus(work, AT_13_30, starts).kind).toBe('started');
   });
 
   it('does not start a routine saved inside its window, and starts it at the next occurrence', () => {

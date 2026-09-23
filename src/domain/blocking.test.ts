@@ -79,7 +79,7 @@ describe('shieldCopy', () => {
     const copy = shieldCopy('Sin redes', es.session.shield);
 
     expect(copy.title).toBe('Vesper · Sin redes');
-    expect(copy.subtitle).toBe('Estás enfocado. Esta app espera.');
+    expect(copy.subtitle).toBe('Estás enfocando. Esta app espera.');
     expect(copy.primaryButtonLabel).toBe('Cerrar');
   });
 

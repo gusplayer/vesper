@@ -19,10 +19,11 @@ import {
 } from '../domain/circle';
 import { dayBounds, dayKeyOf, dayKeyStart, weekDayKeys, weekStart } from '../domain/day';
 import { weeklyProgress, type HabitProgress } from '../domain/habits';
+import { buildLedger } from '../domain/ledger';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import { elapsed } from '../domain/session';
 import { computeStreak, type StreakState } from '../domain/streak';
-import { ME, type Challenge, type Member, type Profile, type SharePrefs } from '../domain/types';
+import { ME, type Challenge, type Ledger, type Member, type Profile, type SharePrefs } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
 import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
@@ -34,7 +35,7 @@ import { useAppStore } from './stores/app';
 import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
-import { useUsageStore, weekUsageMs, type UsageSource } from './stores/usage';
+import { sharedWeekUsageMs, useUsageStore, type UsageSource } from './stores/usage';
 import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
 
 /**
@@ -102,6 +103,9 @@ export function resetAndRehydrate(now: number): BootResult {
     useLocaleStore.getState().setPreference(preference, now);
   }
   useOnboardingDraft.getState().reset();
+  // The phone's usage reading is not in SQLite, so rehydrating cannot clear it: the
+  // store (and, through its epoch, the platform's cooldown) is reset by hand.
+  useUsageStore.getState().reset();
   hydrateStores(now);
   return result;
 }
@@ -177,6 +181,30 @@ export function useDayStats(): DayStat[] {
   return useAppStore((state) => state.dayStats);
 }
 
+/**
+ * Today's ledger (ADR-0010, ADR-0038). The unregistered row is the part of the
+ * elapsed day that no interval covers — a set operation, not a subtraction — so no
+ * figure of one provenance is ever taken off a figure of another (rule 9). The
+ * social estimate rides along as its own row and stays out of that subtraction.
+ *
+ * The running session comes from the focus store rather than the cached rows: its
+ * breaks move while the screen is open, and the cache only refreshes on close.
+ */
+export function useDayLedger(now: number): Ledger {
+  const { sessions: cached, activities } = useAppStore((state) => state.ledger);
+  const running = useFocusStore((state) => state.session);
+  const usage = useUsage();
+  const t = useStrings();
+  return useMemo(() => {
+    const sessions = running === null ? cached : [...cached.filter((s) => s.id !== running.id), running];
+    const { dayStart, dayEnd } = dayBounds(now);
+    return buildLedger(
+      { dayStart, dayEnd, now, activities, sessions, healthSamples: [], usageEstimateMs: usage.todayMs },
+      t.activity.ledger,
+    );
+  }, [cached, activities, running, usage.todayMs, t, now]);
+}
+
 /** The usage floor a screen shows: totals, breakdown, where it came from and why (ADR-0029). */
 export type UsageView = {
   source: UsageSource;
@@ -205,6 +233,8 @@ export function useUsage(): UsageView {
     if (source === 'device' && reading !== null) {
       return { source, reason: null, readAt, ...reading };
     }
+    // The seed carries four apps, inside the breakdown's cap; a device reading is cut
+    // to MAX_USAGE_ROWS in platform/usageReading.ts, which owns that number (ADR-0029).
     const byApp: AppUsage[] = [];
     for (const { appId, ms } of USAGE.byApp) {
       const app = apps.find((candidate) => candidate.id === appId);
@@ -313,12 +343,13 @@ export function usePendingInvites(): Member[] {
  * The circle's week, the user included. Empty without a profile or without anyone
  * in the circle: the screen shows the invitation card instead. The user's numbers
  * come from their own stores; social use is the estimated floor and goes in only
- * when they chose to share it (ADR-0005, ADR-0021).
+ * when they chose to share it *and* the phone gave a figure of their own; otherwise
+ * the row says "not shared" (ADR-0005, ADR-0021, ADR-0033).
  */
 export function useCircleWeek(now: number): CircleWeekRow[] {
   const profile = useProfile();
   const share = useSharePrefs();
-  const socialWeekMs = useUsageStore(weekUsageMs);
+  const socialWeekMs = useUsageStore(sharedWeekUsageMs);
   const members = useCircleMembers();
   const memberWeeks = useCircleStore((state) => state.memberWeeks);
   const week = useWeekStats(now);
@@ -330,6 +361,8 @@ export function useCircleWeek(now: number): CircleWeekRow[] {
     const focusMs = week.reduce((total, day) => total + day.focusMs, 0);
     const habitsDone = habits.reduce((total, h) => total + Math.min(h.markedDays, h.habit.weeklyTarget), 0);
     const habitsTarget = habits.reduce((total, h) => total + h.habit.weeklyTarget, 0);
+    // `socialWeekMs` is null while the floor is the demo one: the circle says "not
+    // shared" rather than publishing seed data as this person's week (ADR-0035 §2).
     const mine = { focusMs, socialMs: share.social ? socialWeekMs : null, habitsDone, habitsTarget };
     return circleWeek(members, memberWeeks, { profile, week: mine }, weekKeyOf(now));
   }, [profile, share.social, socialWeekMs, members, memberWeeks, week, habits, now]);

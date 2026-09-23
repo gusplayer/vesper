@@ -395,7 +395,7 @@ describe('challengeOutlook', () => {
   /** Wednesday the 19th: five days left in the week, today included. */
   const wednesday = dayKeyStart(TODAY) + 10 * HOUR;
   const sunday = dayKeyStart('2026-08-23') + 10 * HOUR;
-  const outlook = (done: number, at = wednesday) => challengeOutlook({ done, target: 4 }, at);
+  const outlook = (done: number, at = wednesday) => challengeOutlook({ done, target: 4 }, at, false);
 
   it('counts the days left in the week with today inside', () => {
     expect(outlook(0).daysLeft).toBe(5);
@@ -412,16 +412,37 @@ describe('challengeOutlook', () => {
 
   it('turns tight, then at risk, as the slack runs out', () => {
     // Wednesday, five days left: three needed still has slack, four is tight, five is the wall.
-    expect(challengeOutlook({ done: 1, target: 4 }, wednesday).risk).toBe('onTrack');
-    expect(challengeOutlook({ done: 0, target: 4 }, wednesday).risk).toBe('tight');
-    expect(challengeOutlook({ done: 0, target: 5 }, wednesday).risk).toBe('atRisk');
+    expect(challengeOutlook({ done: 1, target: 4 }, wednesday, false).risk).toBe('onTrack');
+    expect(challengeOutlook({ done: 0, target: 4 }, wednesday, false).risk).toBe('tight');
+    expect(challengeOutlook({ done: 0, target: 5 }, wednesday, false).risk).toBe('atRisk');
   });
 
   it('is missed when more marks are needed than there are days', () => {
-    expect(challengeOutlook({ done: 0, target: 6 }, wednesday).risk).toBe('missed');
-    expect(challengeOutlook({ done: 3, target: 4 }, sunday).risk).toBe('atRisk');
-    expect(challengeOutlook({ done: 2, target: 4 }, sunday).risk).toBe('missed');
-    expect(challengeOutlook({ done: 2, target: 4 }, sunday).needed).toBe(2);
+    expect(challengeOutlook({ done: 0, target: 6 }, wednesday, false).risk).toBe('missed');
+    expect(challengeOutlook({ done: 3, target: 4 }, sunday, false).risk).toBe('atRisk');
+    expect(challengeOutlook({ done: 2, target: 4 }, sunday, false).risk).toBe('missed');
+    expect(challengeOutlook({ done: 2, target: 4 }, sunday, false).needed).toBe(2);
+  });
+
+  it('drops today from the days left once it is marked: the mark is already in done', () => {
+    // A challenge of six, Sunday, marked Monday to Thursday and again today. Counting
+    // today twice would read as 'atRisk' — "only marking today saves it" — with today
+    // already marked and the week out of reach.
+    const marked = challengeOutlook({ done: 5, target: 6 }, sunday, true);
+
+    expect(marked).toEqual({ risk: 'missed', needed: 1, daysLeft: 0 });
+    // The same week with today still free is the wall it is supposed to be.
+    expect(challengeOutlook({ done: 4, target: 6 }, sunday, false).risk).toBe('missed');
+    expect(challengeOutlook({ done: 5, target: 6 }, sunday, false).risk).toBe('atRisk');
+  });
+
+  it('shifts every state by a day when today is marked', () => {
+    // Wednesday with today marked: four days can still take a mark, not five.
+    expect(challengeOutlook({ done: 1, target: 4 }, wednesday, true).daysLeft).toBe(4);
+    expect(challengeOutlook({ done: 1, target: 4 }, wednesday, true).risk).toBe('tight');
+    expect(challengeOutlook({ done: 1, target: 5 }, wednesday, true).risk).toBe('atRisk');
+    expect(challengeOutlook({ done: 1, target: 6 }, wednesday, true).risk).toBe('missed');
+    expect(challengeOutlook({ done: 4, target: 4 }, wednesday, true).risk).toBe('met');
   });
 });
 
@@ -450,6 +471,8 @@ describe('challengeWeeks', () => {
     const weeks = challengeWeeks(challenge(), myMarks, TODAY);
 
     expect(weeks.map((w) => w.closed)).toEqual([false, false]);
+    // Its own Sunday is the day that tells the two apart: the user can still mark it.
+    expect(challengeWeeks(challenge(), myMarks, '2026-08-23').map((w) => w.closed)).toEqual([false, false]);
     expect(challengeWeeks(challenge(), myMarks, '2026-08-24').map((w) => w.closed)).toEqual([true, false]);
   });
 

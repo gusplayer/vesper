@@ -1,5 +1,5 @@
 import type { Mode, NotificationPrefs, Schedule } from '../data/types';
-import { es, type Strings } from '../i18n/es';
+import type { Strings } from '../i18n/es';
 import { durationText } from '../lib/format';
 import { atMinuteOfDay, dayKeyOf, dayKeyStart, dayStartShifted } from './day';
 import { breakEndsAt, plannedEndAt } from './session';
@@ -28,9 +28,10 @@ import type { DayKey, Session } from './types';
  *   reactivation), by priority. Session, routine and Sunday notices are
  *   appointments the user made and stay outside the budget.
  *
- * The words come in as the `notifications` slice of the dictionary (ADR-0020). The
- * caller passes `getStrings().notifications`; the Spanish default only keeps callers
- * that have not been migrated yet compiling, and is not what the app should rely on.
+ * The words come in as the `notifications` slice of the dictionary (ADR-0020), and
+ * every function here takes it. There is no default: a Spanish one would let a caller
+ * forget the argument and send Spanish notices to a phone in English without `tsc`
+ * saying a word. The type crosses from i18n, the value never does.
  */
 
 export type ReminderStrings = Strings['notifications'];
@@ -115,7 +116,7 @@ export function expoWeekday(mondayFirstIndex: number): number {
  * app sleeps. Null during a break, when the end is not known yet, and for an open
  * session, which has no end to announce.
  */
-export function sessionEndReminder(session: Session, t: ReminderStrings = es.notifications): DateSpec | null {
+export function sessionEndReminder(session: Session, t: ReminderStrings): DateSpec | null {
   const at = plannedEndAt(session);
   if (at === null || session.open) {
     return null;
@@ -135,7 +136,7 @@ export function sessionEndReminder(session: Session, t: ReminderStrings = es.not
  * The notice when a break runs out: the apps lock again and the session goes on.
  * Its id changes with each break, so a new break is a new notice for the diff.
  */
-export function breakEndReminder(session: Session, t: ReminderStrings = es.notifications): DateSpec | null {
+export function breakEndReminder(session: Session, t: ReminderStrings): DateSpec | null {
   const at = breakEndsAt(session);
   if (at === null) {
     return null;
@@ -155,7 +156,7 @@ export function breakEndReminder(session: Session, t: ReminderStrings = es.notif
 export function scheduleReminders(
   schedule: Schedule,
   modeName: string,
-  t: ReminderStrings = es.notifications,
+  t: ReminderStrings,
 ): WeeklySpec[] {
   // A routine you start by hand has no hour to remind about.
   if (!schedule.enabled || schedule.startMinutes === null) {
@@ -185,7 +186,7 @@ export function scheduleReminders(
 }
 
 /** Sunday evening: time to close the week (ADR-0013). */
-export function weeklyCloseReminder(t: ReminderStrings = es.notifications): WeeklySpec {
+export function weeklyCloseReminder(t: ReminderStrings): WeeklySpec {
   return {
     id: 'weekly-close',
     kind: 'weeklyClose',
@@ -228,18 +229,19 @@ export type ChallengeReminder = {
   name: string;
   /** Marks still missing this week. */
   needed: number;
-  /** Days still to run this week, today included. */
+  /** Days this week that can still take a mark; today counts while it is unmarked. */
   daysLeft: number;
   /** True when only marking every remaining day still meets the week. */
   atRisk: boolean;
   /** True once today is marked: there is nothing left to say today. */
   markedToday: boolean;
   /**
-   * The challenge's last day and how it went, once that day has arrived. The closing
-   * notice goes out the day after, so a challenge that ends on Sunday is not
+   * The challenge's last day and how it has gone so far, for every challenge that has
+   * an end — before that day as much as after it. Null for one with no end. The
+   * closing notice goes out the day after, so a challenge that ends on Sunday is not
    * announced while its Sunday is still open.
    */
-  endedOn: { dayKey: DayKey; met: number; total: number } | null;
+  endsOn: { dayKey: DayKey; met: number; total: number } | null;
 };
 
 /**
@@ -261,7 +263,7 @@ function reminderInstants(state: ReminderState): { today: number; tomorrow: numb
  * it (the next sync replaces it with what is true then). `days` already includes
  * today when it counts, so tomorrow's number is the same streak, not one more.
  */
-export function streakRiskReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+export function streakRiskReminders(state: ReminderState, t: ReminderStrings): DateSpec[] {
   if (!state.prefs.streak) {
     return [];
   }
@@ -294,7 +296,7 @@ export function streakRiskReminders(state: ReminderState, t: ReminderStrings = e
  * again and the plan is remade (ADR-0027 §4). Never together with the streak notice:
  * the two are exclusive on `days`, so tomorrow holds exactly one of them.
  */
-export function noFocusReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+export function noFocusReminders(state: ReminderState, t: ReminderStrings): DateSpec[] {
   if (!state.prefs.noFocus) {
     return [];
   }
@@ -326,7 +328,7 @@ export function noFocusReminders(state: ReminderState, t: ReminderStrings = es.n
  * so a new open is a new pair for the diff. The body says what the app knows: the
  * circle if there is one, the streak that stopped if there was one, else the plain line.
  */
-export function reactivationReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+export function reactivationReminders(state: ReminderState, t: ReminderStrings): DateSpec[] {
   if (!state.prefs.reactivation || state.lastOpenedAt === null) {
     return [];
   }
@@ -364,7 +366,7 @@ export function reactivationReminders(state: ReminderState, t: ReminderStrings =
  * When two challenges are equally lost, the tightest wins: fewest days left first,
  * then the one that needs the most. Nothing is planned once the hour has passed.
  */
-export function challengeRiskReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+export function challengeRiskReminders(state: ReminderState, t: ReminderStrings): DateSpec[] {
   if (!state.prefs.challenges) {
     return [];
   }
@@ -394,28 +396,34 @@ export function challengeRiskReminders(state: ReminderState, t: ReminderStrings 
  * "Terminó Leer. Cumpliste 3 de 3 semanas.": once, at the reminder hour of the day
  * after the last day. It is the only notice that says how something went instead of
  * asking for something, and a challenge only has one, so its id carries the last day.
+ *
+ * It is planned as soon as the end is known, not once the end has passed — the same
+ * way the streak and no-focus notices always plan tomorrow's. Waiting for the last
+ * day would mean the one notice in the app that celebrates something never arrives on
+ * a phone nobody opens that day. The count it carries is what the app knew when the
+ * plan was made, and every sync until then replaces it with what is true by then.
  */
-export function challengeEndReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+export function challengeEndReminders(state: ReminderState, t: ReminderStrings): DateSpec[] {
   if (!state.prefs.challenges) {
     return [];
   }
   const specs: DateSpec[] = [];
   for (const challenge of state.challenges) {
-    const ended = challenge.endedOn;
-    if (ended === null) {
+    const ends = challenge.endsOn;
+    if (ends === null) {
       continue;
     }
-    const at = atMinuteOfDay(dayStartShifted(dayKeyStart(ended.dayKey), 1), state.prefs.reminderMinutes);
+    const at = atMinuteOfDay(dayStartShifted(dayKeyStart(ends.dayKey), 1), state.prefs.reminderMinutes);
     if (at <= state.now) {
       continue;
     }
     specs.push({
-      id: `challenge-end-${challenge.id}-${ended.dayKey}`,
+      id: `challenge-end-${challenge.id}-${ends.dayKey}`,
       kind: 'challengeEnd',
       trigger: 'date',
       at,
       title: t.challengeEnd.title(challenge.name),
-      body: t.challengeEnd.body(ended.met, ended.total),
+      body: t.challengeEnd.body(ends.met, ends.total),
       sound: false,
     });
   }
@@ -438,14 +446,14 @@ export function withoutQuietHours<S extends DateSpec>(specs: readonly S[]): S[] 
 }
 
 /**
- * At most `DAILY_BUDGET` daily notices per local day, kept by priority: streak at
- * risk, then day without focus, then reactivation. Only the three daily kinds count;
- * everything else passes through untouched, in its place. The Sunday close is weekly
- * and stays outside the cap.
+ * At most `DAILY_BUDGET` daily notices per local day, kept in the order of
+ * `DAILY_KINDS`: streak at risk, challenge at risk, challenge ended, day without
+ * focus, reactivation. Only those five count; everything else passes through
+ * untouched, in its place. The Sunday close is weekly and stays outside the cap.
  *
- * Structurally the cap is never exceeded: streak and no-focus are exclusive, and the
- * two reactivation days are different days, so a day holds at most one of the first
- * two plus one reactivation. The cap is the guardrail for the next kind that arrives.
+ * The cap cuts for real. Since ADR-0031 one day can hold a streak about to break, a
+ * challenge slipping away, a challenge that ended and a reactivation all at once, and
+ * this is what decides which two of them the phone sees.
  */
 export function applyDailyBudget(specs: readonly NotificationSpec[]): NotificationSpec[] {
   const perDay = new Map<string, DateSpec[]>();
@@ -481,7 +489,7 @@ export function applyDailyBudget(specs: readonly NotificationSpec[]): Notificati
  * The plan carries its words, so a language change is a change of plan: the diff
  * reschedules every pending notice in the new language.
  */
-export function plannedNotifications(state: ReminderState, t: ReminderStrings = es.notifications): NotificationSpec[] {
+export function plannedNotifications(state: ReminderState, t: ReminderStrings): NotificationSpec[] {
   if (!state.allowed) {
     return [];
   }

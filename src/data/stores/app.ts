@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import { resolveActivityId } from '../../db/boot';
 import { loadDayStats } from '../../db/queries/dayStats';
+import { loadLedgerSources, type LedgerSources } from '../../db/queries/dayLedger';
 import { loadDayFocus } from '../../db/queries/streak';
 import * as graceDaysRepo from '../../db/repositories/graceDays';
 import * as habitsRepo from '../../db/repositories/habits';
@@ -10,7 +11,7 @@ import * as schedulesRepo from '../../db/repositories/schedules';
 import * as settingsRepo from '../../db/repositories/settings';
 import { dayKeyOf, shiftDayKey } from '../../domain/day';
 import { activeHabitCount, canAddHabit } from '../../domain/habits';
-import { graceDaysToApply, monthKeyOf } from '../../domain/streak';
+import { graceDaysToApply, monthKeyOf, STREAK_WINDOW_DAYS } from '../../domain/streak';
 import type { GraceDay, Habit, HabitMark } from '../../domain/types';
 import { uuidv7 } from '../../lib/uuid';
 import { SETTINGS } from '../seed';
@@ -26,8 +27,14 @@ import type { DayStat, Mode, NotificationPrefs, Rules, Schedule, Settings } from
  * before the first render.
  */
 
-/** How far back the day stats and the marks are loaded. A year is cheap and enough. */
-const HISTORY_DAYS = 366;
+/**
+ * How far back the day stats and the marks are loaded. It is the streak's window
+ * (domain/streak) on purpose: Focus reads the streak from these day stats and the
+ * reminder planner reads it from `loadDayFocus`, and `computeStreak` stops at the edge
+ * of the window it is given, so two spans would be two different numbers on the same
+ * phone. A year and a bit is cheap either way.
+ */
+const HISTORY_DAYS = STREAK_WINDOW_DAYS;
 
 type AppState = {
   modes: Mode[];
@@ -37,6 +44,8 @@ type AppState = {
   habits: Habit[];
   habitMarks: HabitMark[];
   dayStats: DayStat[];
+  /** Today's sessions and their activities, for the day ledger (ADR-0038). */
+  ledger: LedgerSources;
   /** The days the streak was bridged on its own, oldest first (ADR-0027). */
   graceDays: GraceDay[];
 
@@ -125,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => {
     habits: [],
     habitMarks: [],
     dayStats: [],
+    ledger: { sessions: [], activities: [] },
     graceDays: [],
 
     hydrate: (now = Date.now()) => {
@@ -140,6 +150,7 @@ export const useAppStore = create<AppState>((set, get) => {
         habits: habitsRepo.listActive(),
         habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKeyOf(now)),
         dayStats: loadDayStats(now, HISTORY_DAYS),
+        ledger: loadLedgerSources(now),
         graceDays: graceDaysRepo.listGraceDays(),
       });
       // With the settings and the grace rows in, the days missed since the last open
@@ -230,6 +241,12 @@ export const useAppStore = create<AppState>((set, get) => {
     deleteSchedule: (id) => {
       schedulesRepo.remove(id);
       set((state) => ({ schedules: state.schedules.filter((s) => s.id !== id) }));
+      // Its start mark goes with it. Nothing would read it again, and settings would
+      // otherwise keep one entry for every routine ever deleted.
+      const { [id]: removed, ...rest } = get().settings.routineStarts;
+      if (removed !== undefined) {
+        saveSettings({ ...get().settings, routineStarts: rest });
+      }
     },
 
     updateSettings: (patch) => {
@@ -314,7 +331,8 @@ export const useAppStore = create<AppState>((set, get) => {
       saveSettings({ ...get().settings, healthSyncedAt: syncedAt });
     },
 
-    recordFocus: (now) => set({ dayStats: loadDayStats(now, HISTORY_DAYS) }),
+    recordFocus: (now) =>
+      set({ dayStats: loadDayStats(now, HISTORY_DAYS), ledger: loadLedgerSources(now) }),
 
     settleStreak: (now) => {
       const toApply = graceDaysToApply(loadDayFocus(now), get().graceDays, dayKeyOf(now));

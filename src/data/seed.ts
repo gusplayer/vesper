@@ -264,7 +264,7 @@ export const SETTINGS: Settings = {
   weeklyTargetMs: 15 * HOUR,
   pendingBanner: null,
   healthSyncedAt: null,
-  lastRoutineStart: null,
+  routineStarts: {},
   lastOpenedAt: null,
 };
 

@@ -319,7 +319,11 @@ export type ChallengeOutlook = {
   risk: ChallengeRisk;
   /** Marks still missing this week; 0 once met. */
   needed: number;
-  /** Days still to run this week, today included. */
+  /**
+   * Days this week that can still take a mark, today included while it is free.
+   * Today drops out of it once it is marked: the mark is already inside `done`, and
+   * counting the day again would say a week is still winnable when it is not.
+   */
   daysLeft: number;
 };
 
@@ -327,9 +331,19 @@ export type ChallengeOutlook = {
  * The outlook of one standing at `now`. Pure and free of the challenge: a standing
  * already carries its target and what was delivered, and the week's remaining days
  * come from the clock.
+ *
+ * `markedToday` is what keeps the two sides of the arithmetic in step. `done` already
+ * counts today's mark, so leaving today among the days left counts that day twice: a
+ * challenge of six with five marks, on a Sunday that is already marked, would read as
+ * `atRisk` — the screen saying "only marking today saves it" about a day that is
+ * marked and a week that is gone.
  */
-export function challengeOutlook(standing: Pick<Standing, 'done' | 'target'>, now: number): ChallengeOutlook {
-  const daysLeft = daysLeftInWeek(now);
+export function challengeOutlook(
+  standing: Pick<Standing, 'done' | 'target'>,
+  now: number,
+  markedToday: boolean,
+): ChallengeOutlook {
+  const daysLeft = daysLeftInWeek(now) - (markedToday ? 1 : 0);
   const needed = Math.max(0, standing.target - standing.done);
   return { risk: riskOf(needed, daysLeft), needed, daysLeft };
 }
@@ -386,7 +400,8 @@ export function challengeWeeks(
       done,
       target: challenge.weeklyTarget,
       met: done >= challenge.weeklyTarget,
-      closed: shiftDayKey(weekKey, 6) <= todayKey,
+      // Its Sunday has to be behind us: while it is today, the week can still change.
+      closed: shiftDayKey(weekKey, 6) < todayKey,
     });
     weekKey = shiftDayKey(weekKey, 7);
   }

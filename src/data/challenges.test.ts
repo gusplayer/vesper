@@ -71,12 +71,19 @@ describe('challengeReminders', () => {
 
     const [reminder] = challengeReminders([over], marks(WEEK, '2026-08-18'), WEDNESDAY);
 
-    expect(reminder?.endedOn).toEqual({ dayKey: '2026-08-18', met: 0, total: 1 });
+    expect(reminder?.endsOn).toEqual({ dayKey: '2026-08-18', met: 0, total: 1 });
   });
 
-  it('leaves endedOn null while the challenge still runs', () => {
-    expect(challengeReminders([challenge()], marks(), WEDNESDAY)[0]?.endedOn).toBeNull();
-    expect(challengeReminders([challenge({ endDayKey: null })], marks(), WEDNESDAY)[0]?.endedOn).toBeNull();
+  it('carries the last day before it arrives too, so the closing notice can be planned ahead', () => {
+    // Both weeks of the challenge are counted, the one still to run included; how
+    // many were met is what the app knows today and every later sync corrects.
+    const [reminder] = challengeReminders([challenge()], marks(WEEK), WEDNESDAY);
+
+    expect(reminder?.endsOn).toEqual({ dayKey: '2026-08-30', met: 0, total: 2 });
+  });
+
+  it('leaves endsOn null only for a challenge with no end', () => {
+    expect(challengeReminders([challenge({ endDayKey: null })], marks(), WEDNESDAY)[0]?.endsOn).toBeNull();
   });
 });
 
@@ -86,7 +93,8 @@ describe('myChallengeWeeks', () => {
 
     expect(week?.days).toEqual([true, false, true, false, false, false, false]);
     expect(week).toMatchObject({ id: 'challenge-1', name: 'Leer', done: 2, target: 4, markedToday: true });
-    expect(week?.outlook).toEqual({ risk: 'onTrack', needed: 2, daysLeft: 5 });
+    // Today is marked, so it is not one of the days a mark can still land on.
+    expect(week?.outlook).toEqual({ risk: 'onTrack', needed: 2, daysLeft: 4 });
   });
 
   it('keeps only the user own live challenges, active ones first', () => {

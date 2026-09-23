@@ -13,6 +13,15 @@ import type { DayKey, GraceDay } from './types';
 export const STREAK_DAY_MIN_MS = 10 * MINUTE;
 export const GRACE_DAYS_PER_MONTH = 3;
 
+/**
+ * How many days back the window that feeds `computeStreak` reaches. The walk stops at
+ * the edge of what it was given, so every route to the streak has to load the same
+ * span or the same phone shows two different numbers: the one Focus draws from the
+ * day stats and the one the reminder planner reads from `loadDayFocus`. A year and a
+ * bit: cheap to fold, and far past where a daily streak stops being news.
+ */
+export const STREAK_WINDOW_DAYS = 400;
+
 export type DayFocus = { dayKey: DayKey; focusMs: number };
 
 export type StreakState = {

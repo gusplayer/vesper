@@ -127,21 +127,26 @@ function banner(value: unknown, fallback: Settings['pendingBanner']): Settings['
   return fallback;
 }
 
+function routineStarts(value: unknown, fallback: Settings['routineStarts']): Settings['routineStarts'] {
+  if (!isRecord(value)) {
+    return fallback;
+  }
+  // Entry by entry, like every other field: one corrupt mark is one routine that may
+  // start its window again, not a settings object that falls back whole.
+  const starts: Record<string, number> = {};
+  for (const [routineId, windowStart] of Object.entries(value)) {
+    if (typeof windowStart === 'number' && Number.isFinite(windowStart)) {
+      starts[routineId] = windowStart;
+    }
+  }
+  return starts;
+}
+
 /**
  * Turns whatever is stored under `prototype_settings` into a complete Settings object.
  * Every field is checked one by one and falls back to `defaults` on its own, so a
  * field added later, or a corrupt one, never takes the rest down with it.
  */
-function routineMark(value: unknown, fallback: Settings['lastRoutineStart']): Settings['lastRoutineStart'] {
-  if (value === null) {
-    return null;
-  }
-  if (isRecord(value) && typeof value.routineId === 'string' && typeof value.windowStart === 'number') {
-    return { routineId: value.routineId, windowStart: value.windowStart };
-  }
-  return fallback;
-}
-
 export function parseSettings(raw: unknown, defaults: Settings): Settings {
   const value = isRecord(raw) ? raw : {};
   return {
@@ -161,7 +166,7 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     weeklyTargetMs: numOrNull(value.weeklyTargetMs, defaults.weeklyTargetMs),
     pendingBanner: banner(value.pendingBanner, defaults.pendingBanner),
     healthSyncedAt: numOrNull(value.healthSyncedAt, defaults.healthSyncedAt),
-    lastRoutineStart: routineMark(value.lastRoutineStart, defaults.lastRoutineStart),
+    routineStarts: routineStarts(value.routineStarts, defaults.routineStarts),
     lastOpenedAt: numOrNull(value.lastOpenedAt, defaults.lastOpenedAt),
   };
 }

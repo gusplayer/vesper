@@ -109,15 +109,23 @@ export function nextStart(routine: RoutineLike, now: Millis): Millis | null {
   return null;
 }
 
-/** What the engine last did, so a window never starts twice. */
-export type RoutineMark = {
-  routineId: string;
-  windowStart: Millis;
-};
+/**
+ * What the engine last started, one window per routine: `{ [routineId]: windowStart }`.
+ *
+ * One mark for all of them would not do. Two routines can overlap — "Trabajo" 09:00
+ * to 18:00 and "Lectura" 13:00 to 13:30 — and the second one starting would erase
+ * the first one's mark; when the short one closed, the long one's window would still
+ * be open, read as never started, and take the phone into a four-hour session nobody
+ * asked for. A mark per routine is what makes "a window never starts twice" true.
+ */
+export type RoutineStarts = Readonly<Record<string, Millis>>;
 
-/** Whether `mark` is this routine's window: the engine already started it. */
-export function isMarked(routine: RoutineLike, window: RoutineWindow, mark: RoutineMark | null): boolean {
-  return mark !== null && mark.routineId === routine.id && mark.windowStart === window.start;
+/**
+ * Whether this routine's window is already marked: the engine started it. `null` is
+ * a phone that has started nothing yet, the same as an empty record.
+ */
+export function isMarked(routine: RoutineLike, window: RoutineWindow, starts: RoutineStarts | null): boolean {
+  return starts?.[routine.id] === window.start;
 }
 
 export type RoutineStatus =
@@ -135,11 +143,11 @@ export type RoutineStatus =
   | { kind: 'never' };
 
 /**
- * What a routine is doing right now. `lastMark` is what the engine last started
- * (settings.lastRoutineStart): without it a window whose session was ended early
- * would still read as active, which it is not — a window never starts twice.
+ * What a routine is doing right now. `starts` is what the engine started, by routine
+ * (settings.routineStarts): without it a window whose session was ended early would
+ * still read as active, which it is not — a window never starts twice.
  */
-export function routineStatus(routine: RoutineLike, now: Millis, lastMark: RoutineMark | null = null): RoutineStatus {
+export function routineStatus(routine: RoutineLike, now: Millis, starts: RoutineStarts | null = null): RoutineStatus {
   if (!routine.enabled) {
     return { kind: 'off' };
   }
@@ -148,7 +156,7 @@ export function routineStatus(routine: RoutineLike, now: Millis, lastMark: Routi
   }
   const active = activeWindow(routine, now);
   if (active !== null) {
-    return isMarked(routine, active, lastMark)
+    return isMarked(routine, active, starts)
       ? { kind: 'started', until: active.end, next: nextStart(routine, now) }
       : { kind: 'active', until: active.end };
   }
@@ -163,10 +171,10 @@ export function routineStatus(routine: RoutineLike, now: Millis, lastMark: Routi
 export function sortRoutines<T extends RoutineLike>(
   routines: readonly T[],
   now: Millis,
-  lastMark: RoutineMark | null = null,
+  starts: RoutineStarts | null = null,
 ): T[] {
   const rank = (routine: T): [number, number] => {
-    const status = routineStatus(routine, now, lastMark);
+    const status = routineStatus(routine, now, starts);
     switch (status.kind) {
       case 'active':
       case 'started':
@@ -217,21 +225,22 @@ export type RoutineDecision =
  * - A due window while a session runs waits: it never interrupts what you are doing.
  *   The next tick after that session ends will start it, if the window is still open.
  * - A window already started (same routine, same start) is never started again, even
- *   if its session was ended early. Ending it was a decision.
+ *   if its session was ended early. Ending it was a decision. The mark is per routine,
+ *   so an overlapping routine starting does not revive the one that already ran.
  * - A window that was already open when the routine was saved is not due at all
  *   (activeWindow): saving a routine is not asking for a session right now.
  */
 export function routineDecision(
   routines: readonly RoutineLike[],
   sessionRunning: boolean,
-  lastMark: RoutineMark | null,
+  starts: RoutineStarts | null,
   now: Millis,
 ): RoutineDecision {
   const due = dueRoutine(routines, now);
   if (due === null) {
     return { action: 'none' };
   }
-  if (isMarked(due.routine, due.window, lastMark)) {
+  if (isMarked(due.routine, due.window, starts)) {
     return { action: 'none' };
   }
   if (sessionRunning) {

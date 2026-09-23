@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@expo-google-fonts/literata": "^0.4.3",
     "@expo-google-fonts/outfit": "^0.4.3",
     "@expo/ui": "~57.0.18",
     "@expo/vector-icons": "^15.1.1",
@@ -27,7 +26,6 @@
     "react-native": "0.86.3",
     "react-native-device-activity": "^0.6.1",
     "react-native-health": "^1.19.0",
-    "react-native-pager-view": "8.0.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
     "react-native-svg": "15.15.4",
@@ -49,6 +47,7 @@
     "android": "expo run:android",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:dst": "TZ_OVERRIDE=America/Santiago vitest run",
     "typecheck": "tsc --noEmit",
     "postinstall": "patch-package",
     "lint": "eslint ."

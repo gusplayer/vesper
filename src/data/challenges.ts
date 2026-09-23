@@ -39,11 +39,11 @@ export function challengeReminders(
     const weeks = challengeWeeks(challenge, marks, todayKey);
     const running = challengeStatus(challenge, todayKey) === 'active';
     const thisWeek = weeks.find((week) => week.weekKey === weekKey);
+    const markedToday = marks.some((mark) => mark.habitId === challenge.habitId && mark.dayKey === todayKey);
     const outlook =
       running && thisWeek !== undefined
-        ? challengeOutlook(thisWeek, now)
+        ? challengeOutlook(thisWeek, now, markedToday)
         : { risk: 'met' as const, needed: 0, daysLeft: 0 };
-    const ended = challenge.endDayKey !== null && challenge.endDayKey <= todayKey;
 
     reminders.push({
       id: challenge.id,
@@ -51,9 +51,11 @@ export function challengeReminders(
       needed: outlook.needed,
       daysLeft: outlook.daysLeft,
       atRisk: outlook.risk === 'atRisk',
-      markedToday: marks.some((mark) => mark.habitId === challenge.habitId && mark.dayKey === todayKey),
-      endedOn:
-        challenge.endDayKey === null || !ended
+      markedToday,
+      // The last day, from the day it is known: the closing notice is planned ahead
+      // so it still arrives on a phone nobody opens that day (domain/reminders).
+      endsOn:
+        challenge.endDayKey === null
           ? null
           : { dayKey: challenge.endDayKey, ...challengeWeeksMet(weeks) },
     });
@@ -94,6 +96,7 @@ export function myChallengeWeeks(
       marks.some((mark) => mark.habitId === challenge.habitId && mark.dayKey === dayKey),
     );
     const done = days.filter(Boolean).length;
+    const markedToday = days[weekdayIndex(now)] ?? false;
     weeks.push({
       id: challenge.id,
       name: challenge.name,
@@ -101,8 +104,8 @@ export function myChallengeWeeks(
       days,
       done,
       target: challenge.weeklyTarget,
-      outlook: challengeOutlook({ done, target: challenge.weeklyTarget }, now),
-      markedToday: days[weekdayIndex(now)] ?? false,
+      outlook: challengeOutlook({ done, target: challenge.weeklyTarget }, now, markedToday),
+      markedToday,
     });
   }
   return weeks.sort((a, b) => MY_WEEK_ORDER[a.status] - MY_WEEK_ORDER[b.status]);

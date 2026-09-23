@@ -111,7 +111,7 @@ const DEFAULTS: Settings = {
   weeklyTargetMs: 54_000_000,
   pendingBanner: null,
   healthSyncedAt: null,
-  lastRoutineStart: null,
+  routineStarts: {},
   lastOpenedAt: null,
 };
 
@@ -160,6 +160,22 @@ describe('parseSettings', () => {
       rules: { ...DEFAULTS.rules, strictMode: true },
       healthSyncedAt: T0,
     });
+  });
+
+  it('keeps the routine start marks entry by entry, dropping the ones that are not numbers', () => {
+    const parsed = settings.parseSettings(
+      { routineStarts: { 'r-work': 1_700_000_000_000, 'r-reading': 'ayer', 'r-gym': Number.NaN } },
+      DEFAULTS,
+    );
+
+    expect(parsed.routineStarts).toEqual({ 'r-work': 1_700_000_000_000 });
+  });
+
+  it('falls back to no marks at all when routineStarts is not an object', () => {
+    expect(settings.parseSettings({ routineStarts: 'r-work' }, DEFAULTS).routineStarts).toEqual({});
+    expect(
+      settings.parseSettings({}, { ...DEFAULTS, routineStarts: { 'r-work': 1 } }).routineStarts,
+    ).toEqual({ 'r-work': 1 });
   });
 
   it('ignores unknown fields instead of carrying them along', () => {

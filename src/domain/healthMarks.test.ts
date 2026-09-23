@@ -168,6 +168,22 @@ describe('marksFromHealth: scope', () => {
     expect(marksFromHealth([untyped], busy, NOW)).toHaveLength(1);
   });
 
+  it('gives a verified habit no mark at all when neither its type nor its name maps to Health', () => {
+    // 'meditar' is verified and matches no hint: HealthKit has nothing to confirm it
+    // with, so it can never be marked — not here and not by hand, because a verified
+    // habit is not marked by hand. Nothing in the domain says so out loud; the screen
+    // that offers 'verificado' is what has to stop this from being saved.
+    const unmappable: Habit = aHabit({
+      id: 'h-meditate',
+      name: 'meditar',
+      countMode: 'verified',
+      healthType: null,
+    });
+
+    expect(marksFromHealth([unmappable], busy, NOW)).toEqual([]);
+    expect(marksFromHealth([unmappable, gym], busy, NOW).map((m) => m.habitId)).toEqual(['h-gym']);
+  });
+
   it('ignores days before the week and after now', () => {
     const marks = marksFromHealth(
       [gym, walk],

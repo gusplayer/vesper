@@ -487,7 +487,7 @@ describe('challengeRiskReminders', () => {
       daysLeft: 3,
       atRisk: true,
       markedToday: false,
-      endedOn: null,
+      endsOn: null,
       ...overrides,
     };
   }
@@ -542,18 +542,18 @@ describe('challengeRiskReminders', () => {
 });
 
 describe('challengeEndReminders', () => {
-  const ended = (dayKey: string, met = 2, total = 3): ChallengeReminder => ({
+  const ending = (dayKey: string, met = 2, total = 3): ChallengeReminder => ({
     id: 'challenge-1',
     name: 'Leer',
     needed: 0,
     daysLeft: 0,
     atRisk: false,
     markedToday: false,
-    endedOn: { dayKey, met, total },
+    endsOn: { dayKey, met, total },
   });
 
   it('knocks the day after the last day, once, with how the whole thing went', () => {
-    const specs = challengeEndReminders(aState({ challenges: [ended(TODAY_KEY)] }), ES);
+    const specs = challengeEndReminders(aState({ challenges: [ending(TODAY_KEY)] }), ES);
 
     expect(ids(specs)).toEqual([`challenge-end-challenge-1-${TODAY_KEY}`]);
     expect(specs[0]?.at).toBe(TOMORROW_AT);
@@ -562,22 +562,49 @@ describe('challengeEndReminders', () => {
   });
 
   it('counts a clean run whole', () => {
-    const [spec] = challengeEndReminders(aState({ challenges: [ended(TODAY_KEY, 3, 3)] }), ES);
+    const [spec] = challengeEndReminders(aState({ challenges: [ending(TODAY_KEY, 3, 3)] }), ES);
 
     expect(spec?.body).toBe('Cumpliste las 3 semanas.');
-    expect(challengeEndReminders(aState({ challenges: [ended(TODAY_KEY, 3, 3)] }), EN)[0]?.body).toBe(
+    expect(challengeEndReminders(aState({ challenges: [ending(TODAY_KEY, 3, 3)] }), EN)[0]?.body).toBe(
       'You kept all 3 weeks.',
     );
+  });
+
+  it('plans the notice before the last day arrives, so a phone that stays closed still hears it', () => {
+    // The last sync was three days before the last day. If the notice waited for the
+    // end to pass, a phone that is not opened that day would never hear how it went.
+    const lastDay = dayKeyOf(dayStartShifted(NOON, 3));
+
+    const specs = challengeEndReminders(aState({ challenges: [ending(lastDay)] }), ES);
+
+    expect(ids(specs)).toEqual([`challenge-end-challenge-1-${lastDay}`]);
+    expect(specs[0]?.at).toBe(atMinuteOfDay(dayStartShifted(NOON, 4), REMINDER_MINUTES));
+    expect(specs[0]?.body).toBe('Cumpliste 2 de 3 semanas.');
+  });
+
+  it('goes through the quiet hours and the daily budget like every other daily notice', () => {
+    const lastDay = dayKeyOf(dayStartShifted(NOON, 3));
+    const quiet = aState({ challenges: [ending(lastDay)], prefs: { ...ALL_ON, reminderMinutes: 23 * 60 } });
+
+    expect(plannedNotifications(quiet, ES).some((s) => s.kind === 'challengeEnd')).toBe(false);
+
+    // Planned ahead it shares tomorrow with the streak notice, and the two fill the
+    // day's budget between them.
+    const planned = plannedNotifications(aState({ challenges: [ending(TODAY_KEY)] }), ES);
+    const tomorrow = planned.filter((spec) => spec.trigger === 'date' && dayKeyOf(spec.at) === TOMORROW_KEY);
+
+    expect(tomorrow.map((s) => s.kind).sort()).toEqual(['challengeEnd', 'streakRisk']);
+    expect(tomorrow).toHaveLength(DAILY_BUDGET);
   });
 
   it('is gone once its hour has passed, and says nothing for a challenge still running', () => {
     const yesterdayKey = dayKeyOf(dayStartShifted(NOON, -1));
 
-    expect(ids(challengeEndReminders(aState({ challenges: [ended(yesterdayKey)] }), ES))).toEqual([
+    expect(ids(challengeEndReminders(aState({ challenges: [ending(yesterdayKey)] }), ES))).toEqual([
       `challenge-end-challenge-1-${yesterdayKey}`,
     ]);
-    expect(challengeEndReminders(aState({ now: EVENING, challenges: [ended(yesterdayKey)] }), ES)).toEqual([]);
-    expect(challengeEndReminders(aState({ challenges: [{ ...ended(TODAY_KEY), endedOn: null }] }), ES)).toEqual([]);
+    expect(challengeEndReminders(aState({ now: EVENING, challenges: [ending(yesterdayKey)] }), ES)).toEqual([]);
+    expect(challengeEndReminders(aState({ challenges: [{ ...ending(TODAY_KEY), endsOn: null }] }), ES)).toEqual([]);
   });
 });
 

@@ -1,3 +1,4 @@
+import type { RoutineStarts } from '../domain/routines';
 import type { Depth, Habit, HabitMark, Session } from '../domain/types';
 
 /**
@@ -138,8 +139,12 @@ export type Settings = {
   pendingBanner: { title: string; message: string } | null;
   /** Last time Health was read, epoch ms. Null until the first sync. */
   healthSyncedAt: number | null;
-  /** The routine window the engine last started, so it never starts it twice. */
-  lastRoutineStart: { routineId: string; windowStart: number } | null;
+  /**
+   * The window each routine last started, by routine id, so no window starts twice.
+   * One mark for every routine would let an overlapping routine erase another's and
+   * start it again on its own (domain/routines, RoutineStarts).
+   */
+  routineStarts: RoutineStarts;
   /** Last time the app came to the front, epoch ms. The reactivation notices count from here (ADR-0027). */
   lastOpenedAt: number | null;
 };

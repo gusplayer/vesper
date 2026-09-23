@@ -153,7 +153,7 @@ describe('routineWindowPlans', () => {
       token: 'dG9rZW4=',
       kind: 'block',
       shieldTitle: 'Vesper · Sin redes',
-      shieldSubtitle: 'Estás enfocado. Esta app espera.',
+      shieldSubtitle: 'Estás enfocando. Esta app espera.',
       shieldButton: 'Cerrar',
     });
   });

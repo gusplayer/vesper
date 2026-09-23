@@ -48,7 +48,11 @@ module.exports = defineConfig([
         {
           patterns: [
             { group: ['react', 'react-native', 'expo*', 'expo-*'], message: 'The domain has no UI or native dependencies.', allowTypeImports: true },
-            { group: ['**/db/**', '**/data/**', '**/platform/**', '**/i18n/*/**'], message: 'The domain receives data and strings by parameter.', allowTypeImports: true },
+            // The three i18n patterns are one rule in three shapes: the barrel itself,
+            // a namespace file ('../i18n/es'), and anything under one. '**/i18n/*/**'
+            // alone let `import { es } from '../i18n/es'` through, which is how the
+            // Spanish dictionary ended up inside domain/reminders.ts as a value.
+            { group: ['**/db/**', '**/data/**', '**/platform/**', '**/i18n', '**/i18n/*', '**/i18n/*/**'], message: 'The domain receives data and strings by parameter.', allowTypeImports: true },
           ],
         },
       ],
