@@ -255,7 +255,7 @@ export default function ChallengeScreen() {
         </Text>
       </Section>
 
-      <Text variant="caption" tone="tertiary" align="center">
+      <Text variant="caption" tone="secondary" align="center">
         {sync.reason}
       </Text>
     </Screen>

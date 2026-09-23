@@ -14,9 +14,22 @@ export const stackScreenOptions: ComponentProps<typeof Stack>['screenOptions'] =
   contentStyle: { backgroundColor: colors.light.bg },
 };
 
-/** Full-screen routes that must not be swiped away: the session. */
+/**
+ * Full-screen routes that must not be swiped away: the dark half of the session —
+ * active, the exit ritual, the emergency unlock.
+ */
 export const lockedScreenOptions = {
   gestureEnabled: false,
   animation: 'fade' as const,
   contentStyle: { backgroundColor: colors.dark.bg },
+};
+
+/**
+ * The same, for the session routes that are paper: closed and complete (ADR-0025).
+ * They carry the page's own background, or a sheet of ink shows through the 160 ms
+ * fade and around the safe area.
+ */
+export const lockedPaperScreenOptions = {
+  ...lockedScreenOptions,
+  contentStyle: { backgroundColor: colors.light.bg },
 };

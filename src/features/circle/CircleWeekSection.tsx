@@ -77,7 +77,7 @@ export function CircleWeekSection({ now }: CircleWeekSectionProps) {
           <ListRow label={t.section.seeCircle} onPress={() => router.push('/circle')} />
         </ListGroup>
       )}
-      <Text variant="caption" tone="tertiary">
+      <Text variant="caption" tone="secondary">
         {sync.reason}
       </Text>
     </Section>

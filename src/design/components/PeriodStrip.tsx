@@ -26,7 +26,7 @@ export function PeriodStrip({ options, selectedKey, onSelect }: PeriodStripProps
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             accessibilityLabel={option.label}
-            hitSlop={8}
+            hitSlop={space.sm}
             style={({ pressed }) => [styles.option, { opacity: pressed ? 0.6 : 1 }]}
           >
             <Text

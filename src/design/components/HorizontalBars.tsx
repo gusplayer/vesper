@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { radius, space } from '../tokens';
+import { layout, radius, space } from '../tokens';
 import { Text } from './Text';
 
 type HorizontalBarsProps = {
@@ -46,19 +46,19 @@ const styles = StyleSheet.create({
     columnGap: space.md,
   },
   label: {
-    width: 32,
+    width: layout.bar.label,
   },
   track: {
     flex: 1,
-    height: 12,
+    height: layout.bar.row,
   },
   bar: {
-    height: 12,
+    height: layout.bar.row,
     borderRadius: radius.sm / 3,
-    minWidth: 2,
+    minWidth: layout.bar.min,
   },
   value: {
-    width: 52,
+    width: layout.bar.value,
     textAlign: 'right',
   },
 });

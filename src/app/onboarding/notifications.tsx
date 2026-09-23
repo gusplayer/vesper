@@ -20,9 +20,10 @@ import { requestPermission, status } from '../../platform/notifications';
  * made a routine, so the commit runs here if routine-set did not.
  *
  * "Allow" shows the real system prompt. A yes moves on; a no stays on the page and
- * says so, like Settings › Notifications does, with "Continuar" underneath: the flag
- * records what the OS said and nothing blocks the flow. Where the capability is
- * missing the page says why instead of asking.
+ * says so, like Settings › Notifications does: the flag records what the OS said and
+ * nothing blocks the flow. Where the capability is missing, or the OS has already
+ * refused and will not ask again, the page says why in a card and the only button is
+ * "Continuar" — there is no second prompt to offer.
  */
 export default function NotificationsScreen() {
   const t = useStrings();
@@ -56,21 +57,18 @@ export default function NotificationsScreen() {
     <Screen
       scroll
       footer={
-        <>
-          <Button
-            label={copy.allow}
-            onPress={() => void allow()}
-            busy={asking}
-            busyLabel={copy.asking}
-            disabled={!capability.available}
-          />
-          <Button
-            label={explained ? t.common.continue : copy.notNow}
-            variant="ghost"
-            onPress={next}
-            disabled={asking}
-          />
-        </>
+        // Once there is no prompt left to show — the capability is missing, or the OS
+        // already said no — asking again does nothing, so moving on becomes the primary
+        // button instead of a dead one, the same swap Salud makes (rule 2). The why is
+        // on the page above, in its own card.
+        explained ? (
+          <Button label={t.common.continue} onPress={next} />
+        ) : (
+          <>
+            <Button label={copy.allow} onPress={() => void allow()} busy={asking} busyLabel={copy.asking} />
+            <Button label={copy.notNow} variant="ghost" onPress={next} disabled={asking} />
+          </>
+        )
       }
     >
       <PageHeader onBack={() => router.back()} />

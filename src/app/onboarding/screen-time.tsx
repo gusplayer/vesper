@@ -45,7 +45,7 @@ export default function ScreenTimeScreen() {
       footer={
         <>
           <Button label={copy.allow} busyLabel={copy.asking} busy={busy} onPress={() => void allow()} />
-          <Text variant="caption" tone="tertiary" align="center">
+          <Text variant="caption" tone="secondary" align="center">
             {reason === null ? copy.systemPrompt : copy.continueWithout(reason)}
           </Text>
         </>

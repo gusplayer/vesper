@@ -39,8 +39,8 @@ export default function SchedulesScreen() {
   const router = useRouter();
   const t = useStrings();
   const now = useNow(CLOCK_MS);
-  // The routine the user last started by hand: its window reads as 'started', not 'active'.
-  const lastMark = useSettings().lastRoutineStart;
+  // The windows the engine already started: they read as 'started', not 'active'.
+  const starts = useSettings().routineStarts;
   const schedules = useSchedules();
   const modes = useModes();
   const running = useRunningSession();
@@ -105,7 +105,7 @@ export default function SchedulesScreen() {
     return mode === undefined ? t.routines.list.missingMode : `${mode.name} · ${modeSummaryText(mode, t.modes)}`;
   };
 
-  const ordered = sortRoutines(schedules, now, lastMark);
+  const ordered = sortRoutines(schedules, now, starts);
 
   return (
     <Screen scroll inTabs>
@@ -144,7 +144,7 @@ export default function SchedulesScreen() {
       ) : (
         <Stack gap="md">
           {ordered.map((schedule) => {
-            const status = routineStatus(schedule, now, lastMark);
+            const status = routineStatus(schedule, now, starts);
             const statusLine = statusText(status, now, t.routines, {
               running: running !== null && runningModeId === schedule.modeId,
               durationMs: schedule.durationMs,

@@ -60,8 +60,9 @@ export function LifeSection({ now }: LifeSectionProps) {
       : resolved.source === 'default'
         ? `${expectancySourceText(resolved, settings.sex, t.settings.lifeExpectancy, tag)} ${copy.refineHint}`
         : expectancySourceText(resolved, settings.sex, t.settings.lifeExpectancy, tag);
-  const leftText = unit === 'weeks' ? copy.weeks(life.left) : copy.days(life.left * 7);
-  const consumedText = unit === 'weeks' ? copy.weeks(consumedWeeks) : copy.days(consumedWeeks * 7);
+  const leftText = unit === 'weeks' ? copy.weeks(life.left, tag) : copy.days(life.left * 7, tag);
+  const consumedText =
+    unit === 'weeks' ? copy.weeks(consumedWeeks, tag) : copy.days(consumedWeeks * 7, tag);
 
   return (
     <Section title={copy.title}>
@@ -76,7 +77,7 @@ export function LifeSection({ now }: LifeSectionProps) {
               <Text variant="body" tone="secondary">
                 {copy.makeThemCount}
               </Text>
-              <Text variant="caption" tone="tertiary">
+              <Text variant="caption" tone="secondary">
                 {sourceText}
               </Text>
               <Text variant="caption" tone="tertiary">
@@ -89,7 +90,7 @@ export function LifeSection({ now }: LifeSectionProps) {
             <Text variant="label" tone="secondary">
               {copy.atYourPace(consumedText)}
             </Text>
-            <Text variant="caption" tone="tertiary">
+            <Text variant="caption" tone="secondary">
               {usage.source === 'device' ? copy.deviceNote : copy.estimateNote}
             </Text>
           </Stack>

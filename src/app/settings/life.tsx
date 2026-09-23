@@ -128,7 +128,7 @@ export default function LifeScreen() {
           placeholder={t.settings.life.yearsPlaceholder}
           keyboardType="number-pad"
         />
-        <Text variant="caption" tone="tertiary">
+        <Text variant="caption" tone="secondary">
           {manual
             ? t.settings.life.manual(yearsLabel(years, tag))
             : expectancySourceText(resolved, sex, t.settings.lifeExpectancy, tag)}

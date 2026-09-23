@@ -14,7 +14,9 @@ type FlipClockProps = {
 /** A split-flap clock: one card per digit, a colon between groups. */
 export function FlipClock({ value, scale = 1 }: FlipClockProps) {
   return (
-    <View style={styles.row} accessibilityLabel={value}>
+    // One VoiceOver element: without `accessible` the label is dropped and the cards
+    // are read digit by digit.
+    <View style={styles.row} accessible accessibilityLabel={value}>
       {value.split('').map((char, index) =>
         char === ':' ? (
           <Text key={index} variant="hero" tone="secondary">

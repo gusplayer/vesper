@@ -22,7 +22,7 @@ export function DropdownTitle({ label, onPress, accessibilityLabel }: DropdownTi
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint={accessibilityLabel}
-        hitSlop={8}
+        hitSlop={space.sm}
         style={({ pressed }) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}
       >
         <Text variant="body" weight="medium">
@@ -37,12 +37,16 @@ export function DropdownTitle({ label, onPress, accessibilityLabel }: DropdownTi
 const styles = StyleSheet.create({
   row: {
     alignItems: 'center',
-    minHeight: layout.touchTarget,
     justifyContent: 'center',
   },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     columnGap: space.xs,
+    // The target is the button, not the row around it: a title with a chevron is still
+    // a control, and it has to be as tall as one.
+    minHeight: layout.touchTarget,
+    paddingHorizontal: space.md,
   },
 });

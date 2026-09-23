@@ -70,7 +70,7 @@ export default function FocusScreen() {
   const plannedMs = usePlannedStore((state) => state.plannedMs);
   const cells = recentDayCells(stats, now);
   const routineLine = nextRoutineText(schedules, modes, now, t.focus.nextRoutine, {
-    lastMark: settings.lastRoutineStart,
+    starts: settings.routineStarts,
     running: session !== null,
   });
   const openActivity = () => router.push('/(tabs)/activity');
@@ -90,16 +90,21 @@ export default function FocusScreen() {
   const startLabel = plannedMs === null ? t.focus.home.focusOpen : t.focus.home.focusFor(minutesText(plannedMs));
   const deep = mode?.depth === 'deep' && plannedMs !== null;
   const holdLabel = deep ? t.focus.home.holdFor(minutesText(plannedMs)) : startLabel;
+  // With no mode there is nothing to focus with and nothing to time: making the first
+  // one is the only way forward, so it is the primary button rather than a dead pill
+  // over a ghost halfway up the page (rule 2).
   const footer =
     session !== null ? (
       <Button label={t.focus.home.resume} onPress={() => router.push('/session/active')} />
+    ) : mode === null ? (
+      <Button label={t.focus.home.createFirstMode} onPress={() => router.push('/modes/edit')} />
     ) : (
       <Stack gap="md">
         <DurationPicker />
         {deep ? (
           <HoldButton label={holdLabel} onHold={begin} />
         ) : (
-          <Button label={startLabel} onPress={() => setFlooding(true)} disabled={mode === null} />
+          <Button label={startLabel} onPress={() => setFlooding(true)} />
         )}
         <InkFlood active={flooding} onDone={begin} />
       </Stack>
@@ -146,11 +151,6 @@ export default function FocusScreen() {
               <Text variant="label" tone="secondary">
                 {t.focus.home.noModesHint}
               </Text>
-              <Button
-                variant="ghost"
-                label={t.focus.home.createFirstMode}
-                onPress={() => router.push('/modes/edit')}
-              />
             </>
           ) : (
             <>

@@ -103,6 +103,8 @@ export const font = {
 } as const;
 
 export const space = {
+  /** Between two lines of the same block: a row's label and its description. */
+  xxs: 2,
   xs: 4,
   sm: 8,
   md: 12,
@@ -133,6 +135,19 @@ export const layout = {
   qr: 168,
   /** The mark alone, as on the app icon: four by four cells at boot (ADR-0028). */
   mark: { cell: 26, gap: 6 },
+  /**
+   * Bars and tracks drawn with Views, since there is no chart library. `track` is the
+   * thin progress bar, `row` one line of HorizontalBars, `column` how wide a BarChart
+   * bar may get, and `min` keeps a nearly empty bar a mark instead of a gap. `label`
+   * and `value` are the fixed columns on either side of a horizontal bar.
+   */
+  bar: { track: 6, row: 12, column: 28, min: 2, label: 32, value: 52 },
+  /** The checkbox and radio: the square, its border, and the corner of the box form. */
+  check: { size: 22, border: 1.5, radius: 6 },
+  /** Onboarding pager dots: a dot, and the current one stretched into a short bar. */
+  dot: { size: 6, active: 18 },
+  /** The tooltip bubble: how wide it may get, and the triangle that points at the row. */
+  tooltip: { maxWidth: 280, tail: 8 },
 } as const;
 
 /** Opacity roles. A disabled control fades as a whole, on top of its muted colors. */

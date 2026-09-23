@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { layout, radius, shadow } from '../tokens';
+import { layout, radius, shadow, space } from '../tokens';
 import { Icon, type IconName } from './Icon';
 
 type IconCircleProps = {
@@ -30,7 +30,7 @@ export function IconCircle({ name, onPress, tone = 'muted', accessibilityLabel }
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? name}
-      hitSlop={8}
+      hitSlop={space.sm}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
       {content}

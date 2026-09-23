@@ -17,7 +17,7 @@ import { lockPortrait } from '../platform/orientation';
 import { ChromeProvider } from '../design/chrome';
 import { BootReveal, FatalError, type BootRevealPhase } from '../design/components';
 import { ThemeProvider, useSchemeStore } from '../design/theme';
-import { lockedScreenOptions, stackScreenOptions } from '../design/navigation';
+import { lockedPaperScreenOptions, lockedScreenOptions, stackScreenOptions } from '../design/navigation';
 import { useStrings } from '../i18n';
 
 // The native splash is a plain ink sheet and stays up until BootReveal, the same ink,
@@ -111,10 +111,10 @@ export default function RootLayout() {
             <Stack.Protected guard={onboardingDone}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="session/active" options={lockedScreenOptions} />
-              <Stack.Screen name="session/complete" options={lockedScreenOptions} />
+              <Stack.Screen name="session/complete" options={lockedPaperScreenOptions} />
               <Stack.Screen name="session/exit" options={lockedScreenOptions} />
               <Stack.Screen name="session/emergency" options={lockedScreenOptions} />
-              <Stack.Screen name="session/closed" options={lockedScreenOptions} />
+              <Stack.Screen name="session/closed" options={lockedPaperScreenOptions} />
               <Stack.Screen name="modes/index" />
               <Stack.Screen name="modes/edit" />
               <Stack.Screen name="modes/apps" />

@@ -106,6 +106,6 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    rowGap: 2,
+    rowGap: space.xxs,
   },
 });

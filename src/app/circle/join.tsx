@@ -65,7 +65,7 @@ export default function JoinScreen() {
           {t.circle.invite.result[result]}
         </Text>
       )}
-      <Text variant="caption" tone="tertiary" align="center">
+      <Text variant="caption" tone="secondary" align="center">
         {t.circle.invite.prototypeNote}
       </Text>
     </Screen>

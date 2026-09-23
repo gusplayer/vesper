@@ -1,5 +1,5 @@
 import { dayKeyOf } from '../../domain/day';
-import { dueRoutine, isMarked, nextStart, type RoutineLike, type RoutineMark } from '../../domain/routines';
+import { dueRoutine, isMarked, nextStart, type RoutineLike, type RoutineStarts } from '../../domain/routines';
 import { DAY } from '../../domain/time';
 import type { Strings } from '../../i18n/es';
 import { clockText } from '../../lib/format';
@@ -20,8 +20,8 @@ export type NamedMode = { id: string; name: string };
 export type NextRoutineStrings = Strings['focus']['nextRoutine'];
 
 export type NextRoutineDetail = {
-  /** What the engine last started (settings.lastRoutineStart). */
-  lastMark?: RoutineMark | null;
+  /** What the engine started, one window per routine (settings.routineStarts). */
+  starts?: RoutineStarts | null;
   /** A session is running right now. */
   running?: boolean;
 };
@@ -48,7 +48,7 @@ export function nextRoutineText(
   detail: NextRoutineDetail = {},
 ): string | null {
   const due = dueRoutine(routines, now);
-  const spent = due !== null && detail.running !== true && isMarked(due.routine, due.window, detail.lastMark ?? null);
+  const spent = due !== null && detail.running !== true && isMarked(due.routine, due.window, detail.starts ?? null);
   if (due !== null && !spent) {
     return t.activeUntil(displayName(due.routine, modes), clockText(due.window.end));
   }

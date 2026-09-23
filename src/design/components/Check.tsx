@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { radius } from '../tokens';
+import { layout, radius } from '../tokens';
 import { Icon } from './Icon';
 
 type CheckProps = {
@@ -31,13 +31,11 @@ export function Check({ checked, shape = 'radio', tone = 'ink' }: CheckProps) {
   );
 }
 
-const SIZE = 22;
-
 const styles = StyleSheet.create({
   base: {
-    width: SIZE,
-    height: SIZE,
-    borderWidth: 1.5,
+    width: layout.check.size,
+    height: layout.check.size,
+    borderWidth: layout.check.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -45,6 +43,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
   },
   box: {
-    borderRadius: 6,
+    borderRadius: layout.check.radius,
   },
 });

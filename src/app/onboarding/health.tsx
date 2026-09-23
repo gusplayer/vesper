@@ -51,7 +51,7 @@ export default function HealthScreen() {
         ) : (
           <>
             <Button label={copy.continueWithout} onPress={next} />
-            <Text variant="caption" tone="tertiary" align="center">
+            <Text variant="caption" tone="secondary" align="center">
               {health.reason}
             </Text>
           </>

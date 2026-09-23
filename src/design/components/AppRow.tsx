@@ -17,20 +17,39 @@ type AppRowProps = {
   value?: string;
   /** A control on the right: a checkbox, a toggle. */
   right?: ReactNode;
+  /**
+   * A row that hangs from the row above it instead of standing beside it: today's
+   * usage broken down by app, under 'Redes' (ADR-0029). The tile shrinks to the width
+   * of a ListRow's icon column — so the name starts one indent in — and the name and
+   * the value drop one step in the type scale. A ledger's sub-line, not a ranking.
+   */
+  subordinate?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
 };
 
 /**
  * A ListRow led by an AppTile instead of a Feather icon: the app pickers, the usage
- * breakdown. Same rhythm as ListRow so both can share a ListGroup.
+ * breakdown. Same rhythm as ListRow — the same minimum height — so both can share a
+ * ListGroup.
  */
-export function AppRow({ icon = null, initial, color = null, name, description, value, right, onPress, accessibilityLabel }: AppRowProps) {
+export function AppRow({
+  icon = null,
+  initial,
+  color = null,
+  name,
+  description,
+  value,
+  right,
+  subordinate = false,
+  onPress,
+  accessibilityLabel,
+}: AppRowProps) {
   const content = (
     <View style={styles.row}>
-      <AppTile icon={icon} initial={initial} color={color} size="md" />
+      <AppTile icon={icon} initial={initial} color={color} size={subordinate ? 'sm' : 'md'} />
       <View style={styles.text}>
-        <Text variant="body">{name}</Text>
+        <Text variant={subordinate ? 'label' : 'body'}>{name}</Text>
         {description === undefined ? null : (
           <Text variant="label" tone="secondary">
             {description}
@@ -38,7 +57,7 @@ export function AppRow({ icon = null, initial, color = null, name, description, 
         )}
       </View>
       {value === undefined ? null : (
-        <Text variant="body" tone="secondary">
+        <Text variant={subordinate ? 'label' : 'body'} tone="secondary">
           {value}
         </Text>
       )}
@@ -47,7 +66,15 @@ export function AppRow({ icon = null, initial, color = null, name, description, 
   );
 
   if (onPress === undefined) {
-    return accessibilityLabel === undefined ? content : <View accessibilityLabel={accessibilityLabel}>{content}</View>;
+    // A static row is one VoiceOver element when it is given a label: without
+    // `accessible` the label is dropped and the children are read loose.
+    return accessibilityLabel === undefined ? (
+      content
+    ) : (
+      <View accessible accessibilityLabel={accessibilityLabel}>
+        {content}
+      </View>
+    );
   }
   return (
     <Pressable
@@ -66,11 +93,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: space.md,
-    minHeight: layout.touchTarget + space.sm,
+    minHeight: layout.touchTarget + space.xs,
     paddingVertical: space.sm,
   },
   text: {
     flex: 1,
-    rowGap: 2,
+    rowGap: space.xxs,
   },
 });

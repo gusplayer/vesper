@@ -29,7 +29,7 @@ export default function AboutScreen() {
         {t.settings.about.body}
       </Text>
 
-      <Text variant="caption" tone="tertiary" align="center">
+      <Text variant="caption" tone="secondary" align="center">
         {t.settings.about.prototypeNote}
       </Text>
     </Screen>

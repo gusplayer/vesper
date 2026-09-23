@@ -26,7 +26,7 @@ export function Banner({ title, message, onDismiss }: BannerProps) {
           {message}
         </Text>
       </View>
-      <Pressable onPress={onDismiss} hitSlop={8} accessibilityRole="button" accessibilityLabel={dismiss}>
+      <Pressable onPress={onDismiss} hitSlop={space.sm} accessibilityRole="button" accessibilityLabel={dismiss}>
         <Icon name="x" size="sm" tone="onInk" />
       </Pressable>
     </View>
@@ -43,6 +43,6 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    rowGap: 2,
+    rowGap: space.xxs,
   },
 });

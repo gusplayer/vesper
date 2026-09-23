@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     padding: space.lg,
-    rowGap: 2,
+    rowGap: space.xxs,
   },
   control: {
     paddingRight: space.lg,

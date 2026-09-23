@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { radius, space } from '../tokens';
+import { layout, radius, space } from '../tokens';
 
 type ProgressDotsProps = {
   count: number;
@@ -34,11 +34,11 @@ const styles = StyleSheet.create({
     columnGap: space.sm,
   },
   dot: {
-    width: 6,
-    height: 6,
+    width: layout.dot.size,
+    height: layout.dot.size,
     borderRadius: radius.pill,
   },
   active: {
-    width: 18,
+    width: layout.dot.active,
   },
 });

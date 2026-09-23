@@ -79,7 +79,7 @@ export default function HealthScreen() {
               busyLabel={t.settings.health.connecting}
             />
             {caption === null ? null : (
-              <Text variant="caption" tone="tertiary" align="center">
+              <Text variant="caption" tone="secondary" align="center">
                 {caption}
               </Text>
             )}

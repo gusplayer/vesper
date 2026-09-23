@@ -115,7 +115,7 @@ function DayCard({ day }: { day: CalendarDay }) {
       <Stack gap="sm">
         <Stack direction="row" gap="xs" align="center">
           <Text variant="caption" tone="secondary">
-            {day.isToday ? t.activity.weekly.today : dayLabel(day.at, t.activity, tag).toUpperCase()}
+            {day.isToday ? t.activity.weekly.today : dayLabel(day.at, t.activity, tag)}
           </Text>
           {day.isToday ? (
             <Text variant="caption" tone="accent" decorative>

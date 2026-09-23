@@ -49,7 +49,7 @@ export default function RulesScreen() {
         />
       </Stack>
 
-      <Text variant="caption" tone="tertiary" align="center">
+      <Text variant="caption" tone="secondary" align="center">
         {blocking.available ? t.settings.rules.applied : t.settings.rules.notApplied(blocking.reason ?? '')}
       </Text>
     </Screen>

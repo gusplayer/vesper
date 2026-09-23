@@ -177,7 +177,7 @@ export default function InviteScreen() {
             ))}
           </ListGroup>
         )}
-        <Text variant="caption" tone="tertiary">
+        <Text variant="caption" tone="secondary">
           {copy.prototypeNote}
         </Text>
       </Section>

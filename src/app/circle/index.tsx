@@ -54,7 +54,7 @@ export default function CircleScreen() {
           <Text tone="secondary">{t.list.noProfileBody}</Text>
           <Text tone="secondary">{t.list.noProfileShare}</Text>
         </Stack>
-        <Text variant="caption" tone="tertiary">
+        <Text variant="caption" tone="secondary">
           {sync.reason}
         </Text>
       </Screen>
@@ -119,7 +119,7 @@ export default function CircleScreen() {
         </ListGroup>
       </Section>
 
-      <Text variant="caption" tone="tertiary" align="center">
+      <Text variant="caption" tone="secondary" align="center">
         {sync.reason}
       </Text>
     </Screen>

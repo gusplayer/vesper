@@ -139,7 +139,7 @@ export default function CircleSettingsScreen() {
         </ListGroup>
       )}
 
-      <Text variant="caption" tone="tertiary" align="center">
+      <Text variant="caption" tone="secondary" align="center">
         {sync.reason}
       </Text>
     </Screen>

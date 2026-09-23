@@ -28,6 +28,7 @@ import { SECOND } from '../../domain/time';
 import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { emptyToNull } from '../../lib/text';
+import { useBlockBack } from '../../lib/useBlockBack';
 import { useNow } from '../../lib/useNow';
 
 /** While the finger is on the object the phase word must keep up; at rest a second is plenty. */
@@ -42,10 +43,12 @@ const HELD_TICK_MS = 250;
  *
  * Confirming runs the paper flood over the dark page and opens `session/closed`
  * underneath: the same language as entering, in reverse. A full-screen route without
- * a back gesture: the ritual is the way out.
+ * a back gesture, and without Android's back button either: the ritual is the way
+ * out, and a system back mid-breath would throw away the round and the typed reason.
  */
 export default function ExitScreen() {
   const router = useRouter();
+  useBlockBack();
   const strings = useStrings();
   const t = strings.session.exit;
   const session = useRunningSession();

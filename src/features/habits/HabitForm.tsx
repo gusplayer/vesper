@@ -124,7 +124,7 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
           muted={!verifiable}
           onPress={verifiable ? () => setCountMode('verified') : undefined}
         />
-        <Text variant="caption" tone="tertiary">
+        <Text variant="caption" tone="secondary">
           {t.habits.form.prototypeNote}
         </Text>
       </Section>

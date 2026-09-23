@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { radius, space } from '../tokens';
+import { layout, radius, space } from '../tokens';
 import { Text } from './Text';
 
 export type Bar = {
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: '70%',
-    maxWidth: 28,
+    maxWidth: layout.bar.column,
     borderTopLeftRadius: radius.sm / 2,
     borderTopRightRadius: radius.sm / 2,
   },
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   pill: {
     borderRadius: radius.pill,
     paddingHorizontal: space.sm,
-    paddingVertical: 2,
+    paddingVertical: space.xxs,
   },
   labels: {
     flexDirection: 'row',

@@ -39,7 +39,7 @@ export default function LiveActivitiesScreen() {
           onValueChange={(liveActivities) => updateSettings({ liveActivities })}
         />
         {availability.available ? null : (
-          <Text variant="caption" tone="tertiary">
+          <Text variant="caption" tone="secondary">
             {availability.reason}
           </Text>
         )}
@@ -61,7 +61,7 @@ export default function LiveActivitiesScreen() {
             </Text>
           </Stack>
         </Card>
-        <Text variant="caption" tone="tertiary" align="center">
+        <Text variant="caption" tone="secondary" align="center">
           {t.settings.liveActivities.previewCaption}
         </Text>
       </Stack>

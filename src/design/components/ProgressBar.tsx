@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { radius } from '../tokens';
+import { layout, radius } from '../tokens';
 
 type ProgressBarProps = {
   /** 0 to 1, clamped. */
@@ -39,18 +39,18 @@ export function ProgressBar({ progress, segments }: ProgressBarProps) {
 
 const styles = StyleSheet.create({
   track: {
-    height: 6,
+    height: layout.bar.track,
     borderRadius: radius.pill,
     overflow: 'hidden',
   },
   fill: {
-    height: 6,
+    height: layout.bar.track,
     borderRadius: radius.pill,
   },
   segment: {
     position: 'absolute',
     top: 0,
-    height: 6,
+    height: layout.bar.track,
     borderRadius: radius.pill,
   },
 });
