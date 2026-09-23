@@ -265,3 +265,16 @@ export type ChallengeMark = {
   dayKey: DayKey;
   markedAt: Millis;
 };
+
+/**
+ * A key paired with this phone (ADR-0034): another device that can open and close a
+ * session by showing a code. `secret` is 32 bytes as hex, shared once at pairing and
+ * never shown again; it lives in the keychain, not in SQLite.
+ */
+export type PairedKey = {
+  id: string;
+  /** What the user calls it: "el teléfono de Ana", "la tableta". */
+  name: string;
+  secret: string;
+  pairedAt: Millis;
+};
