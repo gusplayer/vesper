@@ -326,3 +326,23 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   que hoy no había ninguna hora futura donde pudiera caer; el camino que recorre es el
   mismo que el del aviso de cierre, que sí se vio. Tampoco llegó ninguno a la bandeja
   misma, ni se probó nada en un teléfono.
+
+- **2026-09-23 · El servidor del círculo está desplegado y responde (ADR-0033).**
+  Railway (proyecto `vesper`, servicio `circle-api`, raíz `/server`, redeploy con cada
+  push a `main`) contra Postgres en Neon (proyecto `vesper`, `aws-us-east-1`), en
+  `https://circle-api-production.up.railway.app`. El esquema se aplica al arrancar; el
+  log del contenedor dice `postgres ready`. `DATABASE_URL` vive en las variables del
+  servicio y no está en el repositorio. `tsx` pasó a `dependencies`: un install de
+  producción omite las de desarrollo y dejaría el arranque sin su runtime.
+- Verificado contra el despliegue, no en local: `/health` responde `{"ok":true}`; dos
+  cuentas creadas con su secreto entregado una sola vez, código redimido, aceptación
+  mutua, la semana de una persona visible para la otra, un reto creado y una marca
+  viajando; la marca de un desconocido vuelve en `rejected`; un empujón entre dos
+  participantes llega a la fila del otro y sale hacia Expo sin error. En Neon quedaron
+  las filas: 3 cuentas, 2 vínculos de círculo, 1 semana, 1 reto, 1 marca.
+- No verificado: ningún push llegó a un teléfono de verdad (el token usado era falso) y
+  **la app sigue sin hablar con el servidor**: `platform/circle.ts` continúa diciendo que
+  no hay conexión. Ese cliente —cuenta, sincronía, frase de respaldo en Ajustes— es la
+  siguiente tanda, y hasta entonces el círculo de la app sigue siendo demostración.
+- Deuda: las cuentas de prueba del flujo (`gusn`, `anan`, `gusp`, `anap`, `sofiap2`)
+  siguen en la base; borrarlas es un `delete` y no se hizo sin permiso.
