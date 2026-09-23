@@ -36,7 +36,7 @@ export const onboarding = {
     title: 'Conecta Vesper a Tiempo de uso',
     use: {
       heading: 'Cómo lo vas a usar',
-      body: 'Con el acceso eliges qué apps bloquear en tus modos. Tiempo de uso las pausa mientras estás enfocado.',
+      body: 'Con el acceso eliges qué apps bloquear en tus modos. Tiempo de uso las pausa mientras enfocas.',
     },
     privacy: {
       heading: 'Cómo lo usamos',
@@ -75,7 +75,7 @@ export const onboarding = {
     title: (modeName: string) => `¿Hacemos ${modeName} una rutina?`,
     /** What stands in for the mode name when the draft has none yet. */
     yourMode: 'tu modo',
-    subtitle: 'La gente con rutinas sostiene el hábito 2,5 veces más.',
+    subtitle: 'Una rutina enciende tu modo a su hora, sin que tengas que acordarte.',
     skip: 'Saltar',
     starts: 'Empieza',
     ends: 'Termina',
@@ -100,7 +100,7 @@ export const onboarding = {
     asking: 'Pidiendo permiso…',
     notNow: 'Ahora no',
     kicker: 'Sigue en camino',
-    title: 'Sácale el jugo a Vesper',
+    title: 'Vesper puede avisarte',
     subtitle: 'Permite notificaciones para avisos a tiempo que te ayuden a cumplir.',
     /** The fake notification, the way one would land on the lock screen. */
     preview: {
@@ -119,7 +119,7 @@ export const onboarding = {
     emergency: {
       rules: 'Mis reglas',
       unlocks: 'Desbloqueo de emergencia',
-      title: 'Estás cubierto en una emergencia',
+      title: 'Una emergencia tiene salida',
       body: 'Tienes 5 desbloqueos de emergencia. Suficientes para cuando de verdad los necesitas. Los encuentras en Ajustes.',
     },
     local: {

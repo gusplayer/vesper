@@ -107,7 +107,8 @@ export const settings = {
     /** 'Versión 2026.9.1'. The number lives in code. */
     version: (number: string) => `Versión ${number}`,
     body: 'Vesper mide el tiempo que inviertes, no el que consumes. Lo que haces con foco, lo que verifica Salud y lo que el teléfono estima viven en columnas distintas y nunca se suman. La idea es que veas tu tiempo como algo que se asigna, no como algo que se pierde.',
-    prototypeNote: 'Prototipo con datos de ejemplo. Nada de lo que ves es real.',
+    prototypeNote:
+      'Vesper arranca con datos de ejemplo para que no la veas vacía. Puedes borrarlos desde Ajustes. El círculo todavía no habla con nadie más.',
   },
   emergency: {
     title: 'Desbloqueo de emergencia',
@@ -163,7 +164,7 @@ export const settings = {
         answer: 'No. No hay cuenta ni servidor. Todo vive en este teléfono.',
       },
     ],
-    footer: '¿Otra cosa? En el prototipo no hay a quién escribirle todavía.',
+    footer: '¿Otra cosa? Todavía no hay a dónde escribir.',
   },
   life: {
     title: 'Vida',
@@ -197,8 +198,8 @@ export const settings = {
     /** `years` already formatted. */
     manualSource: (years: string) => `Sobre ${years} años, el número que pusiste tú.`,
     refineHint: 'Puedes afinarlo con tu país en Ajustes › Vida.',
-    weeks: (count: number) => (count === 1 ? '1 semana' : `${count} semanas`),
-    days: (count: number) => (count === 1 ? '1 día' : `${count} días`),
+    weeks: (count: number, tag: string) => (count === 1 ? '1 semana' : `${count.toLocaleString(tag)} semanas`),
+    days: (count: number, tag: string) => (count === 1 ? '1 día' : `${count.toLocaleString(tag)} días`),
     /** 'Te quedan 2.340 semanas.' `left` is already '2.340 semanas'. */
     youHaveLeft: (left: string) => `Te quedan ${left}.`,
     makeThemCount: 'Haz que valgan la pena.',

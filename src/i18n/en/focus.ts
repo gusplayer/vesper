@@ -38,7 +38,7 @@ export const focus: typeof shape = {
   streak: {
     line: (days, graceLeft) =>
       `${days === 1 ? '1 day in a row' : `${days} days in a row`} · ${graceLeft === 1 ? '1 grace day' : `${graceLeft} grace days`}`,
-    none: (minutes) => `No streak yet. ${minutes} minutes today count.`,
+    none: (minutes) => `No streak yet. Today, ${minutes} minutes count.`,
     graceYesterday: (days) =>
       `You used a grace day yesterday. ${days === 1 ? '1 day' : `${days} days`} so far.`,
   },

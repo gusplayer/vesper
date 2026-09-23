@@ -26,7 +26,7 @@ export const circle = {
   section: {
     title: 'Tu círculo',
     noProfileTitle: 'Un círculo es la gente a la que le contarías que hoy no tocaste el teléfono.',
-    noProfileBody: 'Crea tu perfil para invitar o ser invitado. Sin feed, sin ranking, sin avisos.',
+    noProfileBody: 'Crea tu perfil para invitar o aceptar una invitación. Sin feed, sin ranking, sin avisos.',
     createProfileA11y: 'Crear tu perfil de círculo',
     emptyTitle: 'Tu círculo está vacío.',
     emptyBody: 'Invita a alguien con tu código.',
@@ -151,7 +151,7 @@ export const circle = {
     notJoined: 'Todavía no estás en este reto.',
     /** The chip next to someone who has not marked today (ADR-0027). */
     nudge: 'Empujar',
-    nudged: 'Empujado',
+    nudged: 'Enviado',
     nudgeA11y: (name: string) => `Empujar a ${name}`,
     nudgeHint: 'Un empujón al día por persona. Llega cuando exista el servidor.',
     /** 'Ana te empujó hoy.', 'Ana y Luis te empujaron hoy.' */

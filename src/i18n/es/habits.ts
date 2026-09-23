@@ -35,7 +35,7 @@ export const habits = {
     verifiedDescription: 'Salud lo confirma solo',
     verifiedUnavailable:
       'Solo para hábitos que Salud puede confirmar: entrenamiento, caminata, sueño',
-    prototypeNote: 'En el prototipo Salud no confirma nada de verdad.',
+    prototypeNote: 'Un hábito verificado necesita Salud conectada. Sin eso, lo marcas tú.',
   },
   new: {
     title: 'Nuevo hábito',
@@ -72,7 +72,7 @@ export const habits = {
   /** Why Health is unavailable, as `status().reason` in src/platform/health.ts says it. */
   healthStatus: {
     notIos: 'Salud solo existe en iPhone',
-    notLinked: 'Este build no incluye Salud',
+    notLinked: 'Esta versión de Vesper no puede leer Salud',
     notAvailable: 'Salud no está disponible en este dispositivo',
   },
 };

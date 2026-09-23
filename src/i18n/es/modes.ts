@@ -49,7 +49,7 @@ export const modes = {
     name: 'Nombre',
     namePlaceholder: 'Sin redes',
     behavior: 'Comportamiento',
-    behaviorHint: 'Elige qué se limita mientras estás enfocado',
+    behaviorHint: 'Elige qué se limita mientras enfocas',
     behaviorBlock: 'Bloquear seleccionadas',
     behaviorAllow: 'Permitir solo seleccionadas',
     apps: 'Apps',
@@ -70,6 +70,8 @@ export const modes = {
     count: (selected: number, max: number) => `${selected} / ${max}`,
     /** While the platform picker reads the installed apps. */
     loading: 'Cargando apps…',
+    /** The tap that does nothing at the cap has to say why; Tooltip exists for that. */
+    fullTip: 'Ya elegiste 50. Quita una para agregar otra.',
   },
   apps: {
     search: 'Buscar apps',
@@ -87,11 +89,11 @@ export const modes = {
   blocking: {
     iosOnly: 'solo iPhone',
     simulator: 'el simulador no tiene Tiempo de uso',
-    noModule: 'este build no trae Tiempo de uso',
-    noEntitlement: 'falta el entitlement de Family Controls de Apple',
+    noModule: 'esta versión de Vesper no usa Tiempo de uso',
+    noEntitlement: 'Apple todavía no le dio a Vesper el permiso para bloquear apps',
     denied: 'el permiso de Tiempo de uso está denegado',
-    androidNoModule: 'este build no trae el módulo de bloqueo',
-    androidNoUsageAccess: 'falta el acceso de uso',
+    androidNoModule: 'esta versión de Vesper no puede bloquear apps',
+    androidNoUsageAccess: 'falta el acceso a datos de uso, en Ajustes del sistema › Apps › Acceso especial',
     androidNoOverlay: 'falta mostrar sobre otras apps',
     /** '3 apps · 1 categoría · 2 sitios', or 'Ninguna' when the selection holds nothing. */
     none: 'Ninguna',

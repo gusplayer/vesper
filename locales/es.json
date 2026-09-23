@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "NSHealthShareUsageDescription": "Vesper lee entrenamientos, pasos y sueño para marcar solos los hábitos verificados. Nada sale del teléfono.",
+    "NSHealthUpdateUsageDescription": "Vesper no escribe datos de salud."
+  }
+}

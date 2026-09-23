@@ -75,7 +75,7 @@ export const activity = {
     thisWeek: 'ESTA SEMANA',
     averagePerDay: 'Promedio por día',
     firstWeek: 'Tu primera semana está en marcha. Vuelve por tu promedio.',
-    today: 'HOY',
+    today: 'Hoy',
   },
   monthly: {
     totalFocused: 'Tiempo enfocado total',
@@ -83,7 +83,7 @@ export const activity = {
       `Todavía no hay días enfocados ${current ? 'este mes' : 'ese mes'}.`,
     dailyAverage: (current: boolean, duration: string) =>
       `Tu promedio diario ${current ? 'este mes' : 'ese mes'} fue ${duration}`,
-    patterns: 'PATRONES',
+    patterns: 'Patrones',
     rhythmTitle: 'Tu ritmo semanal',
     rhythmDescription: 'Así se ve tu tiempo enfocado promedio por día de la semana.',
   },
@@ -104,8 +104,8 @@ export const activity = {
     focused: 'Enfocado',
     social: 'Redes (estimado)',
     socialDescription: 'siempre un piso, nunca exacto',
-    /** '≥ 2h 10m': the social figure is a floor (ADR-0004). */
-    atLeast: (duration: string) => `≥ ${duration}`,
+    /** 'al menos 2h 10m': the social figure is a floor (ADR-0004, ADR-0029). */
+    atLeast: (duration: string) => `al menos ${duration}`,
     unregistered: 'Sin registrar',
     footer: 'Tres monedas separadas. Nunca se suman.',
     /** The per-app breakdown under the social row (ADR-0029). */
@@ -117,9 +117,12 @@ export const activity = {
       readAt: (time: string) => `Leído a las ${time}.`,
       /** Why the phone gives nothing, one sentence each (rule 8). */
       ios: 'iOS solo muestra el uso por app dentro de Tiempo de uso.',
-      noModule: 'Este build no trae el módulo de uso.',
-      noUsageAccess: 'Falta el acceso de uso en Ajustes.',
-      noApps: 'Elige apps reales en un modo para medir su uso.',
+      noModule: 'Esta versión de Vesper no puede leer el uso por app.',
+      noUsageAccess:
+        'Falta el acceso a datos de uso. Actívalo en Ajustes del sistema › Apps › Acceso especial › Acceso a datos de uso.',
+      noApps: 'Elige apps reales en un modo que bloquee para medir su uso.',
+      /** The read itself failed: never a zero passed off as measured (rule 8). */
+      readFailed: 'El teléfono no pudo dar el uso de hoy.',
     },
   },
   weeklyGoal: {

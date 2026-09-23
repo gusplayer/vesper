@@ -36,7 +36,7 @@ export const notifications: typeof shape = {
     title: (challengeName) => `${challengeName} is over`,
     body: (met, total) =>
       met === total
-        ? `You kept all ${total} ${total === 1 ? 'week' : 'weeks'}.`
+        ? `You kept ${total === 1 ? 'the week' : `all ${total} weeks`}.`
         : `You kept ${met} of ${total} ${total === 1 ? 'week' : 'weeks'}.`,
   },
   reactivation: {

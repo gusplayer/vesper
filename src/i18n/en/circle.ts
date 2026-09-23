@@ -71,7 +71,7 @@ export const circle: typeof shape = {
       left: (needed, daysLeft) =>
         `You need ${needed} more · ${daysLeft === 1 ? '1 day left' : `${daysLeft} days left`}`,
       atRisk: (daysLeft) =>
-        daysLeft === 1 ? 'Only today can still do it' : `Only every one of the ${daysLeft} days left does it`,
+        daysLeft === 1 ? 'Only if you mark today' : `Only if you mark all ${daysLeft} days left`,
       missed: 'This week is gone',
       notStarted: 'Not started yet',
     },
@@ -164,7 +164,7 @@ export const circle: typeof shape = {
       self: 'That is your own code.',
       unavailable,
     },
-    pending: 'Want to join your circle',
+    pending: 'Asking to join your circle',
     invitedYou: 'used your code',
     accept: 'Accept',
     decline: 'Decline',
@@ -199,7 +199,7 @@ export const circle: typeof shape = {
     profileHint: 'Name and handle live on this phone. There is no email or password.',
     share: 'What you share',
     shareFocus: { label: 'Focus hours', description: 'Your focused time this week' },
-    shareHabits: { label: 'Habits and challenges', description: 'How many times you delivered' },
+    shareHabits: { label: 'Habits and challenges', description: 'How many times you kept them' },
     shareSocial: { label: 'Social use', description: 'The phone’s estimated floor' },
     shareHint:
       'Social use is an estimate and is shown as one, on its own line. What you do not share never leaves the phone.',

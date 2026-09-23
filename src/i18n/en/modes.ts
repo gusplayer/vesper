@@ -60,6 +60,7 @@ export const modes: typeof shape = {
     nothingYet: 'You have not picked anything yet.',
     count: (selected, max) => `${selected} / ${max}`,
     loading: 'Loading apps…',
+    fullTip: 'You already picked 50. Remove one to add another.',
   },
   apps: {
     search: 'Search apps',
@@ -75,11 +76,11 @@ export const modes: typeof shape = {
   blocking: {
     iosOnly: 'iPhone only',
     simulator: 'the simulator has no Screen Time',
-    noModule: 'this build has no Screen Time',
-    noEntitlement: "Apple's Family Controls entitlement is missing",
+    noModule: 'this version of Vesper does not use Screen Time',
+    noEntitlement: 'Apple has not yet given Vesper permission to block apps',
     denied: 'Screen Time permission is denied',
-    androidNoModule: 'this build has no blocking module',
-    androidNoUsageAccess: 'usage access is missing',
+    androidNoModule: 'this version of Vesper cannot block apps',
+    androidNoUsageAccess: 'usage access is missing, in System Settings › Apps › Special access',
     androidNoOverlay: 'display over other apps is missing',
     none: 'None',
     apps: (count) => `${count} ${count === 1 ? 'app' : 'apps'}`,

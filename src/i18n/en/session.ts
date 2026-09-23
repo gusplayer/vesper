@@ -106,7 +106,7 @@ export const session: typeof shape = {
     fallbackModeName: 'Focus',
     notIos: 'Live Activities only exist on iPhone.',
     oldIos: 'Live Activities need iOS 16.2 or newer.',
-    noModule: 'This build does not include the Live Activities module. Rebuild the dev client.',
+    noModule: 'This version of Vesper cannot show Live Activities.',
   },
   shield: {
     subtitle: 'You are focused. This app can wait.',

@@ -1,0 +1,6 @@
+{
+  "ios": {
+    "NSHealthShareUsageDescription": "Vesper reads workouts, steps and sleep to mark your verified habits on their own. Nothing leaves your phone.",
+    "NSHealthUpdateUsageDescription": "Vesper does not write health data."
+  }
+}

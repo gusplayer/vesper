@@ -79,7 +79,8 @@ export const settings: typeof shape = {
     title: 'About Vesper',
     version: (number) => `Version ${number}`,
     body: 'Vesper measures the time you invest, not the time you consume. What you do with focus, what Health verifies and what the phone estimates live in separate columns and are never added up. The idea is that you see your time as something you allocate, not something you lose.',
-    prototypeNote: 'Prototype with sample data. Nothing you see is real.',
+    prototypeNote:
+      'Vesper starts with sample data so it is not empty. You can erase it from Settings. The circle does not talk to anyone else yet.',
   },
   emergency: {
     title: 'Emergency unlock',
@@ -133,7 +134,7 @@ export const settings: typeof shape = {
         answer: 'No. There is no account or server. Everything lives on this phone.',
       },
     ],
-    footer: 'Something else? In the prototype there is no one to write to yet.',
+    footer: 'Something else? There is nowhere to write yet.',
   },
   life: {
     title: 'Life',
@@ -163,8 +164,8 @@ export const settings: typeof shape = {
     goToLife: 'Go to Settings, Life',
     manualSource: (years) => `About ${years} years, the number you set.`,
     refineHint: 'You can refine it with your country in Settings › Life.',
-    weeks: (count) => (count === 1 ? '1 week' : `${count} weeks`),
-    days: (count) => (count === 1 ? '1 day' : `${count} days`),
+    weeks: (count, tag) => (count === 1 ? '1 week' : `${count.toLocaleString(tag)} weeks`),
+    days: (count, tag) => (count === 1 ? '1 day' : `${count.toLocaleString(tag)} days`),
     youHaveLeft: (left) => `You have ${left} left.`,
     makeThemCount: 'Make them count.',
     tapToSeeDays: 'Tap the number to see it in days.',

@@ -70,7 +70,7 @@ export const onboarding: typeof shape = {
   routine: {
     title: (modeName) => `Make ${modeName} a routine?`,
     yourMode: 'your mode',
-    subtitle: 'People with routines keep the habit 2.5 times longer.',
+    subtitle: 'A routine turns your mode on at its hour, so you do not have to remember.',
     skip: 'Skip',
     starts: 'Starts',
     ends: 'Ends',
@@ -94,7 +94,7 @@ export const onboarding: typeof shape = {
     asking: 'Asking for permission…',
     notNow: 'Not now',
     kicker: 'Stay on track',
-    title: 'Get the most out of Vesper',
+    title: 'Vesper can remind you',
     subtitle: 'Allow notifications for timely reminders that help you follow through.',
     preview: {
       title: 'Time slips away',

@@ -30,7 +30,7 @@ export const habits: typeof shape = {
     verified: 'Verified',
     verifiedDescription: 'Health confirms it on its own',
     verifiedUnavailable: 'Only for habits Health can confirm: workouts, walking, sleep',
-    prototypeNote: 'In the prototype Health does not confirm anything for real.',
+    prototypeNote: 'A verified habit needs Health connected. Without it, you mark it yourself.',
   },
   new: {
     title: 'New habit',
@@ -65,7 +65,7 @@ export const habits: typeof shape = {
   },
   healthStatus: {
     notIos: 'Health only exists on iPhone',
-    notLinked: 'This build does not include Health',
+    notLinked: 'This version of Vesper cannot read Health',
     notAvailable: 'Health is not available on this device',
   },
 };

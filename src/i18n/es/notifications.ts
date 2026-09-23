@@ -52,7 +52,7 @@ export const notifications = {
     title: (challengeName: string) => `Terminó ${challengeName}`,
     body: (met: number, total: number) =>
       met === total
-        ? `Cumpliste las ${total} ${total === 1 ? 'semana' : 'semanas'}.`
+        ? `Cumpliste ${total === 1 ? 'la semana' : `las ${total} semanas`}.`
         : `Cumpliste ${met} de ${total} ${total === 1 ? 'semana' : 'semanas'}.`,
   },
   /** After 3 and 7 days without opening the app. The body says what the app knows. */

@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.gusplayer.vesper",
       "supportsTablet": false,
       "infoPlist": {
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "CFBundleAllowMixedLocalizations": true
       },
       "appleTeamId": "2D3R79CT8F"
     },
@@ -126,6 +127,10 @@
         "projectId": "3a18e509-25de-4bc2-b7c1-3f32d5f804b9"
       }
     },
-    "owner": "gusplayer"
+    "owner": "gusplayer",
+    "locales": {
+      "es": "./locales/es.json",
+      "en": "./locales/en.json"
+    }
   }
 }

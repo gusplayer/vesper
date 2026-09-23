@@ -48,14 +48,14 @@ export const activity: typeof shape = {
     thisWeek: 'THIS WEEK',
     averagePerDay: 'Average per day',
     firstWeek: 'Your first week is under way. Come back for your average.',
-    today: 'TODAY',
+    today: 'Today',
   },
   monthly: {
     totalFocused: 'Total focused time',
     noFocusedDays: (current) => `No focused days ${current ? 'this month' : 'that month'} yet.`,
     dailyAverage: (current, duration) =>
       `Your daily average ${current ? 'this month' : 'that month'} was ${duration}`,
-    patterns: 'PATTERNS',
+    patterns: 'Patterns',
     rhythmTitle: 'Your weekly rhythm',
     rhythmDescription: 'This is your average focused time by day of the week.',
   },
@@ -75,7 +75,7 @@ export const activity: typeof shape = {
     focused: 'Focused',
     social: 'Social (estimate)',
     socialDescription: 'always a floor, never exact',
-    atLeast: (duration) => `≥ ${duration}`,
+    atLeast: (duration) => `at least ${duration}`,
     unregistered: 'Unregistered',
     footer: 'Three separate currencies. Never added up.',
     usage: {
@@ -83,9 +83,11 @@ export const activity: typeof shape = {
       demo: 'Breakdown with sample data.',
       readAt: (time) => `Read at ${time}.`,
       ios: 'iOS only shows per-app use inside Screen Time.',
-      noModule: 'This build has no usage module.',
-      noUsageAccess: 'Usage access is missing in Settings.',
-      noApps: 'Pick real apps in a mode to measure their use.',
+      noModule: 'This version of Vesper cannot read per-app use.',
+      noUsageAccess:
+        'Usage access is missing. Turn it on in System Settings › Apps › Special access › Usage access.',
+      noApps: 'Pick real apps in a blocking mode to measure their use.',
+      readFailed: "The phone could not report today's use.",
     },
   },
   weeklyGoal: {

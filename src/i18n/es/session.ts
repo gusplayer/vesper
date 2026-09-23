@@ -8,9 +8,9 @@ import type { ArtworkId } from '../../domain/art/types';
  */
 export const session = {
   /** The big button on every screen of the ritual and on the emergency sheet. */
-  stayFocused: 'Seguir enfocado',
+  stayFocused: 'Seguir enfocando',
   active: {
-    elapsedLabel: 'Llevas enfocado',
+    elapsedLabel: 'Llevas enfocando',
     /** Under the clock of an open session, instead of the progress bar. */
     openSince: (time: string) => `Sin límite · desde las ${time}`,
     /** The break button, when a break is available. */
@@ -18,7 +18,7 @@ export const session = {
     /** The same button while the next break is still locked. 'Pausa en 12m'. */
     breakIn: (remaining: string) => `Pausa en ${remaining}`,
     /** Under the clock when the mode is gone. */
-    focused: 'Enfocado',
+    focused: 'En foco',
     /** The heading when the mode is gone. */
     fallbackName: 'Sesión',
     modeLabel: (name: string) => `${name}. Ver qué hace este modo`,
@@ -52,11 +52,13 @@ export const session = {
   emergency: {
     title: 'Desbloqueo de emergencia',
     body: (left: number) =>
-      `Te quedan ${left} este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.`,
+      left === 1
+        ? 'Te queda 1 este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.'
+        : `Te quedan ${left} este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.`,
     ready: 'Si de verdad es una emergencia, adelante.',
     wait: (seconds: number) => `Puedes confirmar en ${seconds} s.`,
     use: 'Usar un desbloqueo',
-    /** The route with none left: only "Seguir enfocado" remains. */
+    /** The route with none left: only "Seguir enfocando" remains. */
     none: 'No te quedan desbloqueos este mes.',
     noneHint: 'Vuelven con el mes que viene.',
     /** How the stored identifier (`features/session/exitReason`) reads when a reason row shows it. */
@@ -134,19 +136,19 @@ export const session = {
      * Under the mode name on the lock screen and in the island. Only the phase: the
      * time next to it is a native clock, so no minutes are written here (ADR-0023).
      */
-    statusFocus: 'Enfocado',
+    statusFocus: 'En foco',
     /** An open session counts up instead. */
-    statusOpen: 'Enfocado · sin límite',
+    statusOpen: 'En foco · sin límite',
     /** The break counts down next to it. */
     statusBreak: 'Pausa',
     /** A session whose mode was deleted meanwhile still needs a name. */
     fallbackModeName: 'Foco',
     notIos: 'Las Live Activities solo existen en iPhone.',
     oldIos: 'Las Live Activities necesitan iOS 16.2 o más nuevo.',
-    noModule: 'Este build no trae el módulo de Live Activities. Hay que recompilar el dev client.',
+    noModule: 'Esta versión de Vesper no puede mostrar Live Activities.',
   },
   shield: {
-    subtitle: 'Estás enfocado. Esta app espera.',
+    subtitle: 'Estás enfocando. Esta app espera.',
     /** The iOS shield button. It only closes the blocked app, so it says just that. */
     close: 'Cerrar',
     /** The Android shield button: it goes to the home screen, not to Vesper. */
