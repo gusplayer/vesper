@@ -229,3 +229,20 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 - Enmiendas: regla 11 y "Qué NO hacer" en `CLAUDE.md`, PRD ("Meta semanal y racha diaria
   con gracia"), ADR-0021 principio 2. Deuda: el chip "Empujar" sin seleccionar no se
   distingue del fondo de la tarjeta, igual que el chip "Dar ánimo" que ya existía.
+- **2026-09-20 · La rutina que propone el onboarding sigue a la idea.** `ModeIdea` gana
+  `schedule` y `activityId`: cada una de las cinco ideas trae su ventana (Dormir 22:00
+  abierta todos los días, Trabajo y Sin redes 9:00–18:00 de lunes a viernes, Familia
+  19:00–21:00 y Calma 20:00–21:00 todos los días) y la actividad a la que cuenta su
+  tiempo. `setGoal` recibe la idea entera y copia su horario al borrador; `commit.ts` lee
+  `idea.activityId` en vez de comparar contra `'idea-family'`, y Modos › Ideas hace lo
+  mismo al crear un modo. Antes las cinco abrían la pantalla en 21:00, lunes a viernes.
+- Verificado en el simulador iPhone 17 Pro con `idb`, recorriendo el onboarding dos veces:
+  "Dormir" abre "Starts 22:00 · Ends Until you end it · Every day" y "Trabajo" abre
+  "9:00 – 18:00 · Weekdays", y la tarjeta de previsualización dice "Work · routine ·
+  9:00 – 18:00 · Weekdays". `tsc` limpio, `eslint` sin avisos, la suite en verde con
+  ocho tests nuevos (cuatro en `seed.test.ts`, cuatro en `onboardingDraft.test.ts`).
+- No verificado: la actividad de un modo creado desde Modos › Ideas (no se ve en pantalla;
+  la cubre `seed.test.ts`), y nada en un teléfono.
+- Deuda: las actividades sembradas no tienen descanso, así que Dormir y Calma cuentan su
+  tiempo como "trabajo". Está anotado en `demoModeIdeas`; agregar una actividad de
+  descanso es decisión de producto.

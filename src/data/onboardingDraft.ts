@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 
-import type { Schedule } from './types';
+import type { ModeIdea, Schedule } from './types';
 
 /**
  * What the onboarding collects before anything is written to the app store: the
  * goal (a MODE_IDEAS entry), the mode name, the apps, and the optional routine.
  * The mode and its schedule are created once by `commitOnboarding`, which records
  * the ids here so a second commit updates instead of duplicating.
+ *
+ * The routine starts as whatever the chosen idea proposes: `setGoal` copies the
+ * idea's window, so "Dormir" opens the routine screen at 22:00 and "Trabajo" at
+ * 9:00. The one in `INITIAL` is only what a draft without a goal would show.
  */
 
 export type DraftSchedule = Pick<Schedule, 'startMinutes' | 'endMinutes' | 'days'>;
@@ -26,7 +30,8 @@ type OnboardingDraft = {
   modeId: string | null;
   scheduleId: string | null;
 
-  setGoal: (goalId: string, modeName: string, appIds: readonly string[]) => void;
+  /** The chosen idea fills the name, the apps and the proposed routine, all by value. */
+  setGoal: (idea: ModeIdea) => void;
   setAppIds: (appIds: readonly string[]) => void;
   setSchedule: (patch: Partial<DraftSchedule>) => void;
   markCommitted: (modeId: string | null, scheduleId: string | null) => void;
@@ -48,7 +53,13 @@ const INITIAL = {
 export const useOnboardingDraft = create<OnboardingDraft>((set) => ({
   ...INITIAL,
 
-  setGoal: (goalId, modeName, appIds) => set({ goalId, modeName, appIds: [...appIds] }),
+  setGoal: (idea) =>
+    set({
+      goalId: idea.id,
+      modeName: idea.name,
+      appIds: [...idea.appIds],
+      schedule: { ...idea.schedule, days: [...idea.schedule.days] },
+    }),
 
   setAppIds: (appIds) => set({ appIds: [...appIds] }),
 

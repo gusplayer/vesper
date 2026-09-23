@@ -1,6 +1,6 @@
 import { getModeIdeas, useAppStore } from '../../data';
 import { findModeByName } from '../../data/modes';
-import { FAMILY_ACTIVITY_ID, WORK_ACTIVITY_ID } from '../../data/seed';
+import { WORK_ACTIVITY_ID } from '../../data/seed';
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import type { Depth } from '../../data/types';
 
@@ -23,7 +23,7 @@ export function commitOnboarding({ withSchedule }: { withSchedule: boolean }): v
 
   const idea = getModeIdeas().find((entry) => entry.id === draft.goalId);
   const depth: Depth = idea?.depth ?? 'firm';
-  const activityId = draft.goalId === 'idea-family' ? FAMILY_ACTIVITY_ID : WORK_ACTIVITY_ID;
+  const activityId = idea?.activityId ?? WORK_ACTIVITY_ID;
 
   const { modes, upsertMode, upsertSchedule, setActiveMode } = useAppStore.getState();
   // Only a mode this draft created is updated on a repeat; an existing one is found

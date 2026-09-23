@@ -19,7 +19,7 @@ export default function GoalScreen() {
     if (idea === undefined) {
       return;
     }
-    setGoal(idea.id, idea.name, idea.appIds);
+    setGoal(idea);
     router.push('/onboarding/apps');
   };
 

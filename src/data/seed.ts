@@ -73,6 +73,10 @@ export const WEBSITES: Website[] = [
 export const WORK_ACTIVITY_ID = 'trabajo';
 export const FAMILY_ACTIVITY_ID = 'familia';
 
+/** Monday first, like `Schedule.days`. Spread at every use: an idea owns its own array. */
+const WEEKDAYS = [true, true, true, true, true, false, false];
+const EVERY_DAY = [true, true, true, true, true, true, true];
+
 export function demoActivities(t: DemoStrings): Activity[] {
   return [
     { id: 'trabajo', label: t.activity.trabajo },
@@ -122,6 +126,19 @@ export function demoModes(t: DemoStrings): Mode[] {
   ];
 }
 
+/**
+ * The five answers to "what is your first mode for?". Each one carries the routine the
+ * onboarding proposes, so the hour on the routine screen follows the idea instead of
+ * being the same 21:00 for all five.
+ *
+ * The windows: family and calm are short evening blocks, sleep runs open from bedtime
+ * (the open end is capped at OPEN_END_CAP_MS, so it releases by itself before morning),
+ * and work and "no socials" cover the workday, weekdays only.
+ *
+ * `activityId` is what a session of the mode counts as in the ledger. Only family has
+ * an activity of its own; sleep and calm fall back to work because the seeded
+ * activities have no rest, and adding one is a product decision, not a default.
+ */
 export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
   return [
     {
@@ -131,6 +148,8 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       icon: 'home',
       appIds: ['instagram', 'tiktok', 'youtube', 'x'],
       depth: 'soft',
+      schedule: { startMinutes: 19 * 60, endMinutes: 21 * 60, days: [...EVERY_DAY] },
+      activityId: FAMILY_ACTIVITY_ID,
     },
     {
       id: 'idea-sleep',
@@ -139,6 +158,8 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       icon: 'moon',
       appIds: ['instagram', 'tiktok', 'youtube', 'netflix', 'reddit'],
       depth: 'firm',
+      schedule: { startMinutes: 22 * 60, endMinutes: null, days: [...EVERY_DAY] },
+      activityId: WORK_ACTIVITY_ID,
     },
     {
       id: 'idea-work',
@@ -147,6 +168,8 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       icon: 'briefcase',
       appIds: ['instagram', 'tiktok', 'youtube', 'x', 'reddit', 'twitch'],
       depth: 'deep',
+      schedule: { startMinutes: 9 * 60, endMinutes: 18 * 60, days: [...WEEKDAYS] },
+      activityId: WORK_ACTIVITY_ID,
     },
     {
       id: 'idea-mindfulness',
@@ -155,6 +178,8 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       icon: 'wind',
       appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit', 'youtube', 'whatsapp'],
       depth: 'firm',
+      schedule: { startMinutes: 20 * 60, endMinutes: 21 * 60, days: [...EVERY_DAY] },
+      activityId: WORK_ACTIVITY_ID,
     },
     {
       id: 'idea-no-socials',
@@ -163,6 +188,8 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       icon: 'slash',
       appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit'],
       depth: 'firm',
+      schedule: { startMinutes: 9 * 60, endMinutes: 18 * 60, days: [...WEEKDAYS] },
+      activityId: WORK_ACTIVITY_ID,
     },
   ];
 }

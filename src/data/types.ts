@@ -42,6 +42,17 @@ export type Mode = {
   createdAt: number;
 };
 
+/**
+ * The window a mode idea proposes: an hour on the clock, an end that may be open, and
+ * the days it repeats. Monday first, like `Schedule.days`. The start is never null
+ * here: an idea always has an hour to suggest, and the user can still clear it later.
+ */
+export type IdeaSchedule = {
+  startMinutes: number;
+  endMinutes: number | null;
+  days: boolean[];
+};
+
 export type ModeIdea = {
   id: string;
   name: string;
@@ -49,6 +60,10 @@ export type ModeIdea = {
   icon: 'home' | 'moon' | 'briefcase' | 'wind' | 'slash';
   appIds: string[];
   depth: Depth;
+  /** What the onboarding fills the routine screen with. Every idea carries its own. */
+  schedule: IdeaSchedule;
+  /** The activity a session of this mode counts as, in the ledger. */
+  activityId: string;
 };
 
 export type Schedule = {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { dayKeyOf } from '../domain/day';
-import { routineDecision, routineStatus } from '../domain/routines';
+import { OPEN_END_CAP_MS, routineDecision, routineStatus } from '../domain/routines';
 import { DAY, HOUR, MINUTE } from '../domain/time';
 import { en } from '../i18n/en';
 import { es } from '../i18n/es';
@@ -145,12 +145,63 @@ describe('demo data in both languages', () => {
     }
     for (const idea of demoModeIdeas(es.demo)) {
       expect(idea.appIds.every((id) => appIds.has(id))).toBe(true);
+      expect(activityIds.has(idea.activityId)).toBe(true);
     }
     for (const schedule of demoSchedules(es.demo)) {
       expect(modeIds.has(schedule.modeId)).toBe(true);
     }
     for (const habit of demoHabits(es.demo)) {
       expect(habit.activityId === null || activityIds.has(habit.activityId)).toBe(true);
+    }
+  });
+});
+
+describe('the routine every mode idea proposes', () => {
+  const ideas = demoModeIdeas(es.demo);
+
+  it('is a usable window: an hour of the day, at least one day, and an end that is not the start', () => {
+    for (const idea of ideas) {
+      expect(idea.schedule.startMinutes).toBeGreaterThanOrEqual(0);
+      expect(idea.schedule.startMinutes).toBeLessThan(24 * 60);
+      expect(idea.schedule.days).toHaveLength(7);
+      expect(idea.schedule.days.some(Boolean)).toBe(true);
+      if (idea.schedule.endMinutes !== null) {
+        expect(idea.schedule.endMinutes).not.toBe(idea.schedule.startMinutes);
+        expect(idea.schedule.endMinutes).toBeLessThan(24 * 60);
+      }
+    }
+  });
+
+  it('follows the idea: sleep starts at night and runs open, work covers the weekday', () => {
+    const byId = new Map(ideas.map((idea) => [idea.id, idea.schedule]));
+
+    expect(byId.get('idea-sleep')).toEqual({ startMinutes: 22 * 60, endMinutes: null, days: [true, true, true, true, true, true, true] });
+    expect(byId.get('idea-work')).toEqual({ startMinutes: 9 * 60, endMinutes: 18 * 60, days: [true, true, true, true, true, false, false] });
+    // The defect this guards against: one hour copied into all five.
+    expect(new Set(ideas.map((idea) => idea.schedule.startMinutes)).size).toBeGreaterThan(1);
+  });
+
+  it('gives each idea its own arrays, so editing one draft never moves another', () => {
+    const days = ideas.map((idea) => idea.schedule.days);
+    for (const [index, array] of days.entries()) {
+      for (const other of days.slice(index + 1)) {
+        expect(array).not.toBe(other);
+      }
+    }
+  });
+
+  it('never proposes a window inside an open-ended one it would swallow', () => {
+    // An open end is capped at OPEN_END_CAP_MS, so sleep at 22:00 releases by 6:00 and
+    // no other idea may start inside that stretch.
+    const sleep = ideas.find((idea) => idea.id === 'idea-sleep')?.schedule;
+    expect(sleep?.endMinutes).toBeNull();
+    const releaseMinutes = (sleep?.startMinutes ?? 0) + OPEN_END_CAP_MS / MINUTE - 24 * 60;
+    for (const idea of ideas) {
+      if (idea.id === 'idea-sleep') {
+        continue;
+      }
+      expect(idea.schedule.startMinutes).toBeGreaterThan(releaseMinutes);
+      expect(idea.schedule.startMinutes).toBeLessThan(sleep?.startMinutes ?? 0);
     }
   });
 });
