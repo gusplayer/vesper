@@ -30,7 +30,13 @@ export const habits: typeof shape = {
     verified: 'Verified',
     verifiedDescription: 'Health confirms it on its own',
     verifiedUnavailable: 'Only for habits Health can confirm: workouts, walking, sleep',
-    prototypeNote: 'A verified habit needs Health connected. Without it, you mark it yourself.',
+    note: {
+      name: 'Health does not recognize this name, so the habit stays declared and you mark it.',
+      connected: 'Health is connected: it can confirm this habit on its own.',
+      disconnected:
+        'Health is not connected. Connect it in Settings so it confirms this habit on its own.',
+      unavailable: (reason) => `${reason}, so you mark this habit.`,
+    },
   },
   new: {
     title: 'New habit',

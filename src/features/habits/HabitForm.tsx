@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 
-import { useActivities } from '../../data';
+import { useActivities, useSettings } from '../../data';
 import type { Activity } from '../../data/types';
 import {
   Button,
@@ -15,9 +15,11 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { DEFAULT_HABIT_TARGET, HABIT_TARGET_OPTIONS, healthTypeFor } from '../../domain/habits';
+import { DEFAULT_HABIT_TARGET, HABIT_TARGET_OPTIONS } from '../../domain/habits';
 import type { CountMode, Habit, HealthType } from '../../domain/types';
 import { useStrings } from '../../i18n';
+import { status as healthStatus } from '../../platform/health';
+import { verifiedOption } from './verifiedOption';
 
 export type HabitFormValues = {
   name: string;
@@ -47,28 +49,36 @@ function activityIdFor(name: string, activities: readonly Activity[]): string | 
 /**
  * The whole habit screen, shared by new and edit: name, times per week, how it is
  * counted, and the pinned save button. Verified counting only unlocks when Health
- * can confirm the name (domain/habits.ts).
+ * can confirm the name; when nothing can, the option falls to declared and the line
+ * under the cards says so (verifiedOption.ts, ADR-0041). A habit already saved in
+ * that state is corrected by opening this screen and saving.
  */
 export function HabitForm({ title, initial, onSubmit, caption, secondary }: HabitFormProps) {
   const t = useStrings();
   const router = useRouter();
   const activities = useActivities();
+  const settings = useSettings();
   const [name, setName] = useState(initial?.name ?? '');
   const [weeklyTarget, setWeeklyTarget] = useState(initial?.weeklyTarget ?? DEFAULT_HABIT_TARGET);
   const [countMode, setCountMode] = useState<CountMode>(initial?.countMode ?? 'declared');
 
   const trimmed = name.trim();
-  const healthType = healthTypeFor(trimmed);
-  const verifiable = healthType !== null;
-  // A renamed habit can stop being verifiable; then it is declared, whatever was chosen.
-  const effectiveMode: CountMode = verifiable ? countMode : 'declared';
+  const health = healthStatus();
+  // Derived on every keystroke: renaming a habit can take verified away, and the
+  // choice is kept so renaming back brings it straight back.
+  const verified = verifiedOption(
+    name,
+    countMode,
+    { ...health, connected: settings.healthConnected },
+    t.habits.form,
+  );
 
   const save = () => {
     onSubmit({
       name: trimmed,
       weeklyTarget,
-      countMode: effectiveMode,
-      healthType: effectiveMode === 'verified' ? healthType : null,
+      countMode: verified.countMode,
+      healthType: verified.healthType,
       activityId: activityIdFor(trimmed, activities),
     });
   };
@@ -112,20 +122,18 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
         <CountModeCard
           title={t.habits.form.declared}
           description={t.habits.form.declaredDescription}
-          selected={effectiveMode === 'declared'}
+          selected={verified.countMode === 'declared'}
           onPress={() => setCountMode('declared')}
         />
         <CountModeCard
           title={t.habits.form.verified}
-          description={
-            verifiable ? t.habits.form.verifiedDescription : t.habits.form.verifiedUnavailable
-          }
-          selected={effectiveMode === 'verified'}
-          muted={!verifiable}
-          onPress={verifiable ? () => setCountMode('verified') : undefined}
+          description={verified.description}
+          selected={verified.countMode === 'verified'}
+          muted={!verified.verifiable}
+          onPress={verified.verifiable ? () => setCountMode('verified') : undefined}
         />
         <Text variant="caption" tone="secondary">
-          {t.habits.form.prototypeNote}
+          {verified.note}
         </Text>
       </Section>
     </Screen>

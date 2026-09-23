@@ -35,7 +35,18 @@ export const habits = {
     verifiedDescription: 'Salud lo confirma solo',
     verifiedUnavailable:
       'Solo para hábitos que Salud puede confirmar: entrenamiento, caminata, sueño',
-    prototypeNote: 'Un hábito verificado necesita Salud conectada. Sin eso, lo marcas tú.',
+    /**
+     * Una sola línea bajo las dos casillas, siempre presente. El nombre primero: es lo
+     * que el usuario está escribiendo y lo único que quita la opción (ADR-0041).
+     */
+    note: {
+      name: 'Salud no reconoce este nombre, así que el hábito queda declarado y lo marcas tú.',
+      connected: 'Salud está conectada: puede confirmar este hábito sola.',
+      disconnected:
+        'Salud no está conectada. Conéctala en Ajustes para que confirme este hábito sola.',
+      /** Con `status().reason` de src/platform/health.ts: 'Salud solo existe en iPhone, …'. */
+      unavailable: (reason: string) => `${reason}, así que este hábito lo marcas tú.`,
+    },
   },
   new: {
     title: 'Nuevo hábito',

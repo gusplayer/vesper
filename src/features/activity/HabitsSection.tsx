@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAppStore, useChallengesByHabit, useHabitsWeek, useSettings } from '../../data';
 import { Chip, ListGroup, ListRow, Section, Sheet, Text, Tooltip } from '../../design/components';
-import type { HabitProgress } from '../../domain/habits';
+import { healthTypeFor, type HabitProgress } from '../../domain/habits';
 import { MAX_HABITS } from '../../domain/types';
 import { useStrings } from '../../i18n';
 import { habitProgressText } from '../../lib/format';
@@ -56,8 +56,15 @@ export function HabitsSection({ now }: HabitsSectionProps) {
     return progress.habit.countMode === 'verified' ? verifiedText : t.habits.section.declared;
   };
 
+  // A habit is only Health's to mark when Health can actually recognise it. Before
+  // ADR-0041 the editor could save 'verified' for a name nothing maps to, and such a
+  // habit could never be marked: not by Health, which skips it, and not by hand, which
+  // this lock refused. Asking for the type too rescues those rows on sight, instead of
+  // waiting for the user to guess they must open and re-save the habit.
   const lockedByHealth = (progress: HabitProgress) =>
-    settings.healthConnected && progress.habit.countMode === 'verified';
+    settings.healthConnected &&
+    progress.habit.countMode === 'verified' &&
+    (progress.habit.healthType ?? healthTypeFor(progress.habit.name)) !== null;
 
   // The tap's moment comes in as a parameter, the way the store takes `now`: the row's
   // handler reads the clock, not a helper the list closes over while rendering.
