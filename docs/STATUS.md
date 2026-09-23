@@ -11,7 +11,7 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **871 tests en 63 archivos**, todos en verde; el módulo
+avisos y `npx vitest run` con **893 tests en 65 archivos**, todos en verde; el módulo
 Kotlin compila con Gradle.
 
 ## Estado actual
@@ -338,3 +338,21 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   Android (ML Kit, menos tolerante que Vision) y todo el ciclo de abrir y cerrar una sesión
   con la llave. El APK de EAS está listo para eso y necesita un teléfono real. Tampoco está
   la protección contra captura de pantalla en las dos pantallas que muestran un código.
+
+- **2026-09-23 · El código dictado (ADR-0037).** Segundo transporte de la llave: los
+  mismos 32 bytes producen ocho símbolos que se leen por teléfono y se teclean en el
+  teléfono bloqueado, verificados sin red. Migración 010, `domain/dictation.ts` con el
+  alfabeto que antes era privado del círculo, derivación y reloj propios (ventanas de
+  cinco minutos), el primer contador de intentos de la app —en la sesión, no en el
+  reloj— y quince minutos de sesión antes de poder cerrar dictando.
+- Verificado en el simulador iPhone 17 Pro (075508C8) contra el dominio puro, que es la
+  prueba que importaba: la app dibujó `QA4Q-GZT2` y `typedCodeAt` derivó exactamente lo
+  mismo para esa ventana; las ventanas vecinas dan códigos sin relación, y el código
+  tecleado en minúsculas se acepta y devuelve su ventana. También se vio el interruptor
+  "Se puede dictar" apagado por defecto y el código escondido tras un toque.
+- De paso quedó verificada la recarga de la emergencia del ADR-0035: la ruta dice "5 left
+  **this month**" y cerrar una sesión profunda con ella funciona.
+- No verificado: el interruptor por toque (el `Toggle` no responde a `idb` en el
+  simulador; se encendió escribiendo la fila y la pantalla reaccionó bien), y todo el
+  lado de **teclear** el código, porque emparejar el segundo teléfono exige cámara. Eso
+  necesita el APK en un teléfono real, que ya está compilado.
