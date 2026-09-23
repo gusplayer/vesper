@@ -20,7 +20,7 @@ import { requestPermission, status as cameraStatus } from '../../platform/camera
 type Step = 'choose' | 'showing' | 'scanning' | 'naming';
 
 /**
- * Pairing a key (ADR-0034). One of the two phones holds the key and the other uses it,
+ * Pairing a key (ADR-0035). One of the two phones holds the key and the other uses it,
  * so the first question is which one this is.
  *
  * Holding it: this phone invents the secret, keeps it in the keychain and shows it once

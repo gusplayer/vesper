@@ -15,7 +15,7 @@ export type SessionConfig = {
   blockProfile: string | null;
   /** "Sin límite" (ADR-0022). plannedMs is ignored: the cap applies. */
   open?: boolean;
-  /** The key that opened it and the code's step, when a key did (ADR-0034). */
+  /** The key that opened it and the code's step, when a key did (ADR-0035). */
   key?: { id: string; step: number };
 };
 
@@ -79,7 +79,7 @@ export function effectiveDepth(depth: Depth, open: boolean): Depth {
 export function createSession(id: string, config: SessionConfig, now: Millis): Session {
   const key = config.key ?? null;
   // A key session has no timer of its own: the key ends it, and the 12 h cap is the
-  // backstop every open session already has. That is the promise of ADR-0034, and it
+  // backstop every open session already has. That is the promise of ADR-0035, and it
   // also takes away the cheapest attack on the lock — winding the clock past a
   // planned end and coming back to a session the app closed by itself.
   const open = config.open === true || key !== null;
@@ -91,7 +91,7 @@ export function createSession(id: string, config: SessionConfig, now: Millis): S
     outcome: 'running',
     // A key session is deep whatever the mode says, and stays deep when it is open:
     // the downgrade of effectiveDepth exists because deep and open have no way out,
-    // and the key is one (ADR-0034).
+    // and the key is one (ADR-0035).
     depth: key === null ? effectiveDepth(config.depth, open) : 'deep',
     open,
     breakMs: 0,

@@ -19,7 +19,7 @@ Lo que el build declara hoy y viene de Vesper:
 | `<queries>` MAIN/LAUNCHER y MAIN/HOME | `modules/vesper-blocking` | Listar apps con lanzador; reconocer el launcher |
 | `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `VIBRATE` | plantilla de Expo / RN | La app de producción no hace ninguna llamada de red |
 
-| `CAMERA` | leer el código de la llave (ADR-0034) | Solo lectura de QR, en la pantalla que lo pide. No se toma ni se guarda ninguna imagen, y no se graba audio (`recordAudioAndroid: false`) |
+| `CAMERA` | leer el código de la llave (ADR-0035) | Solo lectura de QR, en la pantalla que lo pide. No se toma ni se guarda ninguna imagen, y no se graba audio (`recordAudioAndroid: false`) |
 
 **No declarado, y no se declarará:** `QUERY_ALL_PACKAGES`, ningún `AccessibilityService`,
 ningún `NotificationListenerService` (fuera de la fase 1), `READ_PHONE_STATE`, ubicación,

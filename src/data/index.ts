@@ -260,7 +260,7 @@ export function useCircleMembers(): Member[] {
   return useCircleStore((state) => state.members);
 }
 
-/** The keys paired with this phone (ADR-0034), without their secrets. */
+/** The keys paired with this phone (ADR-0035), without their secrets. */
 export function useKeys(): PairedKey[] {
   return useKeysStore((state) => state.keys);
 }

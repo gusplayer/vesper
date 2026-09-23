@@ -80,13 +80,13 @@ CREATE TABLE sessions (
   interruptions INTEGER NOT NULL DEFAULT 0,
   started_at    INTEGER NOT NULL,
   ended_at      INTEGER,
-  key_id        TEXT,                     -- 008: la llave que abrio la sesion (ADR-0034)
+  key_id        TEXT,                     -- 008: la llave que abrio la sesion (ADR-0035)
   key_step      INTEGER                   -- 008: la ventana de 30 s del codigo que la abrio
   -- más las cuatro columnas de 005, abajo
 );
 CREATE INDEX idx_sessions_started ON sessions(started_at);
 
--- 008 y 009. Las llaves emparejadas con este telefono (ADR-0034). El secreto de 32
+-- 008 y 009. Las llaves emparejadas con este telefono (ADR-0035). El secreto de 32
 -- bytes NO esta aqui: vive en el llavero bajo el mismo id (src/platform/keyStore.ts),
 -- porque son los bytes que terminan una sesion y una copia de seguridad no debe
 -- llevarselos. role dice de que lado esta el telefono: 'shows' es una llave que este

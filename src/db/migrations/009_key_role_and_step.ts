@@ -1,5 +1,5 @@
 /**
- * ADR-0034, after the first threat review: three holes the key had.
+ * ADR-0035, after the first threat review: three holes the key had.
  *
  * paired_keys.role says which side of the key this phone is on. 'shows' is a key this
  * phone *is* — it holds the secret to draw codes for somebody else. 'scans' is a key

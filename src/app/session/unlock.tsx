@@ -12,7 +12,7 @@ import { CameraScanner } from '../../platform/CameraScanner';
 import { requestPermission, status as cameraStatus } from '../../platform/camera';
 
 /**
- * Scanning the key to end a session (ADR-0034), a full-screen route over the session
+ * Scanning the key to end a session (ADR-0035), a full-screen route over the session
  * like the emergency, with no back gesture: the way out is the key or "Seguir
  * enfocado".
  *
@@ -54,7 +54,7 @@ export default function UnlockScreen() {
     }
     const now = Date.now();
     // Two codes photographed one after the other would otherwise open a session and
-    // close it in the same minute, serving nothing (ADR-0034).
+    // close it in the same minute, serving nothing (ADR-0035).
     if (elapsed(session, now) < KEY_MIN_SESSION_MS) {
       setError(t.keys.session.tooSoon);
       return;

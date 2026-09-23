@@ -1,5 +1,5 @@
 /**
- * ADR-0034: the key — another device that opens and closes a session by showing a code.
+ * ADR-0035: the key — another device that opens and closes a session by showing a code.
  *
  * paired_keys holds what a key is called and when it was paired. The secret is not
  * here on purpose: 32 bytes that end a session belong in the keychain, not in a file

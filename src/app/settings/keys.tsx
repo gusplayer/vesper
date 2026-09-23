@@ -6,7 +6,7 @@ import { Button, Card, ListGroup, ListRow, PageHeader, Screen, Stack, Text } fro
 import { useStrings } from '../../i18n';
 
 /**
- * Ajustes › Llaves (ADR-0034). The keys this phone knows: the ones it can be opened
+ * Ajustes › Llaves (ADR-0035). The keys this phone knows: the ones it can be opened
  * by, and the ones it is. Removing one takes its secret out of the keychain first.
  */
 export default function KeysScreen() {

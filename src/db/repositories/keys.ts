@@ -2,7 +2,7 @@ import type { KeyRole, PairedKey } from '../../domain/types';
 import { getDb, rowsAs } from '../client';
 
 /**
- * The keys paired with this phone (ADR-0034), without their secrets: the name, the
+ * The keys paired with this phone (ADR-0035), without their secrets: the name, the
  * side this phone is on and the newest step ever accepted live here, the 32 bytes live
  * in the keychain under the same id (`src/platform/keyStore.ts`). A row read from here
  * always comes back with an empty `secret`; whoever needs to derive a code asks the

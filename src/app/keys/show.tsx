@@ -9,7 +9,7 @@ import { KEY_STEP_MS } from '../../domain/key';
 import { useLocale, useStrings } from '../../i18n';
 
 /**
- * A key, up close (ADR-0034). If this phone *is* the key, the page draws the code the
+ * A key, up close (ADR-0035). If this phone *is* the key, the page draws the code the
  * other phone scans, redrawn when its 30 s window turns over. If the key is one that
  * *opens* this phone, there is no code here: drawing it would be a lock with its key
  * taped to the inside of the door, so the page only renames and removes.

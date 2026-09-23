@@ -67,7 +67,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   día salen de `sessions`, no se guardan)
 - `src/domain/`: puro. Sesión, rutinas, bloqueo, ritual de salida, círculo, arte de foco
 - `src/platform/`: una capa por capacidad nativa (notificaciones, Salud, Live Activity,
-  bloqueo, orientación, círculo, cámara y llavero para la llave del ADR-0034). Cada módulo expone `status()` y degrada sin romper; se
+  bloqueo, orientación, círculo, cámara y llavero para la llave del ADR-0035). Cada módulo expone `status()` y degrada sin romper; se
   suscribe a los stores desde `src/platform/hooks/`, montados en `PlatformEffects`. Ver ADR-0017
 - `src/widgets/FocusActivity.tsx`: la Live Activity (expo-widgets). `modules/vesper-blocking/`:
   módulo Expo local en Kotlin para el bloqueo en Android. `targets/`: las tres extensiones

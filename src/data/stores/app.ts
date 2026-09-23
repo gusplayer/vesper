@@ -134,7 +134,7 @@ export const useAppStore = create<AppState>((set, get) => {
       const activeModeId =
         stored !== null && modes.some((m) => m.id === stored) ? stored : (modes[0]?.id ?? '');
       // The emergency budget is five a month, and a month may have turned over while
-      // the app was closed (ADR-0025, and the condition ADR-0034 leans on).
+      // the app was closed (ADR-0025, and the condition ADR-0035 leans on).
       const stored_ = settingsRepo.getPrototypeSettings(SETTINGS);
       const budget = refilledEmergency(
         { left: stored_.emergencyLeft, total: stored_.emergencyTotal, monthKey: stored_.emergencyMonthKey },

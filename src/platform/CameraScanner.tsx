@@ -16,7 +16,7 @@ type CameraScannerProps = {
 const DEFAULT_QUIET_MS = 1200;
 
 /**
- * The camera, reading QR only, filling its parent (ADR-0034). Renders nothing where the
+ * The camera, reading QR only, filling its parent (ADR-0035). Renders nothing where the
  * capability is missing, so a screen can drop it in and let `status().reason` explain
  * the gap — the same shape as `SelectionPicker` in BlockingSelectionView.
  *

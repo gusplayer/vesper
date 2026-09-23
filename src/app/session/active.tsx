@@ -168,7 +168,7 @@ export default function ActiveSessionScreen() {
 
   // Deep has no way out by hand, so it has no footer; the caption under the bar says
   // so. A key session is deep too, but it does have a way out — the key — so it keeps
-  // a footer with the scanner behind it (ADR-0034).
+  // a footer with the scanner behind it (ADR-0035).
   const footer = isKeyLocked(session) ? (
     <>
       <Button label={keyStrings.session.scanToEnd} onPress={() => router.push('/session/unlock')} />

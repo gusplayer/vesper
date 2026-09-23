@@ -2,7 +2,7 @@ import { fromHex, hmacSha256, toHex, utf8 } from '../lib/sha256';
 import type { Millis, PairedKey } from './types';
 
 /**
- * The key (ADR-0034): the code another device shows to open and close a session.
+ * The key (ADR-0035): the code another device shows to open and close a session.
  *
  * The code is derived from a secret shared once at pairing and from the clock, like a
  * TOTP. Two consequences the product depends on: a photograph of the code is worth one

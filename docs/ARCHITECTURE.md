@@ -77,7 +77,7 @@ src/
     format.ts, tone.ts, text.ts, birthDate.ts, uuid.ts, random.ts
     dissolve.ts           las disoluciones punteadas (InkFlood, HoldButton)
     qr.ts                 codificador QR a mano, versiones 1–5
-    dotMatrix.ts          la misma matriz dibujada como campo de puntos (ADR-0034)
+    dotMatrix.ts          la misma matriz dibujada como campo de puntos (ADR-0035)
     sha256.ts             SHA-256 y HMAC a mano, para derivar el código de la llave
     useNow.ts, useBlockBack.ts, useOrientation.ts, useRevision.ts
   db/
@@ -316,7 +316,7 @@ la usan el libro mayor y la meta semanal.
 - No hay capa de API. No hay red.
 - No hay sistema de eventos ni event bus: la plataforma se suscribe a los stores.
 - No hay inyección de dependencias. Los repositorios se importan directo.
-- No hay librería de i18n, de gráficos ni de animación. El QR se **codifica** a mano (`src/lib/qr.ts`); desde el ADR-0034 se **decodifica** con el lector nativo de `expo-camera`, que es la mitad que no se puede dibujar con `View` y SVG.
+- No hay librería de i18n, de gráficos ni de animación. El QR se **codifica** a mano (`src/lib/qr.ts`); desde el ADR-0035 se **decodifica** con el lector nativo de `expo-camera`, que es la mitad que no se puede dibujar con `View` y SVG.
 - No hay tests de UI.
 - No quedan restos de la fase 1: `repositories/sessionConfig.ts`, `queries/week.ts` y las
   claves viejas de `settings` se borraron (ADR-0026).

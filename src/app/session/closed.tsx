@@ -36,7 +36,7 @@ export default function SessionClosedScreen() {
   const params = useLocalSearchParams<{ emergency?: string; key?: string }>();
   // The route param says it on arrival; the stored reason says it after a relaunch.
   const emergency = params.emergency === '1' || closed?.exitReason === EMERGENCY_EXIT_REASON;
-  // The receipt of ADR-0034: the key holder is standing here, reading this with the
+  // The receipt of ADR-0035: the key holder is standing here, reading this with the
   // person whose phone it is. It says how long and whether it ran its time. Nothing
   // travels and nothing is kept beyond the session row that already existed.
   const byKey = params.key === '1' || closed?.exitReason === KEY_EXIT_REASON;

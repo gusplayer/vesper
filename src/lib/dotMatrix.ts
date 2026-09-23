@@ -1,5 +1,5 @@
 /**
- * A QR matrix drawn as a field of dots (ADR-0034).
+ * A QR matrix drawn as a field of dots (ADR-0035).
  *
  * The key's code had to look like Vesper and not like a parking ticket, and the way to
  * get both that and a code a phone can actually read is to keep the content a standard

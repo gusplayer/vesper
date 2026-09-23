@@ -5,7 +5,7 @@ import { fromHex, hmacSha256, sha256, toHex, utf8 } from './sha256';
 /**
  * The published vectors, because a hash that is almost right is worse than no hash:
  * FIPS 180-4 for SHA-256 and RFC 4231 for HMAC. If a change here goes green against
- * these, the key of ADR-0034 still derives the same code on both phones.
+ * these, the key of ADR-0035 still derives the same code on both phones.
  */
 
 function hash(text: string): string {

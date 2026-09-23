@@ -2,14 +2,14 @@ import { getStrings } from '../i18n';
 import { isDevice, type CapabilityStatus } from './capabilities';
 
 /**
- * The camera, and only for reading a key's code (ADR-0034).
+ * The camera, and only for reading a key's code (ADR-0035).
  *
  * This is the first capability that lets the outside world change what the app is
  * doing, so it is deliberately narrow: no photos, no video, no microphone, no library.
  * The view itself is `src/platform/CameraScanner.tsx`, next to `BlockingSelectionView`,
  * because a native view cannot live in the design system.
  *
- * ADR-0021 decided there would be no scanner and no camera permission; ADR-0034
+ * ADR-0021 decided there would be no scanner and no camera permission; ADR-0035
  * replaces that decision. The permission is asked in the scan flow and nowhere else,
  * and where it is missing `status().reason` says so (rule 8).
  */

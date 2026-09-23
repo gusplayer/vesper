@@ -1,6 +1,6 @@
 import type { Strings } from '../es';
 
-/** The key (ADR-0034), in the same voice as the Spanish: direct, short, sentence case. */
+/** The key (ADR-0035), in the same voice as the Spanish: direct, short, sentence case. */
 export const keys: Strings['keys'] = {
   title: 'Keys',
   subtitle: 'A device that opens and closes your sessions. It has to be nearby.',

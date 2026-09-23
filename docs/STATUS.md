@@ -38,7 +38,7 @@ Kotlin compila con Gradle.
 | Idioma español e inglés, override en Ajustes (ADR-0020) | real | real | `tsc` (una clave que falte no compila) y tests en los dos idiomas; cambio en caliente verificado en las pantallas del círculo |
 | Círculo: personas, semana sin posiciones, ánimo, retos, invitación por código, link y QR (ADR-0021) | UI y base local; **sin backend** (`platform/circle.status()` lo dice) | igual | Simulador con `idb`: flujo completo; QR leído por Vision desde la captura; `vesper://circle/join?code=…` con `simctl openurl`. Sin verificar: "Salir del círculo", "Quitar", los topes de 12 y 5 desde la UI, la línea de ánimo en el cierre, la cámara de un iPhone real |
 | Declaraciones de Play y ficha (`PLAY_DECLARATIONS.md`, `STORE_LISTING.md`, `docs/media/`) | — | escritas | Falta la pantalla de divulgación destacada y subir el video |
-| La llave: otra persona abre y cierra la sesión con un código que rota (ADR-0034) | código completo, **sin probar en dispositivo** (falta dev client con cámara) | igual | Sin cámara no hay verificación real. Lo que sí está verificado sin dispositivo: el código dibujado como campo de puntos **se decodifica** —Vision, el mismo motor de la cámara del iPhone, leyó el código rotatorio y el de emparejamiento desde PNG, y sigue leyéndolos con puntos al 50 % y a 3 px por módulo—, y la derivación HMAC contra FIPS 180-4 y RFC 4231. Sin verificar en Android: el lector de ML Kit, que es menos tolerante que Vision |
+| La llave: otra persona abre y cierra la sesión con un código que rota (ADR-0035) | código completo, **sin probar en dispositivo** (falta dev client con cámara) | igual | Sin cámara no hay verificación real. Lo que sí está verificado sin dispositivo: el código dibujado como campo de puntos **se decodifica** —Vision, el mismo motor de la cámara del iPhone, leyó el código rotatorio y el de emparejamiento desde PNG, y sigue leyéndolos con puntos al 50 % y a 3 px por módulo—, y la derivación HMAC contra FIPS 180-4 y RFC 4231. Sin verificar en Android: el lector de ML Kit, que es menos tolerante que Vision |
 
 **Nada se ha verificado en un teléfono real de ningún fabricante.** Todo lo de arriba se
 probó en el simulador iPhone 17 / 17 Pro y en el emulador Pixel 6 (API 34).
@@ -307,7 +307,7 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 - Pendiente de decisión: desplegar en Railway + Neon (cuesta dinero y usa las cuentas del
   dueño), y el ADR-0032, que depende de que esto esté desplegado.
 
-- **2026-09-23 · La llave (ADR-0034, y el ADR-0035 para la web).** Una sesión que abre y
+- **2026-09-23 · La llave (ADR-0035, y el ADR-0036 para la web).** Una sesión que abre y
   cierra otra persona escaneando un código que rota cada 30 s, derivado de un secreto
   compartido al emparejar y verificado sin red. Migraciones 008 y 009, `domain/key.ts`,
   `lib/sha256.ts` y `lib/dotMatrix.ts` a mano, `platform/camera.ts` y `platform/keyStore.ts`,

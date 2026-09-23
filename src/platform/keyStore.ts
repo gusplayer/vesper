@@ -6,7 +6,7 @@ import type { CapabilityStatus } from './capabilities';
 import { getStrings } from '../i18n';
 
 /**
- * Where a key's secret lives (ADR-0034): the keychain, never SQLite.
+ * Where a key's secret lives (ADR-0035): the keychain, never SQLite.
  *
  * Thirty-two bytes that end a session do not belong in a file a backup can copy, so
  * `paired_keys` holds the name and the date and this holds the secret, under the same

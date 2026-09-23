@@ -3,7 +3,7 @@ import { monthKeyOf } from './streak';
 import type { DayKey, Millis } from './types';
 
 /**
- * The emergency unlock's monthly budget (ADR-0025, made load-bearing by ADR-0034).
+ * The emergency unlock's monthly budget (ADR-0025, made load-bearing by ADR-0035).
  *
  * Ajustes and the session screen have always said "cinco al mes", and the store only
  * ever counted down: five per install, for ever. That was survivable while every

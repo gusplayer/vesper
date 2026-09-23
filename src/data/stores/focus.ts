@@ -50,7 +50,7 @@ type FocusState = {
   /** `plannedMs` null starts an open session ("sin límite"). */
   start: (modeId: string, plannedMs: number | null, now: number) => void;
   /**
-   * The same start, opened by a key (ADR-0034). It runs deep whatever the mode says,
+   * The same start, opened by a key (ADR-0035). It runs deep whatever the mode says,
    * has no timer — the key ends it — and remembers the code's step so that same code
    * cannot also close it.
    */

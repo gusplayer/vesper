@@ -10,7 +10,7 @@ import { CameraScanner } from '../../platform/CameraScanner';
 import { requestPermission, status as cameraStatus } from '../../platform/camera';
 
 /**
- * Scanning a key to start a session (ADR-0034).
+ * Scanning a key to start a session (ADR-0035).
  *
  * This is not a session route: no session is running yet, so it behaves like any other
  * page and the user can leave. Once the code is good, `startWithKey` records which key

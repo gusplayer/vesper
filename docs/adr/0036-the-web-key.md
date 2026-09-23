@@ -1,10 +1,10 @@
-# ADR-0035 — La llave en una página web: qué haría falta y por qué no se implementa todavía
+# ADR-0036 — La llave en una página web: qué haría falta y por qué no se implementa todavía
 
-**Estado:** propuesta · 2026-09-22 · fase 2 del ADR-0034 · depende del ADR-0033
+**Estado:** propuesta · 2026-09-22 · fase 2 del ADR-0035 · depende del ADR-0033
 
 ## Contexto
 
-El ADR-0034 dejó la llave entre dos teléfonos: uno muestra un código que rota cada
+El ADR-0035 dejó la llave entre dos teléfonos: uno muestra un código que rota cada
 treinta segundos, el otro lo escanea para abrir y volver a escanearlo para cerrar, y la
 verificación es local. El dueño pidió además que la llave pueda vivir en una página web
 —un computador en la cocina, una pantalla en la oficina— y pidió diseñarlo ahora aunque
@@ -53,7 +53,7 @@ es aceptable porque la página es la que muestra, no la que decide.
 
 Esto no se negocia y es la razón de ser de este ADR. El teléfono conserva su copia del
 secreto y verifica el código escaneado contra su propio reloj, exactamente como en el
-ADR-0034. La página web cambia **quién muestra**, nunca **quién verifica**. Terminar una
+ADR-0035. La página web cambia **quién muestra**, nunca **quién verifica**. Terminar una
 sesión nunca depende de que el teléfono tenga señal.
 
 Si la página no puede mostrar el código porque el computador está sin internet, el
@@ -63,7 +63,7 @@ un teléfono emparejado, esa otra llave sigue sirviendo. Una llave web nunca pue
 
 ### 3. Emparejar sin cámara del lado web
 
-El ADR-0034 empareja con el teléfono escaneando lo que la llave muestra, y eso sigue
+El ADR-0035 empareja con el teléfono escaneando lo que la llave muestra, y eso sigue
 funcionando aquí: la página muestra su código de emparejamiento y el teléfono lo lee.
 Lo que falta es que la página sepa que habló con el teléfono correcto, y para eso hace
 falta un apretón de manos de dos pasos que el servidor hoy no tiene:
@@ -80,9 +80,9 @@ limpieza periódica, y un límite de intentos sobre el endpoint que reclama.
 
 ### 4. Lo que la página web no hace
 
-No muestra el recibo. El recibo del ADR-0034 se lee en el teléfono que estuvo bloqueado,
+No muestra el recibo. El recibo del ADR-0035 se lee en el teléfono que estuvo bloqueado,
 en persona, y eso no cambia porque la llave sea una pantalla. Una página que mostrara
-duraciones ajenas sería el panel remoto que el ADR-0034 descartó, entrando por la puerta
+duraciones ajenas sería el panel remoto que el ADR-0035 descartó, entrando por la puerta
 de atrás.
 
 No es una cuenta. La página no inicia sesión, no ve el círculo y no tiene más capacidad
@@ -92,7 +92,7 @@ que dibujar un código de una llave que alguien ya emparejó.
 
 El TOTP supone dos relojes parecidos. Entre dos teléfonos la deriva es pequeña; entre un
 teléfono y un servidor puede no serlo, y el navegador ni siquiera participa —solo pinta
-lo que el servidor le da. La tolerancia de un paso a cada lado del ADR-0034 se mantiene,
+lo que el servidor le da. La tolerancia de un paso a cada lado del ADR-0035 se mantiene,
 y cuando un código válido falla repetidamente la pantalla lo dice en esos términos: el
 reloj de este teléfono está corrido, no "código inválido".
 

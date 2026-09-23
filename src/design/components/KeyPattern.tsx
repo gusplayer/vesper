@@ -16,7 +16,7 @@ type KeyPatternProps = {
 const QUIET_ZONE = 4;
 
 /**
- * The key's code (ADR-0034): a field of dots with three square corners.
+ * The key's code (ADR-0035): a field of dots with three square corners.
  *
  * Like `QrCode` it ignores the active scheme — a camera wants dark on light, even
  * inside a dark session — and like it, the content is a standard QR. What changes is

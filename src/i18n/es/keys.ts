@@ -1,5 +1,5 @@
 /**
- * La llave (ADR-0034): otro dispositivo que abre y cierra una sesión mostrando un
+ * La llave (ADR-0035): otro dispositivo que abre y cierra una sesión mostrando un
  * código. Español neutro, de tú, en oración.
  *
  * El nombre del producto es "llave", nunca "brick": Brick es de otra empresa y aquí

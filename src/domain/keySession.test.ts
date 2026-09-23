@@ -13,7 +13,7 @@ import {
 import { HOUR } from './time';
 
 /**
- * A session the key opened (ADR-0034). The key does not add a depth: it adds a way out
+ * A session the key opened (ADR-0035). The key does not add a depth: it adds a way out
  * of the deepest one. These tests hold the two claims the ADR makes about that.
  */
 

@@ -78,7 +78,7 @@ export type Session = {
   intention: string | null;
   /** Text written when giving up in 'firm' depth. */
   exitReason: string | null;
-  /** The key that opened this session, or null for a session the user started (ADR-0034). */
+  /** The key that opened this session, or null for a session the user started (ADR-0035). */
   keyId: string | null;
   /** The 30 s window the opening code belonged to; the same code may not close it. */
   keyStep: number | null;
@@ -271,7 +271,7 @@ export type ChallengeMark = {
 };
 
 /**
- * A key paired with this phone (ADR-0034): another device that can open and close a
+ * A key paired with this phone (ADR-0035): another device that can open and close a
  * session by showing a code. `secret` is 32 bytes as hex, shared once at pairing and
  * never shown again; it lives in the keychain, not in SQLite.
  */
@@ -285,7 +285,7 @@ export type PairedKey = {
   /**
    * 'shows': this phone is the key and draws its codes. 'scans': this key opens this
    * phone. A phone never draws the code of a key that opens it — that would be a lock
-   * with the key taped to the door (ADR-0034).
+   * with the key taped to the door (ADR-0035).
    */
   role: KeyRole;
   /** The newest step this key was ever accepted in. Time only goes forward for a key. */

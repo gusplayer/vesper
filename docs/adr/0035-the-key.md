@@ -1,7 +1,7 @@
-# ADR-0034 — La llave: una sesión que abre y cierra otra persona
+# ADR-0035 — La llave: una sesión que abre y cierra otra persona
 
 **Estado:** aceptada · 2026-09-22 · reabre el ADR-0021 (la decisión de no tener cámara)
-y se apoya en el ADR-0025 y el ADR-0033. La llave en una página web es el ADR-0035.
+y se apoya en el ADR-0025 y el ADR-0033. La llave en una página web es el ADR-0036.
 
 ## Contexto
 
@@ -177,7 +177,7 @@ exactamente lo que la adenda del ADR-0021 se escribió para impedir.
 
 ### 7. Fuera de este ADR, a propósito
 
-La página web que muestra la llave se diseña aparte, en el ADR-0035, y no se implementa
+La página web que muestra la llave se diseña aparte, en el ADR-0036, y no se implementa
 hasta que la llave entre dos teléfonos exista y se use. Hoy no hay web en el repo —ni
 `react-dom`, ni `react-native-web`, y el servidor es solo API— y, sobre todo, una llave
 remota haría que terminar una sesión dependiera de la red, que es justo lo que el
@@ -250,4 +250,4 @@ Las tres preguntas que este ADR abrió, respondidas el 2026-09-22:
    y no hay que enmendar el ADR-0033 ni reescribir la ficha de tienda.
 2. **El conteo de intentos no entra en la v1.** El recibo dice lo mismo en iOS y en
    Android.
-3. **La llave web se diseña ya, como fase 2, sin implementarla**: ADR-0035.
+3. **La llave web se diseña ya, como fase 2, sin implementarla**: ADR-0036.

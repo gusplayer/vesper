@@ -1,7 +1,7 @@
 /**
  * SHA-256 and HMAC-SHA-256, by hand.
  *
- * The key of ADR-0034 derives a rotating code from a shared secret and the clock, which
+ * The key of ADR-0035 derives a rotating code from a shared secret and the clock, which
  * is an HMAC and nothing else. `expo-crypto` hashes, but only asynchronously and only
  * from the native side; the derivation has to be pure so `src/domain/key.ts` can own it
  * and a test can run it without a device. Same reasoning as `src/lib/qr.ts`: the hard

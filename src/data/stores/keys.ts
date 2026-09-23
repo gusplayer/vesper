@@ -6,7 +6,7 @@ import type { PairedKey } from '../../domain/types';
 import * as keyStore from '../../platform/keyStore';
 
 /**
- * The keys paired with this phone (ADR-0034), cached from SQLite.
+ * The keys paired with this phone (ADR-0035), cached from SQLite.
  *
  * The rows are here; the secrets are not. Every action that needs a secret asks the
  * keychain for it and lets it go, so a key's 32 bytes never sit in a zustand store
