@@ -213,6 +213,33 @@ a eso, con la condición de no convertirse en lo que combate:
 El perfil vive en el teléfono; el backend y la identidad real son un ADR posterior. En
 el prototipo el círculo es de demostración y las pantallas lo dicen.
 
+## La llave (ADR-0035, ADR-0037, ADR-0038)
+
+Una sesión que abre y cierra **otra persona**. El caso que la pidió es doméstico: un hijo
+empieza su hora de lectura escaneando el código que muestra el teléfono del padre, y no
+puede salir hasta volver a escanearlo.
+
+- **Es una salida más de una sesión profunda**, no una profundidad nueva. La sesión con
+  llave no tiene temporizador: la termina la llave, el tope de 12 h o la emergencia.
+- **El código rota cada 30 segundos** y se deriva de un secreto compartido al emparejar.
+  Se verifica **sin red**: la cercanía la impone la cámara, no un servidor. Cada código
+  vale una sola vez.
+- **A distancia, se dicta**: seis dígitos que viajan por una llamada o un mensaje y se
+  teclean en el teléfono bloqueado. La verificación sigue siendo local. Viene apagado por
+  llave, porque dictar cambia la fricción que hace que el candado signifique algo.
+- **Nadie bloquea a nadie a distancia**: el teléfono bloqueado siempre teclea o escanea.
+  Un código no hace nada por sí solo.
+- **La emergencia no se toca.** Cinco al mes, ruta propia. Es la condición para que todo
+  esto sea aceptable: un teléfono cuya llave está sin batería no puede quedar cerrado.
+- **Quien tiene la llave lee un recibo, no un panel.** Al desbloquear en persona, el
+  teléfono bloqueado muestra cuánto duró la sesión y los dos lo leen ahí. No viaja nada,
+  no entra al círculo, y un desbloqueo dictado no tiene recibo: se autoriza a ciegas.
+
+Lo que **no** hace, y no es una limitación temporal: no reporta intentos de abrir apps
+—en iOS el token de Screen Time es opaco y resolverlo es motivo de rechazo—, no manda
+sesiones a ningún lado y no mete a nadie en un círculo. Vesper sigue sin ser control
+parental: no vigila a nadie y no le reporta a nadie.
+
 ## Fuera de alcance en v1
 
 - Sync y backend (el círculo tiene su capa de datos, pero nada viaja todavía)
@@ -225,6 +252,7 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 - Health Connect en Android
 - Estimación real de uso (fase 3): hoy el "tiempo consumido" es un estimado de demostración
 - Sonido y vibración (ADR-0024, en propuesta)
+- La llave en una página web (ADR-0036): diseñada, sin implementar
 
 Lo que la primera versión de este documento dejaba fuera y ya existe: bloqueo de apps
 (ADR-0017, ADR-0019), Live Activity (ADR-0017, ADR-0023), español e inglés (ADR-0020),

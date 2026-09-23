@@ -314,7 +314,9 @@ la usan el libro mayor y la meta semanal.
 
 ## Qué no está en la arquitectura y es a propósito
 
-- No hay capa de API. No hay red.
+- La app no tiene capa de API ni red. El servidor del círculo (ADR-0033) vive en
+  `server/`, fuera del bundle por `metro.config.js`, y todavía ningún archivo de `src/`
+  lo llama: `platform/circle.status()` sigue diciendo que nada viaja.
 - No hay sistema de eventos ni event bus: la plataforma se suscribe a los stores.
 - No hay inyección de dependencias. Los repositorios se importan directo.
 - No hay librería de i18n, de gráficos ni de animación. El QR se **codifica** a mano (`src/lib/qr.ts`); desde el ADR-0035 se **decodifica** con el lector nativo de `expo-camera`, que es la mitad que no se puede dibujar con `View` y SVG.

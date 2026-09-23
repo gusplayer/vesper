@@ -1,4 +1,4 @@
-# Estado — 2026-09-17
+# Estado — 2026-09-23
 
 Qué existe, dónde se verificó y qué falta. Se actualiza al cerrar cada tanda de trabajo.
 El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, históricas, en
@@ -11,7 +11,7 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **907 tests en 65 archivos**, todos en verde; el módulo
+avisos y `npx vitest run` con **907 tests en 64 archivos**, todos en verde; el módulo
 Kotlin compila con Gradle.
 
 ## Estado actual
@@ -38,7 +38,7 @@ Kotlin compila con Gradle.
 | Idioma español e inglés, override en Ajustes (ADR-0020) | real | real | `tsc` (una clave que falte no compila) y tests en los dos idiomas; cambio en caliente verificado en las pantallas del círculo |
 | Círculo: personas, semana sin posiciones, ánimo, retos, invitación por código, link y QR (ADR-0021) | UI y base local; **sin backend** (`platform/circle.status()` lo dice) | igual | Simulador con `idb`: flujo completo; QR leído por Vision desde la captura; `vesper://circle/join?code=…` con `simctl openurl`. Sin verificar: "Salir del círculo", "Quitar", los topes de 12 y 5 desde la UI, la línea de ánimo en el cierre, la cámara de un iPhone real |
 | Declaraciones de Play y ficha (`PLAY_DECLARATIONS.md`, `STORE_LISTING.md`, `docs/media/`) | — | escritas | Falta la pantalla de divulgación destacada y subir el video |
-| La llave: otra persona abre y cierra la sesión con un código que rota (ADR-0035) | código completo, **sin probar en dispositivo** (falta dev client con cámara) | igual | Sin cámara no hay verificación real. Lo que sí está verificado sin dispositivo: el código dibujado como campo de puntos **se decodifica** —Vision, el mismo motor de la cámara del iPhone, leyó el código rotatorio y el de emparejamiento desde PNG, y sigue leyéndolos con puntos al 50 % y a 3 px por módulo—, y la derivación HMAC contra FIPS 180-4 y RFC 4231. Sin verificar en Android: el lector de ML Kit, que es menos tolerante que Vision |
+| La llave: otra persona abre y cierra la sesión, escaneando un código que rota o dictando seis dígitos (ADR-0035, 0037, 0038) | código completo, **sin probar en teléfono** | igual | Sin cámara no hay ciclo completo: emparejar la exige. Verificado sin dispositivo: el código de puntos lo lee Vision desde la captura real de la app —el de emparejamiento y el rotatorio, con dos capturas a 36 s dando códigos distintos—, el HMAC pasa FIPS 180-4 y RFC 4231, y el código dictado que la app dibujó (`QA4Q-GZT2` cuando eran ocho símbolos) coincidía exactamente con lo que deriva el dominio puro. Verificado en el simulador: Ajustes › Llaves, emparejar como "guarda la llave", el rol de cada llave, el interruptor de dictado apagado por defecto y Focus sin el botón en un teléfono que *es* la llave. Sin verificar: escanear y teclear en un teléfono real, y el lector ML Kit de Android |
 
 **Nada se ha verificado en un teléfono real de ningún fabricante.** Todo lo de arriba se
 probó en el simulador iPhone 17 / 17 Pro y en el emulador Pixel 6 (API 34).

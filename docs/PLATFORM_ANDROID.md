@@ -69,6 +69,17 @@ con Fit. El onboarding tiene que detectarlo y guiarlo.
 Play exige formulario de declaración específico para Health Connect. Sumar una semana
 extra de review.
 
+## Cámara (ADR-0035)
+
+`android.permission.CAMERA`, declarado en `app.json` y en `docs/PLAY_DECLARATIONS.md`.
+Solo lectura de QR para la llave, en la pantalla que lo pide; sin fotos y sin audio
+(`recordAudioAndroid: false`).
+
+Lo que falta verificar y no se puede desde un Mac: el lector de Android es **ML Kit**, y
+es bastante menos tolerante que Vision con el código dibujado como campo de puntos. Vision
+lo lee con puntos al 50 % del módulo; ML Kit puede no hacerlo. Es la razón por la que las
+tres esquinas de localización se dejaron cuadradas.
+
 ## Módulo `vesper-blocking` (fase 1)
 
 Módulo Expo local en Kotlin, solo Android: `modules/vesper-blocking/`. Sin dependencias

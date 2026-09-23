@@ -111,6 +111,22 @@ El shield sobrevive reinicios del teléfono. Documentarlo para el usuario.
 Esto no es negociable — un usuario encerrado sin poder llamar es un problema de
 responsabilidad, no una reseña mala.
 
+## Cámara (ADR-0035)
+
+La única capacidad de **entrada** de la app: hasta la llave, iOS solo recibía órdenes
+(notificaciones, escudo, Live Activity) o entregaba lecturas (Salud). Leer un código es la
+primera vez que el mundo exterior cambia el estado de una sesión.
+
+- `expo-camera`, solo QR, solo en la pantalla que lo pide. No toma fotos, no graba audio.
+- `NSCameraUsageDescription` en `app.json`. El permiso se pide en el flujo del escaneo y
+  en ningún otro sitio (regla 8).
+- **En el simulador no existe**, y `src/platform/camera.ts` lo dice en vez de mostrar un
+  rectángulo negro. Por eso el ciclo completo de la llave necesita un teléfono.
+- El ADR-0021 había decidido lo contrario —"no hay escáner dentro de la app ni permiso de
+  cámara"— y el ADR-0035 lo reemplaza solo en ese punto.
+- El decodificador es el nativo de `expo-camera`. El **codificador** sigue siendo propio
+  (`src/lib/qr.ts`): dibujar se puede a mano, leer no.
+
 ## Prohibiciones
 
 - No resolver tokens a nombres de apps por OCR ni ningún otro medio. Apple ofusca a

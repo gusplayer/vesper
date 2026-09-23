@@ -81,6 +81,17 @@ Hoy "tiempo consumido" y "redes" son el estimado de demostración (`data/seed US
 ADR-0021 dejó la capa de datos y las pantallas; falta el ADR que elija servidor e
 identidad. Hasta entonces `platform/circle.status()` dice que nada viaja.
 
+## Fase 5 — la llave (ADR-0035, ADR-0037, ADR-0038) — escrita, sin probar en teléfono
+
+Una sesión que abre y cierra otra persona, escaneando un código que rota o dictando seis
+dígitos por teléfono. Todo el código está en el árbol y el dominio está probado; lo que
+falta es un teléfono real, porque el simulador no tiene cámara y emparejar la exige. El
+APK de EAS ya está compilado para eso.
+
+Queda fuera de esta fase, en el ADR-0036 y sin implementar: la llave en una página web.
+Necesita servidor, dominio y despliegue, y es la única variante donde terminar una sesión
+podría depender de la red — que es justo lo que no queremos.
+
 ## Fuera de roadmap hasta nuevo aviso
 
 Cuenta de usuario fuera del círculo, sync general, leaderboards, modo oscuro como ajuste,
