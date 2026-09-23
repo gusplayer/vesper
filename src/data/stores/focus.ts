@@ -50,10 +50,11 @@ type FocusState = {
   /** `plannedMs` null starts an open session ("sin límite"). */
   start: (modeId: string, plannedMs: number | null, now: number) => void;
   /**
-   * The same start, opened by a key (ADR-0034). The session runs deep whatever the
-   * mode says and remembers the code's step, so that code cannot also close it.
+   * The same start, opened by a key (ADR-0034). It runs deep whatever the mode says,
+   * has no timer — the key ends it — and remembers the code's step so that same code
+   * cannot also close it.
    */
-  startWithKey: (modeId: string, plannedMs: number | null, now: number, key: { id: string; step: number }) => void;
+  startWithKey: (modeId: string, now: number, key: { id: string; step: number }) => void;
   finish: (outcome: CloseOutcome, now: number, exitReason?: string | null) => Session | null;
   /** Starts a break; a no-op when the domain says no. */
   takeBreak: (now: number) => void;
@@ -108,7 +109,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     useSchemeStore.getState().setScheme('dark');
   },
 
-  startWithKey: (modeId, plannedMs, now, key) => {
+  startWithKey: (modeId, now, key) => {
     if (get().session !== null) {
       return;
     }
@@ -117,8 +118,8 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       uuidv7(now),
       {
         activityId: resolveActivityId(mode?.activityId ?? ''),
-        plannedMs: plannedMs ?? 0,
-        open: plannedMs === null,
+        plannedMs: 0,
+        open: true,
         depth: mode?.depth ?? 'soft',
         blockProfile: modeId,
         key,

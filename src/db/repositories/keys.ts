@@ -1,11 +1,12 @@
-import type { PairedKey } from '../../domain/types';
+import type { KeyRole, PairedKey } from '../../domain/types';
 import { getDb, rowsAs } from '../client';
 
 /**
- * The keys paired with this phone (ADR-0034), without their secrets: the name and the
- * date live here, the 32 bytes live in the keychain under the same id
- * (`src/platform/keyStore.ts`). A row read from here always comes back with an empty
- * `secret`; whoever needs to derive a code asks the keychain for it.
+ * The keys paired with this phone (ADR-0034), without their secrets: the name, the
+ * side this phone is on and the newest step ever accepted live here, the 32 bytes live
+ * in the keychain under the same id (`src/platform/keyStore.ts`). A row read from here
+ * always comes back with an empty `secret`; whoever needs to derive a code asks the
+ * keychain for it.
  *
  * That split is the reason `PairedKey` is not simply selected and returned: a caller
  * who forgets to fill the secret gets a key that derives nothing, never a key that
@@ -15,11 +16,20 @@ import { getDb, rowsAs } from '../client';
 type KeyRow = {
   id: string;
   name: string;
+  role: KeyRole;
+  last_step: number;
   paired_at: number;
 };
 
 function toKey(row: KeyRow): PairedKey {
-  return { id: row.id, name: row.name, secret: '', pairedAt: row.paired_at };
+  return {
+    id: row.id,
+    name: row.name,
+    secret: '',
+    role: row.role,
+    lastStep: row.last_step,
+    pairedAt: row.paired_at,
+  };
 }
 
 /** Oldest first, the order they were paired. */
@@ -33,16 +43,24 @@ export function findById(id: string): PairedKey | null {
 }
 
 /** Pairing the same id twice renames it rather than failing: the second scan wins. */
-export function insert(key: Pick<PairedKey, 'id' | 'name' | 'pairedAt'>): void {
+export function insert(key: Pick<PairedKey, 'id' | 'name' | 'role' | 'pairedAt'>): void {
   getDb().executeSync(
-    `INSERT INTO paired_keys (id, name, paired_at) VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET name = excluded.name`,
-    [key.id, key.name, key.pairedAt],
+    `INSERT INTO paired_keys (id, name, role, last_step, paired_at) VALUES (?, ?, ?, 0, ?)
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, role = excluded.role`,
+    [key.id, key.name, key.role, key.pairedAt],
   );
 }
 
 export function rename(id: string, name: string): void {
   getDb().executeSync('UPDATE paired_keys SET name = ? WHERE id = ?', [name, id]);
+}
+
+/**
+ * Moves the key's high-water mark. `MAX` rather than `=`: a step is only ever raised,
+ * so winding the clock back cannot reopen a window that has already been used.
+ */
+export function markStep(id: string, step: number): void {
+  getDb().executeSync('UPDATE paired_keys SET last_step = MAX(last_step, ?) WHERE id = ?', [step, id]);
 }
 
 /** The row only. The secret is the keychain's, and the caller forgets it first. */

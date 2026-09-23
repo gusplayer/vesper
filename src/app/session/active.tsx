@@ -293,7 +293,8 @@ export default function ActiveSessionScreen() {
         {progress}
         {deep ? (
           <Text variant="caption" tone="secondary" align="center">
-            {t.deepOnlyTimer}
+            {/* A key session is deep too, but the timer is not its only way out. */}
+            {isKeyLocked(session) ? keyStrings.session.lockedFoot : t.deepOnlyTimer}
           </Text>
         ) : null}
         {session.interruptions > 0 ? (

@@ -121,6 +121,8 @@ export type Settings = {
   liveActivities: boolean;
   emergencyLeft: number;
   emergencyTotal: number;
+  /** 'YYYY-MM' the emergency count belongs to; null in a base written before ADR-0034. */
+  emergencyMonthKey: string | null;
   rules: Rules;
   notifications: NotificationPrefs;
   birthDate: number | null;

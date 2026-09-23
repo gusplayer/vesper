@@ -11,7 +11,7 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **817 tests en 58 archivos**, todos en verde; el módulo
+avisos y `npx vitest run` con **871 tests en 63 archivos**, todos en verde; el módulo
 Kotlin compila con Gradle.
 
 ## Estado actual
@@ -38,6 +38,7 @@ Kotlin compila con Gradle.
 | Idioma español e inglés, override en Ajustes (ADR-0020) | real | real | `tsc` (una clave que falte no compila) y tests en los dos idiomas; cambio en caliente verificado en las pantallas del círculo |
 | Círculo: personas, semana sin posiciones, ánimo, retos, invitación por código, link y QR (ADR-0021) | UI y base local; **sin backend** (`platform/circle.status()` lo dice) | igual | Simulador con `idb`: flujo completo; QR leído por Vision desde la captura; `vesper://circle/join?code=…` con `simctl openurl`. Sin verificar: "Salir del círculo", "Quitar", los topes de 12 y 5 desde la UI, la línea de ánimo en el cierre, la cámara de un iPhone real |
 | Declaraciones de Play y ficha (`PLAY_DECLARATIONS.md`, `STORE_LISTING.md`, `docs/media/`) | — | escritas | Falta la pantalla de divulgación destacada y subir el video |
+| La llave: otra persona abre y cierra la sesión con un código que rota (ADR-0034) | código completo, **sin probar en dispositivo** (falta dev client con cámara) | igual | Sin cámara no hay verificación real. Lo que sí está verificado sin dispositivo: el código dibujado como campo de puntos **se decodifica** —Vision, el mismo motor de la cámara del iPhone, leyó el código rotatorio y el de emparejamiento desde PNG, y sigue leyéndolos con puntos al 50 % y a 3 px por módulo—, y la derivación HMAC contra FIPS 180-4 y RFC 4231. Sin verificar en Android: el lector de ML Kit, que es menos tolerante que Vision |
 
 **Nada se ha verificado en un teléfono real de ningún fabricante.** Todo lo de arriba se
 probó en el simulador iPhone 17 / 17 Pro y en el emulador Pixel 6 (API 34).
@@ -305,3 +306,26 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   diciendo que no hay conexión. Ese cliente es la siguiente tanda.
 - Pendiente de decisión: desplegar en Railway + Neon (cuesta dinero y usa las cuentas del
   dueño), y el ADR-0032, que depende de que esto esté desplegado.
+
+- **2026-09-23 · La llave (ADR-0034, y el ADR-0035 para la web).** Una sesión que abre y
+  cierra otra persona escaneando un código que rota cada 30 s, derivado de un secreto
+  compartido al emparejar y verificado sin red. Migraciones 008 y 009, `domain/key.ts`,
+  `lib/sha256.ts` y `lib/dotMatrix.ts` a mano, `platform/camera.ts` y `platform/keyStore.ts`,
+  el componente `KeyPattern`, cinco pantallas y el recibo en `session/closed`. El ADR-0021
+  decía que no habría cámara ni escáner; el 0034 lo reemplaza en ese punto.
+- Tres agentes revisaron el trabajo y encontraron cosas que ya están arregladas: el código
+  de emparejamiento con un id UUID medía 106 bytes contra un codificador que topa en 84, y
+  la pantalla reventaba al dibujarlo (ahora el id son 12 hex); adelantar el reloj cerraba
+  la sesión sola (una sesión con llave ya no tiene temporizador: la termina la llave, el
+  tope de 12 h o la emergencia); atrasarlo dejaba replicar para siempre una foto del código
+  (cada llave guarda la ventana más nueva aceptada); el teléfono bloqueado dibujaba el
+  código de la llave que lo bloquea (`paired_keys.role`); dos códigos seguidos abrían y
+  cerraban en el mismo minuto (mínimo de dos minutos); y la pantalla de sesión seguía
+  diciendo "solo el timer termina" a quien solo podía salir con la llave.
+- De paso se arregló una deuda del ADR-0025 que la llave vuelve crítica: el desbloqueo de
+  emergencia **nunca se recargaba**. Eran cinco por instalación, para siempre, mientras
+  Ajustes decía "al mes". Ahora `domain/emergency.ts` recarga al cambiar el mes.
+- No verificado: **nada en un dispositivo**. La cámara no existe en el simulador y el dev
+  client nuevo no se pudo compilar por falta de espacio en disco (3 GB libres). Tampoco se
+  verificó el lector de Android, ni la protección contra captura de pantalla en las dos
+  pantallas que muestran un código, que está pendiente y anotada en el ADR.

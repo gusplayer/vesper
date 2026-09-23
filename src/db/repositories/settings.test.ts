@@ -91,6 +91,7 @@ const DEFAULTS: Settings = {
   liveActivities: true,
   emergencyLeft: 5,
   emergencyTotal: 5,
+  emergencyMonthKey: null,
   rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
   notifications: {
     coaching: true,

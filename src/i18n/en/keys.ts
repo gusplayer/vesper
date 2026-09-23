@@ -11,8 +11,9 @@ export const keys: Strings['keys'] = {
   pairedOn: (date: string) => `Paired on ${date}`,
   remove: 'Remove',
   removeConfirm: 'Remove this key. The sessions it opened stay as they are.',
-  rename: 'Change the name',
   nameLabel: 'Name',
+  /** What a key this phone holds is called until the user renames it. */
+  defaultName: 'This key',
   namePlaceholder: "Ana's phone",
 
   choose: {
@@ -28,7 +29,7 @@ export const keys: Strings['keys'] = {
     hint: 'It is scanned once. After that the code changes on its own.',
     done: 'Done',
     codeTitle: 'Scan to start',
-    codeHint: 'The code changes every 30 seconds. A photo is no use.',
+    codeHint: 'The code changes every 30 seconds, and each one works once.',
     gone: 'This key is no longer on this phone.',
   },
 
@@ -47,6 +48,8 @@ export const keys: Strings['keys'] = {
     startHint: 'The session does not end until you scan again.',
     scanToStart: 'Scan the key to start',
     scanToEnd: 'Scan the key to end',
+    tooSoon: 'The key does not end a session that just started. Give it a moment.',
+    noMode: 'Pick a mode before you scan.',
     wrongKey: "That is not this session's code.",
     sameCode: 'Wait for the next code.',
     locked: 'Only the key ends this session.',
@@ -58,7 +61,11 @@ export const keys: Strings['keys'] = {
     duration: (text: string) => `${text} of focus`,
     completed: 'Ran its time',
     cut: 'Ended early',
-    done: 'Done',
+  },
+
+  role: {
+    shows: 'This phone shows it',
+    scans: 'Opens this phone',
   },
 
   platform: {

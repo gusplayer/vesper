@@ -55,7 +55,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Expo SDK con dev client (no Expo Go — ver ADR-0001)
 - TypeScript estricto, sin `any`
 - expo-router para navegación (`Stack` con guardas: onboarding o app)
-- op-sqlite para persistencia; migraciones `001`–`006` en `src/db/migrations/`
+- op-sqlite para persistencia; migraciones `001`–`009` en `src/db/migrations/`
 - Zustand para las cachés de la base (`src/data/stores/`) y el estado efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
@@ -67,7 +67,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   día salen de `sessions`, no se guardan)
 - `src/domain/`: puro. Sesión, rutinas, bloqueo, ritual de salida, círculo, arte de foco
 - `src/platform/`: una capa por capacidad nativa (notificaciones, Salud, Live Activity,
-  bloqueo, orientación, círculo). Cada módulo expone `status()` y degrada sin romper; se
+  bloqueo, orientación, círculo, cámara y llavero para la llave del ADR-0034). Cada módulo expone `status()` y degrada sin romper; se
   suscribe a los stores desde `src/platform/hooks/`, montados en `PlatformEffects`. Ver ADR-0017
 - `src/widgets/FocusActivity.tsx`: la Live Activity (expo-widgets). `modules/vesper-blocking/`:
   módulo Expo local en Kotlin para el bloqueo en Android. `targets/`: las tres extensiones
@@ -128,7 +128,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 ## Qué NO hacer
 
 - No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
-  `src/design/components/index.ts`, hoy 52) se escriben a mano; las barras, grillas y el QR se
+  `src/design/components/index.ts`, hoy 54) se escriben a mano; las barras, grillas y el QR se
   dibujan con `View` y `react-native-svg`.
 - No agregues badges, medallas, puntos ni ranking. La única racha es la diaria del
   ADR-0027 (10 minutos de foco, tres días de gracia al mes), un número sin fuego ni

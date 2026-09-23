@@ -152,6 +152,7 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     liveActivities: bool(value.liveActivities, defaults.liveActivities),
     emergencyLeft: num(value.emergencyLeft, defaults.emergencyLeft),
     emergencyTotal: num(value.emergencyTotal, defaults.emergencyTotal),
+    emergencyMonthKey: typeof value.emergencyMonthKey === 'string' ? value.emergencyMonthKey : defaults.emergencyMonthKey,
     rules: rules(value.rules, defaults.rules),
     notifications: notifications(value.notifications, defaults.notifications),
     birthDate: numOrNull(value.birthDate, defaults.birthDate),

@@ -33,6 +33,27 @@ const PAIRING_PREFIX = 'VKP1';
 const CODE_BYTES = 6;
 const SECRET_BYTES = 32;
 
+/**
+ * A key's id is short on purpose. The pairing code carries the whole secret, and
+ * `src/lib/qr.ts` stops at 84 bytes: 'VKP1:' + id + ':' + 64 hex leaves 14 characters
+ * for the id. Twelve hex is 48 bits, which is plenty to tell apart the handful of keys
+ * one phone ever has, and it keeps the rotating code inside a small, easy-to-read QR.
+ * A UUID here would overflow the encoder and take the pairing screen down with it.
+ */
+export const KEY_ID_CHARS = 12;
+
+/**
+ * How long a key session must run before its key may close it.
+ *
+ * Without this, someone standing at the key device can photograph two consecutive
+ * codes, scan the first to start and the second to end, and serve nothing. A code is
+ * only ever valid for the window it belongs to, so a photograph goes stale: making the
+ * session refuse to close for two minutes outlives every code that could already have
+ * been captured when it started. The emergency unlock is still there for the person
+ * who genuinely has to leave in the first two minutes.
+ */
+export const KEY_MIN_SESSION_MS = 2 * 60_000;
+
 export type KeyCode = {
   keyId: string;
   code: string;
@@ -75,19 +96,23 @@ export function parseKeyCode(text: string): Omit<KeyCode, 'step'> | null {
 
 /**
  * The step a scanned code belongs to, or null when it is not this key's code or is
- * outside the accepted window. `after` rejects a step already used, so the code that
- * opened a session cannot also close it: scanning twice in the same half minute would
- * otherwise start and end a session in one breath.
+ * outside the accepted window.
+ *
+ * Two floors, and both matter. `key.lastStep` is the newest step this key was ever
+ * accepted in: time only moves forward for a key, so a code recorded once cannot be
+ * replayed by winding the phone's clock back to its window. `after` is the step that
+ * opened the current session, so the code that started it cannot also end it.
  */
 export function verifyKeyCode(key: PairedKey, text: string, now: Millis, after: number | null = null): number | null {
   const parsed = parseKeyCode(text);
   if (parsed === null || parsed.keyId !== key.id) {
     return null;
   }
+  const floor = Math.max(key.lastStep, after ?? 0);
   const current = keyStep(now);
   for (let offset = -KEY_SKEW_STEPS; offset <= KEY_SKEW_STEPS; offset += 1) {
     const step = current + offset;
-    if (after !== null && step <= after) {
+    if (step <= floor) {
       continue;
     }
     if (equals(codeFor(key, step), parsed.code)) {
@@ -100,10 +125,16 @@ export function verifyKeyCode(key: PairedKey, text: string, now: Millis, after: 
 /**
  * What the key device shows once, while pairing: the secret itself. The same shape as
  * an authenticator's enrolment code, and safe for the same reason — it is shown for a
- * moment, to a camera, at arm's length. 77 bytes, a version 5 QR.
+ * moment, to a camera, at arm's length. 82 bytes with a 12-character id: a version 5
+ * QR, the largest this encoder makes.
  */
 export function pairingCode(pairing: Pairing): string {
   return `${PAIRING_PREFIX}:${pairing.keyId}:${pairing.secret}`;
+}
+
+/** True when an id is short enough for its pairing code to fit the encoder. */
+export function isKeyIdUsable(keyId: string): boolean {
+  return keyId.length > 0 && keyId.length <= KEY_ID_CHARS + 2;
 }
 
 /** The pairing payload as its parts, or null when it is malformed. */
@@ -116,7 +147,7 @@ export function parsePairingCode(text: string): Pairing | null {
   if (keyId === undefined || secret === undefined || keyId === '') {
     return null;
   }
-  if (secret.length !== SECRET_BYTES * 2 || fromHex(secret) === null) {
+  if (secret.length !== SECRET_BYTES * 2 || fromHex(secret) === null || !isKeyIdUsable(keyId)) {
     return null;
   }
   return { keyId, secret };

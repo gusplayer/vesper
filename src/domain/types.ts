@@ -275,10 +275,20 @@ export type ChallengeMark = {
  * session by showing a code. `secret` is 32 bytes as hex, shared once at pairing and
  * never shown again; it lives in the keychain, not in SQLite.
  */
+export type KeyRole = 'shows' | 'scans';
+
 export type PairedKey = {
   id: string;
   /** What the user calls it: "el teléfono de Ana", "la tableta". */
   name: string;
   secret: string;
+  /**
+   * 'shows': this phone is the key and draws its codes. 'scans': this key opens this
+   * phone. A phone never draws the code of a key that opens it — that would be a lock
+   * with the key taped to the door (ADR-0034).
+   */
+  role: KeyRole;
+  /** The newest step this key was ever accepted in. Time only goes forward for a key. */
+  lastStep: number;
   pairedAt: Millis;
 };

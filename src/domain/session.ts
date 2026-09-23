@@ -77,8 +77,12 @@ export function effectiveDepth(depth: Depth, open: boolean): Depth {
 }
 
 export function createSession(id: string, config: SessionConfig, now: Millis): Session {
-  const open = config.open === true;
   const key = config.key ?? null;
+  // A key session has no timer of its own: the key ends it, and the 12 h cap is the
+  // backstop every open session already has. That is the promise of ADR-0034, and it
+  // also takes away the cheapest attack on the lock — winding the clock past a
+  // planned end and coming back to a session the app closed by itself.
+  const open = config.open === true || key !== null;
   return {
     id,
     activityId: config.activityId,

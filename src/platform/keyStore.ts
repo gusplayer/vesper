@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
 
+import { KEY_ID_CHARS } from '../domain/key';
 import { toHex } from '../lib/sha256';
 import type { CapabilityStatus } from './capabilities';
 import { getStrings } from '../i18n';
@@ -47,6 +48,15 @@ export function status(): CapabilityStatus {
 /** A fresh secret for a key being paired, as hex. Native randomness, never Math.random. */
 export function newSecret(): string {
   return toHex(Crypto.getRandomBytes(SECRET_BYTES));
+}
+
+/**
+ * A fresh key id: short, because the pairing code has to fit a QR this app draws
+ * itself (domain/key.ts). Not a UUID v7 for once — 48 random bits are enough to tell
+ * apart the five keys a phone can hold, and a UUID would not fit.
+ */
+export function newKeyId(): string {
+  return toHex(Crypto.getRandomBytes(KEY_ID_CHARS / 2));
 }
 
 /** Stores a key's secret. False when the keychain refused it. */

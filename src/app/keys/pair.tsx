@@ -41,9 +41,9 @@ export default function PairKeyScreen() {
   const camera = cameraStatus();
 
   const beKey = async () => {
-    const created = await createAsKey(t.keys.namePlaceholder, Date.now());
-    if (created === null) {
-      setError(t.keys.pair.full);
+    const created = await createAsKey(t.keys.defaultName, Date.now());
+    if (!created.ok) {
+      setError(created.reason === 'noKeychain' ? t.keys.pair.noKeychain : t.keys.pair.full);
       return;
     }
     setPairingCode(created.code);

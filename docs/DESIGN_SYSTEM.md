@@ -134,10 +134,11 @@ existen pero no se exportan: son internos.
 | `StippleCanvas` | El lienzo del arte de foco: los primeros N puntos como un path SVG |
 | `InkFlood` | La inundación punteada desde un origen: `ink` para entrar, `paper` para salir |
 | `QrCode` | Un QR como path SVG, siempre en paleta clara |
+| `KeyPattern` | El código de la llave (ADR-0034): un QR dibujado como campo de puntos, con las tres esquinas cuadradas para que un lector lo encuentre. Siempre en paleta clara y sin animación: cualquier fotograma es un código entero |
 | `StatCard` | Etiqueta, cifra grande, frase |
 | `BarChart`, `HorizontalBars`, `DotGrid` | Barras verticales con guías y promedio; barras horizontales; grilla de cuadros |
 | `ThemeScope` | Un subárbol en un esquema fijo, con la barra de estado que le corresponde |
-| `NativeHost` | Caja apagada de alto fijo para una vista nativa (el selector de Screen Time) |
+| `NativeHost` | Caja apagada de alto fijo para una vista nativa (el selector de Screen Time, la cámara de la llave) |
 | `FatalError` | La única pantalla que existe porque algo se rompió; el único texto fuera de `i18n` |
 
 ## Cómo se escribe una pantalla

@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import * as keysRepo from '../../db/repositories/keys';
 import { keyCodeAt, matchKey, pairingCode, parsePairingCode } from '../../domain/key';
 import type { PairedKey } from '../../domain/types';
-import { uuidv7 } from '../../lib/uuid';
 import * as keyStore from '../../platform/keyStore';
 
 /**
@@ -41,7 +40,7 @@ type KeysState = {
    * Makes this phone a key: it invents the id and the secret, keeps them, and returns
    * the pairing code for the other phone to read.
    */
-  createAsKey: (name: string, now: number) => Promise<{ code: string } | null>;
+  createAsKey: (name: string, now: number) => Promise<{ ok: true; keyId: string; code: string } | { ok: false; reason: PairResult }>;
   rename: (id: string, name: string) => void;
   remove: (id: string) => Promise<void>;
   /** Which key a scanned code belongs to, or null. `after` rejects an already-used step. */
@@ -68,24 +67,24 @@ export const useKeysStore = create<KeysState>((set, get) => ({
     if (!(await keyStore.saveSecret(pairing.keyId, pairing.secret))) {
       return 'noKeychain';
     }
-    keysRepo.insert({ id: pairing.keyId, name, pairedAt: now });
+    keysRepo.insert({ id: pairing.keyId, name, role: 'scans', pairedAt: now });
     set({ keys: keysRepo.list() });
     return 'ok';
   },
 
   createAsKey: async (name, now) => {
     if (get().keys.length >= MAX_KEYS) {
-      return null;
+      return { ok: false, reason: 'full' };
     }
-    const id = uuidv7(now);
+    const id = keyStore.newKeyId();
     const secret = keyStore.newSecret();
     if (!(await keyStore.saveSecret(id, secret))) {
-      return null;
+      return { ok: false, reason: 'noKeychain' };
     }
-    keysRepo.insert({ id, name, pairedAt: now });
+    keysRepo.insert({ id, name, role: 'shows', pairedAt: now });
     set({ keys: keysRepo.list() });
     // The other phone needs the secret once, to derive the same codes from now on.
-    return { code: pairingCode({ keyId: id, secret }) };
+    return { ok: true, keyId: id, code: pairingCode({ keyId: id, secret }) };
   },
 
   rename: (id, name) => {
@@ -113,13 +112,24 @@ export const useKeysStore = create<KeysState>((set, get) => ({
       }
     }
     const match = matchKey(withSecrets, text, now, after);
-    return match === null ? null : { keyId: match.keyId, step: match.step };
+    if (match === null) {
+      return null;
+    }
+    // The step is spent the moment it is accepted: a code is good once, ever.
+    keysRepo.markStep(match.keyId, match.step);
+    set({ keys: keysRepo.list() });
+    return { keyId: match.keyId, step: match.step };
   },
 
   codeFor: async (keyId, now) => {
     const key = get().keys.find((entry) => entry.id === keyId);
-    const secret = key === undefined ? null : await keyStore.readSecret(keyId);
-    if (key === undefined || secret === null) {
+    // A key that opens this phone is never drawn by this phone: that would be a lock
+    // with its key taped to the door. Only a key this phone *is* has a code to show.
+    if (key === undefined || key.role !== 'shows') {
+      return null;
+    }
+    const secret = await keyStore.readSecret(keyId);
+    if (secret === null) {
       return null;
     }
     return keyCodeAt({ ...key, secret }, now);

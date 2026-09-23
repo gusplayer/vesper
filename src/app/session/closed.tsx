@@ -54,11 +54,7 @@ export default function SessionClosedScreen() {
           <Text tone="secondary" align="center">
             {byKey ? strings.keys.receipt.duration(served) : t.counted(served)}
           </Text>
-          {byKey ? (
-            <Text tone="secondary" align="center">
-              {closed?.outcome === 'completed' ? strings.keys.receipt.completed : strings.keys.receipt.cut}
-            </Text>
-          ) : null}
+
           {emergency ? (
             <Text tone="secondary" align="center">
               {t.emergency(emergencyLeft)}

@@ -67,18 +67,35 @@ queda con el valor del caso de uso y cambia el sitio donde ocurre.
 
 ## Decisión
 
-### 1. La llave es una salida más de una sesión profunda
+### 1. La llave es una salida más de una sesión profunda, y esa sesión no tiene reloj
 
 No hay profundidad nueva ni estado nuevo. Una sesión con llave corre como `deep` —sin
 pie, sin ritual, sin botón de salir— y suma una única forma de terminar: volver a
-escanear la llave que la abrió. El `CloseOutcome` gana un nombre, porque hoy toda salida
-a mano es `'cancelled'` y esta no lo es: la sesión que cierra su llave termina como
-`'completed'` si llegó a su tiempo y `'cancelled'` si no, con `exitReason` marcado con
-un centinela nuevo al lado de `EMERGENCY_EXIT_REASON`.
+escanear la llave que la abrió. Cierra como `'cancelled'`, igual que toda salida a mano,
+con `exitReason` marcado con un centinela nuevo al lado de `EMERGENCY_EXIT_REASON`.
+
+**Y no tiene duración.** La sesión con llave es una sesión sin límite: el selector de
+minutos no la toca, el tope de 12 h es su respaldo y la llave es lo que la termina. Dos
+razones, ambas encontradas al revisarla: la primera versión dejaba que quien está siendo
+bloqueado eligiera cuánto duraba —un minuto bastaba—, y dejaba que adelantar el reloj
+del teléfono la cerrara sola, que era la forma más barata de romper la llave. Sin fin
+planeado no hay ninguna de las dos.
+
+**La llave no termina una sesión recién empezada.** Dos minutos mínimo
+(`KEY_MIN_SESSION_MS`). Sin eso, quien está frente al dispositivo llave puede fotografiar
+dos códigos seguidos, escanear el primero para abrir y el segundo para cerrar, y no servir
+nada. Un código solo vale en su ventana, así que una foto se pasa; dos minutos sobreviven
+a cualquier código que ya pudiera estar capturado cuando la sesión empezó.
 
 **La emergencia sigue intacta.** Cinco al mes, ruta propia, diez segundos de espera. Es
 la condición para que esto sea aceptable: un teléfono cuya llave está sin batería, o en
 otra ciudad, no puede quedar cerrado. Esto no se negocia en una revisión posterior.
+
+Al revisar la llave se descubrió que "cinco al mes" no era cierto: el contador solo
+bajaba y nunca se recargaba, así que eran cinco por instalación, para siempre. Con una
+sesión que solo otra persona puede terminar eso deja de ser una deuda y pasa a ser una
+trampa, así que `src/domain/emergency.ts` recarga el presupuesto al cambiar el mes del
+calendario local, y `Settings` recuerda a qué mes pertenece la cuenta.
 
 ### 2. La llave es un secreto compartido y el código rota
 
@@ -90,7 +107,18 @@ propia copia del secreto y su propio reloj.
 
 Esto conserva la regla 7 entera. Abrir y cerrar una sesión nunca depende de que haya
 señal, y la cercanía física la impone la cámara: hay que estar frente al otro
-dispositivo. Una foto del código sirve treinta segundos.
+dispositivo.
+
+**Cada llave recuerda la ventana más nueva en la que fue aceptada** (`paired_keys.last_step`).
+Sin eso, el esquema confía en el reloj del teléfono que verifica, y atrasarlo hace que un
+código fotografiado una vez sirva para siempre. Con la marca de agua, el tiempo de una
+llave solo avanza, diga lo que diga el reloj: un código vale una vez y nunca más.
+
+**Cada llave sabe de qué lado está** (`paired_keys.role`). `shows` es una llave que este
+teléfono *es*; `scans` es una llave que *abre* este teléfono. Emparejar deja el mismo
+secreto en los dos aparatos —es simétrico, como todo TOTP— pero el teléfono bloqueado
+nunca dibuja el código de la llave que lo bloquea. Sin esa distinción, Ajustes › Llaves
+mostraba el código en vivo de la cerradura a quien está encerrado.
 
 ### 3. El código parece un campo de puntos y por dentro es un QR
 
@@ -172,6 +200,28 @@ problema central que el 0035 tiene que resolver antes de que valga la pena escri
 - Un reloj desincronizado entre los dos dispositivos rompe el TOTP. Hay que tolerar una
   ventana de más y una de menos, y decirlo en pantalla cuando falle por eso.
 - Copy nueva en `src/i18n/es/` y `src/i18n/en/`, en las dos, o `tsc` falla.
+
+## Límites aceptados
+
+Lo que esta llave **no** puede prometer, escrito para que nadie lo descubra después:
+
+- **El secreto es simétrico.** Los dos aparatos tienen el mismo, porque así funciona un
+  TOTP: quien verifica puede generar. Que el teléfono bloqueado no lo muestre es una
+  decisión de pantalla, no una imposibilidad criptográfica. La única solución real es
+  firma asimétrica, y es otro ADR.
+- **Desinstalar la app siempre termina el bloqueo**, en los dos sistemas. En Android,
+  además, `force-stop` lo suspende hasta que la app se vuelva a abrir
+  (`docs/PLATFORM_ANDROID.md`). Ninguna app fuera de MDM puede evitarlo, y un producto
+  que le promete a un padre "no puede salir" no debe dejarlo creer otra cosa.
+- **Restaurar una copia de seguridad anterior a la sesión la borra.** En iOS el secreto
+  viaja en la copia cifrada; en Android la fila viaja y el secreto no, así que la llave
+  deja de funcionar y hay que emparejar de nuevo.
+- **El código de emparejamiento es el secreto.** Se muestra una vez, a un brazo de
+  distancia, como el de un autenticador. Hoy no hay protección contra captura de
+  pantalla: es la siguiente cosa que hay que agregar y está anotada en STATUS.
+- **Atrasar el reloj no devuelve códigos usados, pero sí congela la sesión**: con un
+  reloj anterior al inicio, el tope de 12 h no llega. La emergencia sigue siendo la
+  salida, y por eso su recarga mensual es parte de este ADR.
 
 ## Alternativas descartadas
 

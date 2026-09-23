@@ -16,8 +16,9 @@ export const keys = {
   pairedOn: (date: string) => `Emparejada el ${date}`,
   remove: 'Quitar',
   removeConfirm: 'Quitar esta llave. Las sesiones que abrió siguen como están.',
-  rename: 'Cambiar el nombre',
   nameLabel: 'Nombre',
+  /** What a key this phone holds is called until the user renames it. */
+  defaultName: 'Esta llave',
   namePlaceholder: 'El teléfono de Ana',
 
   /** Elegir de qué lado está este teléfono. */
@@ -35,7 +36,7 @@ export const keys = {
     hint: 'Se escanea una sola vez. Después de esto, el código cambia solo.',
     done: 'Listo',
     codeTitle: 'Escanea para empezar',
-    codeHint: 'El código cambia cada 30 segundos. Una foto no sirve.',
+    codeHint: 'El código cambia cada 30 segundos y cada uno sirve una sola vez.',
     gone: 'Esta llave ya no está en este teléfono.',
   },
 
@@ -56,6 +57,8 @@ export const keys = {
     startHint: 'La sesión no termina hasta que vuelvas a escanear.',
     scanToStart: 'Escanea la llave para empezar',
     scanToEnd: 'Escanea la llave para terminar',
+    tooSoon: 'La llave no termina una sesión recién empezada. Espera un momento.',
+    noMode: 'Elige un modo antes de escanear.',
     wrongKey: 'Ese no es el código de esta sesión.',
     sameCode: 'Espera al siguiente código.',
     locked: 'Solo la llave termina esta sesión.',
@@ -68,7 +71,12 @@ export const keys = {
     duration: (text: string) => `${text} de foco`,
     completed: 'Llegó a su tiempo',
     cut: 'Terminó antes',
-    done: 'Listo',
+  },
+
+  /** De qué lado está cada llave, en la lista. */
+  role: {
+    shows: 'Este teléfono la muestra',
+    scans: 'Abre este teléfono',
   },
 
   /** Lo que dice `status().reason` de src/platform cuando algo no existe. */

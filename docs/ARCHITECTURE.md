@@ -10,7 +10,7 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Runtime | Expo SDK 57 + dev client | Módulos nativos: SQLite, notificaciones, Salud, widgets, Screen Time, bloqueo Android (ADR-0001, ADR-0017) |
 | Lenguaje | TypeScript 6 estricto | `strict: true`, `noUnusedLocals`, sin `any` |
 | Navegación | expo-router | Un `Stack` raíz con dos guardas (onboarding / app), cuatro pestañas de texto (`expo-router/js-tabs` con `TabBar` propio) y rutas a pantalla completa para la sesión |
-| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`006` en TypeScript |
+| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`009` en TypeScript |
 | Ids | UUID v7 propio sobre `expo-crypto` | 20 líneas. Evita `uuid` + `react-native-get-random-values` |
 | Estado | Zustand | Tres stores que cachean SQLite (`app`, `focus`, `circle`), el idioma, y borradores efímeros (modo, onboarding, duración) |
 | Texto | Dos diccionarios tipados (`src/i18n/es`, `en`) | Sin librería de i18n (ADR-0020) |
@@ -68,6 +68,8 @@ src/
     healthMarks.ts        semana de Salud → marcas verificadas
     exitRitual.ts         respiración 4-4-6, rondas por profundidad
     circle.ts             semana del círculo, retos, código de invitación
+    key.ts                la llave: código rotatorio, verificación y emparejamiento
+    emergency.ts          el presupuesto mensual del desbloqueo de emergencia
     ledger.ts, week.ts, habits.ts, day.ts, life.ts, lifeExpectancy.ts, time.ts
     art/                  motor puntillista y las cinco obras
     fixtures.ts           fábricas para los tests. Ningún código de app la importa
@@ -75,14 +77,16 @@ src/
     format.ts, tone.ts, text.ts, birthDate.ts, uuid.ts, random.ts
     dissolve.ts           las disoluciones punteadas (InkFlood, HoldButton)
     qr.ts                 codificador QR a mano, versiones 1–5
+    dotMatrix.ts          la misma matriz dibujada como campo de puntos (ADR-0034)
+    sha256.ts             SHA-256 y HMAC a mano, para derivar el código de la llave
     useNow.ts, useBlockBack.ts, useOrientation.ts, useRevision.ts
   db/
     client.ts             instancia de op-sqlite, pragmas y runner de migraciones
     boot.ts               abre, migra, siembra, recupera huérfanas; resolveActivityId; reset
     sql.ts                helpers de texto SQL, puros
-    migrations/           001_init … 006_schedule_stamps, en TypeScript
+    migrations/           001_init … 009_key_role_and_step, en TypeScript
     repositories/         toda escritura pasa por acá: activities, habits, sessions,
-                          settings, modes, schedules, circle
+                          settings, modes, schedules, circle, keys
     queries/              modelos de lectura: dayStats (stats por día desde sessions)
     testing/fakeDb.ts     handle falso para los tests de repositorios y queries
   i18n/
@@ -93,7 +97,8 @@ src/
     capabilities.ts       isIos, isAndroid, isDevice, CapabilityStatus
     notifications.ts, health.ts, liveActivity.ts (+ liveActivityProps.ts),
     blocking.ios.ts, blocking.android.ts (+ blockingTypes.ts, androidApps.ts,
-    BlockingSelectionView.tsx, routineWindows.ts), orientation.ts, circle.ts
+    BlockingSelectionView.tsx, routineWindows.ts), orientation.ts, circle.ts,
+    camera.ts (+ CameraScanner.tsx), keyStore.ts (el secreto de la llave, en el llavero)
     hooks/                useNotificationSync, useHealthSync, useLiveActivitySync,
                           useBlockingSync, useRoutineSync, useRoutineWindowsSync
     PlatformEffects.tsx   monta los seis hooks una vez, bajo el layout raíz
@@ -311,7 +316,7 @@ la usan el libro mayor y la meta semanal.
 - No hay capa de API. No hay red.
 - No hay sistema de eventos ni event bus: la plataforma se suscribe a los stores.
 - No hay inyección de dependencias. Los repositorios se importan directo.
-- No hay librería de i18n, de gráficos, de QR ni de animación.
+- No hay librería de i18n, de gráficos ni de animación. El QR se **codifica** a mano (`src/lib/qr.ts`); desde el ADR-0034 se **decodifica** con el lector nativo de `expo-camera`, que es la mitad que no se puede dibujar con `View` y SVG.
 - No hay tests de UI.
 - No quedan restos de la fase 1: `repositories/sessionConfig.ts`, `queries/week.ts` y las
   claves viejas de `settings` se borraron (ADR-0026).

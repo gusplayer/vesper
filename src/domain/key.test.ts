@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { QR_MAX_BYTES } from '../lib/qr';
 import {
+  isKeyIdUsable,
+  KEY_ID_CHARS,
   KEY_STEP_MS,
   keyCodeAt,
   keyStep,
@@ -15,8 +18,8 @@ import type { PairedKey } from './types';
 const SECRET = 'a'.repeat(64);
 const OTHER_SECRET = 'b'.repeat(64);
 
-const key: PairedKey = { id: 'k1', name: 'El teléfono de Ana', secret: SECRET, pairedAt: 0 };
-const other: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, pairedAt: 0 };
+const key: PairedKey = { id: 'k1', name: 'El teléfono de Ana', secret: SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
+const other: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
 
 // Tuesday 2026-09-22, 21:00:00 local, and the middle of its 30 s step.
 const NOW = new Date(2026, 8, 22, 21, 0, 0).getTime();
@@ -117,7 +120,7 @@ describe('pairing', () => {
 
 describe('matchKey', () => {
   const k1 = key;
-  const k2: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, pairedAt: 0 };
+  const k2: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
 
   it('picks the key the code belongs to, out of several', () => {
     expect(matchKey([k1, k2], keyCodeAt(k1, NOW), NOW)?.keyId).toBe('k1');
@@ -125,7 +128,7 @@ describe('matchKey', () => {
   });
 
   it('answers null when no key of ours made that code', () => {
-    const stranger: PairedKey = { id: 'k9', name: 'ajena', secret: OTHER_SECRET, pairedAt: 0 };
+    const stranger: PairedKey = { id: 'k9', name: 'ajena', secret: OTHER_SECRET, role: 'scans', lastStep: 0, pairedAt: 0 };
     expect(matchKey([k1, k2], keyCodeAt(stranger, NOW), NOW)).toBeNull();
     expect(matchKey([], keyCodeAt(k1, NOW), NOW)).toBeNull();
     expect(matchKey([k1], 'rubbish', NOW)).toBeNull();
@@ -140,5 +143,46 @@ describe('matchKey', () => {
     const match = matchKey([k1], keyCodeAt(k1, NOW), NOW);
     expect(match?.step).toBe(keyStep(NOW));
     expect(matchKey([k1], keyCodeAt(k1, NOW), NOW, match?.step ?? null)).toBeNull();
+  });
+});
+
+describe('the high-water step', () => {
+  it('refuses a code from a window the key has already been accepted in', () => {
+    const used: PairedKey = { ...key, lastStep: keyStep(NOW) };
+    expect(verifyKeyCode(used, keyCodeAt(key, NOW), NOW)).toBeNull();
+    // Even the one before it, which the skew window would otherwise allow.
+    expect(verifyKeyCode(used, keyCodeAt(key, NOW - KEY_STEP_MS), NOW)).toBeNull();
+  });
+
+  it('kills the replay a clock rolled back would allow', () => {
+    // A code captured now, used later with the phone's clock wound back to this window.
+    const captured = keyCodeAt(key, NOW);
+    const spent: PairedKey = { ...key, lastStep: keyStep(NOW) };
+    for (const fakeNow of [NOW, NOW + 1_000, NOW - 1_000]) {
+      expect(verifyKeyCode(spent, captured, fakeNow)).toBeNull();
+    }
+  });
+
+  it('still accepts the next window', () => {
+    const used: PairedKey = { ...key, lastStep: keyStep(NOW) };
+    const later = NOW + KEY_STEP_MS;
+    expect(verifyKeyCode(used, keyCodeAt(key, later), later)).toBe(keyStep(later));
+  });
+});
+
+describe('the id budget', () => {
+  it('keeps a pairing code inside what the encoder can draw', () => {
+    // The defect this guards against: a UUID here made a 106-byte payload and
+    // encodeQr threw during render, taking the pairing screen down.
+    const id = 'a'.repeat(KEY_ID_CHARS);
+    expect(pairingCode({ keyId: id, secret: SECRET }).length).toBeLessThanOrEqual(QR_MAX_BYTES[4] ?? 84);
+    expect(keyCodeAt({ ...key, id }, NOW).length).toBeLessThanOrEqual(QR_MAX_BYTES[2] ?? 42);
+  });
+
+  it('refuses to pair with an id too long to ever draw', () => {
+    const uuid = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
+    expect(isKeyIdUsable(uuid)).toBe(false);
+    expect(parsePairingCode(`VKP1:${uuid}:${SECRET}`)).toBeNull();
+    expect(isKeyIdUsable('a'.repeat(KEY_ID_CHARS))).toBe(true);
   });
 });

@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { canGiveUp, createSession, isKeyLocked } from './session';
+import {
+  canGiveUp,
+  closeDue,
+  createSession,
+  dueOutcome,
+  isDue,
+  isKeyLocked,
+  OPEN_SESSION_CAP_MS,
+  settle,
+} from './session';
 import { HOUR } from './time';
 
 /**
@@ -24,7 +33,7 @@ describe('a session a key opened', () => {
     }
   });
 
-  it('stays deep when it is open, unlike a plain deep session', () => {
+  it('stays deep although it is open, unlike a plain deep session', () => {
     // Without a key, deep and open would have no way out, so the domain downgrades it.
     expect(createSession('s-2', config('deep', true), T0).depth).toBe('firm');
     // With a key there is a way out, so the downgrade does not apply.
@@ -45,5 +54,39 @@ describe('a session a key opened', () => {
     expect(session.keyId).toBeNull();
     expect(session.keyStep).toBeNull();
     expect(session.depth).toBe('soft');
+  });
+});
+
+describe('a key session has no timer of its own', () => {
+  const key = { id: 'k1', step: 10 };
+
+  it('is open however it was asked for, so the hour on the picker does not end it', () => {
+    const plain = createSession('s-1', config('firm', false), T0);
+    const keyed = createSession('s-2', { ...config('firm', false), key }, T0);
+    const afterTheHour = T0 + HOUR + 1;
+
+    expect(plain.open).toBe(false);
+    expect(isDue(plain, afterTheHour)).toBe(true);
+    // The cheapest attack on the lock was winding the clock past the planned end and
+    // coming back to a session the app had closed by itself. There is no such end now.
+    expect(keyed.open).toBe(true);
+    expect(keyed.plannedMs).toBe(OPEN_SESSION_CAP_MS);
+    expect(isDue(keyed, afterTheHour)).toBe(false);
+    expect(isDue(keyed, T0 + 11 * HOUR)).toBe(false);
+  });
+
+  it('still ends at the 12 h cap, and expires rather than completing there', () => {
+    const keyed = createSession('s-3', { ...config('firm', false), key }, T0);
+    const atCap = T0 + OPEN_SESSION_CAP_MS;
+
+    expect(isDue(keyed, atCap)).toBe(true);
+    expect(dueOutcome(keyed)).toBe('expired');
+    expect(closeDue(keyed).endedAt).toBe(atCap);
+  });
+
+  it('settle leaves it running for hours and closes it at the cap', () => {
+    const keyed = createSession('s-4', { ...config('firm', false), key }, T0);
+    expect(settle(keyed, T0 + 5 * HOUR).outcome).toBe('running');
+    expect(settle(keyed, T0 + 13 * HOUR).outcome).toBe('expired');
   });
 });

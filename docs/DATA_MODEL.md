@@ -79,10 +79,27 @@ CREATE TABLE sessions (
   exit_reason   TEXT,                     -- texto escrito al rendirse en modo firme
   interruptions INTEGER NOT NULL DEFAULT 0,
   started_at    INTEGER NOT NULL,
-  ended_at      INTEGER
+  ended_at      INTEGER,
+  key_id        TEXT,                     -- 008: la llave que abrio la sesion (ADR-0034)
+  key_step      INTEGER                   -- 008: la ventana de 30 s del codigo que la abrio
   -- más las cuatro columnas de 005, abajo
 );
 CREATE INDEX idx_sessions_started ON sessions(started_at);
+
+-- 008 y 009. Las llaves emparejadas con este telefono (ADR-0034). El secreto de 32
+-- bytes NO esta aqui: vive en el llavero bajo el mismo id (src/platform/keyStore.ts),
+-- porque son los bytes que terminan una sesion y una copia de seguridad no debe
+-- llevarselos. role dice de que lado esta el telefono: 'shows' es una llave que este
+-- telefono ES, 'scans' es una llave que ABRE este telefono, y un telefono nunca dibuja
+-- el codigo de la segunda. last_step es la ventana mas nueva en la que la llave fue
+-- aceptada: el tiempo de una llave solo avanza, asi que un codigo vale una vez.
+CREATE TABLE paired_keys (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  role       TEXT NOT NULL DEFAULT 'scans',  -- 'shows' | 'scans'
+  last_step  INTEGER NOT NULL DEFAULT 0,
+  paired_at  INTEGER NOT NULL
+);
 
 CREATE TABLE habit_marks (
   id          TEXT PRIMARY KEY,

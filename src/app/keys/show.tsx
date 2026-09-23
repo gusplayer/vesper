@@ -1,33 +1,43 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
 import { useKeys } from '../../data';
 import { useKeysStore } from '../../data/stores/keys';
-import { Button, KeyPattern, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { Button, FieldRow, KeyPattern, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { KEY_STEP_MS } from '../../domain/key';
-import { useStrings } from '../../i18n';
+import { useLocale, useStrings } from '../../i18n';
 
 /**
- * This phone acting as a key (ADR-0034): the code the other phone scans to start a
- * session and to end it.
+ * A key, up close (ADR-0034). If this phone *is* the key, the page draws the code the
+ * other phone scans, redrawn when its 30 s window turns over. If the key is one that
+ * *opens* this phone, there is no code here: drawing it would be a lock with its key
+ * taped to the inside of the door, so the page only renames and removes.
  *
- * The code is redrawn when its 30 s window turns over. That is a clock, not an
- * animation: nothing fades, nothing moves, and any single frame is a whole code —
- * which is what a camera needs and what "Reducir movimiento" requires.
+ * The redraw is a clock, not an animation: nothing fades, nothing moves, and any single
+ * frame is a whole code — which is what a camera needs and what "Reducir movimiento"
+ * requires.
  */
 export default function ShowKeyScreen() {
   const router = useRouter();
   const t = useStrings();
+  const { tag } = useLocale();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const keys = useKeys();
   const codeFor = useKeysStore((state) => state.codeFor);
+  const rename = useKeysStore((state) => state.rename);
   const remove = useKeysStore((state) => state.remove);
   const [code, setCode] = useState<string | null>(null);
+  // Null until the user types: the field shows the stored name without an effect
+  // copying it into state on every render of a row that may not exist yet.
+  const [draftName, setDraftName] = useState<string | null>(null);
 
   const key = keys.find((entry) => entry.id === id) ?? null;
+  const shows = key?.role === 'shows';
+  const name = draftName ?? key?.name ?? '';
 
   useEffect(() => {
-    if (key === null) {
+    if (key === null || !shows) {
       return;
     }
     let alive = true;
@@ -54,39 +64,82 @@ export default function ShowKeyScreen() {
         clearInterval(interval);
       }
     };
-  }, [key, codeFor]);
+  }, [key, shows, codeFor]);
+
+  const confirmRemove = () => {
+    if (key === null) {
+      return;
+    }
+    Alert.alert(key.name, t.keys.removeConfirm, [
+      { text: t.common.cancel, style: 'cancel' },
+      {
+        text: t.keys.remove,
+        style: 'destructive',
+        onPress: () => {
+          void remove(key.id).then(() => router.back());
+        },
+      },
+    ]);
+  };
 
   return (
     <Screen
       scroll
       footer={
         key === null ? undefined : (
-          <Button
-            variant="ghost"
-            label={t.keys.remove}
-            onPress={() => {
-              void remove(key.id).then(() => router.back());
-            }}
-          />
+          <>
+            <Button
+              label={t.keys.show.done}
+              onPress={() => {
+                const trimmed = name.trim();
+                if (trimmed !== '' && trimmed !== key.name) {
+                  rename(key.id, trimmed);
+                }
+                router.back();
+              }}
+            />
+            <Button variant="ghost" label={t.keys.remove} onPress={confirmRemove} />
+          </>
         )
       }
     >
       <PageHeader onBack={() => router.back()} title={key?.name ?? t.keys.title} />
 
-      {key === null || code === null ? (
+      {key === null ? (
         <Text variant="label" tone="secondary" align="center">
           {t.keys.show.gone}
         </Text>
       ) : (
         <Stack gap="md">
-          <Text variant="title">{t.keys.show.codeTitle}</Text>
-          <KeyPattern value={code} accessibilityLabel={t.keys.show.codeTitle} />
-          <Text variant="label" tone="secondary" align="center">
-            {t.keys.show.codeHint}
+          <FieldRow
+            label={t.keys.nameLabel}
+            value={name}
+            onChangeText={setDraftName}
+            placeholder={t.keys.namePlaceholder}
+          />
+          <Text variant="caption" tone="tertiary">
+            {t.keys.pairedOn(new Date(key.pairedAt).toLocaleDateString(tag))}
           </Text>
-          <Text variant="caption" tone="tertiary" align="center">
-            {t.keys.removeConfirm}
-          </Text>
+
+          {shows ? (
+            code === null ? (
+              <Text variant="label" tone="secondary" align="center">
+                {t.keys.show.gone}
+              </Text>
+            ) : (
+              <>
+                <Text variant="title">{t.keys.show.codeTitle}</Text>
+                <KeyPattern value={code} accessibilityLabel={t.keys.show.codeTitle} />
+                <Text variant="label" tone="secondary" align="center">
+                  {t.keys.show.codeHint}
+                </Text>
+              </>
+            )
+          ) : (
+            <Text variant="label" tone="secondary">
+              {t.keys.role.scans}
+            </Text>
+          )}
         </Stack>
       )}
     </Screen>

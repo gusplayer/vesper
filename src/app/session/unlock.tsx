@@ -4,8 +4,8 @@ import { useRef, useState } from 'react';
 import { useFocusStore, useRunningSession } from '../../data';
 import { useKeysStore } from '../../data/stores/keys';
 import { Button, InkFlood, NativeHost, Screen, Spacer, Stack, Text } from '../../design/components';
-import { KEY_EXIT_REASON } from '../../domain/key';
-import { elapsed, plannedEndAt } from '../../domain/session';
+import { KEY_EXIT_REASON, KEY_MIN_SESSION_MS } from '../../domain/key';
+import { elapsed } from '../../domain/session';
 import { useStrings } from '../../i18n';
 import { useBlockBack } from '../../lib/useBlockBack';
 import { CameraScanner } from '../../platform/CameraScanner';
@@ -53,6 +53,12 @@ export default function UnlockScreen() {
       return;
     }
     const now = Date.now();
+    // Two codes photographed one after the other would otherwise open a session and
+    // close it in the same minute, serving nothing (ADR-0034).
+    if (elapsed(session, now) < KEY_MIN_SESSION_MS) {
+      setError(t.keys.session.tooSoon);
+      return;
+    }
     const verified = await verify(text, now, session.keyStep);
     if (verified === null) {
       // Telling these apart matters: one is the wrong key, the other is patience.
@@ -68,13 +74,15 @@ export default function UnlockScreen() {
     setLeaving(true);
   };
 
-  /** The page floods to paper; the session closes under it and `closed` shows the receipt. */
+  /**
+   * The page floods to paper; the session closes under it and `closed` shows the
+   * receipt. A key session has no time it was supposed to reach, so there is nothing
+   * to pass or fail: it closes the way every session left by hand does, and the
+   * receipt says how long it lasted and nothing else.
+   */
   const flooded = () => {
-    const now = Date.now();
-    const end = plannedEndAt(session);
-    const ranItsTime = end !== null && now >= end;
-    finish(ranItsTime ? 'completed' : 'cancelled', now, KEY_EXIT_REASON);
-    router.replace({ pathname: '/session/closed', params: { key: '1', focusMs: String(elapsed(session, now)) } });
+    finish('cancelled', Date.now(), KEY_EXIT_REASON);
+    router.replace({ pathname: '/session/closed', params: { key: '1' } });
   };
 
   return (

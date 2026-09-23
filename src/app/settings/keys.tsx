@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useKeys } from '../../data';
 import { MAX_KEYS } from '../../data/stores/keys';
 import { Button, Card, ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
-import { useLocale, useStrings } from '../../i18n';
+import { useStrings } from '../../i18n';
 
 /**
  * Ajustes › Llaves (ADR-0034). The keys this phone knows: the ones it can be opened
@@ -12,7 +12,6 @@ import { useLocale, useStrings } from '../../i18n';
 export default function KeysScreen() {
   const router = useRouter();
   const t = useStrings();
-  const { tag } = useLocale();
   const keys = useKeys();
 
   const full = keys.length >= MAX_KEYS;
@@ -51,7 +50,7 @@ export default function KeysScreen() {
             <ListRow
               key={key.id}
               label={key.name}
-              value={t.keys.pairedOn(new Date(key.pairedAt).toLocaleDateString(tag))}
+              value={key.role === 'shows' ? t.keys.role.shows : t.keys.role.scans}
               onPress={() => router.push({ pathname: '/keys/show', params: { id: key.id } })}
             />
           ))}

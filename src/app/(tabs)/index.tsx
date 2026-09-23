@@ -103,16 +103,11 @@ export default function FocusScreen() {
         ) : (
           <Button label={startLabel} onPress={() => setFlooding(true)} disabled={mode === null} />
         )}
-        {keys.length === 0 ? null : (
+        {keys.every((key) => key.role !== 'scans') ? null : (
           <Button
             variant="ghost"
             label={t.keys.session.start}
-            onPress={() =>
-              router.push({
-                pathname: '/keys/scan',
-                params: plannedMs === null ? {} : { minutes: String(Math.round(plannedMs / 60_000)) },
-              })
-            }
+            onPress={() => router.push('/keys/scan')}
             disabled={mode === null}
           />
         )}

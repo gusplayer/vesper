@@ -9,6 +9,7 @@ import * as modesRepo from '../../db/repositories/modes';
 import * as schedulesRepo from '../../db/repositories/schedules';
 import * as settingsRepo from '../../db/repositories/settings';
 import { dayKeyOf, shiftDayKey } from '../../domain/day';
+import { refilled as refilledEmergency, spend as spendEmergency } from '../../domain/emergency';
 import { activeHabitCount, canAddHabit } from '../../domain/habits';
 import { graceDaysToApply, monthKeyOf } from '../../domain/streak';
 import type { GraceDay, Habit, HabitMark } from '../../domain/types';
@@ -132,11 +133,27 @@ export const useAppStore = create<AppState>((set, get) => {
       const stored = settingsRepo.getActiveModeId();
       const activeModeId =
         stored !== null && modes.some((m) => m.id === stored) ? stored : (modes[0]?.id ?? '');
+      // The emergency budget is five a month, and a month may have turned over while
+      // the app was closed (ADR-0025, and the condition ADR-0034 leans on).
+      const stored_ = settingsRepo.getPrototypeSettings(SETTINGS);
+      const budget = refilledEmergency(
+        { left: stored_.emergencyLeft, total: stored_.emergencyTotal, monthKey: stored_.emergencyMonthKey },
+        now,
+      );
+      const settings = {
+        ...stored_,
+        emergencyLeft: budget.left,
+        emergencyTotal: budget.total,
+        emergencyMonthKey: budget.monthKey,
+      };
+      if (budget.monthKey !== stored_.emergencyMonthKey) {
+        settingsRepo.setPrototypeSettings(settings, now);
+      }
       set({
         modes,
         activeModeId,
         schedules: schedulesRepo.list(),
-        settings: settingsRepo.getPrototypeSettings(SETTINGS),
+        settings,
         habits: habitsRepo.listActive(),
         habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKeyOf(now)),
         dayStats: loadDayStats(now, HISTORY_DAYS),
@@ -254,7 +271,16 @@ export const useAppStore = create<AppState>((set, get) => {
 
     useEmergency: () => {
       const current = get().settings;
-      saveSettings({ ...current, emergencyLeft: Math.max(0, current.emergencyLeft - 1) });
+      const budget = spendEmergency(
+        { left: current.emergencyLeft, total: current.emergencyTotal, monthKey: current.emergencyMonthKey },
+        Date.now(),
+      );
+      saveSettings({
+        ...current,
+        emergencyLeft: budget.left,
+        emergencyTotal: budget.total,
+        emergencyMonthKey: budget.monthKey,
+      });
     },
 
     dismissBanner: () => saveSettings({ ...get().settings, pendingBanner: null }),
