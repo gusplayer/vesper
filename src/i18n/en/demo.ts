@@ -15,6 +15,7 @@ export const demo: DemoStrings = {
     gym: 'gym',
     familia: 'family',
     amigos: 'friends',
+    descanso: 'rest',
   },
   modeName: {
     noSocials: 'No socials',

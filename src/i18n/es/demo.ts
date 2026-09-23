@@ -7,7 +7,7 @@
 
 export type AppCategory = 'social' | 'entertainment' | 'messages' | 'shopping' | 'productivity';
 
-export type DemoActivityKey = 'trabajo' | 'lectura' | 'aprender' | 'gym' | 'familia' | 'amigos';
+export type DemoActivityKey = 'trabajo' | 'lectura' | 'aprender' | 'gym' | 'familia' | 'amigos' | 'descanso';
 
 export type DemoModeKey = 'noSocials' | 'family' | 'deepWork';
 
@@ -48,6 +48,7 @@ export const demo: DemoStrings = {
     gym: 'gym',
     familia: 'familia',
     amigos: 'amigos',
+    descanso: 'descanso',
   },
   modeName: {
     noSocials: 'Sin redes',

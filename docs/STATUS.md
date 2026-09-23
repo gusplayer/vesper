@@ -242,9 +242,18 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   ocho tests nuevos (cuatro en `seed.test.ts`, cuatro en `onboardingDraft.test.ts`).
 - No verificado: la actividad de un modo creado desde Modos › Ideas (no se ve en pantalla;
   la cubre `seed.test.ts`), y nada en un teléfono.
-- Deuda: las actividades sembradas no tienen descanso, así que Dormir y Calma cuentan su
-  tiempo como "trabajo". Está anotado en `demoModeIdeas`; agregar una actividad de
-  descanso es decisión de producto.
+- **2026-09-22 · "descanso" es una actividad.** Resuelve la deuda de la entrada anterior:
+  Dormir y Calma ya no cuentan su tiempo como "trabajo". Séptima actividad por defecto
+  (`descanso` / `rest`), sin migración: `activities.seedDefaults` corre en cada arranque
+  con `INSERT OR IGNORE`, así que llega también a una base ya sembrada. Las ideas Dormir
+  y Calma apuntan a `REST_ACTIVITY_ID`; Familia sigue en `familia` y las otras dos en
+  `trabajo`.
+- Verificado contra la base real del simulador iPhone 17 Pro, que ya estaba sembrada desde
+  el 17 de septiembre: tras un arranque, `sqlite3` sobre `Library/vesper.db` muestra las
+  seis actividades viejas intactas con su fecha original y `descanso|rest` creada en ese
+  arranque. `tsc` limpio, `eslint` sin avisos, la suite en verde.
+- No verificado: cómo se ve "descanso" en los selectores de actividad (la base del
+  simulador tenía una sesión abierta y salir de ella pide el ritual completo).
 
 - **2026-09-21 · El reto dice cómo vas, avisa cuando se te está yendo y se ve desde
   Focus (ADR-0031).** `challengeOutlook` y `challengeWeeks` en `domain/circle.ts` dan el

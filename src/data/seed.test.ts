@@ -181,6 +181,16 @@ describe('the routine every mode idea proposes', () => {
     expect(new Set(ideas.map((idea) => idea.schedule.startMinutes)).size).toBeGreaterThan(1);
   });
 
+  it('counts sleep and calm as rest, family as family, and only the rest as work', () => {
+    const byId = new Map(ideas.map((idea) => [idea.id, idea.activityId]));
+
+    expect(byId.get('idea-sleep')).toBe('descanso');
+    expect(byId.get('idea-mindfulness')).toBe('descanso');
+    expect(byId.get('idea-family')).toBe('familia');
+    expect(byId.get('idea-work')).toBe('trabajo');
+    expect(byId.get('idea-no-socials')).toBe('trabajo');
+  });
+
   it('gives each idea its own arrays, so editing one draft never moves another', () => {
     const days = ideas.map((idea) => idea.schedule.days);
     for (const [index, array] of days.entries()) {

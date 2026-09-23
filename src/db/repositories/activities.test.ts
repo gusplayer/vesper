@@ -81,7 +81,7 @@ describe('seedDefaults', () => {
   it('issues one INSERT OR IGNORE per default activity', () => {
     activities.seedDefaults(T0, demoActivities(es.demo));
 
-    expect(fake.calls).toHaveLength(6);
+    expect(fake.calls).toHaveLength(7);
     for (const call of fake.calls) {
       expect(call.sql.trim().startsWith('INSERT OR IGNORE INTO activities')).toBe(true);
       expect(call.params?.[0]).toBe('id-fixed');
@@ -94,6 +94,7 @@ describe('seedDefaults', () => {
       'gym',
       'familia',
       'amigos',
+      'descanso',
     ]);
   });
 });

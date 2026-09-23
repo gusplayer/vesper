@@ -72,6 +72,8 @@ export const WEBSITES: Website[] = [
 /** Ids of the seeded activities that screens point a new mode at. */
 export const WORK_ACTIVITY_ID = 'trabajo';
 export const FAMILY_ACTIVITY_ID = 'familia';
+/** Time away from the screen that is not work: what sleep and calm count as. */
+export const REST_ACTIVITY_ID = 'descanso';
 
 /** Monday first, like `Schedule.days`. Spread at every use: an idea owns its own array. */
 const WEEKDAYS = [true, true, true, true, true, false, false];
@@ -85,6 +87,7 @@ export function demoActivities(t: DemoStrings): Activity[] {
     { id: 'gym', label: t.activity.gym },
     { id: 'familia', label: t.activity.familia },
     { id: 'amigos', label: t.activity.amigos },
+    { id: 'descanso', label: t.activity.descanso },
   ];
 }
 
@@ -135,9 +138,9 @@ export function demoModes(t: DemoStrings): Mode[] {
  * (the open end is capped at OPEN_END_CAP_MS, so it releases by itself before morning),
  * and work and "no socials" cover the workday, weekdays only.
  *
- * `activityId` is what a session of the mode counts as in the ledger. Only family has
- * an activity of its own; sleep and calm fall back to work because the seeded
- * activities have no rest, and adding one is a product decision, not a default.
+ * `activityId` is what a session of the mode counts as in the ledger: family time,
+ * rest for sleep and calm, work for the rest. An hour off the phone before bed is
+ * not an hour of work, and the ledger says so.
  */
 export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
   return [
@@ -159,7 +162,7 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       appIds: ['instagram', 'tiktok', 'youtube', 'netflix', 'reddit'],
       depth: 'firm',
       schedule: { startMinutes: 22 * 60, endMinutes: null, days: [...EVERY_DAY] },
-      activityId: WORK_ACTIVITY_ID,
+      activityId: REST_ACTIVITY_ID,
     },
     {
       id: 'idea-work',
@@ -179,7 +182,7 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
       appIds: ['instagram', 'tiktok', 'x', 'facebook', 'reddit', 'youtube', 'whatsapp'],
       depth: 'firm',
       schedule: { startMinutes: 20 * 60, endMinutes: 21 * 60, days: [...EVERY_DAY] },
-      activityId: WORK_ACTIVITY_ID,
+      activityId: REST_ACTIVITY_ID,
     },
     {
       id: 'idea-no-socials',
