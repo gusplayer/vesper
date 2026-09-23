@@ -10,8 +10,9 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    // `server/*` is the backend (ADR-0033): its own package, its own tsc and vitest.
-    ignores: ['dist/*', 'coverage/*', 'android/*', 'ios/*', 'node_modules/*', 'targets/*', 'modules/*/android/*', 'server/*'],
+    // `server/*` is the backend (ADR-0033) and `web/*` the invite page (ADR-0034):
+    // neither is the app, and neither goes through Metro.
+    ignores: ['dist/*', 'coverage/*', 'android/*', 'ios/*', 'node_modules/*', 'targets/*', 'modules/*/android/*', 'server/*', 'web/*'],
   },
   {
     files: ['src/**/*.{ts,tsx}'],

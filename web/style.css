@@ -1,0 +1,155 @@
+/*
+ * The app's tokens, by hand (ADR-0034): light scheme only, because a page that is read
+ * once in daylight does not need the session's ink. Values copied from
+ * src/design/tokens.ts — never a colour that is not there.
+ */
+:root {
+  --bg: #e8e6e2;
+  --card: #f8f7f5;
+  --card-muted: #e3e1dc;
+  --ink: #1c1b1a;
+  --ink-secondary: #66645f;
+  --ink-tertiary: #a6a39e;
+  --line: #dcd9d3;
+  --on-ink: #f8f7f5;
+  --radius-card: 20px;
+  --radius-pill: 999px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+main {
+  width: 100%;
+  max-width: 420px;
+  padding: 48px 16px 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+/* The mark: the app icon's 4x4 grid, nine cells in ink and seven gone quiet. */
+.mark {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  background: var(--card);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 4px;
+  padding: 18px;
+}
+
+.mark span {
+  border-radius: 2px;
+  background: var(--card-muted);
+}
+
+.mark span.lit {
+  background: var(--ink);
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0;
+  text-align: center;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+  text-align: center;
+  color: var(--ink-secondary);
+  text-wrap: pretty;
+}
+
+p.quiet {
+  font-size: 14px;
+  color: var(--ink-tertiary);
+}
+
+/* The code, big enough to be typed into the app by hand. */
+.code {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  padding: 20px 28px;
+  width: 100%;
+  text-align: center;
+}
+
+.button {
+  display: block;
+  width: 100%;
+  background: var(--ink);
+  color: var(--on-ink);
+  text-decoration: none;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 500;
+  padding: 18px 24px;
+  border-radius: var(--radius-pill);
+}
+
+.button:active {
+  opacity: 0.85;
+}
+
+.card {
+  background: var(--card);
+  border-radius: var(--radius-card);
+  padding: 20px 24px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card h2 {
+  font-size: 17px;
+  font-weight: 500;
+  margin: 0;
+  text-align: center;
+}
+
+.card p {
+  font-size: 15px;
+}
+
+.rule {
+  width: 100%;
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+
+footer {
+  margin-top: 8px;
+}

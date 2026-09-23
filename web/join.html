@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Te invitaron a un círculo · Vesper</title>
+    <meta name="description" content="Alguien te invitó a su círculo en Vesper." />
+    <meta name="robots" content="noindex" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main>
+      <div class="mark" aria-hidden="true">
+        <span class="lit"></span><span class="lit"></span><span class="lit"></span><span class="lit"></span>
+        <span class="lit"></span><span class="lit"></span><span class="lit"></span><span class="lit"></span>
+        <span class="lit"></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+
+      <h1 data-t="title">Te invitaron a un círculo</h1>
+      <p data-t="body">
+        Un círculo son hasta doce personas que eliges. Se ven las horas de foco de la semana, se dan
+        ánimo y hacen retos juntos.
+      </p>
+
+      <div class="code" id="code" aria-live="polite">······</div>
+
+      <a class="button" id="open" href="#" data-t="open">Abrir Vesper</a>
+      <p class="quiet" data-t="openHint">Si tienes Vesper en este teléfono, el botón la abre con el código adentro.</p>
+
+      <hr class="rule" />
+
+      <div class="card">
+        <h2 data-t="noAppTitle">¿No tienes Vesper?</h2>
+        <p data-t="noAppBody">
+          Es una app de foco: bloquea lo que te distrae mientras trabajas y te devuelve el tiempo. No
+          pide cuenta ni correo, y todo se queda en tu teléfono.
+        </p>
+        <p class="quiet" data-t="noAppSoon">
+          Todavía no está en las tiendas. Guarda este código: te va a servir el día que la instales.
+        </p>
+      </div>
+
+      <footer>
+        <p class="quiet" data-t="privacy">
+          Esta página no guarda nada ni le cuenta a nadie que la abriste. El código viaja en el link y
+          no sale de aquí.
+        </p>
+      </footer>
+    </main>
+
+    <script src="/invite.js"></script>
+  </body>
+</html>

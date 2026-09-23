@@ -346,3 +346,22 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   siguiente tanda, y hasta entonces el círculo de la app sigue siendo demostración.
 - Deuda: las cuentas de prueba del flujo (`gusn`, `anan`, `gusp`, `anap`, `sofiap2`)
   siguen en la base; borrarlas es un `delete` y no se hizo sin permiso.
+
+- **2026-09-23 · La invitación deja de morir al reenviarse: hay una página (ADR-0034).**
+  `web/` es HTML, CSS y treinta líneas de JavaScript, sin framework ni build, desplegada
+  en Vercel: **https://vesper-azure.vercel.app**. `/join?code=ABC234` dice que te
+  invitaron a un círculo, muestra el código en grande para escribirlo a mano y ofrece
+  "Abrir Vesper", que salta a `vesper://circle/join?code=…`; `/` cuenta qué es la app.
+  Sigue el idioma del navegador y se ve como la app (tinta sobre papel, Outfit, la marca
+  4×4). **No le habla al servidor**: validar el código diría de quién es, así que el
+  código viaja en la URL y se queda en el navegador. Sin analítica y sin cookies.
+- Verificado abriéndola en Safari del simulador, en local y en la URL desplegada: la
+  marca, el código `PRD234`, el botón y las cabeceras (CSP, `no-referrer`, `nosniff`).
+  `web/` queda fuera del bundle (`metro.config.js` la bloquea como a `server/`) y del
+  eslint de la app; el bundle de Metro sigue compilando (200) y los 825 tests en verde.
+- No verificado: que el botón abra la app en un teléfono real (en el simulador el
+  esquema `vesper://` lo atiende el dev client), y las tiendas, que todavía no existen.
+- Pendiente: `/.well-known/apple-app-site-association` y `/.well-known/assetlinks.json`
+  para que el link `https` abra la app sin pasar por la página. Necesitan el Team ID de
+  Apple y la huella SHA-256 del certificado de Android; **no se publican con datos
+  inventados**.
