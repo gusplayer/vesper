@@ -111,6 +111,7 @@ function notifications(value: unknown, fallback: NotificationPrefs): Notificatio
     streak: bool(raw.streak, fallback.streak),
     noFocus: bool(raw.noFocus, fallback.noFocus),
     reactivation: bool(raw.reactivation, fallback.reactivation),
+    challenges: bool(raw.challenges, fallback.challenges),
     nudges: bool(raw.nudges, fallback.nudges),
     reminderMinutes: num(raw.reminderMinutes, fallback.reminderMinutes),
   };

@@ -100,6 +100,7 @@ const DEFAULTS: Settings = {
     streak: true,
     noFocus: true,
     reactivation: true,
+    challenges: true,
     nudges: true,
     reminderMinutes: 20 * 60,
   },

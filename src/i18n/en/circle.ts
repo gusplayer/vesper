@@ -66,6 +66,29 @@ export const circle: typeof shape = {
       ended: 'Ended',
     },
     progress: (done, target) => `${done} of ${target}`,
+    outlook: {
+      met: 'You kept it this week',
+      left: (needed, daysLeft) =>
+        `You need ${needed} more · ${daysLeft === 1 ? '1 day left' : `${daysLeft} days left`}`,
+      atRisk: (daysLeft) =>
+        daysLeft === 1 ? 'Only today can still do it' : `Only every one of the ${daysLeft} days left does it`,
+      missed: 'This week is gone',
+      notStarted: 'Not started yet',
+    },
+    otherLine: (name, progress, met) => (met ? `${name} kept it` : `${name} is at ${progress}`),
+    ended: {
+      title: 'How it ended',
+      weeks: (met, total) =>
+        met === total
+          ? `You kept ${total === 1 ? 'the week' : `all ${total} weeks`}.`
+          : `You kept ${met} of ${total} ${total === 1 ? 'week' : 'weeks'}.`,
+      repeat: (duration) => `Repeat ${duration}`,
+      archive: 'Archive the challenge',
+      archiveQuestion: 'Archive the challenge?',
+      archiveMessage: 'It leaves your list. Your habit and your marks stay.',
+      archiveConfirm: 'Archive',
+    },
+    habitLine: (names) => (names.length === 0 ? 'Challenge' : `Challenge with ${joinNames(names)}`),
     standingLine: (name, progress, met) => `${name} · ${progress}${met ? ' ✓' : ''}`,
     standingA11y: (name, progress, met) => `${name}, ${progress}${met ? ', done' : ''}`,
     openA11y: (name) => `Open the challenge ${name}`,
@@ -88,10 +111,23 @@ export const circle: typeof shape = {
     nudgeHint: 'One nudge a day per person. It arrives once there is a server.',
     nudgedYou: (names) => `${joinNames(names)} nudged you today.`,
   },
+  home: {
+    challenge: (name, outlook) => `${name} · ${outlook.charAt(0).toLowerCase()}${outlook.slice(1)}`,
+    challengeA11y: (name, outlook) => `${name}, ${outlook}. Open the challenge`,
+  },
   challengeNew: {
     title: 'New challenge',
     name: 'Name',
     namePlaceholder: 'read, walk, sleep 7h',
+    ideas: 'Suggested challenges',
+    ideasHint: 'Tap one to start there. You can change the name and the times.',
+    ideaName: {
+      read: 'Read',
+      walk: 'Walk',
+      table: 'No phone at the table',
+      sleep: 'Sleep without a screen',
+      move: 'Move',
+    },
     fromHabit: 'From a habit',
     fromHabitHint: 'Tap one to use its name and target.',
     timesPerWeek: 'Times a week',

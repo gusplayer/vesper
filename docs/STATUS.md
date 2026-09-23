@@ -10,10 +10,9 @@ El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, histó
 Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo en iOS
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
-Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores (24
-avisos de las reglas del React Compiler, pendientes de revisar sitio por sitio) y
-`npx vitest run` con **685 tests en 52 archivos**, todos en verde; el módulo Kotlin
-compila con Gradle.
+Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
+avisos y `npx vitest run` con **817 tests en 58 archivos**, todos en verde; el módulo
+Kotlin compila con Gradle.
 
 ## Estado actual
 
@@ -246,3 +245,31 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 - Deuda: las actividades sembradas no tienen descanso, así que Dormir y Calma cuentan su
   tiempo como "trabajo". Está anotado en `demoModeIdeas`; agregar una actividad de
   descanso es decisión de producto.
+
+- **2026-09-21 · El reto dice cómo vas, avisa cuando se te está yendo y se ve desde
+  Focus (ADR-0031).** `challengeOutlook` y `challengeWeeks` en `domain/circle.ts` dan el
+  estado de la semana (`met`, `onTrack`, `tight`, `atRisk`, `missed`) y las semanas que
+  el reto lleva corridas; `data/challenges.ts` los reduce a lo que leen el planificador
+  y las pantallas. `domain/reminders.ts` gana dos avisos locales, `challengeRisk`
+  (a la hora del recordatorio, solo cuando el reto ya solo sale marcando todos los días
+  que quedan, uno al día, el más apretado) y `challengeEnd` (el día después del último,
+  con cuántas semanas cumpliste), los dos dentro del presupuesto de dos del ADR-0027 y
+  con interruptor propio (`prefs.challenges`) en Ajustes › Notificaciones. La pantalla
+  del reto abre con la semana dibujada (misma `HeatGrid`, hoy respirando) y la línea con
+  verbo; un reto terminado muestra cómo fue y ofrece "Repetir" o "Archivar", que es lo
+  primero que llama a `archiveChallenge`. El reto se asoma en Hábitos ("Reto con Ana y
+  Luis"), en Actividad › Semanal (una fila por reto activo) y en Focus (una línea bajo la
+  racha y la fila de siete puntos bajo la grilla). "Nuevo reto" propone cinco retos
+  nuestros.
+- Verificado en el simulador iPhone 17 Pro con `idb` (Metro en :8082, el :8081 lo tenía
+  otro proyecto): Focus muestra "Read · you need 4 more · 7 days left" con la fila de
+  puntos vacía, el reto abre con su semana y "0 of 4", "Mark today" llena el lunes y todo
+  pasa en el mismo toque a "1 of 4 · You need 3 more · 7 days left", y Focus vuelve con la
+  línea y el punto actualizados. `tsc`, `eslint` y `vitest` en verde sobre el índice
+  aislado de esta tanda, sin el trabajo sin commitear de las otras dos.
+- No verificado: ningún aviso de reto llegó a la bandeja (el simulador no tiene permiso;
+  el plan se cubre con tests), el cierre de un reto terminado y "Repetir" (la siembra no
+  trae un reto vencido), y nada en un teléfono.
+- Pendiente de decisión: ADR-0032 (retos públicos) está en propuesta y depende del ADR del
+  backend. Deuda heredada: el chip "Empujar" sin seleccionar sigue sin distinguirse del
+  fondo de la tarjeta.

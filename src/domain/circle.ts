@@ -1,4 +1,4 @@
-import { dayKeyStart, shiftDayKey, weekDayKeys } from './day';
+import { dayKeyStart, daysLeftInWeek, shiftDayKey, weekDayKeys } from './day';
 import { DAY } from './time';
 import {
   MAX_CIRCLE,
@@ -35,7 +35,7 @@ export const DEFAULT_SHARE_PREFS: SharePrefs = { focus: true, habits: true, soci
  * boundaries; it is re-exported here because the circle is where week keys are used
  * most, and every caller that learned it here keeps working.
  */
-export { dayKeyStart, shiftDayKey, weekDayKeys, weekKeyOf } from './day';
+export { dayKeyStart, daysLeftInWeek, shiftDayKey, weekDayKeys, weekdayIndex, weekKeyOf } from './day';
 
 /**
  * The last day, inclusive, of a challenge that starts on `startWeekKey` and runs
@@ -296,6 +296,106 @@ export function challengeStandings(
     );
   }
   return standings;
+}
+
+// --- How a week is going (ADR-0031) -------------------------------------------------
+
+/**
+ * Where a week stands for one participant, in words the screens and the reminder
+ * planner share:
+ *
+ * - `met`: the promise is kept, whatever is left of the week.
+ * - `onTrack`: there is room to miss a day and still make it.
+ * - `tight`: exactly one day of slack left.
+ * - `atRisk`: every remaining day has to be marked. This is the only state that
+ *   earns a notice, because it is the last moment where saying something changes
+ *   the outcome.
+ * - `missed`: more marks are needed than there are days. The week is gone; nothing
+ *   notifies, and the screen says it plainly instead of pretending.
+ */
+export type ChallengeRisk = 'met' | 'onTrack' | 'tight' | 'atRisk' | 'missed';
+
+export type ChallengeOutlook = {
+  risk: ChallengeRisk;
+  /** Marks still missing this week; 0 once met. */
+  needed: number;
+  /** Days still to run this week, today included. */
+  daysLeft: number;
+};
+
+/**
+ * The outlook of one standing at `now`. Pure and free of the challenge: a standing
+ * already carries its target and what was delivered, and the week's remaining days
+ * come from the clock.
+ */
+export function challengeOutlook(standing: Pick<Standing, 'done' | 'target'>, now: number): ChallengeOutlook {
+  const daysLeft = daysLeftInWeek(now);
+  const needed = Math.max(0, standing.target - standing.done);
+  return { risk: riskOf(needed, daysLeft), needed, daysLeft };
+}
+
+function riskOf(needed: number, daysLeft: number): ChallengeRisk {
+  if (needed === 0) {
+    return 'met';
+  }
+  if (needed > daysLeft) {
+    return 'missed';
+  }
+  if (needed === daysLeft) {
+    return 'atRisk';
+  }
+  if (needed === daysLeft - 1) {
+    return 'tight';
+  }
+  return 'onTrack';
+}
+
+export type ChallengeWeek = {
+  weekKey: DayKey;
+  done: number;
+  target: number;
+  met: boolean;
+  /** False for a week that has not finished yet: `met` can still change. */
+  closed: boolean;
+};
+
+/**
+ * Every week the challenge runs, with what the user delivered in each: the closing
+ * card counts the ones that were met, and nothing else in the app knows how a
+ * challenge went as a whole. Weeks are counted from the start Monday up to the last
+ * day; a challenge with no end is counted up to the week of `todayKey`.
+ */
+export function challengeWeeks(
+  challenge: Challenge,
+  myMarks: readonly HabitMark[],
+  todayKey: DayKey,
+): ChallengeWeek[] {
+  const habitId = challenge.habitId;
+  const lastKey = challenge.endDayKey ?? todayKey;
+  const weeks: ChallengeWeek[] = [];
+  let weekKey = challenge.startWeekKey;
+  while (weekKey <= lastKey) {
+    const done = weekDayKeys(weekKey).filter(
+      (dayKey) =>
+        dayKey <= lastKey &&
+        habitId !== null &&
+        myMarks.some((mark) => mark.habitId === habitId && mark.dayKey === dayKey),
+    ).length;
+    weeks.push({
+      weekKey,
+      done,
+      target: challenge.weeklyTarget,
+      met: done >= challenge.weeklyTarget,
+      closed: shiftDayKey(weekKey, 6) <= todayKey,
+    });
+    weekKey = shiftDayKey(weekKey, 7);
+  }
+  return weeks;
+}
+
+/** Weeks met out of weeks run, for the one line a finished challenge leaves behind. */
+export function challengeWeeksMet(weeks: readonly ChallengeWeek[]): { met: number; total: number } {
+  return { met: weeks.filter((week) => week.met).length, total: weeks.length };
 }
 
 // --- Invite codes ------------------------------------------------------------------

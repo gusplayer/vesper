@@ -92,6 +92,42 @@ export const circle = {
     },
     /** '3 de 4'. */
     progress: (done: number, target: number) => `${done} de ${target}`,
+    /**
+     * How the week is going for the user, from `challengeOutlook` (ADR-0031). One
+     * line, always the same place: what is missing and how much room is left.
+     */
+    outlook: {
+      met: 'Cumpliste esta semana',
+      /** 'Te faltan 2 · quedan 3 días'. */
+      left: (needed: number, daysLeft: number) =>
+        `Te ${needed === 1 ? 'falta' : 'faltan'} ${needed} · ${daysLeft === 1 ? 'queda 1 día' : `quedan ${daysLeft} días`}`,
+      /** When only marking every remaining day still meets the week. */
+      atRisk: (daysLeft: number) =>
+        daysLeft === 1 ? 'Solo sale marcando hoy' : `Solo sale marcando los ${daysLeft} días que quedan`,
+      missed: 'Esta semana ya no sale',
+      notStarted: 'Todavía no empieza',
+    },
+    /** The other participants' line: 'Ana va 3 de 4', 'Ana cumplió'. */
+    otherLine: (name: string, progress: string, met: boolean) =>
+      met ? `${name} cumplió` : `${name} va ${progress}`,
+    /** The card a finished challenge leaves: how the whole thing went. */
+    ended: {
+      title: 'Así terminó',
+      /** 'Cumpliste 3 de 3 semanas.' */
+      weeks: (met: number, total: number) =>
+        met === total
+          ? `Cumpliste ${total === 1 ? 'la semana' : `las ${total} semanas`}.`
+          : `Cumpliste ${met} de ${total} ${total === 1 ? 'semana' : 'semanas'}.`,
+      /** 'Repetir 21 días'. */
+      repeat: (duration: string) => `Repetir ${duration}`,
+      archive: 'Archivar el reto',
+      archiveQuestion: '¿Archivar el reto?',
+      archiveMessage: 'Sale de tu lista. Tu hábito y tus marcas se quedan.',
+      archiveConfirm: 'Archivar',
+    },
+    /** Under the habit a challenge is linked to, in Hábitos. */
+    habitLine: (names: readonly string[]) =>
+      names.length === 0 ? 'Reto' : `Reto con ${joinNames(names)}`,
     /** 'Ana · 3 de 4 ✓'. */
     standingLine: (name: string, progress: string, met: boolean) => `${name} · ${progress}${met ? ' ✓' : ''}`,
     /** VoiceOver for a week row: 'Ana, 3 de 4, cumplido'. */
@@ -120,11 +156,27 @@ export const circle = {
     nudgedYou: (names: readonly string[]) =>
       names.length === 1 ? `${names[0]} te empujó hoy.` : `${joinNames(names)} te empujaron hoy.`,
   },
+  /** What Focus says about the circle, when there is something true to say today. */
+  home: {
+    /** 'Leer · te faltan 2 · quedan 2 días'. The outlook line, lowercased after the name. */
+    challenge: (name: string, outlook: string) => `${name} · ${outlook.charAt(0).toLowerCase()}${outlook.slice(1)}`,
+    challengeA11y: (name: string, outlook: string) => `${name}, ${outlook}. Abrir el reto`,
+  },
   /** circle/challenge-new. */
   challengeNew: {
     title: 'Nuevo reto',
     name: 'Nombre',
     namePlaceholder: 'leer, caminar, dormir 7h',
+    ideas: 'Retos sugeridos',
+    ideasHint: 'Toca uno para empezar por ahí. Puedes cambiar el nombre y las veces.',
+    /** The curated few (ADR-0031). Names only: the numbers live in data/challenges.ts. */
+    ideaName: {
+      read: 'Leer',
+      walk: 'Caminar',
+      table: 'Sin teléfono en la mesa',
+      sleep: 'Dormir sin pantalla',
+      move: 'Moverte',
+    },
     fromHabit: 'Desde un hábito',
     fromHabitHint: 'Toca uno para usar su nombre y su meta.',
     timesPerWeek: 'Veces por semana',

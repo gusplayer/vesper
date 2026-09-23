@@ -88,3 +88,17 @@ export function weekKeyOf(now: Millis): DayKey {
 export function weekDayKeys(weekKey: DayKey): DayKey[] {
   return Array.from({ length: 7 }, (_, i) => shiftDayKey(weekKey, i));
 }
+
+/**
+ * 0 for Monday through 6 for Sunday: the index a week-shaped array uses, the same
+ * one `weekDayKeys` produces. `getDay()` is Sunday-first, so it is rotated here once
+ * instead of in every caller.
+ */
+export function weekdayIndex(now: Millis): number {
+  return (new Date(now).getDay() + 6) % 7;
+}
+
+/** Days still to run in the week containing `now`, today included: 7 on Monday, 1 on Sunday. */
+export function daysLeftInWeek(now: Millis): number {
+  return 7 - weekdayIndex(now);
+}

@@ -1,10 +1,10 @@
 import type { Mode, NotificationPrefs, Schedule } from '../data/types';
 import { es, type Strings } from '../i18n/es';
 import { durationText } from '../lib/format';
-import { atMinuteOfDay, dayKeyOf, dayStartShifted } from './day';
+import { atMinuteOfDay, dayKeyOf, dayKeyStart, dayStartShifted } from './day';
 import { breakEndsAt, plannedEndAt } from './session';
 import type { StreakState } from './streak';
-import type { Session } from './types';
+import type { DayKey, Session } from './types';
 
 /**
  * Which local notifications the app wants scheduled right now, given its state. Pure:
@@ -23,8 +23,9 @@ import type { Session } from './types';
  *   diff cancels it when the session starts and puts it back when it closes.
  * - **Quiet hours.** No daily notice between 22:00 and 8:00. The hour picker only
  *   offers 8:00–21:00, but the guard stays here so the plan never depends on the UI.
- * - **Daily budget.** At most two daily notices per local day (streak at risk, day
- *   without focus, reactivation), by priority. Session, routine and Sunday notices are
+ * - **Daily budget.** At most two daily notices per local day (streak at risk, a
+ *   challenge slipping away, a challenge that ended, day without focus,
+ *   reactivation), by priority. Session, routine and Sunday notices are
  *   appointments the user made and stay outside the budget.
  *
  * The words come in as the `notifications` slice of the dictionary (ADR-0020). The
@@ -40,6 +41,8 @@ export type NotificationKind =
   | 'schedule'
   | 'weeklyClose'
   | 'streakRisk'
+  | 'challengeRisk'
+  | 'challengeEnd'
   | 'noFocus'
   | 'reactivation';
 
@@ -82,8 +85,19 @@ export const DAILY_BUDGET = 2;
 /** Days without opening the app after which a reactivation notice knocks, once each. */
 export const REACTIVATION_DAYS: readonly number[] = [3, 7];
 
-/** The daily kinds the budget counts, best first. */
-const DAILY_KINDS: readonly NotificationKind[] = ['streakRisk', 'noFocus', 'reactivation'];
+/**
+ * The daily kinds the budget counts, best first (ADR-0027 §2, amended by ADR-0031):
+ * a streak about to break, then a challenge that can only still be met by marking
+ * every remaining day, then the challenge that just ended, then the two about use.
+ * The nudge sits above all of them and is not planned here: it arrives as a push.
+ */
+const DAILY_KINDS: readonly NotificationKind[] = [
+  'streakRisk',
+  'challengeRisk',
+  'challengeEnd',
+  'noFocus',
+  'reactivation',
+];
 
 const MINUTES_PER_HOUR = 60;
 
@@ -200,6 +214,32 @@ export type ReminderState = {
   lastOpenedAt: number | null;
   /** A profile with at least one accepted member: the reactivation notice mentions them. */
   hasCircle: boolean;
+  /** The user's own side of every challenge they are in (ADR-0031). */
+  challenges: readonly ChallengeReminder[];
+};
+
+/**
+ * What the planner needs to know about one challenge, already reduced by
+ * `src/data/challenges.ts` from the standings and the habit marks. The planner never
+ * touches the circle's types: it reads a week that is already counted.
+ */
+export type ChallengeReminder = {
+  id: string;
+  name: string;
+  /** Marks still missing this week. */
+  needed: number;
+  /** Days still to run this week, today included. */
+  daysLeft: number;
+  /** True when only marking every remaining day still meets the week. */
+  atRisk: boolean;
+  /** True once today is marked: there is nothing left to say today. */
+  markedToday: boolean;
+  /**
+   * The challenge's last day and how it went, once that day has arrived. The closing
+   * notice goes out the day after, so a challenge that ends on Sunday is not
+   * announced while its Sunday is still open.
+   */
+  endedOn: { dayKey: DayKey; met: number; total: number } | null;
 };
 
 /**
@@ -315,6 +355,73 @@ export function reactivationReminders(state: ReminderState, t: ReminderStrings =
   return specs;
 }
 
+/**
+ * "Leer se te está yendo": at the reminder hour, for the one challenge that can only
+ * still be met by marking every day that is left this week, and is not marked today.
+ * Today only, and one at most: tomorrow's risk depends on whether today was marked,
+ * which is not known yet, and the plan is remade on every mark and on every open.
+ *
+ * When two challenges are equally lost, the tightest wins: fewest days left first,
+ * then the one that needs the most. Nothing is planned once the hour has passed.
+ */
+export function challengeRiskReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+  if (!state.prefs.challenges) {
+    return [];
+  }
+  const { today } = reminderInstants(state);
+  if (today <= state.now) {
+    return [];
+  }
+  const candidates = state.challenges.filter((challenge) => challenge.atRisk && !challenge.markedToday);
+  const tightest = [...candidates].sort((a, b) => a.daysLeft - b.daysLeft || b.needed - a.needed)[0];
+  if (tightest === undefined) {
+    return [];
+  }
+  return [
+    {
+      id: `challenge-risk-${tightest.id}-${dayKeyOf(today)}`,
+      kind: 'challengeRisk',
+      trigger: 'date',
+      at: today,
+      title: t.challengeRisk.title(tightest.name),
+      body: t.challengeRisk.body(tightest.needed, tightest.daysLeft),
+      sound: false,
+    },
+  ];
+}
+
+/**
+ * "Terminó Leer. Cumpliste 3 de 3 semanas.": once, at the reminder hour of the day
+ * after the last day. It is the only notice that says how something went instead of
+ * asking for something, and a challenge only has one, so its id carries the last day.
+ */
+export function challengeEndReminders(state: ReminderState, t: ReminderStrings = es.notifications): DateSpec[] {
+  if (!state.prefs.challenges) {
+    return [];
+  }
+  const specs: DateSpec[] = [];
+  for (const challenge of state.challenges) {
+    const ended = challenge.endedOn;
+    if (ended === null) {
+      continue;
+    }
+    const at = atMinuteOfDay(dayStartShifted(dayKeyStart(ended.dayKey), 1), state.prefs.reminderMinutes);
+    if (at <= state.now) {
+      continue;
+    }
+    specs.push({
+      id: `challenge-end-${challenge.id}-${ended.dayKey}`,
+      kind: 'challengeEnd',
+      trigger: 'date',
+      at,
+      title: t.challengeEnd.title(challenge.name),
+      body: t.challengeEnd.body(ended.met, ended.total),
+      sound: false,
+    });
+  }
+  return specs;
+}
+
 /** True from 22:00 up to 8:00, wrapping midnight. `minutesOfDay` is minutes past local midnight. */
 export function inQuietHours(minutesOfDay: number): boolean {
   return minutesOfDay >= QUIET_START_MINUTES || minutesOfDay < QUIET_END_MINUTES;
@@ -364,7 +471,7 @@ export function applyDailyBudget(specs: readonly NotificationSpec[]): Notificati
  * The full set the OS should hold. Each kind is gated by its preference: session end
  * by `sessionEnd`, schedule starts by `coaching` (they are the reminders that sustain
  * the habit), the Sunday closing by `weeklyClose`, the daily notices by `streak`,
- * `noFocus` and `reactivation`. A schedule whose mode no longer exists announces
+ * `challenges`, `noFocus` and `reactivation`. A schedule whose mode no longer exists announces
  * nothing: there would be nothing to start.
  *
  * While a session runs, break included, the plan is only the session's own notices
@@ -405,6 +512,8 @@ export function plannedNotifications(state: ReminderState, t: ReminderStrings = 
 
   const daily = withoutQuietHours([
     ...streakRiskReminders(state, t),
+    ...challengeRiskReminders(state, t),
+    ...challengeEndReminders(state, t),
     ...noFocusReminders(state, t),
     ...reactivationReminders(state, t),
   ]);

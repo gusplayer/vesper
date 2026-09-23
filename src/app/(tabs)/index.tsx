@@ -27,6 +27,9 @@ import {
   useTodayFocusMs,
 } from '../../data';
 import { modeSummaryText, usePlannedStore } from '../../data/modes';
+import { weekdayIndex } from '../../domain/circle';
+import { CircleLine } from '../../features/home/CircleLine';
+import { CircleWeekRow } from '../../features/home/CircleWeekRow';
 import { focusPillLabel, focusPillText, focusSessionText } from '../../features/home/focusPill';
 import { ModePicker } from '../../features/home/ModePicker';
 import { nextRoutineText } from '../../features/home/nextRoutine';
@@ -121,6 +124,7 @@ export default function FocusScreen() {
         <Text variant="caption" tone="secondary">
           {streakLineText(streak, t)}
         </Text>
+        <CircleLine now={now} />
       </Stack>
 
       <Spacer />
@@ -132,6 +136,7 @@ export default function FocusScreen() {
             onPress={openActivity}
             accessibilityLabel={gridSummary(cells, t.focus.recentDays)}
           />
+          <CircleWeekRow now={now} todayIndex={weekdayIndex(now)} />
         </Stack>
 
         <Stack align="center" gap="xs">

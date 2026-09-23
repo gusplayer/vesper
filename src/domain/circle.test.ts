@@ -3,8 +3,11 @@ import { describe, expect, it } from 'vitest';
 import {
   challengeDays,
   challengeDaysLeft,
+  challengeOutlook,
   challengeStandings,
   challengeStatus,
+  challengeWeeks,
+  challengeWeeksMet,
   circleFull,
   circleWeek,
   dayKeyStart,
@@ -385,6 +388,74 @@ describe('challengeStandings', () => {
     );
 
     expect(standings.map((s) => s.id)).toEqual(['ana', 'luis']);
+  });
+});
+
+describe('challengeOutlook', () => {
+  /** Wednesday the 19th: five days left in the week, today included. */
+  const wednesday = dayKeyStart(TODAY) + 10 * HOUR;
+  const sunday = dayKeyStart('2026-08-23') + 10 * HOUR;
+  const outlook = (done: number, at = wednesday) => challengeOutlook({ done, target: 4 }, at);
+
+  it('counts the days left in the week with today inside', () => {
+    expect(outlook(0).daysLeft).toBe(5);
+    expect(outlook(0, dayKeyStart(WEEK) + HOUR).daysLeft).toBe(7);
+    expect(outlook(0, sunday).daysLeft).toBe(1);
+  });
+
+  it('is met once the target is reached, whatever is left of the week', () => {
+    expect(outlook(4).risk).toBe('met');
+    expect(outlook(6).risk).toBe('met');
+    expect(outlook(4).needed).toBe(0);
+    expect(outlook(4, sunday).risk).toBe('met');
+  });
+
+  it('turns tight, then at risk, as the slack runs out', () => {
+    // Wednesday, five days left: three needed still has slack, four is tight, five is the wall.
+    expect(challengeOutlook({ done: 1, target: 4 }, wednesday).risk).toBe('onTrack');
+    expect(challengeOutlook({ done: 0, target: 4 }, wednesday).risk).toBe('tight');
+    expect(challengeOutlook({ done: 0, target: 5 }, wednesday).risk).toBe('atRisk');
+  });
+
+  it('is missed when more marks are needed than there are days', () => {
+    expect(challengeOutlook({ done: 0, target: 6 }, wednesday).risk).toBe('missed');
+    expect(challengeOutlook({ done: 3, target: 4 }, sunday).risk).toBe('atRisk');
+    expect(challengeOutlook({ done: 2, target: 4 }, sunday).risk).toBe('missed');
+    expect(challengeOutlook({ done: 2, target: 4 }, sunday).needed).toBe(2);
+  });
+});
+
+describe('challengeWeeks', () => {
+  const myMarks = [
+    aMark({ habitId: 'habit-read', dayKey: '2026-08-17' }),
+    aMark({ habitId: 'habit-read', dayKey: '2026-08-18' }),
+    aMark({ habitId: 'habit-read', dayKey: '2026-08-19' }),
+    aMark({ habitId: 'habit-read', dayKey: '2026-08-20' }),
+    aMark({ habitId: 'habit-read', dayKey: '2026-08-25' }),
+    // Another habit, and a day outside the challenge: neither counts.
+    aMark({ habitId: 'habit-gym', dayKey: '2026-08-26' }),
+    aMark({ habitId: 'habit-read', dayKey: '2026-09-02' }),
+  ];
+
+  it('gives one week per Monday from the start to the last day', () => {
+    const weeks = challengeWeeks(challenge(), myMarks, '2026-08-31');
+
+    expect(weeks.map((w) => w.weekKey)).toEqual([WEEK, '2026-08-24']);
+    expect(weeks.map((w) => w.done)).toEqual([4, 1]);
+    expect(weeks.map((w) => w.met)).toEqual([true, false]);
+    expect(challengeWeeksMet(weeks)).toEqual({ met: 1, total: 2 });
+  });
+
+  it('marks a week closed only once its Sunday has passed', () => {
+    const weeks = challengeWeeks(challenge(), myMarks, TODAY);
+
+    expect(weeks.map((w) => w.closed)).toEqual([false, false]);
+    expect(challengeWeeks(challenge(), myMarks, '2026-08-24').map((w) => w.closed)).toEqual([true, false]);
+  });
+
+  it('counts a challenge with no end up to today, and counts nothing without a habit', () => {
+    expect(challengeWeeks(challenge({ endDayKey: null }), myMarks, TODAY).map((w) => w.done)).toEqual([3]);
+    expect(challengeWeeks(challenge({ habitId: null }), myMarks, '2026-08-31').map((w) => w.done)).toEqual([0, 0]);
   });
 });
 

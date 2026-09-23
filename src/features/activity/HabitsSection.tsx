@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
-import { useAppStore, useHabitsWeek, useSettings } from '../../data';
+import { useAppStore, useChallengesByHabit, useHabitsWeek, useSettings } from '../../data';
 import { Chip, ListGroup, ListRow, Section, Sheet, Text, Tooltip } from '../../design/components';
 import type { HabitProgress } from '../../domain/habits';
 import { MAX_HABITS } from '../../domain/types';
@@ -24,6 +24,7 @@ export function HabitsSection({ now }: HabitsSectionProps) {
   const t = useStrings();
   const router = useRouter();
   const habits = useHabitsWeek(now);
+  const challengesByHabit = useChallengesByHabit(now);
   const settings = useSettings();
   const toggleHabitToday = useAppStore((state) => state.toggleHabitToday);
   const [editing, setEditing] = useState(false);
@@ -45,6 +46,15 @@ export function HabitsSection({ now }: HabitsSectionProps) {
   const verifiedText = settings.healthConnected
     ? t.habits.section.verifiedSynced(syncedText(settings.healthSyncedAt, t.habits))
     : t.habits.section.verifiedNoHealth;
+
+  // A habit that is also a challenge says so: the same marks, with witnesses (ADR-0031).
+  const descriptionFor = (progress: HabitProgress) => {
+    const challenge = challengesByHabit.get(progress.habit.id);
+    if (challenge !== undefined) {
+      return t.circle.challenge.habitLine(challenge.others);
+    }
+    return progress.habit.countMode === 'verified' ? verifiedText : t.habits.section.declared;
+  };
 
   const lockedByHealth = (progress: HabitProgress) =>
     settings.healthConnected && progress.habit.countMode === 'verified';
@@ -80,9 +90,7 @@ export function HabitsSection({ now }: HabitsSectionProps) {
           <ListRow
             key={progress.habit.id}
             label={progress.habit.name}
-            description={
-              progress.habit.countMode === 'verified' ? verifiedText : t.habits.section.declared
-            }
+            description={descriptionFor(progress)}
             value={habitProgressText(progress, t.format)}
             right={
               lockedByHealth(progress) ? (

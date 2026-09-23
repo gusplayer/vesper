@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 
-import { useCircleStore, useCircleWeek, useKudosGivenToday, useProfile } from '../../data';
+import { useCircleStore, useCircleWeek, useKudosGivenToday, useMyChallengeWeeks, useProfile } from '../../data';
 import { Card, ListGroup, ListRow, Section, Stack, Text } from '../../design/components';
 import { useStrings } from '../../i18n';
 import { status as circleStatus } from '../../platform/circle';
+import { challengeOutlookText } from './challengeText';
 import { MemberRow } from './MemberRow';
 
 /** How many people the weekly view shows before 'Ver círculo'. */
@@ -26,6 +27,7 @@ export function CircleWeekSection({ now }: CircleWeekSectionProps) {
   const rows = useCircleWeek(now);
   const givenToday = useKudosGivenToday(now);
   const giveKudos = useCircleStore((state) => state.giveKudos);
+  const myChallenges = useMyChallengeWeeks(now).filter((week) => week.status === 'active');
   const sync = circleStatus();
 
   return (
@@ -60,6 +62,16 @@ export function CircleWeekSection({ now }: CircleWeekSectionProps) {
               row={row}
               kudosGiven={givenToday.has(row.id)}
               onKudos={() => giveKudos(row.id, Date.now())}
+            />
+          ))}
+          {myChallenges.map((week) => (
+            <ListRow
+              key={week.id}
+              label={week.name}
+              description={challengeOutlookText(week.outlook, t)}
+              value={t.challenge.progress(week.done, week.target)}
+              onPress={() => router.push({ pathname: '/circle/challenge', params: { id: week.id } })}
+              accessibilityLabel={t.challenge.openA11y(week.name)}
             />
           ))}
           <ListRow label={t.section.seeCircle} onPress={() => router.push('/circle')} />

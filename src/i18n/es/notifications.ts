@@ -37,6 +37,24 @@ export const notifications = {
     title: 'Hoy no has enfocado',
     body: '25 minutos y listo.',
   },
+  /**
+   * At the reminder hour, when a challenge can only still be met by marking every day
+   * that is left this week (ADR-0031). One a day, the tightest challenge.
+   */
+  challengeRisk: {
+    title: (challengeName: string) => `${challengeName} se te está yendo`,
+    /** `needed` and `daysLeft` are equal by definition here; both are said anyway. */
+    body: (needed: number, daysLeft: number) =>
+      `Te ${needed === 1 ? 'falta' : 'faltan'} ${needed} y ${daysLeft === 1 ? 'queda' : 'quedan'} ${daysLeft} ${daysLeft === 1 ? 'día' : 'días'}. Márcalo hoy.`,
+  },
+  /** The morning after the last day: how the whole challenge went, once. */
+  challengeEnd: {
+    title: (challengeName: string) => `Terminó ${challengeName}`,
+    body: (met: number, total: number) =>
+      met === total
+        ? `Cumpliste las ${total} ${total === 1 ? 'semana' : 'semanas'}.`
+        : `Cumpliste ${met} de ${total} ${total === 1 ? 'semana' : 'semanas'}.`,
+  },
   /** After 3 and 7 days without opening the app. The body says what the app knows. */
   reactivation: {
     title: (days: number) => `Llevas ${days} ${days === 1 ? 'día' : 'días'} sin enfocar`,

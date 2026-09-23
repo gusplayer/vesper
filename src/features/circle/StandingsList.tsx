@@ -1,6 +1,7 @@
 import type { Standing } from '../../data';
-import { Card, Check, Chip, DotGrid, Stack, Text } from '../../design/components';
+import { Card, Check, Chip, Stack, Text } from '../../design/components';
 import { useStrings } from '../../i18n';
+import { ChallengeWeek } from './ChallengeWeek';
 
 type NudgeProps = {
   /** 0 for Monday through 6 for Sunday: the cell of `Standing.days` that is today. */
@@ -12,6 +13,8 @@ type NudgeProps = {
 
 type StandingsListProps = {
   standings: readonly Standing[];
+  /** The day that is today, 0 for Monday, so every week breathes on the same cell. */
+  todayIndex: number | null;
   /** When given, everyone else who has not marked today gets a nudge chip (ADR-0027). */
   nudge?: NudgeProps;
 };
@@ -23,7 +26,7 @@ type StandingsListProps = {
  * element that reads every row and the grids inside are decoration; with them, each
  * row reads on its own so the chips can be reached.
  */
-export function StandingsList({ standings, nudge }: StandingsListProps) {
+export function StandingsList({ standings, todayIndex, nudge }: StandingsListProps) {
   const t = useStrings().circle;
   const nameOf = (standing: Standing) => (standing.isMe ? t.member.me : standing.name);
   const progressOf = (standing: Standing) => t.challenge.progress(standing.done, standing.target);
@@ -43,7 +46,7 @@ export function StandingsList({ standings, nudge }: StandingsListProps) {
                 <Text variant="body" weight={standing.isMe ? 'medium' : 'regular'}>
                   {nameOf(standing)}
                 </Text>
-                <DotGrid cells={standing.days} columns={7} />
+                <ChallengeWeek days={standing.days} todayIndex={todayIndex} />
               </Stack>
               <Text variant="label" tone="secondary">
                 {progressOf(standing)}

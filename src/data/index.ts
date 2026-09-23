@@ -4,6 +4,7 @@ import {
   challengeDaysLeft,
   challengeStandings,
   challengeStatus,
+  challengeWeeks,
   circleWeek,
   inviteCodeFor,
   kudosReceivedInWeek,
@@ -12,6 +13,7 @@ import {
   seatsTaken,
   weekKeyOf,
   type ChallengeStatus,
+  type ChallengeWeek,
   type CircleWeekRow,
   type Standing,
 } from '../domain/circle';
@@ -25,6 +27,7 @@ import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
 import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
 import { freshInstallLocale, useLocaleStore } from '../i18n/store';
+import { myChallengeWeeks, type MyChallengeWeek } from './challenges';
 import { useOnboardingDraft } from './onboardingDraft';
 import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
 import { useAppStore } from './stores/app';
@@ -42,7 +45,7 @@ import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } fr
 export { useAppStore, useFocusStore, useCircleStore };
 export { WEBSITES, HEALTH, USAGE };
 export { readStreak };
-export type { ChallengeStatus, CircleWeekRow, Standing };
+export type { ChallengeStatus, ChallengeWeek, CircleWeekRow, MyChallengeWeek, Standing };
 
 /**
  * The catalogues with words in them (apps, activities, mode ideas) follow the current
@@ -418,6 +421,57 @@ export function useNudgesReceivedToday(now: number, challengeId: string | undefi
     const received = nudgesReceivedToday(nudges, dayKeyOf(now)).filter((n) => n.challengeId === challengeId);
     return { names: kudosSenderNames(received, members) };
   }, [nudges, members, challengeId, now]);
+}
+
+/**
+ * The user's own week in each of their challenges, active first (ADR-0031): the row
+ * of dots and the line that says how it is going, for Focus, the card and Actividad.
+ */
+export function useMyChallengeWeeks(now: number): MyChallengeWeek[] {
+  const challenges = useCircleStore((state) => state.challenges);
+  const marks = useAppStore((state) => state.habitMarks);
+  return useMemo(() => myChallengeWeeks(challenges, marks, now), [challenges, marks, now]);
+}
+
+/**
+ * Every week a challenge ran, with what the user delivered in each: the card a
+ * finished challenge leaves behind (ADR-0031). Empty for a challenge they never joined.
+ */
+export function useChallengeWeeks(id: string | undefined, now: number): ChallengeWeek[] {
+  const challenge = useCircleStore((state) => state.challenges.find((c) => c.id === id) ?? null);
+  const marks = useAppStore((state) => state.habitMarks);
+  return useMemo(
+    () => (challenge === null ? [] : challengeWeeks(challenge, marks, dayKeyOf(now))),
+    [challenge, marks, now],
+  );
+}
+
+/**
+ * The live challenge each habit is counting for, by habit id, with the other people
+ * in it: a habit that is part of a challenge says so where it is marked (ADR-0031).
+ * A map, because the habits are a list and a hook cannot be called inside one.
+ */
+export function useChallengesByHabit(now: number): Map<string, { id: string; name: string; others: string[] }> {
+  const challenges = useCircleStore((state) => state.challenges);
+  const members = useCircleMembers();
+  return useMemo(() => {
+    const todayKey = dayKeyOf(now);
+    const byHabit = new Map<string, { id: string; name: string; others: string[] }>();
+    for (const challenge of challenges) {
+      if (challenge.archivedAt !== null || challenge.habitId === null) {
+        continue;
+      }
+      if (challengeStatus(challenge, todayKey) === 'ended' || byHabit.has(challenge.habitId)) {
+        continue;
+      }
+      const others = challenge.participantIds
+        .filter((id) => id !== ME)
+        .map((id) => members.find((member) => member.id === id)?.name)
+        .filter((name): name is string => name !== undefined);
+      byHabit.set(challenge.habitId, { id: challenge.id, name: challenge.name, others });
+    }
+    return byHabit;
+  }, [challenges, members, now]);
 }
 
 /** The user's code to give to someone, or null before they have a profile. */

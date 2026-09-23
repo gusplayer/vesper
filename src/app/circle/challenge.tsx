@@ -6,12 +6,28 @@ import {
   useAppStore,
   useChallenge,
   useChallengeStandings,
+  useChallengeWeeks,
   useCircleStore,
+  useMyChallengeWeeks,
   useNudgesGivenToday,
   useNudgesReceivedToday,
 } from '../../data';
-import { Button, Card, PageHeader, Screen, Section, Stack, Text } from '../../design/components';
+import {
+  Button,
+  Card,
+  ListGroup,
+  ListRow,
+  PageHeader,
+  Screen,
+  Section,
+  Stack,
+  Text,
+} from '../../design/components';
+import { challengeDays, challengeWeeksMet, weekdayIndex } from '../../domain/circle';
+import { ME } from '../../domain/types';
 import { challengeStatusText, challengeSummaryText } from '../../features/circle/ChallengeCard';
+import { ChallengeWeek } from '../../features/circle/ChallengeWeek';
+import { challengeOutlookText } from '../../features/circle/challengeText';
 import { StandingsList } from '../../features/circle/StandingsList';
 import { useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
@@ -19,17 +35,16 @@ import { status as circleStatus } from '../../platform/circle';
 
 const CLOCK_MS = 60_000;
 
-/** 0 for Monday through 6 for Sunday, matching `Standing.days`. */
-function weekdayIndex(now: number): number {
-  return (new Date(now).getDay() + 6) % 7;
-}
-
 /**
- * One challenge: who delivered what this week, and the one thing the user can do.
- * Joined and active: mark today, which is the mark of the linked habit. Not joined:
- * join, which takes a habit slot or says there is none. Leaving keeps the habit.
- * Next to anyone who has not marked today, a nudge chip: once a day per person,
+ * One challenge. Your week is the page: seven days drawn, today breathing, and one
+ * line that says what is missing and how much room is left (ADR-0031). Under it, the
+ * others, with a nudge for whoever has not marked today — once a day per person,
  * recorded here and delivered once there is a server (ADR-0027).
+ *
+ * Joined and active, the one button marks today, which is the mark of the linked
+ * habit. Not joined, it joins, which takes a habit slot or says there is none.
+ * Leaving keeps the habit. A challenge that ran out has no button: it has how it
+ * went, and the offer to run it again.
  */
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -39,10 +54,14 @@ export default function ChallengeScreen() {
   const now = useNow(CLOCK_MS);
   const view = useChallenge(id, now);
   const standings = useChallengeStandings(id, now);
+  const weeks = useChallengeWeeks(id, now);
+  const myWeek = useMyChallengeWeeks(now).find((week) => week.id === id) ?? null;
   const nudgesGiven = useNudgesGivenToday(now, id);
   const nudgesReceived = useNudgesReceivedToday(now, id);
+  const createChallenge = useCircleStore((state) => state.createChallenge);
   const joinChallenge = useCircleStore((state) => state.joinChallenge);
   const leaveChallenge = useCircleStore((state) => state.leaveChallenge);
+  const archiveChallenge = useCircleStore((state) => state.archiveChallenge);
   const nudge = useCircleStore((state) => state.nudge);
   const toggleHabitToday = useAppStore((state) => state.toggleHabitToday);
   const [habitsFull, setHabitsFull] = useState(false);
@@ -67,12 +86,14 @@ export default function ChallengeScreen() {
   }
 
   const { challenge } = view;
-  const mine = standings.find((standing) => standing.isMe) ?? null;
   const todayIndex = weekdayIndex(now);
-  const markedToday = mine?.days[todayIndex] ?? false;
-  const canMark = view.joined && challenge.habitId !== null && view.status === 'active';
+  const active = view.status === 'active';
+  const others = standings.filter((standing) => !standing.isMe);
+  const markedToday = myWeek?.markedToday ?? false;
+  const canMark = view.joined && challenge.habitId !== null && active;
   // A nudge is between people who share the challenge, while it runs.
-  const canNudge = view.joined && view.status === 'active';
+  const canNudge = view.joined && active;
+  const duration = t.challenge.duration(challengeDays(challenge));
 
   const join = () => {
     setHabitsFull(joinChallenge(challenge.id, Date.now()) === 'habitsFull');
@@ -83,6 +104,41 @@ export default function ChallengeScreen() {
       { text: strings.common.cancel, style: 'cancel' },
       { text: t.challenge.leaveConfirm, style: 'destructive', onPress: () => leaveChallenge(challenge.id) },
     ]);
+  };
+
+  const confirmArchive = () => {
+    Alert.alert(t.challenge.ended.archiveQuestion, t.challenge.ended.archiveMessage, [
+      { text: strings.common.cancel, style: 'cancel' },
+      {
+        text: t.challenge.ended.archiveConfirm,
+        style: 'destructive',
+        onPress: () => {
+          archiveChallenge(challenge.id, Date.now());
+          router.back();
+        },
+      },
+    ]);
+  };
+
+  // Running it again is the same promise with the same people, starting this Monday.
+  // The old one is archived: it is over, and two of the same name would be one too many.
+  const repeat = () => {
+    const outcome = createChallenge(
+      {
+        name: challenge.name,
+        weeklyTarget: challenge.weeklyTarget,
+        days: challengeDays(challenge),
+        participantIds: challenge.participantIds.filter((participantId) => participantId !== ME),
+        join: true,
+      },
+      Date.now(),
+    );
+    if (outcome === 'habitsFull') {
+      setHabitsFull(true);
+      return;
+    }
+    archiveChallenge(challenge.id, Date.now());
+    router.replace({ pathname: '/circle/challenge', params: { id: outcome.id } });
   };
 
   const primary = canMark ? (
@@ -110,7 +166,9 @@ export default function ChallengeScreen() {
                 {t.challenge.habitsFull}
               </Text>
             ) : null}
-            {view.joined ? <Button label={t.challenge.leave} variant="ghost" onPress={confirmLeave} /> : null}
+            {view.joined && view.status !== 'ended' ? (
+              <Button label={t.challenge.leave} variant="ghost" onPress={confirmLeave} />
+            ) : null}
           </>
         )
       }
@@ -124,21 +182,62 @@ export default function ChallengeScreen() {
         </Text>
       </Stack>
 
+      {myWeek === null ? null : (
+        <Stack align="center" gap="sm">
+          <ChallengeWeek
+            days={myWeek.days}
+            todayIndex={active ? todayIndex : null}
+            labels={strings.format.weekdayInitials}
+            size="md"
+          />
+          <Stack align="center" gap="xs">
+            <Text variant="heading">{t.challenge.progress(myWeek.done, myWeek.target)}</Text>
+            <Text variant="label" tone="secondary">
+              {active ? challengeOutlookText(myWeek.outlook, t) : t.challenge.status.ended}
+            </Text>
+          </Stack>
+        </Stack>
+      )}
+
+      {view.status === 'ended' && weeks.length > 0 ? (
+        <Section title={t.challenge.ended.title}>
+          <Card>
+            <Stack gap="sm">
+              <Text variant="body" weight="medium">
+                {t.challenge.ended.weeks(challengeWeeksMet(weeks).met, weeks.length)}
+              </Text>
+              <ChallengeWeek days={weeks.map((week) => week.met)} todayIndex={null} />
+            </Stack>
+          </Card>
+          <ListGroup>
+            <ListRow icon="repeat" label={t.challenge.ended.repeat(duration)} onPress={repeat} />
+            <ListRow icon="archive" label={t.challenge.ended.archive} onPress={confirmArchive} />
+          </ListGroup>
+        </Section>
+      ) : null}
+
       <Section title={t.challenge.thisWeek}>
         {nudgesReceived.names.length > 0 ? (
           <Text variant="label" tone="secondary">
             {t.challenge.nudgedYou(nudgesReceived.names)}
           </Text>
         ) : null}
-        <StandingsList
-          standings={standings}
-          nudge={
-            canNudge
-              ? { todayIndex, givenTo: nudgesGiven, onNudge: (toId) => nudge(toId, challenge.id, Date.now()) }
-              : undefined
-          }
-        />
-        {canNudge ? (
+        {others.length === 0 ? (
+          <Text variant="label" tone="secondary">
+            {t.challengeNew.noMembers}
+          </Text>
+        ) : (
+          <StandingsList
+            standings={others}
+            todayIndex={todayIndex}
+            nudge={
+              canNudge
+                ? { todayIndex, givenTo: nudgesGiven, onNudge: (toId) => nudge(toId, challenge.id, Date.now()) }
+                : undefined
+            }
+          />
+        )}
+        {canNudge && others.length > 0 ? (
           <Text variant="caption" tone="tertiary">
             {t.challenge.nudgeHint}
           </Text>

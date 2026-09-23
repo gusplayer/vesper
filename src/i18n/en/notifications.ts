@@ -27,6 +27,18 @@ export const notifications: typeof shape = {
     title: 'No focus yet today',
     body: '25 minutes and you are done.',
   },
+  challengeRisk: {
+    title: (challengeName) => `${challengeName} is slipping away`,
+    body: (needed, daysLeft) =>
+      `You need ${needed} more and ${daysLeft} ${daysLeft === 1 ? 'day is' : 'days are'} left. Mark it today.`,
+  },
+  challengeEnd: {
+    title: (challengeName) => `${challengeName} is over`,
+    body: (met, total) =>
+      met === total
+        ? `You kept all ${total} ${total === 1 ? 'week' : 'weeks'}.`
+        : `You kept ${met} of ${total} ${total === 1 ? 'week' : 'weeks'}.`,
+  },
   reactivation: {
     title: (days) => `It has been ${days} ${days === 1 ? 'day' : 'days'} without focus`,
     body: 'A short session counts.',

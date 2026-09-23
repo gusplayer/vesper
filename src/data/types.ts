@@ -105,6 +105,8 @@ export type NotificationPrefs = {
   noFocus: boolean;
   /** Two notices after 3 and 7 days without opening the app, then nothing until it opens. */
   reactivation: boolean;
+  /** "Leer se te está yendo" and the line a challenge leaves when it ends (ADR-0031). */
+  challenges: boolean;
   /** A circle member pushing the user on a shared challenge. Delivery needs the backend. */
   nudges: boolean;
   /** Minute of the local day the streak and no-focus notices fire at. Default 20:00. */

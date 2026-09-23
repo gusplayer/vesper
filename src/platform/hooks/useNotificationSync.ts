@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { challengeReminders } from '../../data/challenges';
 import { readStreak } from '../../data/streak';
 import { useAppStore } from '../../data/stores/app';
 import { useCircleStore } from '../../data/stores/circle';
@@ -43,6 +44,7 @@ async function syncNow(): Promise<void> {
       streak: readStreak(now),
       lastOpenedAt: app.settings.lastOpenedAt,
       hasCircle: hasCircle(),
+      challenges: challengeReminders(useCircleStore.getState().challenges, app.habitMarks, now),
     },
     // The reminders speak the language the app is in right now.
     getStrings().notifications,
@@ -77,7 +79,9 @@ export function useNotificationSync(): void {
         state.settings.notificationsAllowed !== previous.settings.notificationsAllowed ||
         // A new open moves the reactivation pair; a grace day applied changes the streak.
         state.settings.lastOpenedAt !== previous.settings.lastOpenedAt ||
-        state.graceDays !== previous.graceDays
+        state.graceDays !== previous.graceDays ||
+        // Marking a habit can be marking a challenge, which silences today's notice.
+        state.habitMarks !== previous.habitMarks
       ) {
         schedule();
       }
@@ -97,9 +101,15 @@ export function useNotificationSync(): void {
         schedule();
       }
     });
-    // Joining or leaving a circle changes what the reactivation notice says.
+    // Joining or leaving a circle changes what the reactivation notice says, and a
+    // challenge that moves changes the risk notice.
     const unsubscribeCircle = useCircleStore.subscribe((state, previous) => {
-      if (state.profile !== previous.profile || state.members !== previous.members) {
+      if (
+        state.profile !== previous.profile ||
+        state.members !== previous.members ||
+        // Joining, leaving or creating a challenge changes what can slip away today.
+        state.challenges !== previous.challenges
+      ) {
         schedule();
       }
     });

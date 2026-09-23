@@ -37,3 +37,5 @@ e-ink; ADR-0026 cerró lo que 0016 había dejado "vigente en su fondo".
 | 0026 | Cierre de decisiones anteriores: 0011, 0013 y 0015 superados, 0012 superado en forma, 0022 fijado a lo construido, restos de fase 1 borrados | aceptada |
 | 0027 | Racha diaria con días de gracia, empujones del círculo y avisos que traen de vuelta; silencio absoluto en sesión | aceptada |
 | 0028 | Abrir la app: el splash es una hoja de tinta y `BootReveal` la disuelve de los bordes al centro hasta dejar la marca, que se funde con la app | aceptada |
+| 0031 | Retos que valen la pena abrir: `challengeRisk` en el dominio, aviso local de reto en riesgo y de cierre dentro del presupuesto de ADR-0027, la semana del reto dibujada como la grilla de Focus, cierre con "Repetir", el reto visible en Hábitos, Actividad y Focus, y retos sugeridos propios | aceptada |
+| 0032 | Retos públicos: sí, como reto abierto por link (sin directorio, sin lista de participantes, empujón solo del círculo) y como retos destacados curados por nosotros; exige el ADR del backend, alias únicos, reporte y bloqueo | propuesta |

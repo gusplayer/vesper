@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { useCircleMembers, useCircleStore, useHabitsWeek } from '../../data';
+import { challengeIdeas, type ChallengeIdea } from '../../data/challenges';
 import {
   Button,
   Check,
@@ -45,6 +46,7 @@ export default function NewChallengeScreen() {
   const now = useNow(CLOCK_MS);
   const habits = useHabitsWeek(now);
   const members = useCircleMembers().filter((member) => member.status === 'member');
+  const ideas = challengeIdeas(t);
   const createChallenge = useCircleStore((state) => state.createChallenge);
 
   const [name, setName] = useState('');
@@ -60,6 +62,13 @@ export default function NewChallengeScreen() {
   const prefillFromHabit = (habit: Habit) => {
     setName(habit.name);
     setWeeklyTarget(targetOption(habit.weeklyTarget));
+  };
+
+  const prefillFromIdea = (idea: ChallengeIdea) => {
+    setName(idea.name);
+    setWeeklyTarget(targetOption(idea.weeklyTarget));
+    setDays(idea.days);
+    setHabitsFull(false);
   };
 
   const toggleParticipant = (id: string) => {
@@ -106,6 +115,22 @@ export default function NewChallengeScreen() {
         placeholder={t.namePlaceholder}
         autoFocus
       />
+
+      <Section title={t.ideas}>
+        <Stack direction="row" gap="sm" wrap>
+          {ideas.map((idea) => (
+            <Chip
+              key={idea.id}
+              label={idea.name}
+              selected={trimmed.toLowerCase() === idea.name.toLowerCase()}
+              onPress={() => prefillFromIdea(idea)}
+            />
+          ))}
+        </Stack>
+        <Text variant="caption" tone="tertiary">
+          {t.ideasHint}
+        </Text>
+      </Section>
 
       {habits.length === 0 ? null : (
         <Section title={t.fromHabit}>

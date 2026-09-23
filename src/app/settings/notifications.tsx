@@ -198,6 +198,17 @@ export default function NotificationsScreen() {
           }
         />
         <ListRow
+          label={page.challenges.label}
+          description={page.challenges.description}
+          right={
+            <Toggle
+              value={notifications.challenges}
+              onValueChange={(challenges) => updateNotifications({ challenges })}
+              accessibilityLabel={page.challenges.label}
+            />
+          }
+        />
+        <ListRow
           label={page.reminderTime.label}
           value={reminderTimeText(notifications.reminderMinutes)}
           onPress={() => setChoosingTime(true)}

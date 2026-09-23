@@ -7,6 +7,8 @@ import { atMinuteOfDay, dayKeyOf, dayStartShifted } from './day';
 import { aRunningSession, T0 } from './fixtures';
 import {
   applyDailyBudget,
+  challengeEndReminders,
+  challengeRiskReminders,
   DAILY_BUDGET,
   EXPO_SATURDAY,
   EXPO_SUNDAY,
@@ -21,6 +23,7 @@ import {
   streakRiskReminders,
   weeklyCloseReminder,
   withoutQuietHours,
+  type ChallengeReminder,
   type DateSpec,
   type ReminderState,
 } from './reminders';
@@ -41,6 +44,7 @@ const ALL_ON: NotificationPrefs = {
   streak: true,
   noFocus: true,
   reactivation: true,
+  challenges: true,
   nudges: true,
   reminderMinutes: REMINDER_MINUTES,
 };
@@ -52,6 +56,7 @@ const ALL_OFF: NotificationPrefs = {
   streak: false,
   noFocus: false,
   reactivation: false,
+  challenges: false,
   nudges: false,
   reminderMinutes: REMINDER_MINUTES,
 };
@@ -93,6 +98,7 @@ function aState(overrides: Partial<ReminderState> = {}): ReminderState {
     prefs: ALL_ON,
     allowed: true,
     now: NOON,
+    challenges: [],
     streak: aStreak(),
     lastOpenedAt: null,
     hasCircle: false,
@@ -472,6 +478,109 @@ describe('noFocusReminders', () => {
   });
 });
 
+describe('challengeRiskReminders', () => {
+  function aChallenge(overrides: Partial<ChallengeReminder> = {}): ChallengeReminder {
+    return {
+      id: 'challenge-1',
+      name: 'Leer',
+      needed: 3,
+      daysLeft: 3,
+      atRisk: true,
+      markedToday: false,
+      endedOn: null,
+      ...overrides,
+    };
+  }
+
+  it('plans today, for the challenge that can only still be met day by day', () => {
+    const specs = challengeRiskReminders(aState({ challenges: [aChallenge()] }), ES);
+
+    expect(ids(specs)).toEqual([`challenge-risk-challenge-1-${TODAY_KEY}`]);
+    expect(specs[0]?.at).toBe(TODAY_AT);
+    expect(specs[0]?.title).toBe('Leer se te está yendo');
+    expect(specs[0]?.body).toBe('Te faltan 3 y quedan 3 días. Márcalo hoy.');
+    expect(specs.every((s) => s.kind === 'challengeRisk' && s.trigger === 'date' && !s.sound)).toBe(true);
+  });
+
+  it('says nothing when it is not at risk, when today is marked, or with the preference off', () => {
+    expect(challengeRiskReminders(aState({ challenges: [aChallenge({ atRisk: false })] }), ES)).toEqual([]);
+    expect(challengeRiskReminders(aState({ challenges: [aChallenge({ markedToday: true })] }), ES)).toEqual([]);
+    expect(
+      challengeRiskReminders(aState({ prefs: { ...ALL_ON, challenges: false }, challenges: [aChallenge()] }), ES),
+    ).toEqual([]);
+  });
+
+  it('says nothing once the reminder hour has passed: tomorrow depends on today', () => {
+    expect(challengeRiskReminders(aState({ now: EVENING, challenges: [aChallenge()] }), ES)).toEqual([]);
+  });
+
+  it('keeps only the tightest challenge: fewest days left, then most needed', () => {
+    const specs = challengeRiskReminders(
+      aState({
+        challenges: [
+          aChallenge({ id: 'far', needed: 4, daysLeft: 4 }),
+          aChallenge({ id: 'near', name: 'Caminar', needed: 2, daysLeft: 2 }),
+          aChallenge({ id: 'tied', needed: 2, daysLeft: 2 }),
+        ],
+      }),
+      ES,
+    );
+
+    expect(ids(specs)).toEqual([`challenge-risk-near-${TODAY_KEY}`]);
+    expect(specs[0]?.title).toBe('Caminar se te está yendo');
+  });
+
+  it('speaks English with the English slice, same id', () => {
+    const state = aState({ challenges: [aChallenge({ needed: 1, daysLeft: 1 })] });
+
+    const [spec] = challengeRiskReminders(state, EN);
+
+    expect(spec?.id).toBe(challengeRiskReminders(state, ES)[0]?.id);
+    expect(spec?.title).toBe('Leer is slipping away');
+    expect(spec?.body).toBe('You need 1 more and 1 day is left. Mark it today.');
+  });
+});
+
+describe('challengeEndReminders', () => {
+  const ended = (dayKey: string, met = 2, total = 3): ChallengeReminder => ({
+    id: 'challenge-1',
+    name: 'Leer',
+    needed: 0,
+    daysLeft: 0,
+    atRisk: false,
+    markedToday: false,
+    endedOn: { dayKey, met, total },
+  });
+
+  it('knocks the day after the last day, once, with how the whole thing went', () => {
+    const specs = challengeEndReminders(aState({ challenges: [ended(TODAY_KEY)] }), ES);
+
+    expect(ids(specs)).toEqual([`challenge-end-challenge-1-${TODAY_KEY}`]);
+    expect(specs[0]?.at).toBe(TOMORROW_AT);
+    expect(specs[0]?.title).toBe('Terminó Leer');
+    expect(specs[0]?.body).toBe('Cumpliste 2 de 3 semanas.');
+  });
+
+  it('counts a clean run whole', () => {
+    const [spec] = challengeEndReminders(aState({ challenges: [ended(TODAY_KEY, 3, 3)] }), ES);
+
+    expect(spec?.body).toBe('Cumpliste las 3 semanas.');
+    expect(challengeEndReminders(aState({ challenges: [ended(TODAY_KEY, 3, 3)] }), EN)[0]?.body).toBe(
+      'You kept all 3 weeks.',
+    );
+  });
+
+  it('is gone once its hour has passed, and says nothing for a challenge still running', () => {
+    const yesterdayKey = dayKeyOf(dayStartShifted(NOON, -1));
+
+    expect(ids(challengeEndReminders(aState({ challenges: [ended(yesterdayKey)] }), ES))).toEqual([
+      `challenge-end-challenge-1-${yesterdayKey}`,
+    ]);
+    expect(challengeEndReminders(aState({ now: EVENING, challenges: [ended(yesterdayKey)] }), ES)).toEqual([]);
+    expect(challengeEndReminders(aState({ challenges: [{ ...ended(TODAY_KEY), endedOn: null }] }), ES)).toEqual([]);
+  });
+});
+
 describe('reactivationReminders', () => {
   const openedKey = dayKeyOf(NOON);
 
@@ -560,6 +669,20 @@ describe('applyDailyBudget', () => {
 
     expect(DAILY_BUDGET).toBe(2);
     expect(kept.map((s) => s.kind)).toEqual(['noFocus', 'streakRisk']);
+  });
+
+  it('drops the challenge notice when the streak and the use notice already filled the day', () => {
+    const specs = [
+      daily('reactivation', TODAY_AT),
+      daily('challengeEnd', TODAY_AT),
+      daily('challengeRisk', TODAY_AT),
+      daily('streakRisk', TODAY_AT),
+    ];
+
+    const kept = applyDailyBudget(specs);
+
+    // A streak about to break beats a challenge, and a challenge beats anything about use.
+    expect(kept.map((s) => s.kind)).toEqual(['challengeRisk', 'streakRisk']);
   });
 
   it('counts each day on its own and leaves the other kinds alone', () => {

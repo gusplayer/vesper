@@ -1,7 +1,9 @@
-import { useChallengeStandings, type ChallengeView } from '../../data';
+import { useChallengeStandings, useMyChallengeWeeks, type ChallengeView } from '../../data';
 import { Card, Stack, Text } from '../../design/components';
-import { challengeDays } from '../../domain/circle';
+import { challengeDays, weekdayIndex } from '../../domain/circle';
 import { useStrings, type Strings } from '../../i18n';
+import { ChallengeWeek } from './ChallengeWeek';
+import { challengeOutlookText } from './challengeText';
 
 type CircleStrings = Strings['circle'];
 
@@ -32,12 +34,16 @@ export function challengeSummaryText(view: ChallengeView, t: CircleStrings): str
 }
 
 /**
- * A challenge at a glance: name, how often and how long, who is in, and one line per
- * participant with this week's count. Tapping opens the challenge.
+ * A challenge at a glance: the name, how often and with whom, your week as seven
+ * days, and the one line that says how it is going. The others get a line each, in
+ * words and not in points (ADR-0021). Tapping opens the challenge.
  */
 export function ChallengeCard({ view, now, onPress }: ChallengeCardProps) {
   const t = useStrings().circle;
   const standings = useChallengeStandings(view.challenge.id, now);
+  const myWeek = useMyChallengeWeeks(now).find((week) => week.id === view.challenge.id) ?? null;
+  const others = standings.filter((standing) => !standing.isMe);
+  const active = view.status === 'active';
 
   return (
     <Card onPress={onPress} accessibilityLabel={t.challenge.openA11y(view.challenge.name)}>
@@ -53,15 +59,21 @@ export function ChallengeCard({ view, now, onPress }: ChallengeCardProps) {
             {challengeStatusText(view, t)}
           </Text>
         </Stack>
-        {standings.length === 0 ? null : (
+
+        {myWeek === null ? null : (
           <Stack gap="xs">
-            {standings.map((standing) => (
+            <ChallengeWeek days={myWeek.days} todayIndex={active ? weekdayIndex(now) : null} />
+            <Text variant="label" tone={myWeek.outlook.risk === 'met' ? 'primary' : 'secondary'}>
+              {active ? challengeOutlookText(myWeek.outlook, t) : t.challenge.progress(myWeek.done, myWeek.target)}
+            </Text>
+          </Stack>
+        )}
+
+        {others.length === 0 ? null : (
+          <Stack gap="xs">
+            {others.map((standing) => (
               <Text key={standing.id} variant="label" tone={standing.met ? 'primary' : 'secondary'}>
-                {t.challenge.standingLine(
-                  standing.isMe ? t.member.me : standing.name,
-                  t.challenge.progress(standing.done, standing.target),
-                  standing.met,
-                )}
+                {t.challenge.otherLine(standing.name, t.challenge.progress(standing.done, standing.target), standing.met)}
               </Text>
             ))}
           </Stack>

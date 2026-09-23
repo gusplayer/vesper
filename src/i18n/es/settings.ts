@@ -240,6 +240,10 @@ export const settings = {
     streak: { label: 'Racha en riesgo', description: 'Si a la hora del aviso hoy todavía no cuenta' },
     noFocus: { label: 'Día sin foco', description: 'Si a la hora del aviso no has enfocado' },
     reactivation: { label: 'Volver', description: 'A los 3 y a los 7 días sin abrir Vesper' },
+    challenges: {
+      label: 'Retos',
+      description: 'Cuando un reto solo se cumple marcando todos los días que quedan, y cuando termina',
+    },
     /** The row and the sheet share the name. */
     reminderTime: { label: 'Hora del aviso', sheet: 'Hora del aviso' },
     dailyCaption:

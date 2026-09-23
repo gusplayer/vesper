@@ -201,6 +201,10 @@ export const settings: typeof shape = {
     streak: { label: 'Streak at risk', description: 'If today does not count yet at the reminder time' },
     noFocus: { label: 'Day without focus', description: 'If you have not focused by the reminder time' },
     reactivation: { label: 'Come back', description: 'After 3 and 7 days without opening Vesper' },
+    challenges: {
+      label: 'Challenges',
+      description: 'When a challenge only holds by marking every day that is left, and when it ends',
+    },
     reminderTime: { label: 'Reminder time', sheet: 'Reminder time' },
     dailyCaption:
       'At most two notices a day besides the session and routine ones. Nothing between 22:00 and 8:00, and never during a session.',
