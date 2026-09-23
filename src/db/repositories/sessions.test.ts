@@ -5,6 +5,7 @@ import { BREAK_EVERY_MS, BREAK_MS } from '../../domain/session';
 import { HOUR, MINUTE } from '../../domain/time';
 import { INIT_SQL } from '../migrations/001_init';
 import { OPEN_SESSIONS_BREAKS_SQL } from '../migrations/005_open_sessions_breaks';
+import { KEYS_SQL } from '../migrations/008_keys';
 import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
 import * as sessions from './sessions';
 
@@ -56,7 +57,7 @@ describe('insert', () => {
     expect(fake.calls[0]?.sql).toContain('INSERT INTO sessions');
   });
 
-  it('writes the 16 params in column order', () => {
+  it('writes the 18 params in column order', () => {
     const session = aRunningSession({ intention: 'leer', blockProfile: null });
 
     sessions.insert(session);
@@ -79,6 +80,8 @@ describe('insert', () => {
       'break_ms',
       'break_started_at',
       'next_break_at_ms',
+      'key_id',
+      'key_step',
     ]);
     expect(call.params).toEqual([
       'session-1',
@@ -97,8 +100,10 @@ describe('insert', () => {
       0,
       null,
       BREAK_EVERY_MS,
+      null,
+      null,
     ]);
-    expect(call.params).toHaveLength(16);
+    expect(call.params).toHaveLength(18);
   });
 });
 
@@ -246,7 +251,7 @@ describe('schema', () => {
 
     const { table, columns } = insertColumns(fake.callMatching(/INSERT/).sql);
     expect(table).toBe('sessions');
-    const declared = ddlColumns(INIT_SQL + OPEN_SESSIONS_BREAKS_SQL, table);
+    const declared = ddlColumns(INIT_SQL + OPEN_SESSIONS_BREAKS_SQL + KEYS_SQL, table);
     for (const column of columns) {
       expect(declared).toContain(column);
     }

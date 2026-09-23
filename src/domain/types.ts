@@ -78,6 +78,10 @@ export type Session = {
   intention: string | null;
   /** Text written when giving up in 'firm' depth. */
   exitReason: string | null;
+  /** The key that opened this session, or null for a session the user started (ADR-0034). */
+  keyId: string | null;
+  /** The 30 s window the opening code belonged to; the same code may not close it. */
+  keyStep: number | null;
   interruptions: number;
   startedAt: Millis;
   endedAt: Millis | null;

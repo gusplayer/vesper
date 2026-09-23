@@ -19,6 +19,8 @@ type SessionRow = {
   break_ms: number;
   break_started_at: number | null;
   next_break_at_ms: number;
+  key_id: string | null;
+  key_step: number | null;
 };
 
 function toSession(row: SessionRow): Session {
@@ -39,6 +41,8 @@ function toSession(row: SessionRow): Session {
     breakMs: row.break_ms,
     breakStartedAt: row.break_started_at,
     nextBreakAtMs: row.next_break_at_ms,
+    keyId: row.key_id,
+    keyStep: row.key_step,
   };
 }
 
@@ -54,8 +58,8 @@ export function insert(session: Session): void {
     `INSERT INTO sessions
        (id, activity_id, planned_ms, actual_ms, outcome, depth, block_profile,
         intention, exit_reason, interruptions, started_at, ended_at,
-        open, break_ms, break_started_at, next_break_at_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        open, break_ms, break_started_at, next_break_at_ms, key_id, key_step)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.activityId,
@@ -73,6 +77,8 @@ export function insert(session: Session): void {
       session.breakMs,
       session.breakStartedAt,
       session.nextBreakAtMs,
+      session.keyId,
+      session.keyStep,
     ],
   );
 }

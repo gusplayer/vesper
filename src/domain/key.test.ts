@@ -4,6 +4,7 @@ import {
   KEY_STEP_MS,
   keyCodeAt,
   keyStep,
+  matchKey,
   pairingCode,
   parseKeyCode,
   parsePairingCode,
@@ -111,5 +112,33 @@ describe('pairing', () => {
     expect(parsePairingCode(`VKP1:k1:${'z'.repeat(64)}`)).toBeNull();
     expect(parsePairingCode(`VKP1::${SECRET}`)).toBeNull();
     expect(parsePairingCode(keyCodeAt(key, NOW))).toBeNull();
+  });
+});
+
+describe('matchKey', () => {
+  const k1 = key;
+  const k2: PairedKey = { id: 'k2', name: 'La tableta', secret: OTHER_SECRET, pairedAt: 0 };
+
+  it('picks the key the code belongs to, out of several', () => {
+    expect(matchKey([k1, k2], keyCodeAt(k1, NOW), NOW)?.keyId).toBe('k1');
+    expect(matchKey([k1, k2], keyCodeAt(k2, NOW), NOW)?.keyId).toBe('k2');
+  });
+
+  it('answers null when no key of ours made that code', () => {
+    const stranger: PairedKey = { id: 'k9', name: 'ajena', secret: OTHER_SECRET, pairedAt: 0 };
+    expect(matchKey([k1, k2], keyCodeAt(stranger, NOW), NOW)).toBeNull();
+    expect(matchKey([], keyCodeAt(k1, NOW), NOW)).toBeNull();
+    expect(matchKey([k1], 'rubbish', NOW)).toBeNull();
+  });
+
+  it('is not fooled by a key whose id matches but whose secret does not', () => {
+    const impostor: PairedKey = { ...k1, secret: OTHER_SECRET };
+    expect(matchKey([impostor], keyCodeAt(k1, NOW), NOW)).toBeNull();
+  });
+
+  it('carries the step through, so a session can refuse it later', () => {
+    const match = matchKey([k1], keyCodeAt(k1, NOW), NOW);
+    expect(match?.step).toBe(keyStep(NOW));
+    expect(matchKey([k1], keyCodeAt(k1, NOW), NOW, match?.step ?? null)).toBeNull();
   });
 });

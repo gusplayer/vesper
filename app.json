@@ -12,7 +12,8 @@
       "bundleIdentifier": "com.gusplayer.vesper",
       "supportsTablet": false,
       "infoPlist": {
-        "NSSupportsLiveActivities": true
+        "NSSupportsLiveActivities": true,
+        "NSCameraUsageDescription": "Vesper usa la cámara solo para leer el código de tu llave. No toma fotos ni las guarda."
       },
       "appleTeamId": "2D3R79CT8F"
     },
@@ -23,7 +24,10 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -71,7 +75,14 @@
           "appGroup": "group.com.gusplayer.vesper"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Vesper usa la cámara solo para leer el código de tu llave. No toma fotos ni las guarda.",
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "extra": {
       "router": {},

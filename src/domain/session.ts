@@ -15,6 +15,8 @@ export type SessionConfig = {
   blockProfile: string | null;
   /** "Sin límite" (ADR-0022). plannedMs is ignored: the cap applies. */
   open?: boolean;
+  /** The key that opened it and the code's step, when a key did (ADR-0034). */
+  key?: { id: string; step: number };
 };
 
 /**
@@ -76,13 +78,17 @@ export function effectiveDepth(depth: Depth, open: boolean): Depth {
 
 export function createSession(id: string, config: SessionConfig, now: Millis): Session {
   const open = config.open === true;
+  const key = config.key ?? null;
   return {
     id,
     activityId: config.activityId,
     plannedMs: open ? OPEN_SESSION_CAP_MS : config.plannedMs,
     actualMs: 0,
     outcome: 'running',
-    depth: effectiveDepth(config.depth, open),
+    // A key session is deep whatever the mode says, and stays deep when it is open:
+    // the downgrade of effectiveDepth exists because deep and open have no way out,
+    // and the key is one (ADR-0034).
+    depth: key === null ? effectiveDepth(config.depth, open) : 'deep',
     open,
     breakMs: 0,
     breakStartedAt: null,
@@ -91,10 +97,17 @@ export function createSession(id: string, config: SessionConfig, now: Millis): S
     // Written on the session screen, where it is also displayed. Never part of config.
     intention: null,
     exitReason: null,
+    keyId: key?.id ?? null,
+    keyStep: key?.step ?? null,
     interruptions: 0,
     startedAt: now,
     endedAt: null,
   };
+}
+
+/** True when only this session's key (or the timer, or the emergency) can end it. */
+export function isKeyLocked(session: Session): boolean {
+  return session.keyId !== null;
 }
 
 /** How much of the current break has run, capped at its length. Zero outside a break. */

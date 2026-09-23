@@ -49,6 +49,11 @@ type FocusState = {
   hydrate: () => void;
   /** `plannedMs` null starts an open session ("sin límite"). */
   start: (modeId: string, plannedMs: number | null, now: number) => void;
+  /**
+   * The same start, opened by a key (ADR-0034). The session runs deep whatever the
+   * mode says and remembers the code's step, so that code cannot also close it.
+   */
+  startWithKey: (modeId: string, plannedMs: number | null, now: number, key: { id: string; step: number }) => void;
   finish: (outcome: CloseOutcome, now: number, exitReason?: string | null) => Session | null;
   /** Starts a break; a no-op when the domain says no. */
   takeBreak: (now: number) => void;
@@ -95,6 +100,28 @@ export const useFocusStore = create<FocusState>((set, get) => ({
         open: plannedMs === null,
         depth: mode?.depth ?? 'soft',
         blockProfile: modeId,
+      },
+      now,
+    );
+    sessionsRepo.insert(session);
+    set({ session, modeId });
+    useSchemeStore.getState().setScheme('dark');
+  },
+
+  startWithKey: (modeId, plannedMs, now, key) => {
+    if (get().session !== null) {
+      return;
+    }
+    const mode = useAppStore.getState().modes.find((m) => m.id === modeId);
+    const session = createSession(
+      uuidv7(now),
+      {
+        activityId: resolveActivityId(mode?.activityId ?? ''),
+        plannedMs: plannedMs ?? 0,
+        open: plannedMs === null,
+        depth: mode?.depth ?? 'soft',
+        blockProfile: modeId,
+        key,
       },
       now,
     );

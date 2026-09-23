@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 
-import { resetAndRehydrate, useCircleMembers, useProfile, useSettings } from '../../data';
+import { resetAndRehydrate, useCircleMembers, useKeys, useProfile, useSettings } from '../../data';
 import { Card, ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { VERSION_NUMBER } from '../../features/settings/version';
 import { useLocale, useLocaleStore, useStrings } from '../../i18n';
@@ -11,6 +11,7 @@ import { birthDateText } from '../../lib/birthDate';
 export default function SettingsScreen() {
   const router = useRouter();
   const settings = useSettings();
+  const keys = useKeys();
   const t = useStrings();
   const { tag } = useLocale();
   const preference = useLocaleStore((state) => state.preference);
@@ -53,6 +54,12 @@ export default function SettingsScreen() {
           label={t.settings.tab.emergency}
           value={t.settings.tab.emergencyLeft(settings.emergencyLeft)}
           onPress={() => router.push('/settings/emergency')}
+        />
+        <ListRow
+          icon="key"
+          label={t.keys.title}
+          value={keys.length === 0 ? t.common.empty : String(keys.length)}
+          onPress={() => router.push('/settings/keys')}
         />
       </ListGroup>
 

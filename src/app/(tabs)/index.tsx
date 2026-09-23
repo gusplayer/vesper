@@ -18,6 +18,7 @@ import {
   useAppStore,
   useDayStats,
   useFocusStore,
+  useKeys,
   useMode,
   useModes,
   useRunningSession,
@@ -64,6 +65,7 @@ export default function FocusScreen() {
   const modes = useModes();
   const schedules = useSchedules();
   const settings = useSettings();
+  const keys = useKeys();
   const dismissBanner = useAppStore((state) => state.dismissBanner);
   const setActiveMode = useAppStore((state) => state.setActiveMode);
   const start = useFocusStore((state) => state.start);
@@ -100,6 +102,19 @@ export default function FocusScreen() {
           <HoldButton label={holdLabel} onHold={begin} />
         ) : (
           <Button label={startLabel} onPress={() => setFlooding(true)} disabled={mode === null} />
+        )}
+        {keys.length === 0 ? null : (
+          <Button
+            variant="ghost"
+            label={t.keys.session.start}
+            onPress={() =>
+              router.push({
+                pathname: '/keys/scan',
+                params: plannedMs === null ? {} : { minutes: String(Math.round(plannedMs / 60_000)) },
+              })
+            }
+            disabled={mode === null}
+          />
         )}
         <InkFlood active={flooding} onDone={begin} />
       </Stack>

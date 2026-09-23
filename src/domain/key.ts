@@ -122,6 +122,28 @@ export function parsePairingCode(text: string): Pairing | null {
   return { keyId, secret };
 }
 
+/**
+ * Which of several keys a scanned code belongs to, and in which step. The store reads
+ * the secrets out of the keychain and hands them here; the choosing is the domain's,
+ * so it can be tested without a keychain and without a phone.
+ */
+export function matchKey(keys: readonly PairedKey[], text: string, now: Millis, after: number | null = null): KeyCode | null {
+  const parsed = parseKeyCode(text);
+  if (parsed === null) {
+    return null;
+  }
+  for (const key of keys) {
+    if (key.id !== parsed.keyId) {
+      continue;
+    }
+    const step = verifyKeyCode(key, text, now, after);
+    if (step !== null) {
+      return { keyId: key.id, code: parsed.code, step };
+    }
+  }
+  return null;
+}
+
 /** HMAC of the step under the secret, first six bytes as hex. */
 function codeFor(key: PairedKey, step: number): string {
   const secret = fromHex(key.secret);

@@ -11,6 +11,7 @@ import {
   Text,
 } from '../../design/components';
 import { useFocusStore, useMode, useSettings } from '../../data';
+import { KEY_EXIT_REASON } from '../../domain/key';
 import { EMERGENCY_EXIT_REASON, exitReasonText } from '../../features/session/exitReason';
 import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
@@ -32,9 +33,13 @@ export default function SessionClosedScreen() {
   const modeId = useFocusStore((state) => state.modeId);
   const mode = useMode(modeId ?? undefined);
   const emergencyLeft = useSettings().emergencyLeft;
-  const params = useLocalSearchParams<{ emergency?: string }>();
+  const params = useLocalSearchParams<{ emergency?: string; key?: string }>();
   // The route param says it on arrival; the stored reason says it after a relaunch.
   const emergency = params.emergency === '1' || closed?.exitReason === EMERGENCY_EXIT_REASON;
+  // The receipt of ADR-0034: the key holder is standing here, reading this with the
+  // person whose phone it is. It says how long and whether it ran its time. Nothing
+  // travels and nothing is kept beyond the session row that already existed.
+  const byKey = params.key === '1' || closed?.exitReason === KEY_EXIT_REASON;
   const served = durationText(closed?.actualMs ?? 0);
 
   return (
@@ -44,11 +49,16 @@ export default function SessionClosedScreen() {
         <HeroObject size="md" />
         <Stack align="center" gap="xs">
           <Text variant="title" align="center">
-            {t.title}
+            {byKey ? strings.keys.receipt.title : t.title}
           </Text>
           <Text tone="secondary" align="center">
-            {t.counted(served)}
+            {byKey ? strings.keys.receipt.duration(served) : t.counted(served)}
           </Text>
+          {byKey ? (
+            <Text tone="secondary" align="center">
+              {closed?.outcome === 'completed' ? strings.keys.receipt.completed : strings.keys.receipt.cut}
+            </Text>
+          ) : null}
           {emergency ? (
             <Text tone="secondary" align="center">
               {t.emergency(emergencyLeft)}
@@ -60,7 +70,7 @@ export default function SessionClosedScreen() {
       <ListGroup>
         <ListRow label={strings.session.complete.mode} value={mode?.name ?? strings.common.empty} />
         <ListRow label={strings.session.complete.duration} value={served} />
-        {closed === null || closed.exitReason === null || emergency ? null : (
+        {closed === null || closed.exitReason === null || emergency || byKey ? null : (
           <ListRow label={t.reason} value={exitReasonText(closed.exitReason, strings.session)} />
         )}
       </ListGroup>

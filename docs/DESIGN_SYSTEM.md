@@ -94,7 +94,7 @@ completas salvo `VESPER` y las etiquetas de `StatCard` y `PeriodStrip`.
 
 ## Componentes
 
-Lo que exporta `src/design/components/index.ts` (52 hoy). `AppImage` (icono real de
+Lo que exporta `src/design/components/index.ts` (54 hoy, con `KeyPattern` del ADR-0034). `AppImage` (icono real de
 Android), `HeatSquare` (una celda de `HeatGrid`) y `FlipDigit` (una carta de `FlipClock`)
 existen pero no se exportan: son internos.
 

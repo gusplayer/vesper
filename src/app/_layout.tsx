@@ -115,6 +115,7 @@ export default function RootLayout() {
               <Stack.Screen name="session/exit" options={lockedScreenOptions} />
               <Stack.Screen name="session/emergency" options={lockedScreenOptions} />
               <Stack.Screen name="session/closed" options={lockedScreenOptions} />
+              <Stack.Screen name="session/unlock" options={lockedScreenOptions} />
               <Stack.Screen name="modes/index" />
               <Stack.Screen name="modes/edit" />
               <Stack.Screen name="modes/apps" />
@@ -123,6 +124,10 @@ export default function RootLayout() {
               <Stack.Screen name="schedules/edit" />
               <Stack.Screen name="settings/rules" />
               <Stack.Screen name="settings/emergency" />
+              <Stack.Screen name="settings/keys" />
+              <Stack.Screen name="keys/pair" />
+              <Stack.Screen name="keys/show" />
+              <Stack.Screen name="keys/scan" />
               <Stack.Screen name="settings/notifications" />
               <Stack.Screen name="settings/language" />
               <Stack.Screen name="settings/live-activities" />

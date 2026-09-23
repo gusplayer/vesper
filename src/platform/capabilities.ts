@@ -16,7 +16,7 @@ export const isAndroid = Platform.OS === 'android';
 /** True on a physical phone; false in the simulator and the emulator. */
 export const isDevice: boolean = Constants.isDevice ?? false;
 
-export type CapabilityName = 'notifications' | 'health' | 'liveActivity' | 'blocking';
+export type CapabilityName = 'notifications' | 'health' | 'liveActivity' | 'blocking' | 'camera';
 
 export type CapabilityStatus = {
   /** The native module exists and the platform supports it here. */

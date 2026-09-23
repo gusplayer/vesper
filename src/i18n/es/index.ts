@@ -6,6 +6,7 @@ import { depth } from './depth';
 import { focus } from './focus';
 import { format } from './format';
 import { habits } from './habits';
+import { keys } from './keys';
 import { modes } from './modes';
 import { notifications } from './notifications';
 import { onboarding } from './onboarding';
@@ -33,6 +34,7 @@ export const es = {
   routines,
   activity,
   habits,
+  keys,
   circle,
   settings,
   notifications,

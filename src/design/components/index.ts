@@ -52,6 +52,7 @@ export { HeatGrid, type HeatCell } from './HeatGrid';
 export { ScheduleCard } from './ScheduleCard';
 export { HoldButton } from './HoldButton';
 export { QrCode } from './QrCode';
+export { KeyPattern } from './KeyPattern';
 export { InkFlood } from './InkFlood';
 export { BreathingObject, type BreathPhaseName } from './BreathingObject';
 export { BootReveal, type BootRevealPhase } from './BootReveal';

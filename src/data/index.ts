@@ -22,7 +22,7 @@ import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
 import { elapsed } from '../domain/session';
 import { computeStreak, type StreakState } from '../domain/streak';
-import { ME, type Challenge, type Member, type Profile, type SharePrefs } from '../domain/types';
+import { ME, type Challenge, type Member, type PairedKey, type Profile, type SharePrefs } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
 import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
@@ -33,6 +33,7 @@ import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from
 import { useAppStore } from './stores/app';
 import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
+import { useKeysStore } from './stores/keys';
 import { useFocusStore } from './stores/focus';
 import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
 
@@ -75,6 +76,7 @@ function hydrateStores(now: number): void {
   useAppStore.getState().hydrate(now);
   useFocusStore.getState().hydrate();
   useCircleStore.getState().hydrate(now);
+  useKeysStore.getState().hydrate();
 }
 
 /**
@@ -256,6 +258,11 @@ export function useSharePrefs(): SharePrefs {
 /** Everyone, whatever the status: in the circle, invited, or waiting for an answer. */
 export function useCircleMembers(): Member[] {
   return useCircleStore((state) => state.members);
+}
+
+/** The keys paired with this phone (ADR-0034), without their secrets. */
+export function useKeys(): PairedKey[] {
+  return useKeysStore((state) => state.keys);
 }
 
 /** Seats taken out of MAX_CIRCLE: the same count the cap uses (domain/circle.seatsTaken). */

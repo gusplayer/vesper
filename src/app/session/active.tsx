@@ -23,6 +23,7 @@ import {
   breakReachable,
   canTakeBreak,
   elapsed,
+  isKeyLocked,
   sessionProgress,
 } from '../../domain/session';
 import { ModeDetailsSheet } from '../../features/modes/ModeDetailsSheet';
@@ -56,8 +57,10 @@ type FloodTone = 'ink' | 'paper';
  */
 export default function ActiveSessionScreen() {
   const router = useRouter();
-  const strings = useStrings().session;
+  const all = useStrings();
+  const strings = all.session;
   const t = strings.active;
+  const keyStrings = all.keys;
   const session = useRunningSession();
   const modeId = useFocusStore((state) => state.modeId);
   const mode = useMode(modeId ?? undefined);
@@ -163,8 +166,15 @@ export default function ActiveSessionScreen() {
     />
   ) : null;
 
-  // Deep has no way out by hand, so it has no footer; the caption under the bar says so.
-  const footer = deep ? undefined : (
+  // Deep has no way out by hand, so it has no footer; the caption under the bar says
+  // so. A key session is deep too, but it does have a way out — the key — so it keeps
+  // a footer with the scanner behind it (ADR-0034).
+  const footer = isKeyLocked(session) ? (
+    <>
+      <Button label={keyStrings.session.scanToEnd} onPress={() => router.push('/session/unlock')} />
+      {breakButton}
+    </>
+  ) : deep ? undefined : (
     <>
       <Button label={t.end} onPress={() => router.push('/session/exit')} />
       {breakButton}
