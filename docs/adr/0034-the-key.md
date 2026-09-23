@@ -1,7 +1,7 @@
 # ADR-0034 — La llave: una sesión que abre y cierra otra persona
 
-**Estado:** propuesta · 2026-09-22 · reabre el ADR-0021 (la decisión de no tener cámara)
-y se apoya en el ADR-0025 y el ADR-0033
+**Estado:** aceptada · 2026-09-22 · reabre el ADR-0021 (la decisión de no tener cámara)
+y se apoya en el ADR-0025 y el ADR-0033. La llave en una página web es el ADR-0035.
 
 ## Contexto
 
@@ -122,9 +122,8 @@ Esta es la decisión central. Quien tiene la llave **no recibe datos**: los lee 
 persona, en el momento de desbloquear, en la pantalla del teléfono que estuvo bloqueado.
 
 Al escanear para salir, esa pantalla muestra el resumen de la sesión que acaba de
-terminar: cuánto duró, si llegó a su tiempo o se cortó, y —solo en Android— cuántas
-veces subió el escudo, sin nombres de apps. Las dos personas están una al lado de la
-otra, porque escanear exige estar ahí. Lo leen juntas y se va.
+terminar: cuánto duró y si llegó a su tiempo o se cortó. Las dos personas están una al
+lado de la otra, porque escanear exige estar ahí. Lo leen juntas y se va.
 
 Qué se gana: no viaja nada, no se guarda nada en el servidor, no entra al círculo, no
 hay una métrica nueva que alguien comparta sin querer, y la frase de la ficha de tienda
@@ -134,10 +133,11 @@ tiempo. Es un recibo, no un expediente.
 Qué se pierde, y hay que decirlo: el padre que no está en la casa no ve nada. Eso es
 deliberado.
 
-**La asimetría entre plataformas es real.** El conteo de veces que subió el escudo
-existe en Android, donde `ForegroundWatcher` ya sabe qué paquete está al frente. En iOS
-no existe y no va a existir: `status().reason` lo dirá en la pantalla, como hace el
-resto de `src/platform/`. Nunca hay nombres de apps, en ninguna de las dos.
+**El conteo de intentos queda fuera de la primera versión.** Contar cuántas veces subió
+el escudo es posible en Android, donde `ForegroundWatcher` ya sabe qué paquete está al
+frente, y es imposible en iOS. El recibo de la v1 dice lo mismo en los dos sistemas:
+duración y cómo terminó. Si el conteo entra después, entra con su asimetría explicada en
+pantalla por `status().reason`, y nunca con nombres de apps en ninguna de las dos.
 
 ### 6. El círculo no cambia
 
@@ -149,11 +149,12 @@ exactamente lo que la adenda del ADR-0021 se escribió para impedir.
 
 ### 7. Fuera de este ADR, a propósito
 
-La página web que muestra la llave, y por lo tanto la llave remota, quedan para un ADR
-posterior. Hoy no hay web en el repo —ni `react-dom`, ni `react-native-web`, y el
-servidor es solo API— y, sobre todo, una llave remota haría que terminar una sesión
-dependiera de la red, que es justo lo que el ADR-0033 se cuidó de no romper: "nada de la
-app depende de que responda".
+La página web que muestra la llave se diseña aparte, en el ADR-0035, y no se implementa
+hasta que la llave entre dos teléfonos exista y se use. Hoy no hay web en el repo —ni
+`react-dom`, ni `react-native-web`, y el servidor es solo API— y, sobre todo, una llave
+remota haría que terminar una sesión dependiera de la red, que es justo lo que el
+ADR-0033 se cuidó de no romper: "nada de la app depende de que responda". Ese es el
+problema central que el 0035 tiene que resolver antes de que valga la pena escribirla.
 
 ## Consecuencias
 
@@ -190,15 +191,13 @@ app depende de que responda".
   justo lo que el pedido quería evitar, y en iOS el lector de NFC en segundo plano tiene
   sus propias restricciones.
 
-## Preguntas abiertas
+## Decidido por el dueño
 
-Tres, y las tres son del dueño:
+Las tres preguntas que este ADR abrió, respondidas el 2026-09-22:
 
-1. **El recibo**: ¿alcanza con que quien tiene la llave lea el resumen en el teléfono del
-   otro, en persona, o el caso de uso real exige que lo vea a distancia? Si es lo
-   segundo, este ADR cambia de forma y hay que enmendar el ADR-0033 y reescribir la
-   ficha de tienda.
-2. **El conteo de intentos en Android**: ¿se incluye desde la primera versión, sabiendo
-   que iOS no lo tendrá nunca y que la pantalla tendrá que explicar la diferencia?
-3. **La llave web**: ¿se diseña ya como fase 2, o se deja fuera hasta ver si la llave
-   entre dos teléfonos se usa?
+1. **El recibo se lee en persona.** No hay panel remoto. Quien tiene la llave ve el
+   resumen en el teléfono que estuvo bloqueado, en el momento de desbloquear. Nada viaja
+   y no hay que enmendar el ADR-0033 ni reescribir la ficha de tienda.
+2. **El conteo de intentos no entra en la v1.** El recibo dice lo mismo en iOS y en
+   Android.
+3. **La llave web se diseña ya, como fase 2, sin implementarla**: ADR-0035.
