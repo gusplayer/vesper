@@ -166,6 +166,12 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 - Círculo sin servidor: escribir un código ajeno responde "todavía no hay servidor"; solo
   la invitación sembrada (Mateo) se puede aceptar. Es lo honesto hasta el backend (ADR-0021).
 - Sin textos legales: Acerca de no tiene Términos ni Privacidad hasta que existan.
+- **La base de producción del círculo está llena de datos de prueba**: al 2026-09-23,
+  32 cuentas, 30 vínculos, 15 semanas, 2 retos, 1 marca y 1 empujón, todos de las
+  verificaciones contra el despliegue (las `nc-*` son de la tanda del ADR-0033). Ninguno
+  es de una persona real —la app no habla con el servidor—, pero conviene vaciarla antes
+  de que lo haga, para que el primer usuario no comparta base con `sofiap2`. Borrarlas es
+  un `delete` y no se hace sin permiso del dueño.
 
 ## Historial
 
