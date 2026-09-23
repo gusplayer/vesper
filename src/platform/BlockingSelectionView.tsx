@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { AppTile } from '../design/components/AppTile';
 import { Check } from '../design/components/Check';
-import { AppImage } from '../design/components/AppImage';
 import { ListGroup } from '../design/components/ListGroup';
 import { ListRow } from '../design/components/ListRow';
 import { SearchField } from '../design/components/SearchField';
@@ -118,7 +118,7 @@ function AndroidSelectionView({ style, familyActivitySelection, onSelectionChang
               <ListRow
                 key={app.packageName}
                 label={app.label}
-                leading={<AppImage base64={app.iconBase64} />}
+                leading={<AppTile icon={app.iconBase64} initial={app.label.slice(0, 1).toLocaleUpperCase()} />}
                 right={<Check checked={selected.includes(app.packageName)} shape="box" />}
                 onPress={() => toggle(app.packageName)}
                 kind="action"

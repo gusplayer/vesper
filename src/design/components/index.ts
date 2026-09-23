@@ -2,7 +2,7 @@
  * The design system's public surface. Screens import from here and nowhere else in
  * src/design/, so what a screen can use is exactly this list.
  */
-export { AppIcon } from './AppIcon';
+export { AppTile } from './AppTile';
 export { AppIconStack } from './AppIconStack';
 export { Avatar } from './Avatar';
 export { Banner } from './Banner';

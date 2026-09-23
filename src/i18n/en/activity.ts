@@ -78,6 +78,15 @@ export const activity: typeof shape = {
     atLeast: (duration) => `≥ ${duration}`,
     unregistered: 'Unregistered',
     footer: 'Three separate currencies. Never added up.',
+    usage: {
+      appLabel: (name, duration) => `${name}, at least ${duration}`,
+      demo: 'Breakdown with sample data.',
+      readAt: (time) => `Read at ${time}.`,
+      ios: 'iOS only shows per-app use inside Screen Time.',
+      noModule: 'This build has no usage module.',
+      noUsageAccess: 'Usage access is missing in Settings.',
+      noApps: 'Pick real apps in a mode to measure their use.',
+    },
   },
   weeklyGoal: {
     title: 'Weekly goal',

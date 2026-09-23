@@ -2,29 +2,33 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { layout, space } from '../tokens';
-import { AppIcon } from './AppIcon';
+import { AppTile } from './AppTile';
 import { Text } from './Text';
 
 type AppRowProps = {
-  /** The app's tile, from the data layer. */
+  /** The app's tile, from the data layer: a real icon, or a letter on a color. */
+  icon?: string | null;
   initial: string;
-  color: string;
+  color?: string | null;
   name: string;
   /** A second line under the name: the category. */
   description?: string;
+  /** Text on the right: a duration, a count. */
+  value?: string;
   /** A control on the right: a checkbox, a toggle. */
   right?: ReactNode;
   onPress?: () => void;
+  accessibilityLabel?: string;
 };
 
 /**
- * A ListRow led by an AppIcon instead of a Feather icon: the app pickers, the usage
- * list. Same rhythm as ListRow so both can share a ListGroup.
+ * A ListRow led by an AppTile instead of a Feather icon: the app pickers, the usage
+ * breakdown. Same rhythm as ListRow so both can share a ListGroup.
  */
-export function AppRow({ initial, color, name, description, right, onPress }: AppRowProps) {
+export function AppRow({ icon = null, initial, color = null, name, description, value, right, onPress, accessibilityLabel }: AppRowProps) {
   const content = (
     <View style={styles.row}>
-      <AppIcon initial={initial} color={color} size="md" />
+      <AppTile icon={icon} initial={initial} color={color} size="md" />
       <View style={styles.text}>
         <Text variant="body">{name}</Text>
         {description === undefined ? null : (
@@ -33,18 +37,23 @@ export function AppRow({ initial, color, name, description, right, onPress }: Ap
           </Text>
         )}
       </View>
+      {value === undefined ? null : (
+        <Text variant="body" tone="secondary">
+          {value}
+        </Text>
+      )}
       {right}
     </View>
   );
 
   if (onPress === undefined) {
-    return content;
+    return accessibilityLabel === undefined ? content : <View accessibilityLabel={accessibilityLabel}>{content}</View>;
   }
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={name}
+      accessibilityLabel={accessibilityLabel ?? name}
       style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
     >
       {content}

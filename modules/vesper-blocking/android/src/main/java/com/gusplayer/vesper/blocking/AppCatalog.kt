@@ -54,7 +54,8 @@ object AppCatalog {
       .toList()
   }
 
-  private fun icon(packageName: String, load: () -> Drawable): String? {
+  /** The cached 96px PNG of a package, rendering it once; shared with UsageQuery. */
+  internal fun icon(packageName: String, load: () -> Drawable): String? {
     iconCache[packageName]?.let { return it }
     val encoded = runCatching { encode(load()) }.getOrNull() ?: return null
     iconCache[packageName] = encoded

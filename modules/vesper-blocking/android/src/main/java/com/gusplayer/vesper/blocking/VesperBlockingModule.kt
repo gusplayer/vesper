@@ -83,7 +83,8 @@ class NoPlanException : CodedException("E_NO_PLAN", "No plan is applied", null)
 
 /**
  * The JS-facing surface of Android blocking. Thin on purpose: it checks the
- * permissions, opens their Settings pages, lists launchable apps, hands a plan to
+ * permissions, opens their Settings pages, lists launchable apps, reads foreground time
+ * per package for the activity tab (ADR-0029), hands a plan to
  * BlockingService and a window to WindowScheduler, and pauses or resumes the running
  * plan for a break. Everything user-facing on the shield and the notification comes
  * from JS, in the app's language.
@@ -187,6 +188,20 @@ class VesperBlockingModule : Module() {
           "packageName" to app.packageName,
           "label" to app.label,
           "iconBase64" to app.iconBase64,
+        )
+      }
+    }
+
+    AsyncFunction("queryUsage") { fromMs: Double, toMs: Double, packageNames: List<String>, withIcons: Boolean ->
+      if (!Permissions.hasUsageAccess(context)) {
+        throw UsageAccessMissingException()
+      }
+      UsageQuery.query(context, fromMs.toLong(), toMs.toLong(), packageNames.toSet(), withIcons).map { app ->
+        mapOf(
+          "packageName" to app.packageName,
+          "label" to app.label,
+          "iconBase64" to app.iconBase64,
+          "ms" to app.ms.toDouble(),
         )
       }
     }

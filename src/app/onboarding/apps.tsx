@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { appsById, useApps } from '../../data';
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import {
-  AppIcon,
+  AppTile,
   Button,
   Check,
   ListGroup,
@@ -72,7 +72,7 @@ export default function AppsScreen() {
 
       <Stack direction="row" justify="center" gap="lg">
         {featured.map((app) => (
-          <AppIcon key={app.id} initial={app.initial} color={app.color} size="lg" />
+          <AppTile key={app.id} initial={app.initial} color={app.color} size="lg" />
         ))}
       </Stack>
 

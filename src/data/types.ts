@@ -152,12 +152,36 @@ export type DayStat = {
   segments: { start: number; end: number }[];
 };
 
+/** The demo usage floor (seed.ts). Stands in until the platform reads the real thing. */
 export type UsageEstimate = {
   /** Always a floor (ADR-0004). */
   todayMs: number;
   weekMs: number;
-  /** Per app, today. */
+  /** Per app, today, by catalogue id. */
   byApp: { appId: string; ms: number }[];
+};
+
+/**
+ * One app in the usage breakdown (ADR-0029). Android fills `icon` with the real PNG;
+ * the demo rows carry the catalogue tile instead. Either way `ms` is a floor.
+ */
+export type AppUsage = {
+  /** The package name (Android) or the catalogue id (demo). */
+  id: string;
+  name: string;
+  /** A PNG, base64 without the data: prefix, or null to draw the tile. */
+  icon: string | null;
+  initial: string;
+  /** The catalogue's brand-ish color; null draws a muted tile. */
+  color: string | null;
+  ms: number;
+};
+
+/** What the platform read: totals and the breakdown of today, most used first. */
+export type UsageReading = {
+  todayMs: number;
+  weekMs: number;
+  byApp: AppUsage[];
 };
 
 export type HealthSummary = {

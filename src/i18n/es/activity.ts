@@ -108,6 +108,19 @@ export const activity = {
     atLeast: (duration: string) => `≥ ${duration}`,
     unregistered: 'Sin registrar',
     footer: 'Tres monedas separadas. Nunca se suman.',
+    /** The per-app breakdown under the social row (ADR-0029). */
+    usage: {
+      /** VoiceOver: 'Instagram, al menos 34 min'. */
+      appLabel: (name: string, duration: string) => `${name}, al menos ${duration}`,
+      demo: 'Desglose con datos de ejemplo.',
+      /** When the phone read the figures: 'Leído a las 10:42.' */
+      readAt: (time: string) => `Leído a las ${time}.`,
+      /** Why the phone gives nothing, one sentence each (rule 8). */
+      ios: 'iOS solo muestra el uso por app dentro de Tiempo de uso.',
+      noModule: 'Este build no trae el módulo de uso.',
+      noUsageAccess: 'Falta el acceso de uso en Ajustes.',
+      noApps: 'Elige apps reales en un modo para medir su uso.',
+    },
   },
   weeklyGoal: {
     title: 'Meta semanal',

@@ -172,6 +172,7 @@ export const settings: typeof shape = {
     tapHint: (left, toDays) => `You have ${left} left. Tap to see in ${toDays ? 'days' : 'weeks'}`,
     atYourPace: (consumed) => `At your current pace, ${consumed} of that would go to social media.`,
     estimateNote: 'Estimate with sample data. The real figure comes with Screen Time.',
+    deviceNote: "Estimate from this week's real use, always a floor.",
   },
   liveActivities: {
     title: 'Live Activities',

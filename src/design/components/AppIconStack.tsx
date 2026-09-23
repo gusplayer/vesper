@@ -1,11 +1,11 @@
 import { StyleSheet, View } from 'react-native';
 
 import { space } from '../tokens';
-import { AppIcon } from './AppIcon';
+import { AppTile } from './AppTile';
 import { Text } from './Text';
 
 type AppIconStackProps = {
-  apps: readonly { id: string; initial: string; color: string }[];
+  apps: readonly { id: string; initial: string; color?: string | null; icon?: string | null }[];
   /** How many tiles to draw before collapsing into '+N'. */
   max?: number;
 };
@@ -17,7 +17,7 @@ export function AppIconStack({ apps, max = 3 }: AppIconStackProps) {
   return (
     <View style={styles.row}>
       {shown.map((app) => (
-        <AppIcon key={app.id} initial={app.initial} color={app.color} size="sm" />
+        <AppTile key={app.id} icon={app.icon} initial={app.initial} color={app.color} size="sm" />
       ))}
       {rest > 0 ? (
         <Text variant="label" tone="secondary">

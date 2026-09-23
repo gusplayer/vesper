@@ -34,7 +34,8 @@ import { useAppStore } from './stores/app';
 import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
-import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
+import { useUsageStore, weekUsageMs, type UsageSource } from './stores/usage';
+import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
 
 /**
  * The hooks screens use. Each answers one question a screen has, in the shape the
@@ -42,10 +43,10 @@ import type { Activity, AppInfo, DayStat, Mode, ModeIdea, Schedule, Website } fr
  * behind them moved from seeded memory to SQLite (ADR-0016, ADR-0017).
  */
 
-export { useAppStore, useFocusStore, useCircleStore };
-export { WEBSITES, HEALTH, USAGE };
+export { useAppStore, useFocusStore, useCircleStore, useUsageStore };
+export { WEBSITES, HEALTH };
 export { readStreak };
-export type { ChallengeStatus, ChallengeWeek, CircleWeekRow, MyChallengeWeek, Standing };
+export type { ChallengeStatus, ChallengeWeek, CircleWeekRow, MyChallengeWeek, Standing, UsageSource };
 
 /**
  * The catalogues with words in them (apps, activities, mode ideas) follow the current
@@ -176,6 +177,45 @@ export function useDayStats(): DayStat[] {
   return useAppStore((state) => state.dayStats);
 }
 
+/** The usage floor a screen shows: totals, breakdown, where it came from and why (ADR-0029). */
+export type UsageView = {
+  source: UsageSource;
+  /** Why the phone gives nothing; null when it does, and before the first read. */
+  reason: string | null;
+  /** When the phone was last read, epoch ms; null for the demo. */
+  readAt: number | null;
+  todayMs: number;
+  weekMs: number;
+  /** Today, most used first. */
+  byApp: AppUsage[];
+};
+
+/**
+ * Today's and this week's floor of social use with the breakdown by app. From the
+ * phone where it can answer (Android with usage access and real apps in a mode),
+ * from the demo estimate everywhere else, with the reason spelled out (rule 8).
+ */
+export function useUsage(): UsageView {
+  const source = useUsageStore((state) => state.source);
+  const reason = useUsageStore((state) => state.reason);
+  const reading = useUsageStore((state) => state.reading);
+  const readAt = useUsageStore((state) => state.readAt);
+  const apps = useApps();
+  return useMemo(() => {
+    if (source === 'device' && reading !== null) {
+      return { source, reason: null, readAt, ...reading };
+    }
+    const byApp: AppUsage[] = [];
+    for (const { appId, ms } of USAGE.byApp) {
+      const app = apps.find((candidate) => candidate.id === appId);
+      if (app !== undefined) {
+        byApp.push({ id: app.id, name: app.name, icon: null, initial: app.initial, color: app.color, ms });
+      }
+    }
+    return { source: 'demo', reason, readAt: null, todayMs: USAGE.todayMs, weekMs: USAGE.weekMs, byApp };
+  }, [source, reason, reading, readAt, apps]);
+}
+
 /**
  * The daily streak and the grace left this month (ADR-0027). Derived from the day
  * stats the store already keeps, which the focus store refreshes after every close,
@@ -278,6 +318,7 @@ export function usePendingInvites(): Member[] {
 export function useCircleWeek(now: number): CircleWeekRow[] {
   const profile = useProfile();
   const share = useSharePrefs();
+  const socialWeekMs = useUsageStore(weekUsageMs);
   const members = useCircleMembers();
   const memberWeeks = useCircleStore((state) => state.memberWeeks);
   const week = useWeekStats(now);
@@ -289,9 +330,9 @@ export function useCircleWeek(now: number): CircleWeekRow[] {
     const focusMs = week.reduce((total, day) => total + day.focusMs, 0);
     const habitsDone = habits.reduce((total, h) => total + Math.min(h.markedDays, h.habit.weeklyTarget), 0);
     const habitsTarget = habits.reduce((total, h) => total + h.habit.weeklyTarget, 0);
-    const mine = { focusMs, socialMs: share.social ? USAGE.weekMs : null, habitsDone, habitsTarget };
+    const mine = { focusMs, socialMs: share.social ? socialWeekMs : null, habitsDone, habitsTarget };
     return circleWeek(members, memberWeeks, { profile, week: mine }, weekKeyOf(now));
-  }, [profile, share.social, members, memberWeeks, week, habits, now]);
+  }, [profile, share.social, socialWeekMs, members, memberWeeks, week, habits, now]);
 }
 
 /** The ids of the people the user already cheered today. */

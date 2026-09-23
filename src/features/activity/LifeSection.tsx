@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 
-import { USAGE, useLife, useSettings } from '../../data';
+import { useLife, useSettings, useUsage } from '../../data';
 import { Card, DotGrid, Section, Stack, Tappable, Text } from '../../design/components';
 import { projectedWeeksConsumed } from '../../domain/life';
 import { expectancySourceText, resolveExpectancy, yearsText } from '../../domain/lifeExpectancy';
@@ -25,6 +25,7 @@ export function LifeSection({ now }: LifeSectionProps) {
   const router = useRouter();
   const life = useLife(now);
   const settings = useSettings();
+  const usage = useUsage();
   const t = useStrings();
   const { tag } = useLocale();
   const copy = t.settings.lifeSection;
@@ -51,7 +52,7 @@ export function LifeSection({ now }: LifeSectionProps) {
     );
   }
 
-  const consumedWeeks = Math.round(projectedWeeksConsumed(USAGE.weekMs, life.left));
+  const consumedWeeks = Math.round(projectedWeeksConsumed(usage.weekMs, life.left));
   const resolved = resolveExpectancy(settings.country, settings.sex);
   const sourceText =
     settings.lifeExpectancyYears !== resolved.years
@@ -89,7 +90,7 @@ export function LifeSection({ now }: LifeSectionProps) {
               {copy.atYourPace(consumedText)}
             </Text>
             <Text variant="caption" tone="tertiary">
-              {copy.estimateNote}
+              {usage.source === 'device' ? copy.deviceNote : copy.estimateNote}
             </Text>
           </Stack>
         </Stack>

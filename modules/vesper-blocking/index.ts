@@ -26,6 +26,16 @@ export type LaunchableApp = {
   iconBase64: string | null;
 };
 
+/** One row of `queryUsage`: how long a package was in front inside the window. */
+export type PackageUsage = {
+  packageName: string;
+  label: string;
+  /** A 96px PNG, base64 without data: prefix. Null when icons were not requested or the package is gone. */
+  iconBase64: string | null;
+  /** Foreground time inside the window, ms. A floor (ADR-0004, ADR-0029). */
+  ms: number;
+};
+
 /**
  * The words the notification and the shield's third line use, in the app's language
  * (ADR-0023). Every field is optional: a missing one keeps the Kotlin default, which
@@ -100,6 +110,12 @@ export type VesperBlockingNative = {
   /** POST_NOTIFICATIONS on Android 13+; resolves with the outcome. Before 13, whether notifications are on. */
   requestNotificationPermission(): Promise<boolean>;
   listLaunchableApps(withIcons: boolean): Promise<LaunchableApp[]>;
+  /**
+   * Foreground time of each package between two instants (epoch ms), most used first,
+   * zero rows included. Folds UsageStatsManager events on demand and stores nothing
+   * (ADR-0029). Rejects with E_USAGE_ACCESS without the usage-access toggle.
+   */
+  queryUsage(fromMs: number, toMs: number, packageNames: string[], withIcons: boolean): Promise<PackageUsage[]>;
   applyPlan(plan: NativePlan): Promise<void>;
   release(): Promise<void>;
   /**

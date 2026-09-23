@@ -208,6 +208,8 @@ export const settings = {
     tapHint: (left: string, toDays: boolean) => `Te quedan ${left}. Toca para ver en ${toDays ? 'días' : 'semanas'}`,
     atYourPace: (consumed: string) => `A tu ritmo actual, ${consumed} de eso se irían en redes.`,
     estimateNote: 'Estimación con datos de ejemplo. El dato real llega con Tiempo de uso.',
+    /** The projection runs on this week's real floor (Android, ADR-0029). */
+    deviceNote: 'Estimación con el uso real de esta semana, siempre como piso.',
   },
   liveActivities: {
     title: 'Live Activities',
