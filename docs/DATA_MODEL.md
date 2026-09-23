@@ -331,7 +331,9 @@ Escribe solo el store (`settleStreak`, en `src/data/stores/app.ts`) a través de
 `repositories/graceDays.ts`, al arrancar y en cada vuelta al primer plano: los días
 sin foco entre ayer y el último día que contó reciben gracia mientras a su mes le quede
 cupo; si el hueco es más largo que el cupo, la racha se rompe y no se gasta nada. Un
-día con fila en `grace_days` cuenta como si hubiera tenido foco. La tabla se vacía con
+día con fila en `grace_days` **sostiene la cadena pero no se cuenta a sí mismo**: el
+número son los días con foco, y la gracia solo evita que el caminado se detenga
+(ADR-0039). La tabla se vacía con
 "Borrar todo y reiniciar".
 
 ### Previsto y sin migración: salud, bloqueo y uso

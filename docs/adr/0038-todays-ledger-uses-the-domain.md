@@ -50,6 +50,11 @@ intervalos de Salud que meter en la unión, vengan de donde vengan.
 - Dos sesiones solapadas dejan de contarse dos veces en el residuo.
 - La pantalla gana filas: una por actividad con tiempo, en vez de una sola "Enfocado".
   Es lo que el mapa de pantallas ya prometía.
+- **Y pierde una**: `buildLedger` solo emite filas con tiempo, así que un día sin foco ya
+  no muestra "Enfocado · 0m". El libro mayor es una partición del día y un cero no
+  particiona nada, pero la moneda principal de la app desaparece en silencio justo el día
+  en que el usuario debería verla en cero. Queda así y anotado: si molesta, la salida es
+  una fila fija para la moneda propia, no un cero para todas.
 - **Sigue sin arreglarse** que ocho horas de sueño confirmado aparezcan dentro de "Sin
   registrar". No es un defecto de la pantalla ni del dominio: es que nadie guarda esas
   horas. Queda anotado en `STATUS.md` › "Qué falta" y depende del punto 3.

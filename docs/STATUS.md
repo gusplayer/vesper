@@ -508,8 +508,52 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   por app comparado contra Bienestar digital tras un `adb reboot` con una app al frente;
   la forma nueva de Actividad › Hoy; y las rutinas solapadas de verdad. `PLATFORM_ANDROID.md`
   y el informe del módulo tienen las recetas.
-- Pendiente de decisión del dueño, encontrado y **no** cambiado: un día puenteado por
-  gracia suma +1 a la racha (`streak.test.ts` lo fija, ADR-0027 no lo dice); los cinco
-  avisos diarios caen todos en el mismo instante, así que dos llegan como un solo zumbido;
-  y un hábito verificado cuyo nombre no mapea a ningún tipo de Salud no se puede marcar
-  nunca, lo que el editor de hábitos debería impedir.
+- Las tres decisiones que esta revisión dejó abiertas se tomaron el mismo día, como
+  ADR-0039 (la gracia sostiene la cadena pero no suma), ADR-0040 (los avisos diarios se
+  escalonan tres minutos) y ADR-0041 (un hábito verificado que nada puede verificar cae a
+  declarado y lo dice).
+
+- **2026-09-23 · Las tres decisiones abiertas, tomadas; y por fin, la app corriendo.**
+  ADR-0039: la gracia sostiene la cadena pero no se cuenta a sí misma, así que "cuatro
+  días seguidos" vuelven a ser cuatro días con foco. El dominio pasa de una pregunta por
+  día a dos (`counted` y `holds`), y `todayCounts` deja de ser cierto por una gracia de
+  hoy: si no, la píldora diría "hoy ya cuenta" mientras el número no lo incluye.
+  ADR-0040: cada clase de aviso diario lleva un desfase fijo de tres minutos derivado de
+  `DAILY_KINDS`, la misma lista que ya ordena el presupuesto. ADR-0041: el editor de
+  hábitos ya no ofrece "verificado" para un nombre que Salud no reconoce; cae a
+  declarado y lo dice, y los hábitos que ya estaban en ese callejón se rescatan a la
+  vista, sin esperar a que el usuario adivine que debe reabrirlos.
+  ADR-0037 pasa a aceptada con su mitad del servidor hecha: el push viaja sin `title` ni
+  `body`, con `contentAvailable`, y del emisor va el alias y no el nombre — mandar el
+  nombre le devolvería a un desconocido que acierte un código una línea de su propia
+  escritura en la barra de otra persona. La mitad del cliente sigue pendiente.
+- **Verificado corriendo, en el emulador Pixel 7 (API 36), que es lo que faltaba:**
+  - **El escudo deja dormir la pantalla (lo más riesgoso de toda la tanda).** Con el
+    escudo de superposición arriba sobre el Reloj: en t+0 `dumpsys window` muestra
+    `fl=KEEP_SCREEN_ON` y `dumpsys power` un `SCREEN_BRIGHT_WAKE_LOCK` sostenido a nombre
+    de `com.gusplayer.vesper` — el defecto original, capturado en vivo. A los 30,007 s el
+    log dice `shield stopped keeping the screen on`, la bandera desaparece
+    (`fl=LAYOUT_IN_SCREEN HARDWARE_ACCELERATED`), `Wake Locks: size=0`, y **el escudo
+    sigue arriba**: deja dormir la pantalla sin bajarse.
+  - **El escudo por actividad**, sobre Ajustes, que esconde superposiciones: `shield up
+    (activity)`, con su título, "You are focused. This app can wait." y "Back".
+  - **El libro mayor de ADR-0038.** A las 12:30, con 0m de foco y 1h 12m de redes
+    estimadas, "Sin registrar" dice **12h 30m**. Con el código viejo habría dicho 11h 18m:
+    el estimado quedó fuera de la resta, que es lo que ADR-0010 pedía desde el principio.
+    El desglose cuelga entre "Social" y "Unregistered", no debajo de todo, y las cinco
+    filas se ven hijas y no pares.
+  - **ADR-0041 en la pantalla**: con "gym" la línea compone la razón de plataforma
+    ("Health only exists on iPhone, so you mark this habit"); con "meditar" la tarjeta
+    Verified queda deshabilitada, su descripción cambia a "Only for habits Health can
+    confirm: workouts, walking, sleep" y la línea dice que Salud no reconoce el nombre.
+    El nombre tiene prioridad sobre la plataforma y la línea nunca aparece ni desaparece,
+    así que el layout no salta al teclear.
+  - **Copy y contraste**: "at least 34m" en vez de "≥ 34m"; "Today" y "Tue, Sep 22" en
+    oración; "You have 2,252 weeks left" con separador de miles; y las notas de
+    demostración visiblemente más oscuras que las pistas, que siguen en terciario.
+  - El selector de vista de Actividad abre al primer toque con el área corregida.
+- **No verificado, y queda pendiente**: el uso por app contra Bienestar digital con una
+  app real elegida en un modo (el emulador limpio no tiene ninguna, y la pantalla lo dice
+  con la razón nueva); el caso del `adb reboot` con una app al frente; las rutinas
+  solapadas del ADR-0036 de punta a punta; el desfase de avisos en la bandeja real; y
+  **nada en iOS ni en un teléfono físico**.
