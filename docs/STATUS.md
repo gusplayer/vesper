@@ -365,3 +365,18 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   para que el link `https` abra la app sin pasar por la página. Necesitan el Team ID de
   Apple y la huella SHA-256 del certificado de Android; **no se publican con datos
   inventados**.
+
+- **2026-09-23 · En el servidor, null es "no lo comparte" (ADR-0033).** `weeks.focus_ms`,
+  `habits_done` y `habits_target` eran NOT NULL, así que de los tres interruptores de
+  Ajustes › Círculo solo el de redes podía llegar al servidor como silencio; los otros
+  dos habrían aterrizado como cero, que no dice "esto me lo guardo" sino "no hice nada
+  esta semana". Las tres columnas dejan de ser NOT NULL (con `alter ... drop not null`
+  idempotente dentro de `schema.sql`, que corre en cada arranque), el `/sync` deja de
+  rellenar con cero y `Week` los declara `number | null`.
+- Verificado contra el despliegue: dos cuentas enlazadas, una sube una semana con solo
+  hábitos y la otra la lee como `focusMs: null · socialMs: null · habitsDone: 3`; en Neon
+  las cuatro columnas quedaron nullable. Antes del deploy la misma prueba devolvía
+  `focusMs: 0`. 17 tests del servidor en verde.
+- Consecuencia para el cliente que falta: al sincronizar debe **omitir la métrica que no
+  se comparte**, no mandar 0. Lo encontró la sesión que conectó los tres interruptores
+  del lado de la app.
