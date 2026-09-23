@@ -86,8 +86,8 @@ export const keys = {
     /** Donde se teclea. */
     use: 'Escribir un código',
     field: 'Código',
-    placeholder: 'ocho letras o números',
-    wrong: 'Un código son ocho letras o números, sin ceros ni oes.',
+    placeholder: 'seis números',
+    wrong: 'Un código son seis números.',
     tooSoon: 'Un código dictado no termina una sesión en sus primeros quince minutos.',
     spent: 'Demasiados intentos. En esta sesión ya no se puede por código; queda escanear o la emergencia.',
     left: (n: number) => (n === 1 ? 'Queda un intento.' : `Quedan ${n} intentos.`),

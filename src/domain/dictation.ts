@@ -37,6 +37,38 @@ export function groupDictated(code: string): string {
 }
 
 /**
+ * `bytes` rendered as `length` digits (ADR-0038). Digits, not symbols, for anything read
+ * out over a phone: the alphabet drops 0, O, 1 and I but keeps B and V, M and N, which
+ * sound the same down a line in Spanish. "Tres, cuatro, ocho" does not.
+ *
+ * Taken from the whole value modulo 10^length rather than digit by digit, so every digit
+ * depends on every byte and the space is the full 10^length.
+ */
+export function toDigits(bytes: Uint8Array, length: number): string {
+  let value = 0;
+  for (const byte of bytes) {
+    // Kept under 2^53 so the arithmetic stays exact: shift, add, and fold by the modulus.
+    value = (value * 256 + byte) % 10 ** length;
+  }
+  return value.toString().padStart(length, '0');
+}
+
+/** Digits in two groups, for reading aloud: `348-291`. */
+export function groupDigits(code: string): string {
+  const half = Math.ceil(code.length / 2);
+  return code.length <= 4 ? code : `${code.slice(0, half)}-${code.slice(half)}`;
+}
+
+/**
+ * What someone typed, as the digits they meant. Spaces and hyphens come out, and
+ * anything that is not `length` digits is refused rather than guessed.
+ */
+export function normalizeDigits(text: string, length: number): string | null {
+  const code = text.replace(/[\s-]/g, '').trim();
+  return new RegExp(`^[0-9]{${length}}$`).test(code) ? code : null;
+}
+
+/**
  * `bytes` rendered as `length` symbols of the alphabet, five bits at a time, most
  * significant first. Needs `ceil(length * 5 / 8)` bytes; anything shorter is padded with
  * zeros rather than wrapping, so a short input never repeats itself.

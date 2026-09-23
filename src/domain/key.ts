@@ -1,5 +1,5 @@
 import { fromHex, hmacSha256, toHex, utf8 } from '../lib/sha256';
-import { groupDictated, normalizeDictated, toDictation } from './dictation';
+import { groupDigits, normalizeDigits, toDigits } from './dictation';
 import type { Millis, PairedKey } from './types';
 
 /**
@@ -58,11 +58,14 @@ export const KEY_MIN_SESSION_MS = 2 * 60_000;
 // --- The dictated code (ADR-0037) ---------------------------------------------------
 
 /**
- * Eight symbols of the dictation alphabet: forty bits. Six digits fall to a bluetooth
- * keyboard and a macro in nine hours; forty bits still hold when every other defence —
- * the counter, the throttle, the clock — has been tampered with by the phone's owner.
+ * Six digits (ADR-0038). What defends a code this short is not its entropy but the cap
+ * on tries below, and that cap is hard for a structural reason: it lives on the session
+ * row, so relaunching, killing the app or moving the clock does not reset it, and a new
+ * session needs the very key being attacked. At five tries a blind guess lands about
+ * once every ninety-three years. Eight letters would buy a hundred and seventy million
+ * and be paid for on every phone call.
  */
-export const TYPED_CODE_LENGTH = 8;
+export const TYPED_CODE_LENGTH = 6;
 
 /**
  * Five minutes, with one window either side: a dictated code lives ten to fifteen
@@ -84,13 +87,13 @@ export const TYPED_MIN_SESSION_MS = 15 * 60_000;
  * Wrong entries allowed in one session before the dictated code stops working until the
  * next one. Counted per session and not per hour on purpose: the attacker owns the
  * clock, so any "wait ten minutes" is skipped by moving it, and a counter in memory is
- * cleared by relaunching. At ten tries a blind guess lands with probability 2.7e-11.
+ * cleared by relaunching. Five leaves room for two fat fingers (ADR-0038).
  */
-export const MAX_TYPED_TRIES = 10;
+export const MAX_TYPED_TRIES = 5;
 
 const TYPED_PREFIX = 'VKT1';
-/** Forty bits, five per symbol. */
-const TYPED_BYTES = 5;
+/** Enough bytes that every digit depends on all of them. */
+const TYPED_BYTES = 8;
 
 export type KeyCode = {
   keyId: string;
@@ -116,12 +119,12 @@ export function typedStep(now: Millis): number {
 }
 
 /**
- * The code the key device shows to be read out loud, already grouped: `K7QM-3PFX`.
+ * The code the key device shows to be read out loud, already grouped: `348-291`.
  * Derived from its own message, so it is never a slice of the scanned one and seeing
  * either says nothing about the other.
  */
 export function typedCodeAt(key: PairedKey, now: Millis): string {
-  return groupDictated(typedCodeFor(key, typedStep(now)));
+  return groupDigits(typedCodeFor(key, typedStep(now)));
 }
 
 /**
@@ -130,7 +133,7 @@ export function typedCodeAt(key: PairedKey, now: Millis): string {
  * Accepts the code however it was typed: lowercase, spaced, hyphenated.
  */
 export function verifyTypedCode(key: PairedKey, text: string, now: Millis): number | null {
-  const typed = normalizeDictated(text, TYPED_CODE_LENGTH);
+  const typed = normalizeDigits(text, TYPED_CODE_LENGTH);
   if (typed === null) {
     return null;
   }
@@ -277,7 +280,7 @@ function typedCodeFor(key: PairedKey, step: number): string {
     return '';
   }
   const mac = hmacSha256(secret, utf8(`${TYPED_PREFIX}:${key.id}:${step}`));
-  return toDictation(mac.slice(0, TYPED_BYTES), TYPED_CODE_LENGTH);
+  return toDigits(mac.slice(0, TYPED_BYTES), TYPED_CODE_LENGTH);
 }
 
 /** HMAC of the step under the secret, first six bytes as hex. */

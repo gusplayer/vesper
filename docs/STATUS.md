@@ -11,7 +11,7 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **893 tests en 65 archivos**, todos en verde; el módulo
+avisos y `npx vitest run` con **900 tests en 65 archivos**, todos en verde; el módulo
 Kotlin compila con Gradle.
 
 ## Estado actual
@@ -356,3 +356,10 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   simulador; se encendió escribiendo la fila y la pantalla reaccionó bien), y todo el
   lado de **teclear** el código, porque emparejar el segundo teléfono exige cámara. Eso
   necesita el APK en un teléfono real, que ya está compilado.
+
+- **2026-09-23 · Códigos cortos (ADR-0038).** El dueño corrigió el largo: el código
+  dictado pasa de ocho símbolos alfanuméricos a **seis dígitos** con teclado numérico, y
+  el tope baja de diez intentos por sesión a cinco. La aritmética está en el ADR: lo que
+  sostiene el candado es el tope, no la longitud, porque el contador vive en la fila de la
+  sesión y conseguir una sesión nueva exige la llave que se está atacando. Seis dígitos
+  con cinco intentos es una vez cada 93 años; cuatro dígitos habría sido una vez al año.

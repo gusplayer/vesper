@@ -195,17 +195,16 @@ describe('the id budget', () => {
 describe('the dictated code', () => {
   const dictating: PairedKey = { ...key, typedEnabled: true };
 
-  it('is eight symbols of the dictation alphabet, shown in two groups', () => {
+  it('is six digits, shown in two groups of three (ADR-0038)', () => {
     const shown = typedCodeAt(dictating, NOW);
-    expect(shown).toMatch(/^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{4}$/);
+    expect(shown).toMatch(/^\d{3}-\d{3}$/);
     expect(shown.replace('-', '')).toHaveLength(TYPED_CODE_LENGTH);
   });
 
   it('is not a slice of the scanned code: seeing one says nothing about the other', () => {
     const scanned = keyCodeAt(dictating, NOW).split(':')[2] ?? '';
     const dictated = typedCodeAt(dictating, NOW).replace('-', '');
-    expect(dictated.toLowerCase()).not.toContain(scanned.slice(0, 4));
-    expect(scanned.toUpperCase()).not.toContain(dictated.slice(0, 4));
+    expect(scanned).not.toContain(dictated);
   });
 
   it('lives ten to fifteen minutes, not ninety seconds', () => {
@@ -219,7 +218,7 @@ describe('the dictated code', () => {
   it('is accepted however a person types it back', () => {
     const shown = typedCodeAt(dictating, NOW);
     const bare = shown.replace('-', '');
-    for (const typed of [shown, bare, bare.toLowerCase(), ` ${bare} `, `${bare.slice(0, 4)} ${bare.slice(4)}`]) {
+    for (const typed of [shown, bare, ` ${bare} `, `${bare.slice(0, 3)} ${bare.slice(3)}`]) {
       expect(verifyTypedCode(dictating, typed, NOW)).not.toBeNull();
     }
   });
@@ -243,7 +242,7 @@ describe('the dictated code', () => {
   it('refuses another key, and rubbish, without throwing', () => {
     const other: PairedKey = { ...dictating, id: 'k9' };
     expect(verifyTypedCode(other, typedCodeAt(dictating, NOW), NOW)).toBeNull();
-    for (const bad of ['', 'K7QM3PF', 'K7QM3PF0', 'nope', keyCodeAt(dictating, NOW)]) {
+    for (const bad of ['', '12345', '1234567', 'K7QM3P', 'nope', keyCodeAt(dictating, NOW)]) {
       expect(verifyTypedCode(dictating, bad, NOW)).toBeNull();
     }
   });

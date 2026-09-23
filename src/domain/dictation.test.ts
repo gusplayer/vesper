@@ -4,8 +4,11 @@ import {
   DICTATION_ALPHABET,
   dictationPattern,
   groupDictated,
+  groupDigits,
   normalizeDictated,
+  normalizeDigits,
   toDictation,
+  toDigits,
 } from './dictation';
 
 describe('the alphabet', () => {
@@ -91,5 +94,58 @@ describe('toDictation', () => {
     // three left over plus two padded zeros (11100 = 28, '6'), and the rest are zeros.
     // Wrapping would repeat the input instead and shrink the real space.
     expect(toDictation(new Uint8Array([255]), 8)).toBe('96AAAAAA');
+  });
+});
+
+describe('toDigits', () => {
+  it('gives exactly the asked-for digits, zero-padded', () => {
+    expect(toDigits(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 0]), 6)).toBe('000000');
+    expect(toDigits(new Uint8Array([0, 0, 0, 0, 0, 0, 0, 7]), 6)).toBe('000007');
+    expect(toDigits(new Uint8Array([255, 255, 255, 255, 255, 255, 255, 255]), 6)).toMatch(/^\d{6}$/);
+  });
+
+  it('lets every byte reach every digit', () => {
+    // Changing only the first byte must move the answer, or the leading bytes would be
+    // decoration and the real space smaller than 10^6.
+    const a = toDigits(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]), 6);
+    const b = toDigits(new Uint8Array([2, 2, 3, 4, 5, 6, 7, 8]), 6);
+    expect(a).not.toBe(b);
+  });
+
+  it('spreads over the space without obvious collisions', () => {
+    const seen = new Set<string>();
+    for (let i = 0; i < 500; i += 1) {
+      seen.add(toDigits(new Uint8Array([i, i >> 3, i * 7, i * 13, i * 29, i * 53, i * 97, i * 131]), 6));
+    }
+    // A handful of collisions in 500 draws over a million values would be bad luck;
+    // a systematic bias would show up as far fewer.
+    expect(seen.size).toBeGreaterThan(495);
+  });
+
+  it('stays exact: the arithmetic never leaves the safe integer range', () => {
+    const big = new Uint8Array(32).fill(255);
+    expect(toDigits(big, 6)).toMatch(/^\d{6}$/);
+    expect(Number.isSafeInteger(Number(toDigits(big, 6)))).toBe(true);
+  });
+});
+
+describe('normalizeDigits', () => {
+  it('takes the code however it comes back', () => {
+    for (const typed of ['348291', '348-291', ' 348 291 ']) {
+      expect(normalizeDigits(typed, 6)).toBe('348291');
+    }
+  });
+
+  it('refuses letters, the wrong length and rubbish', () => {
+    for (const bad of ['', '34829', '3482911', '34829O', 'abcdef', '34.291']) {
+      expect(normalizeDigits(bad, 6)).toBeNull();
+    }
+  });
+});
+
+describe('groupDigits', () => {
+  it('splits six digits into two threes', () => {
+    expect(groupDigits('348291')).toBe('348-291');
+    expect(normalizeDigits(groupDigits('348291'), 6)).toBe('348291');
   });
 });

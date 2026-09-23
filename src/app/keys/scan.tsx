@@ -121,7 +121,7 @@ export default function ScanKeyScreen() {
               setError(null);
             }}
             placeholder={t.keys.typed.placeholder}
-            autoCapitalize="none"
+            keyboardType="number-pad"
             maxLength={TYPED_CODE_LENGTH + 1}
             autoFocus
           />
