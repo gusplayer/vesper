@@ -76,10 +76,16 @@ En iOS "tiempo consumido" y "redes" siguen siendo el estimado de demostración (
 
 **Criterio de salida:** el número estimado nunca es mayor que el de Ajustes.
 
-## Fase 4 — círculo con backend — sin empezar
+## Fase 4 — círculo con backend — servidor listo, cliente pendiente
 
-ADR-0021 dejó la capa de datos y las pantallas; falta el ADR que elija servidor e
-identidad. Hasta entonces `platform/circle.status()` dice que nada viaja.
+- [x] ADR-0033: servidor elegido y desplegado (Hono sobre Postgres, Railway + Neon),
+      con cuenta por dispositivo, `POST /sync` con cursor y borrado de cuenta
+- [x] ADR-0034: la página que recibe un link de invitación, en Vercel
+- [ ] El cliente: cuenta, sincronía y frase de respaldo en Ajustes
+- [ ] ADR-0037: la entrega de un empujón como push silencioso
+
+Hasta que exista el cliente, `platform/circle.status()` sigue diciendo que nada viaja y
+el círculo de la app es demostración.
 
 ## Fuera de roadmap hasta nuevo aviso
 

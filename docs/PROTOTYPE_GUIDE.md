@@ -8,7 +8,7 @@ detrás es real (SQLite, notificaciones, Salud, Live Activity, bloqueo).
 ## Referencia visual
 
 Brick (iOS, Mobbin). Tarjetas blancas de radio grande sobre un gris cálido, un botón
-pastilla oscuro pinneado abajo, listas con chevron, toggles azules, barra de pestañas de
+pastilla oscuro pinneado abajo, listas con chevron, toggles en tinta, barra de pestañas de
 solo texto con punto. Durante la sesión activa el tema se invierte a oscuro. Sans
 geométrica (Outfit). Sin rebotes, sin springs.
 
@@ -50,8 +50,9 @@ geométrica (Outfit). Sin rebotes, sin springs.
 9. **Lo que no existe, se dice.** Cada permiso se pide de verdad en su flujo
    (`platform/*.requestAuthorization()`), y donde la capacidad no está —simulador,
    Android sin Salud, iPhone sin entitlement— la pantalla muestra `status().reason` en
-   una línea pequeña. Nunca un permiso "concedido" con un flag (ADR-0017). Lo único de
-   demostración que queda es el círculo, y `platform/circle.status()` lo dice.
+   una línea pequeña. Nunca un permiso "concedido" con un flag (ADR-0017). De
+   demostración quedan el círculo (`platform/circle.status()` lo dice) y, solo en iOS,
+   el uso por app (`platform/usage.status()` lo dice, ADR-0029).
 10. **Sin dependencias nuevas.** Barras, grillas y gráficos se dibujan con los componentes
     (`BarChart`, `HorizontalBars`, `DotGrid`, `ProgressBar`).
 

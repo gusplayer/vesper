@@ -33,7 +33,7 @@ Dos esquemas con la misma paleta de roles. Nunca negro ni blanco puros.
 | `inkTertiary` | `#A6A39E` | `#6F6D69` | solo placeholders y pistas (~2:1 sobre la página), nunca texto que informa |
 | `line` | `#DCD9D3` | `#343434` | separadores |
 | `onInk` | `#F8F7F5` | `#191919` | texto sobre `ink` |
-| `accent` | `#2F7BF6` | `#3B84F5` | toggles. El único color saturado |
+| `accent` | `#2F7BF6` | `#3B84F5` | El único color saturado. Hoy solo el cursor de dos campos y el punto de "hoy": los toggles van en tinta |
 | `success` | `#3B7A4A` | `#5FA46F` | el check del modo activo |
 | `danger` | `#C0392B` | `#E06B5E` | acciones destructivas |
 | `shadow` | tinta | negro | color de las sombras de tarjeta y del objeto |
@@ -111,9 +111,9 @@ existen pero no se exportan: son internos.
 | `IconCircle`, `Icon` | Botón redondo con icono Feather; icono suelto |
 | `Card` | Superficie: `default`, `muted`, `ink` |
 | `ListGroup`, `ListRow` | Tarjeta de filas con hairline; fila con icono, valor, control o chevron |
-| `AppRow` | Una `ListRow` encabezada por un `AppTile`: selectores de apps, desglose de uso (con `value` a la derecha) |
+| `AppRow` | Una `ListRow` encabezada por un `AppTile`: selectores de apps, desglose de uso (con `value` a la derecha). `subordinate` la vuelve hija de la fila de arriba: tile de `sm` alineado a la columna de iconos y nombre y valor un escalón abajo, para que el desglose de ADR-0029 no pese más que la fila de la que cuelga |
 | `ScheduleCard` | Tarjeta de rutina: título, líneas de estado, toggle o botón de arranque |
-| `Toggle` | Switch nativo en `accent` |
+| `Toggle` | Switch nativo, track en `ink` |
 | `SegmentedControl` | Dos o tres pastillas, la elegida en tinta |
 | `Check` | Radio o checkbox, `ink` o `success` |
 | `Chip`, `Badge` | Pastilla de opción; pastilla apagada con una etiqueta corta |

@@ -83,7 +83,9 @@ src/
     migrations/           001_init … 006_schedule_stamps, en TypeScript
     repositories/         toda escritura pasa por acá: activities, habits, sessions,
                           settings, modes, schedules, circle
-    queries/              modelos de lectura: dayStats (stats por día desde sessions)
+    queries/              modelos de lectura: dayStats (stats por día desde sessions),
+                          streak (foco por día), dayLedger (las sesiones y actividades
+                          del libro mayor de hoy, ADR-0038)
     testing/fakeDb.ts     handle falso para los tests de repositorios y queries
   i18n/
     es/, en/              un archivo por área; Strings = typeof es
@@ -126,7 +128,10 @@ i18n/            ←  todos menos domain/ (que recibe el diccionario por paráme
 - **Los stores de `src/data/` son una caché de la base, nunca la fuente.** Cada acción
   escribe por su repositorio antes de tocar el estado; `hydrate()` los rellena al
   arrancar y tras "Borrar todo y reiniciar". Las estadísticas por día no se guardan: se
-  derivan de `sessions` (`db/queries/dayStats.ts`).
+  derivan de `sessions` (`db/queries/dayStats.ts`). El libro mayor de Actividad › Hoy lo
+arma `domain/ledger.ts` desde las sesiones del día (`db/queries/dayLedger.ts`), no
+restando números: el renglón "sin registrar" es el complemento de la unión de intervalos
+y el estimado de redes queda fuera de esa resta (ADR-0010, ADR-0038).
 - **`domain/` es puro.** Sin React, sin DB, sin plataforma, sin `i18n/index.ts`. Recibe
   datos, devuelve datos; cuando produce texto recibe la rebanada del diccionario por
   parámetro. No genera ids: el que llama pasa el id.
@@ -221,8 +226,9 @@ métricas de abandono, no.
 `domain/routines.ts` decide desde el reloj qué ventana está abierta (incluida la que
 cruza la medianoche), cuál viene, y una decisión por tic: `start`, `wait` (hay una sesión
 corriendo) o `none`. `useRoutineSync` la ejecuta cada 30 s, al volver al frente y cuando
-termina una sesión; lo que arrancó queda en `settings.lastRoutineStart` para que una
-ventana nunca arranque dos veces. Una rutina sin hora (`startMinutes` nulo) se arranca a
+termina una sesión; lo que arrancó queda en `settings.routineStarts`, un mapa
+por rutina, para que ninguna ventana arranque dos veces ni siquiera con rutinas
+solapadas (ADR-0036). Una rutina sin hora (`startMinutes` nulo) se arranca a
 mano desde Rutinas y dura `durationMs`.
 
 Fuera de la app la rutina la llevan dos cosas: el aviso de `expo-notifications` ("Empieza

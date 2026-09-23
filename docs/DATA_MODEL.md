@@ -15,11 +15,13 @@ columnas de fecha en texto.
 Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
 fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
-Hoy hay seis: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
+Hoy hay ocho: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
 `003_routines.ts` (duración de rutinas, ADR-0019), `004_circle.ts` (ADR-0021),
-`005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022) y
+`005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022),
 `006_schedule_stamps.ts` (`schedules.updated_at`: una ventana ya abierta al guardar o
-encender la rutina no arranca sesión, ADR-0026). El índice está
+encender la rutina no arranca sesión, ADR-0026), `007_streak_nudges.ts` (racha, días de
+gracia y empujones, ADR-0027) y `008_routine_starts.ts` (la marca de rutina pasa de una
+sola a un mapa por rutina, ADR-0036). El índice está
 en `src/db/migrations/index.ts`; se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
@@ -399,7 +401,7 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 
 | key | valor | notas |
 |---|---|---|
-| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`), `rules`, `notifications` (`coaching`, `updates`, `sessionEnd`, `weeklyClose` y, desde ADR-0027, `streak`, `noFocus`, `reactivation`, `nudges` y `reminderMinutes`, el minuto del día local del aviso diario, 1200 por defecto), `birthDate`, `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `pendingBanner`, `healthSyncedAt`, `lastRoutineStart` (la última ventana de rutina que arrancó, para no arrancarla dos veces) y `lastOpenedAt` (la última vez que la app se abrió o volvió al primer plano, epoch ms o `null`; los avisos de reactivación del ADR-0027 cuentan desde ahí). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
+| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`), `rules`, `notifications` (`coaching`, `updates`, `sessionEnd`, `weeklyClose` y, desde ADR-0027, `streak`, `noFocus`, `reactivation`, `nudges` y `reminderMinutes`, el minuto del día local del aviso diario, 1200 por defecto), `birthDate`, `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `pendingBanner`, `healthSyncedAt`, `routineStarts` (un mapa `routineId → windowStart`: qué ventana arrancó cada rutina, para que ninguna arranque dos veces; era una sola marca global y con dos rutinas solapadas la segunda le robaba la marca a la primera, ADR-0036) y `lastOpenedAt` (la última vez que la app se abrió o volvió al primer plano, epoch ms o `null`; los avisos de reactivación del ADR-0027 cuentan desde ahí). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
 | `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
 | `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
 | `language` | `auto` \| `es` \| `en` | Ajustes › Idioma (ADR-0020). Ausente o inválida se lee como `auto`, que sigue el idioma del teléfono. Se borra con todo lo demás en "Borrar todo y reiniciar" |

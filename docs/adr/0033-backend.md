@@ -121,3 +121,11 @@ ahorrar doscientas líneas. Postgres plano se puede mover a cualquier parte.
   una migración para el cursor y la cuenta. Ninguna pantalla cambia de forma.
 - Riesgo asumido: reinstalar sin guardar la frase pierde el círculo. Se dice en la
   pantalla, no se esconde.
+
+---
+
+**Nota al pie (2026-09-23).** El punto de este ADR que dice que "un push que llega en
+sesión se retiene y se muestra al cerrar, y eso ya está escrito del lado del cliente"
+describe algo que no existe: `server/src/push.ts` manda una alerta visible, que el
+sistema muestra antes de que la app la vea, y no hay cliente de push en `src/`. La forma
+correcta de entrega se decide en **ADR-0037**. El resto de este ADR sigue vigente.

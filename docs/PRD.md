@@ -35,7 +35,7 @@ Lo que existe hoy y este documento no describe en detalle, porque nació en los 
 
 | Área | Dónde se define |
 |---|---|
-| Modos (`modes/*`), rutinas (`(tabs)/schedules`, `schedules/edit`), Ajustes y sus páginas, onboarding de ocho pasos | ADR-0016, `PROTOTYPE_GUIDE.md` |
+| Modos (`modes/*`), rutinas (`(tabs)/schedules`, `schedules/edit`), Ajustes y sus páginas, onboarding de nueve pasos | ADR-0016, `PROTOTYPE_GUIDE.md` |
 | Persistencia real, notificaciones, Salud (iOS), Live Activity, bloqueo | ADR-0017, ADR-0023, `PLATFORM_*.md` |
 | Arte de foco durante la sesión | ADR-0018 |
 | Rutinas que arrancan sesiones; bloqueo en Android | ADR-0019 |
@@ -215,7 +215,8 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 
 ## Fuera de alcance en v1
 
-- Sync y backend (el círculo tiene su capa de datos, pero nada viaja todavía)
+- Sync general de la app (el círculo tiene servidor desde ADR-0033, desplegado; la app
+  todavía no le habla, y nada más viaja)
 - Gráficos y estadísticas complejas más allá de las vistas de Actividad
 - Badges, leaderboards, feed, seguidores (la racha diaria y los avisos del círculo
   entraron con ADR-0027)
@@ -223,7 +224,8 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 - Tablet / iPad
 - Widget de pantalla de inicio (la Live Activity sí existe)
 - Health Connect en Android
-- Estimación real de uso (fase 3): hoy el "tiempo consumido" es un estimado de demostración
+- Estimación real de uso en iOS (fase 3): ahí el "tiempo consumido" sigue siendo un
+  estimado de demostración. En Android es real por app desde ADR-0029
 - Sonido y vibración (ADR-0024, en propuesta)
 
 Lo que la primera versión de este documento dejaba fuera y ya existe: bloqueo de apps

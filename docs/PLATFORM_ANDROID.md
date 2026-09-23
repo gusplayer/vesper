@@ -86,13 +86,28 @@ de terceros y sin `AccessibilityService` (ADR-0019). Se autoenlaza desde `module
   lo lee y lo escribe.
 - **Selector de apps**: `src/platform/BlockingSelectionView.tsx` lista las apps con
   actividad de lanzador (`AppCatalog.kt`, vía `<queries>`; nunca `QUERY_ALL_PACKAGES`)
-  con su icono real (`AppTile`), búsqueda y casilla.
+  con su icono real (`AppTile`), búsqueda y casilla. La caché de iconos es una LRU de 32
+  entradas, se invalida cuando una app se instala, se actualiza o se borra, y se suelta
+  cuando el sistema pide memoria. **Deuda conocida**: `listLaunchableApps(true)` sigue
+  devolviendo todos los iconos en una sola llamada (1–3 MB de JSON con 150 apps);
+  arreglarlo exige paginar o servir el icono por paquete, o sea cambiar la forma de la API.
 - **Uso por app** `UsageQuery.kt` (ADR-0029): `queryUsage(from, to, packages, withIcons)`
   pliega `queryEvents` por actividad: un paquete está al frente mientras alguna de sus
   actividades siga resumida (Chrome cambia de actividad al abrir y el `STOPPED` de la
-  primera cerraría el intervalo si se plegara por paquete); lo abierto se corta en `to` y devuelve etiqueta, icono y ms, de mayor a menor. Se lee al abrir la app y al
-  volver al frente (`platform/hooks/useUsageSync.ts`, cada 5 min como máximo) y nunca se
-  guarda. Sin el acceso de uso rechaza con `E_USAGE_ACCESS`.
+  primera cerraría el intervalo si se plegara por paquete). Devuelve etiqueta, icono y
+  ms, de mayor a menor, y **una fila por cada paquete pedido**, incluidas las de cero:
+  por eso una respuesta vacía con paquetes pedidos solo puede significar que la consulta
+  falló, y `platform/usage.ts` la trata así.
+  Un intervalo que nunca recibió su cierre —reinicio con la app al frente, `force-stop`,
+  log truncado— sobrecontaba horas fantasma en la lectura de la semana. Tres guardas lo
+  evitan: `DEVICE_SHUTDOWN` (API 31+) y `SCREEN_NON_INTERACTIVE` (API 28+) **cierran**
+  lo abierto en su timestamp, `DEVICE_STARTUP` **descarta** lo que siga abierto (el
+  teléfono estuvo apagado un rato desconocido), y lo que llegue abierto a `to` cuenta
+  solo si empezó hace menos de 4 h; si no, se descarta entero, porque recortar dejaría
+  las horas fantasma y el número tiene que seguir siendo un piso.
+  Se lee al abrir la app y al volver al frente (`platform/hooks/useUsageSync.ts`, cada
+  5 min como máximo) y nunca se guarda. Sin el acceso de uso rechaza con
+  `E_USAGE_ACCESS`.
 - **Servicio** `BlockingService.kt`: primer plano, tipo `specialUse`, canal
   `vesper_session` (el `vesper_focus` de la fase 1 se borra al arrancar; ver fase 4),
   notificación con el título del escudo, "Sesión de foco" y el cronómetro del sistema.
@@ -111,6 +126,15 @@ de terceros y sin `AccessibilityService` (ADR-0019). Se autoenlaza desde `module
   controlador de permisos, el instalador): con ellas la superposición se añade pero el
   sistema la esconde. Android permite ese arranque desde el servicio porque la app
   tiene la superposición concedida (`BAL_ALLOW_SAW_PERMISSION`). Atrás no cierra el escudo.
+  El escudo mantiene la pantalla encendida **30 s** y no más: aparece sin que el usuario
+  lo pida, así que tiene que sobrevivir a los segundos que le quedaran al tiempo de
+  pantalla, pero la bandera de fase 1 no caducaba y dejaba el teléfono a brillo pleno
+  toda la sesión —hasta 12 h— con el vigilante sondeando cada 800 ms, porque
+  `ACTION_SCREEN_OFF` nunca llegaba. Pasados los 30 s la pantalla duerme con su propio
+  tiempo; un toque en el escudo la reinicia, como cualquier ventana.
+  `ShieldActivity.open` devuelve si el sistema aceptó el arranque: antes se tragaba el
+  rechazo y `isShowing` quedaba en true con nada en pantalla, así que el resto de la
+  sesión corría sin escudo y sin reintentar.
 
 ### Los dos permisos
 

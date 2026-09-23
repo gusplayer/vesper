@@ -9,7 +9,7 @@ Lo que el build declara hoy y viene de Vesper:
 
 | Permiso / componente | Quién lo declara | Para qué |
 |---|---|---|
-| `PACKAGE_USAGE_STATS` | `modules/vesper-blocking` | Saber qué app está al frente durante una sesión |
+| `PACKAGE_USAGE_STATS` | `modules/vesper-blocking` | Dos usos: saber qué app está al frente durante una sesión, y responder cuánto estuvo al frente cada app elegida hoy y esta semana, para el desglose de Actividad › Hoy (ADR-0029). Lo segundo se lee a demanda y no se guarda |
 | `SYSTEM_ALERT_WINDOW` | `modules/vesper-blocking` | El escudo (`TYPE_APPLICATION_OVERLAY`) |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_SPECIAL_USE` | `modules/vesper-blocking` | `BlockingService`, tipo `specialUse` |
 | `POST_NOTIFICATIONS` | `modules/vesper-blocking`, `expo-notifications` | Notificación permanente de sesión; recordatorios de rutina |
@@ -56,7 +56,7 @@ con un recordatorio a pantalla completa hasta que termina la sesión.*
 
 **2. Describe the functionality**
 
-> Vesper is a self-imposed focus timer. The user picks, per focus mode, which of their installed apps should wait while they focus. When the user starts a session (a tap on "Enfocarme 25 min", or a deliberate long press when the mode is deep) or a routine they scheduled opens its window, `BlockingService` starts as a foreground service. While the screen is on it reads `UsageStatsManager.queryEvents` about once per second and, when an app from the user's list comes to the foreground, it shows a full-screen overlay window (`SYSTEM_ALERT_WINDOW`) with the session name, the time it lifts, and one button, "Volver" (Go back), which returns to the launcher. The service stops when the user ends the session in Vesper or the session's end time passes. It does nothing between sessions. It never reads the content of other apps, never blocks the launcher, Settings, the dialer or system UI, and keeps no history of the apps it sees.
+> Vesper is a self-imposed focus timer. The user picks, per focus mode, which of their installed apps should wait while they focus. When the user starts a session (a tap on "Enfocarme 25 min", or a deliberate long press when the mode is deep) or a routine they scheduled opens its window, `BlockingService` starts as a foreground service. While the screen is on it reads `UsageStatsManager.queryEvents` about once per second and, when an app from the user's list comes to the foreground, it shows a full-screen overlay window (`SYSTEM_ALERT_WINDOW`) with the session name, the time it lifts, and one button, "Volver" (Go back), which returns to the launcher. The service stops when the user ends the session in Vesper or the session's end time passes. Between sessions the service does nothing. The same permission has a second, separate use with no service running: when the user opens the Activity tab, the app asks the system how long each app they chose in a mode was in the foreground today and this week, and shows that breakdown (a floor, never an exact figure). That answer is rendered and dropped — the app writes no usage history of its own, to its database or anywhere else. It never reads the content of other apps, never blocks the launcher, Settings, the dialer or system UI.
 
 *Vesper es un temporizador de foco autoimpuesto. El usuario elige, por modo, qué apps
 instaladas esperan mientras se enfoca. Al iniciar una sesión (un toque en "Enfocarme 25 min",
@@ -114,7 +114,7 @@ enlace y pegar la URL. Los fotogramas clave están en `docs/media/android-*.png`
   Ajustes. Hoy `requestAuthorization()` abre Ajustes directamente: hay que anteponer esta
   pantalla antes de publicar.
 
-  > **Vesper needs Usage access.** During a focus session Vesper checks which app is on screen so it can show the reminder when you open one of the apps you chose. This information is used only for that, is processed on your phone and never leaves it. Vesper keeps no history of the apps you use.
+  > **Vesper needs Usage access.** Vesper uses it for two things: during a focus session it checks which app is on screen, so it can show the reminder when you open one of the apps you chose; and in the Activity tab it shows how long each of those apps was in front today and this week. Both are processed on your phone and never leave it. Vesper stores no history of the apps you use: it asks the system each time and shows the answer.
 
   > **Vesper necesita el acceso de uso.** Durante una sesión de foco, Vesper comprueba qué app está en pantalla para mostrarte el recordatorio cuando abres una de las apps que elegiste. Esa información se usa solo para eso, se procesa en tu teléfono y nunca sale de él. Vesper no guarda historial de las apps que usas.
 
@@ -192,7 +192,7 @@ Lo que la app toca, para que el revisor no encuentre sorpresas:
 | Dato | Qué pasa con él | ¿Recopilado según Play? |
 |---|---|---|
 | Lista de apps instaladas (con lanzador) | Se lee para el selector; los nombres de paquete elegidos se guardan localmente en el modo | No |
-| App en primer plano (eventos de uso) | Se lee cada segundo durante una sesión, se compara con la lista y se descarta. Sin historial | No |
+| App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara con la lista y se descarta. Al abrir Actividad se pregunta al sistema cuánto estuvo al frente cada app elegida, hoy y esta semana, y la respuesta se dibuja y se suelta. La app no guarda historial propio | No |
 | Sesiones, modos, rutinas, hábitos, meta semanal, fecha de nacimiento (opcional) | SQLite local | No |
 | Diagnóstico / crashes | No se envía | No |
 
@@ -246,7 +246,7 @@ Pegar en "App access › Instructions" y en el campo de notas de la declaración
 > 4. Go Home and open the app you ticked. Within a second a dark full-screen reminder "Vesper · <mode>" covers it, with the time it lifts and one button "Volver" that returns to Home.
 > 5. Open Vesper › "Terminar" › after one breathing round tap "Terminar · llevas …". The session ends, the notification disappears and the app you ticked opens normally again.
 >
-> The app never uses AccessibilityService or QUERY_ALL_PACKAGES, makes no network requests and has no account. Deleting everything: Ajustes › "Borrar todo y reiniciar".
+> The app never uses AccessibilityService or QUERY_ALL_PACKAGES. Focus, habits, modes and routines work fully offline with no account. The only network feature is the optional circle (ADR-0033): a device account with no email, which syncs only what the user turns on, per metric, to people they invited. Deleting everything: Ajustes › "Borrar todo y reiniciar", and the circle account has its own delete.
 
 *Traducción para uso interno: 1) abrir Vesper y conceder "Acceso de uso" y "Mostrar sobre
 otras apps" cuando la app mande a Ajustes (se piden desde "Apps reales" de un modo) o

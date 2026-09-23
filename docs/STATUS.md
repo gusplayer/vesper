@@ -11,15 +11,16 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **825 tests en 59 archivos**, todos en verde; el módulo
-Kotlin compila con Gradle. El servidor del círculo (`server/`) tiene sus propios 17
-tests y está desplegado; la app todavía no le habla (ADR-0033).
+avisos y `npx vitest run` con **853 tests en 62 archivos**, todos en verde, y también con
+`npm run test:dst` (la misma suite en una zona con horario de verano); el módulo Kotlin
+compila con Gradle. El servidor del círculo (`server/`) tiene sus propios **46** tests y
+está desplegado; la app todavía no le habla (ADR-0033).
 
 ## Estado actual
 
 | Capacidad | iOS | Android | Verificado dónde |
 |---|---|---|---|
-| Persistencia (SQLite, migraciones 001–006, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
+| Persistencia (SQLite, migraciones 001–008, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
 | Sesión: reloj split-flap, modo horizontal, arte de foco (`?art=1`) | real | real | Simulador (capturas a mitad de giro, rotación por script, arte a 25/50/75/100 %). Sin medir el trazado de 6.000 puntos en un teléfono |
 | Botón de Focus: toque arranca, mantener solo en profundo, `InkFlood` (ADR-0022) | real | real | Simulador iPhone 17 con `idb`, capturas a mitad del gesto. Sin verificar "Reducir movimiento" ni el ritmo a ojo en teléfono |
 | Arranque: splash de tinta lisa y `BootReveal` que la disuelve hasta la marca (ADR-0028) | real | real | Simulador iPhone 17 Pro (dev client nuevo, video a 30 fps): splash negro liso, disolución de los bordes al centro, marca sola, fade a Focus; con "Reducir movimiento" la tinta salta a la marca y solo queda el fade. Emulador Pixel 7 API 36 con `-gpu host`, build de Release, tres arranques en frío iguales; el dev client de Android no sirve para juzgarlo (su lanzador oculta el splash). Sin teléfono físico |
@@ -127,6 +128,22 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
   entregar desde adb/idb; confirmar en teléfono.
 - Persistir la duración elegida en la hoja de sesión (`usePlannedStore` vive en memoria).
 - La intención de la sesión persiste, pero solo se lee en el cierre.
+- **Las muestras de Salud no se guardan en ninguna parte**, así que el libro mayor de
+  hoy no tiene filas verificadas y ocho horas de sueño confirmado siguen cayendo en "Sin
+  registrar". `platform/health.readWeek` lee la semana a demanda y `useHealthSync` la
+  convierte en marcas de hábito; la semana cruda no vive en ningún store ni tabla.
+  ADR-0038 propone la forma: un store efímero como el del uso por app (ADR-0029).
+- **El cliente del círculo** (cuenta, sincronía, frase de respaldo) sigue sin existir, y
+  ahora tiene un contrato que cumplir: el id de la cuenta es el del perfil del círculo, y
+  un `409 invite code taken` significa subir `codeGeneration` y reintentar. Al sincronizar
+  debe **omitir** la métrica que no se comparte, nunca mandar 0, y tomar los minutos de
+  redes de `sharedWeekUsageMs`, no de `reading.weekMs`, o el piso de demostración se
+  escapa otra vez.
+- ADR-0037 (entrega de un empujón como push silencioso) está propuesto, sin implementar;
+  hasta entonces el servidor manda una alerta visible que nadie puede retener en sesión.
+- `listLaunchableApps(true)` devuelve todos los iconos en una sola llamada (1–3 MB de
+  JSON con 150 apps). Arreglarlo exige paginar o servir el icono por paquete, o sea
+  cambiar la forma de la API del módulo.
 - ADR-0024 (sonido y vibración) sigue en propuesta, sin implementar.
 - El cierre del domingo no tendrá pantalla (ADR-0026): es el aviso más Actividad › Semanal.
 
@@ -410,3 +427,83 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   las filas 0033 y 0034 del índice de ADR y las cuatro últimas entradas de esta bitácora.
   Se restauraron desde `HEAD` y encima se aplicó lo de ADR-0029. Dos sesiones sobre el
   mismo árbol: revisar el diff de docs antes de dar por buena una tanda.
+
+- **2026-09-23 · Una tanda de QA y revisión, y lo que encontró.** Seis revisiones en
+  paralelo sobre el árbol entero —correctitud de código, dominio y cobertura, UX y
+  sistema de diseño, copy e i18n, nativo y privacidad, y conformidad con los ADR— y
+  luego seis tandas de arreglo. Lo que salió, por orden de gravedad:
+- **Seguridad del servidor (desplegado).** `POST /account` aceptaba cualquier
+  `inviteCode` y la columna no era única: quien viera un código en un QR o en un link lo
+  registraba como suyo y `/invite/redeem` podía resolver al atacante. Ahora `invite_code`
+  es `unique` (con una guarda idempotente que anula duplicados antes de crear la
+  restricción) y el servidor exige que el código derive del id de la cuenta. El límite
+  está escrito en el código: la derivación es FNV-1a, no una firma, así que alguien puede
+  moler un UUID que caiga en el código que vio; **la unicidad es lo que decide la
+  propiedad**. Además: `rejectUnauthorized: false` fuera (y se quitan los parámetros
+  `ssl*` de la URL, que node-postgres aplica *después* de las opciones y habrían ganado
+  en silencio), límites de tasa por IP y por cuenta, ids obligados a UUID v7 —lo que de
+  paso cierra una ocupación de `kudos_pkey` que habría devuelto 500 en la sincronía de
+  otra persona— y topes de tamaño en todo lo que entra. 17 → 46 tests.
+  **Contrato que esto crea para el cliente que falta**: el id de la cuenta debe ser el
+  del perfil del círculo, y un `409 invite code taken` significa subir `codeGeneration` y
+  reintentar.
+- **La fila "redes" medía lo que no era (ADR-0035).** Se unían las selecciones de todos
+  los modos sin mirar `behavior`: en un modo *permitir solo seleccionadas* el token son
+  las apps que el usuario deja vivas, así que Maps o Notas aparecían como redes, entraban
+  a la proyección de vida y se compartían al círculo. Ahora solo se miden los modos
+  `block`. Y el piso de demostración dejó de viajar: el interruptor decide si se comparte,
+  el origen decide si hay algo que compartir, así que en iOS el círculo recibe `null` en
+  vez de 11 h 40 min inventados.
+- **Un fallo nativo se guardaba como cero verificado.** `readUsage` devolvía `[]` tanto
+  al fallar como al leer cero, y la pantalla decía "≥ 0 min · leído a las 14:32". Como el
+  Kotlin devuelve una fila por paquete pedido —ceros incluidos—, un arreglo vacío solo
+  puede ser un fallo: ahora cae al estimado con su razón. Con timeout de 10 s, para que
+  una promesa nativa colgada no congele el uso el resto del proceso.
+- **Dos rutinas solapadas arrancaban una sesión que nadie pidió (ADR-0036).** La marca
+  era una sola y la segunda rutina se la robaba a la primera; al cerrarse la ventana
+  corta, la larga revivía y bloqueaba el teléfono la tarde entera. La marca pasa a ser un
+  mapa por rutina (migración 008, que conserva la marca existente) y se limpia al borrar
+  una rutina.
+- **El escudo de Android dejaba la pantalla encendida toda la sesión.** `FLAG_KEEP_SCREEN_ON`
+  entró en la fase 1 sin comentario ni razón y no caducaba: hasta 12 h a brillo pleno, con
+  el vigilante sondeando cada 800 ms porque `ACTION_SCREEN_OFF` nunca llegaba. Queda
+  acotada a 30 s, que es lo que dura su única razón defendible. Y `ShieldActivity.open`
+  ahora devuelve si el sistema aceptó: antes se tragaba el rechazo y dejaba `isShowing` en
+  true con nada en pantalla, así que **el resto de la sesión corría sin escudo**.
+- **El uso por app sobrecontaba horas fantasma.** Un intervalo que nunca recibía su
+  cierre —reinicio con la app al frente, `force-stop`, log truncado— se cerraba en `to`.
+  Ahora `DEVICE_SHUTDOWN` y `SCREEN_NON_INTERACTIVE` lo cierran, `DEVICE_STARTUP` lo
+  descarta, y lo que llegue abierto a `to` solo cuenta si empezó hace menos de 4 h. El
+  número vuelve a ser un piso.
+- **El libro mayor de hoy volvió al ADR-0010 (ADR-0038).** `domain/ledger.ts` tenía los
+  mejores tests del repositorio y no lo importaba ninguna pantalla: Actividad › Hoy
+  restaba a mano y le quitaba el estimado al residuo, que es justo lo que ADR-0010
+  prohíbe. Ahora dibuja `buildLedger`. **Sigue sin arreglarse** que el sueño confirmado
+  caiga en "Sin registrar", y la causa no era la pantalla: las muestras de Salud no se
+  guardan en ninguna parte. Ver "Qué falta".
+- **Accesibilidad.** `AppRow` y `FlipClock` ponían `accessibilityLabel` en una `View` sin
+  `accessible`, así que VoiceOver los descartaba: el reloj de la sesión se leía carta por
+  carta en vez de "24:13". `session/exit` era la única ruta de sesión sin `useBlockBack`,
+  así que en Android el botón atrás sacaba del ritual a mitad de respiración. El selector
+  de vista de Actividad medía ~38pt. El `Tooltip` aparecía sin anunciarse.
+- **Copy.** "Te quedan 1 este mes", "Cumpliste las 1 semana", ocho strings que le asumían
+  el género masculino a quien lee, cinco que hablaban de "build" y "recompilar el dev
+  client", una estadística sin fuente, "Sácale el jugo a Vesper", y tres que decían "en el
+  prototipo nada es real" cuatro ADR después de que dejara de serlo. Las semanas de vida
+  pasan por `Intl`: el mismo número salía "2340" en una pantalla y "2.340" en otra.
+- Verificado en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin avisos, **853
+  tests en 62 archivos** en verde en `America/Bogota` y en `America/Santiago`, 46 tests
+  del servidor, el módulo Kotlin compilando (`:vesper-blocking:compileDebugKotlin`, sin
+  warnings), y `schema.sql` corrido dos veces contra un Postgres 17 local con duplicados
+  sembrados a mano.
+- **No verificado: nada de esto se probó en un simulador, un emulador ni un teléfono.**
+  Es la tanda más grande sin ejecutar que ha tenido el proyecto. Lo que más lo necesita,
+  en orden: el escudo con su tiempo de pantalla y la batería de una sesión larga; el uso
+  por app comparado contra Bienestar digital tras un `adb reboot` con una app al frente;
+  la forma nueva de Actividad › Hoy; y las rutinas solapadas de verdad. `PLATFORM_ANDROID.md`
+  y el informe del módulo tienen las recetas.
+- Pendiente de decisión del dueño, encontrado y **no** cambiado: un día puenteado por
+  gracia suma +1 a la racha (`streak.test.ts` lo fija, ADR-0027 no lo dice); los cinco
+  avisos diarios caen todos en el mismo instante, así que dos llegan como un solo zumbido;
+  y un hábito verificado cuyo nombre no mapea a ningún tipo de Salud no se puede marcar
+  nunca, lo que el editor de hábitos debería impedir.

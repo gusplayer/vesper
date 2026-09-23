@@ -9,7 +9,9 @@ encienden, sesiones con profundidad, hábitos, meta semanal, conciencia del tiem
 y un círculo pequeño. Desde ADR-0016 la UI sigue de cerca a Brick (iOS). Desde ADR-0017
 la app es real por dentro: SQLite, notificaciones, Salud, Live Activity y bloqueo detrás
 de `src/platform/`; los datos de demostración se siembran una vez y se borran desde
-Ajustes. Lo único que sigue siendo de demostración es el círculo (sin backend, ADR-0021).
+Ajustes. Siguen siendo de demostración el círculo (su servidor existe y está desplegado,
+pero la app aún no le habla: ADR-0021, ADR-0033) y, solo en iOS, el uso por app de
+Actividad › Hoy (ADR-0029). Las dos cosas lo dicen en pantalla.
 
 Lee `docs/STATUS.md` para saber qué existe, qué está verificado y dónde, antes de empezar.
 Lee `docs/PRD.md` antes de tomar cualquier decisión de producto.
@@ -55,7 +57,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Expo SDK con dev client (no Expo Go — ver ADR-0001)
 - TypeScript estricto, sin `any`
 - expo-router para navegación (`Stack` con guardas: onboarding o app)
-- op-sqlite para persistencia; migraciones `001`–`006` en `src/db/migrations/`
+- op-sqlite para persistencia; migraciones `001`–`008` en `src/db/migrations/`
 - Zustand para las cachés de la base (`src/data/stores/`) y el estado efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
