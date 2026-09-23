@@ -325,7 +325,16 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 - De paso se arregló una deuda del ADR-0025 que la llave vuelve crítica: el desbloqueo de
   emergencia **nunca se recargaba**. Eran cinco por instalación, para siempre, mientras
   Ajustes decía "al mes". Ahora `domain/emergency.ts` recarga al cambiar el mes.
-- No verificado: **nada en un dispositivo**. La cámara no existe en el simulador y el dev
-  client nuevo no se pudo compilar por falta de espacio en disco (3 GB libres). Tampoco se
-  verificó el lector de Android, ni la protección contra captura de pantalla en las dos
-  pantallas que muestran un código, que está pendiente y anotada en el ADR.
+- Verificado en el simulador iPhone 17 Pro (075508C8) con un build de **EAS**, que esquiva
+  la falta de disco porque compila en la nube: Ajustes › Llaves, emparejar como "Guarda la
+  llave" —el flujo que antes reventaba al dibujar el código—, la lista diciendo "This phone
+  shows it", el detalle con nombre editable y fecha, y Focus **sin** el botón de empezar con
+  llave, que es lo correcto en un teléfono que *es* la llave y no tiene ninguna que lo abra.
+- Y lo que más pesaba: **los códigos que dibuja la app se decodifican**. Vision leyó desde la
+  captura real el de emparejamiento (`VKP1:` + id de 12 hex + secreto, 82 bytes, bajo el tope
+  de 84) y el rotatorio, y dos capturas separadas 36 s dieron códigos distintos con el mismo
+  id de llave, así que el reloj de 30 s y el redibujado en el borde funcionan.
+- No verificado: **escanear**. El simulador no tiene cámara, así que falta el lector de
+  Android (ML Kit, menos tolerante que Vision) y todo el ciclo de abrir y cerrar una sesión
+  con la llave. El APK de EAS está listo para eso y necesita un teléfono real. Tampoco está
+  la protección contra captura de pantalla en las dos pantallas que muestran un código.
