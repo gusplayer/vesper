@@ -373,6 +373,9 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   Migración 011 para que la tabla pueda guardar esa diferencia, y el guardia de
   `sql.test.ts` ahora reconoce la reconstrucción de tabla que SQLite obliga a hacer, sin
   dejar pasar un DROP suelto.
-- Pendiente para quien conecte el cliente: `server/src/schema.sql` tiene `focus_ms bigint
-  not null`, así que el servidor todavía no puede recibir "no lo comparte". Es del ADR-0033
-  y hay que avisarle a esa tanda.
+- El servidor ya lo acompaña: la otra tanda quitó los NOT NULL de `focus_ms`,
+  `habits_done` y `habits_target` y lo desplegó (`4fcb2f4`), verificado contra producción
+  —una semana que solo comparte hábitos vuelve con `focusMs: null`, y antes volvía 0—.
+  Queda un contrato anotado en `sharedWeek` para quien escriba `platform/circleApi.ts`:
+  un null viaja como null o se omite, **nunca como cero**, porque ausencia es lo único
+  que el servidor sabe distinguir.

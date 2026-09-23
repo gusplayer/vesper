@@ -105,6 +105,12 @@ export type MyWeek = {
  * pass through. Until now only `social` had a consumer, so a user who turned focus or
  * habits off kept sharing them — a promise written on screen that the code did not
  * keep. It is pure and tested here so the sync, when it exists, cannot forget it either.
+ *
+ * The wire contract, for whoever writes `platform/circleApi.ts`: a null travels as null
+ * or is left out of the body, **never as zero**. The server can only tell the two apart
+ * by absence (ADR-0033, `server/src/schema.sql`: the three columns are nullable since
+ * the phone learned to say "not shared"), and a zero would put the lie back on the other
+ * side of the wire.
  */
 export function sharedWeek(week: MyWeek, prefs: SharePrefs): MyWeek {
   return {
