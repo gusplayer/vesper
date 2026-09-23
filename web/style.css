@@ -3,6 +3,41 @@
  * once in daylight does not need the session's ink. Values copied from
  * src/design/tokens.ts — never a colour that is not there.
  */
+
+/*
+ * Outfit, served from this domain. It used to come from fonts.googleapis.com, which made
+ * the footer's "this page tells nobody you opened it" false: every visit announced
+ * itself to a third party with the visitor's address and user agent before a word was
+ * read. The three weights the page uses are copied from @expo-google-fonts/outfit — the
+ * same files the app ships — under the SIL Open Font License in fonts/OFL.txt.
+ *
+ * `font-display: swap` so the text is readable while 55 KB arrive; the fallback stack on
+ * `body` is what it is drawn in until then.
+ */
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Outfit_400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Outfit_500Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Outfit';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/Outfit_600SemiBold.ttf') format('truetype');
+}
+
 :root {
   --bg: #e8e6e2;
   --card: #f8f7f5;

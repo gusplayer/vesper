@@ -12,7 +12,11 @@ create table if not exists accounts (
   -- Unique, lowercase: two @gus in one challenge is impersonation (ADR-0032).
   handle        text        not null unique,
   -- The invite code the device derives from its profile (domain/circle.inviteCodeFor).
-  invite_code   text,
+  -- Unique: a code is a claim, and the first account to make it keeps it. Two rows with
+  -- the same code let whoever saw it on a screen or in a link answer for its owner.
+  -- Null is not a claim, and Postgres counts nulls as distinct, so accounts without a
+  -- code coexist.
+  invite_code   text        unique,
   -- Expo push token, null until the phone registers one or the user turns notices off.
   push_token    text,
   -- IANA name, for the end-of-day grouping of cheers. Null until the phone says.
@@ -22,7 +26,35 @@ create table if not exists accounts (
   updated_at    bigint      not null
 );
 
-create index if not exists accounts_invite_code on accounts (invite_code);
+-- Databases created before the code was unique. Postgres has no
+-- `add constraint if not exists`, so the whole thing runs inside a guard, which makes it
+-- safe on every boot: if the constraint is already there (a fresh database gets it from
+-- `create table` above), nothing happens.
+--
+-- Duplicates left by the old schema are cleared first, or the `alter` would fail and the
+-- server would not boot: the oldest account keeps the code and the rest lose it. Losing
+-- it is not losing anything — the phone derives the next one by bumping its generation.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'accounts'::regclass and conname = 'accounts_invite_code_key'
+  ) then
+    update accounts set invite_code = null where id in (
+      select id from (
+        select id, row_number() over (
+          partition by invite_code order by created_at asc, id asc
+        ) as seat
+        from accounts where invite_code is not null
+      ) ranked where seat > 1
+    );
+    alter table accounts add constraint accounts_invite_code_key unique (invite_code);
+  end if;
+end
+$$;
+
+-- The unique constraint brings its own index; the plain one it replaces is dead weight.
+drop index if exists accounts_invite_code;
 
 -- Who is in whose circle. One row per direction: A sees B when (A, B) is 'member'.
 -- A code redeemed by B writes (A, B, 'pending'); A accepting writes both directions.

@@ -22,6 +22,14 @@ Vercel, proyecto `vesper`: **https://vesper-azure.vercel.app**
 La página **no le habla al servidor**: el código viaja en la URL y se queda en el
 navegador. Validarlo contra la API le diría a un desconocido de quién es ese código.
 
+Tampoco le habla a nadie más. La fuente Outfit se sirve desde este mismo dominio
+(`fonts/`, tres pesos copiados de `@expo-google-fonts/outfit`, licencia SIL OFL en
+`fonts/OFL.txt`) en vez de `fonts.googleapis.com`, que es lo que hacía falsa la frase del
+pie: cada visita le anunciaba a un tercero la dirección y el navegador de quien abrió el
+link antes de que leyera una palabra. El `Content-Security-Policy` de `vercel.json` lo
+sostiene: `default-src 'none'`, y `'self'` para el estilo, la fuente y el script. Si
+alguna vez la página carga algo de afuera, el navegador lo bloquea y la consola lo dice.
+
 Pendiente: `/.well-known/apple-app-site-association` y `/.well-known/assetlinks.json`
 para que el link abra la app sin pasar por aquí. Necesitan el Team ID de Apple y la
 huella SHA-256 del certificado de firma de Android, que todavía no existen.

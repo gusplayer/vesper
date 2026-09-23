@@ -4,6 +4,9 @@
  *
  * It never calls the server. Asking whether a code exists would tell a stranger who it
  * belongs to, and the page has nothing to gain from knowing.
+ *
+ * Nothing else is called either: the font is served from this domain (style.css), so the
+ * footer's promise is something the network tab can check.
  */
 (function () {
   const STRINGS = {
@@ -16,7 +19,7 @@
       noAppBody:
         'Es una app de foco: bloquea lo que te distrae mientras trabajas y te devuelve el tiempo. No pide cuenta ni correo, y todo se queda en tu teléfono.',
       noAppSoon: 'Todavía no está en las tiendas. Guarda este código: te va a servir el día que la instales.',
-      privacy: 'Esta página no guarda nada ni le cuenta a nadie que la abriste. El código viaja en el link y no sale de aquí.',
+      privacy: 'Esta página no guarda nada, no usa cookies y no carga nada de otro sitio. El código viaja en el link y no sale de aquí.',
       noCodeTitle: 'Este link no trae un código',
       noCodeBody: 'Pídele a quien te invitó que comparta la invitación otra vez desde Vesper.',
     },
@@ -29,7 +32,7 @@
       noAppBody:
         'It is a focus app: it blocks what distracts you while you work and gives the time back. No account, no email, and everything stays on your phone.',
       noAppSoon: 'It is not in the stores yet. Keep this code: it will work the day you install it.',
-      privacy: 'This page stores nothing and tells nobody you opened it. The code travels in the link and goes no further.',
+      privacy: 'This page stores nothing, uses no cookies and loads nothing from anywhere else. The code travels in the link and goes no further.',
       noCodeTitle: 'This link carries no code',
       noCodeBody: 'Ask whoever invited you to share the invitation again from Vesper.',
     },

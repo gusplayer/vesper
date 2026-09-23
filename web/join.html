@@ -6,13 +6,10 @@
     <title>Te invitaron a un círculo · Vesper</title>
     <meta name="description" content="Alguien te invitó a su círculo en Vesper." />
     <meta name="robots" content="noindex" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Outfit is served from this domain (style.css): the page loads nothing from
+         anywhere else, which is what lets the footer say so. -->
     <link rel="stylesheet" href="/style.css" />
+    <link rel="preload" href="/fonts/Outfit_400Regular.ttf" as="font" type="font/ttf" crossorigin />
   </head>
   <body>
     <main>
@@ -49,8 +46,8 @@
 
       <footer>
         <p class="quiet" data-t="privacy">
-          Esta página no guarda nada ni le cuenta a nadie que la abriste. El código viaja en el link y
-          no sale de aquí.
+          Esta página no guarda nada, no usa cookies y no carga nada de otro sitio. El código viaja
+          en el link y no sale de aquí.
         </p>
       </footer>
     </main>

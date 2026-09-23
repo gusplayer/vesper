@@ -1,3 +1,4 @@
+import { ConflictError } from './store.ts';
 import type {
   Account,
   Challenge,
@@ -39,6 +40,19 @@ export function createMemoryStore(): Store {
       return [...accounts.values()].find((account) => account.inviteCode === code) ?? null;
     },
     async putAccount(account) {
+      // The same two unique constraints Postgres carries, so the tests see the same
+      // refusals the deployed server gives (schema.sql: handle and invite_code).
+      for (const other of accounts.values()) {
+        if (other.id === account.id) {
+          continue;
+        }
+        if (other.handle === account.handle) {
+          throw new ConflictError('handle');
+        }
+        if (account.inviteCode !== null && other.inviteCode === account.inviteCode) {
+          throw new ConflictError('inviteCode');
+        }
+      }
       accounts.set(account.id, account);
     },
     async deleteAccount(id) {

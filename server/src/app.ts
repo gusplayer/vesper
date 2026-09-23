@@ -1,7 +1,18 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 
-import { credentialsFrom, hashSecret, newSecret, normalizeHandle, secretMatches } from './auth.ts';
+import {
+  credentialsFrom,
+  hashSecret,
+  isUuidV7,
+  newSecret,
+  normalizeHandle,
+  secretMatches,
+} from './auth.ts';
+import { derivesFrom, normalizeInviteCode } from './invite.ts';
 import type { Push } from './push.ts';
+import { createRateLimiter } from './rateLimit.ts';
+import { ConflictError } from './store.ts';
 import type { Account, Challenge, ChallengeMark, Kudos, Nudge, Store, Week } from './store.ts';
 
 /**
@@ -22,21 +33,121 @@ export type Deps = {
 
 type Authed = { account: Account };
 
+/** node-server hands the raw request through `c.env`; nothing else uses it. */
+type Bindings = { incoming?: { socket?: { remoteAddress?: string } } };
+
+const HOUR = 60 * 60 * 1000;
+
+/**
+ * The budgets, in calls per hour, per address and per account.
+ *
+ * `redeem` is the one that matters: a code is six symbols out of an alphabet of 32, so
+ * there are 32^6 ≈ 1.07 billion of them. At 10 guesses an hour per account and 30 per
+ * address, reaching a one-in-a-hundred chance of hitting any single code takes around
+ * forty years — and every guess costs an account, which costs the address one of its ten
+ * creations. A person who was actually invited types one code, maybe twice.
+ *
+ * The rest are shaped by what the phone does: a sync every twenty seconds is already
+ * more than the app asks for, and accepting or joining is a tap.
+ */
+const LIMITS = {
+  /** Every call to `/account`, including the renames and the handle check. */
+  accountPerIp: { limit: 30, windowMs: HOUR },
+  /** New accounts only. Each one is a fresh identity, which is what guessing needs. */
+  newAccountPerIp: { limit: 10, windowMs: HOUR },
+  redeemPerAccount: { limit: 10, windowMs: HOUR },
+  redeemPerIp: { limit: 30, windowMs: HOUR },
+  acceptPerAccount: { limit: 60, windowMs: HOUR },
+  joinPerAccount: { limit: 60, windowMs: HOUR },
+  devicePerAccount: { limit: 60, windowMs: HOUR },
+  syncPerAccount: { limit: 180, windowMs: HOUR },
+  /**
+   * Pushes one person may cause on another. A nudge is allowed once a day per challenge
+   * by ADR-0027, but the row upserts, so without this the same nudge re-synced is a
+   * notification every time.
+   *
+   * Spent only when there is a token to send to: a phone with none gets nothing anyway
+   * (push.ts), and charging for it would let a silent target eat a real one's allowance.
+   */
+  pushPerPair: { limit: 5, windowMs: HOUR },
+};
+
+/** Lengths. Nothing a caller writes reaches the database without one. */
+const MAX_NAME = 40;
+const MAX_TIME_ZONE = 64;
+const MAX_PUSH_TOKEN = 256;
+const MAX_CHALLENGE_NAME = 60;
+/** Rows of one kind in one sync. A phone's real batch is a handful. */
+const MAX_ROWS = 500;
+
+/** 'YYYY-MM-DD', which is what both a day key and a week key are (domain/day.ts). */
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+/** Printable ASCII, no spaces: what an Expo token, an APNs one and an FCM one all are. */
+const PUSH_TOKEN = /^[\x21-\x7e]+$/;
+/** IANA zone names: 'America/Bogota', 'UTC', 'Etc/GMT+5'. */
+const TIME_ZONE = /^[A-Za-z0-9_+\-]+(?:\/[A-Za-z0-9_+\-]+)*$/;
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function str(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() !== '' ? value : null;
+/** A non-empty string no longer than `max`, trimmed. Every caller states its `max`. */
+function str(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const clean = value.trim();
+  return clean === '' || clean.length > max ? null : clean;
+}
+
+/** An id the phone made: UUID v7 and nothing else, for accounts and for rows alike. */
+function id(value: unknown): string | null {
+  return isUuidV7(value) ? value : null;
+}
+
+function dateKey(value: unknown): string | null {
+  const clean = str(value, 10);
+  return clean !== null && DATE_KEY.test(clean) ? clean : null;
 }
 
 function num(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+/**
+ * The address the edge saw. Railway's proxy appends the real one to `x-forwarded-for`,
+ * so the **last** entry is the one it wrote and everything before it is whatever the
+ * caller decided to claim; reading the first would let a header buy a fresh budget.
+ * With no proxy the socket answers, and a request with neither is counted as one caller.
+ */
+function clientIp(c: Context<{ Variables: Authed; Bindings: Bindings }>): string {
+  const forwarded = c.req.header('x-forwarded-for');
+  if (forwarded !== undefined && forwarded.trim() !== '') {
+    const hops = forwarded.split(',');
+    const last = hops[hops.length - 1]?.trim();
+    if (last !== undefined && last !== '') {
+      return last;
+    }
+  }
+  return c.env?.incoming?.socket?.remoteAddress ?? 'unknown';
+}
+
 export function createApp(deps: Deps) {
   const { store, push, now } = deps;
-  const app = new Hono<{ Variables: Authed }>();
+  const app = new Hono<{ Variables: Authed; Bindings: Bindings }>();
+  const limiter = createRateLimiter(now);
+
+  /** True when the call fits its budget. `over` turns the refusal into a 429. */
+  const fits = (key: string, rule: { limit: number; windowMs: number }): boolean =>
+    limiter.take(key, rule.limit, rule.windowMs);
+
+  const over = (
+    c: Context<{ Variables: Authed; Bindings: Bindings }>,
+    rule: { windowMs: number },
+  ) =>
+    c.json({ error: 'too many requests' }, 429, {
+      'Retry-After': String(Math.ceil(rule.windowMs / 1000)),
+    });
 
   /** Everything but `POST /account` needs a device that proves it owns its id. */
   const authenticate = async (header: string | undefined): Promise<Account | null> => {
@@ -75,27 +186,87 @@ export function createApp(deps: Deps) {
    * call and not a second concept.
    */
   app.post('/account', async (c) => {
+    const ip = clientIp(c);
+    if (!fits(`account:${ip}`, LIMITS.accountPerIp)) {
+      return over(c, LIMITS.accountPerIp);
+    }
     const body: unknown = await c.req.json().catch(() => null);
     if (!isObject(body)) {
       return c.json({ error: 'bad request' }, 400);
     }
-    const id = str(body.id);
-    const name = str(body.name);
+    const accountId = id(body.id);
+    const name = str(body.name, MAX_NAME);
     const handle = normalizeHandle(typeof body.handle === 'string' ? body.handle : '');
-    if (id === null || id.includes('.') || name === null || handle === null) {
-      return c.json({ error: 'id, name and handle are required; handle is [a-z0-9_]{3,20}' }, 400);
-    }
-    const inviteCode = typeof body.inviteCode === 'string' ? body.inviteCode.toUpperCase() : null;
-    const existing = await store.getAccount(id);
-    const taken = await store.getAccountByHandle(handle);
-    if (taken !== null && taken.id !== id) {
-      return c.json({ error: 'handle taken' }, 409);
+    if (accountId === null || name === null || handle === null) {
+      return c.json(
+        {
+          error:
+            'id must be a UUID v7; name is 1 to 40 characters; handle is [a-z0-9_]{3,20}',
+        },
+        400,
+      );
     }
 
+    // Absent leaves the code as it is, explicit null gives it up, a string claims one.
+    // A claim has to be a code this account can actually show: the phone derives it from
+    // the id of its circle profile, and that profile id is this account id (invite.ts).
+    // Without the check, anyone who read a code off a screen, a QR or a `/join?code=`
+    // link could register it as theirs and answer for its owner.
+    let inviteCode: string | null = null;
+    const existing = await store.getAccount(accountId);
+    if (body.inviteCode === undefined) {
+      inviteCode = existing?.inviteCode ?? null;
+    } else if (body.inviteCode !== null) {
+      const claimed =
+        typeof body.inviteCode === 'string' ? normalizeInviteCode(body.inviteCode) : null;
+      if (claimed === null) {
+        return c.json({ error: 'inviteCode is six symbols of [A-HJ-NP-Z2-9]' }, 400);
+      }
+      const generation = typeof body.codeGeneration === 'number' ? body.codeGeneration : undefined;
+      if (!derivesFrom(accountId, claimed, generation)) {
+        return c.json({ error: 'inviteCode does not derive from this id' }, 400);
+      }
+      inviteCode = claimed;
+    }
+
+    const taken = await store.getAccountByHandle(handle);
+    if (taken !== null && taken.id !== accountId) {
+      // The alias is public by design — it is what a challenge shows instead of a name
+      // (ADR-0032 §4) — so this says nothing that being in a circle would not. What it
+      // does allow is asking, one alias at a time, which ones exist; the budget above is
+      // what keeps that from becoming a list. See server/README.md.
+      return c.json({ error: 'handle taken' }, 409);
+    }
+    if (inviteCode !== null) {
+      const holder = await store.getAccountByInviteCode(inviteCode);
+      if (holder !== null && holder.id !== accountId) {
+        return c.json({ error: 'invite code taken' }, 409);
+      }
+    }
+
+    const write = async (account: Account): Promise<Response | null> => {
+      try {
+        await store.putAccount(account);
+        return null;
+      } catch (error) {
+        // Two phones can claim one code in the same millisecond: the database decides.
+        if (error instanceof ConflictError) {
+          return c.json(
+            { error: error.field === 'handle' ? 'handle taken' : 'invite code taken' },
+            409,
+          );
+        }
+        throw error;
+      }
+    };
+
     if (existing === null) {
+      if (!fits(`account:new:${ip}`, LIMITS.newAccountPerIp)) {
+        return over(c, LIMITS.newAccountPerIp);
+      }
       const secret = newSecret();
-      const account: Account = {
-        id,
+      const conflict = await write({
+        id: accountId,
         secretHash: hashSecret(secret),
         name,
         handle,
@@ -105,17 +276,16 @@ export function createApp(deps: Deps) {
         nudgesOn: true,
         createdAt: now(),
         updatedAt: now(),
-      };
-      await store.putAccount(account);
-      return c.json({ id, secret, handle }, 201);
+      });
+      return conflict ?? c.json({ id: accountId, secret, handle }, 201);
     }
 
     const account = await authenticate(c.req.header('Authorization'));
-    if (account === null || account.id !== id) {
+    if (account === null || account.id !== accountId) {
       return c.json({ error: 'unauthorized' }, 401);
     }
-    await store.putAccount({ ...account, name, handle, inviteCode, updatedAt: now() });
-    return c.json({ id, handle });
+    const conflict = await write({ ...account, name, handle, inviteCode, updatedAt: now() });
+    return conflict ?? c.json({ id: accountId, handle });
   });
 
   /** Leaving for good: the account and every row of it, gone. No soft delete. */
@@ -134,10 +304,24 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'bad request' }, 400);
     }
     const account = c.get('account');
+    if (!fits(`device:${account.id}`, LIMITS.devicePerAccount)) {
+      return over(c, LIMITS.devicePerAccount);
+    }
+    const token = str(body.pushToken, MAX_PUSH_TOKEN);
+    if (body.pushToken !== undefined && body.pushToken !== null && token === null) {
+      return c.json({ error: 'pushToken is too long or empty' }, 400);
+    }
+    if (token !== null && !PUSH_TOKEN.test(token)) {
+      return c.json({ error: 'pushToken is not a token' }, 400);
+    }
+    const zone = str(body.timeZone, MAX_TIME_ZONE);
+    if (body.timeZone !== undefined && (zone === null || !TIME_ZONE.test(zone))) {
+      return c.json({ error: 'timeZone is not an IANA name' }, 400);
+    }
     await store.putAccount({
       ...account,
-      pushToken: typeof body.pushToken === 'string' ? body.pushToken : null,
-      timeZone: typeof body.timeZone === 'string' ? body.timeZone : account.timeZone,
+      pushToken: token,
+      timeZone: zone ?? account.timeZone,
       nudgesOn: typeof body.nudgesOn === 'boolean' ? body.nudgesOn : account.nudgesOn,
       updatedAt: now(),
     });
@@ -150,12 +334,21 @@ export function createApp(deps: Deps) {
    * a stranger in anyone's circle.
    */
   app.post('/invite/redeem', async (c) => {
-    const body: unknown = await c.req.json().catch(() => null);
-    const code = isObject(body) && typeof body.code === 'string' ? body.code.trim().toUpperCase() : null;
-    if (code === null) {
-      return c.json({ error: 'code is required' }, 400);
-    }
     const me = c.get('account');
+    // Guessing is what this endpoint is exposed to, so it is counted twice: the account
+    // is what a guess is made with, the address is what accounts are made from.
+    if (!fits(`redeem:${me.id}`, LIMITS.redeemPerAccount)) {
+      return over(c, LIMITS.redeemPerAccount);
+    }
+    if (!fits(`redeem:${clientIp(c)}`, LIMITS.redeemPerIp)) {
+      return over(c, LIMITS.redeemPerIp);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const code =
+      isObject(body) && typeof body.code === 'string' ? normalizeInviteCode(body.code) : null;
+    if (code === null) {
+      return c.json({ error: 'code is six symbols of [A-HJ-NP-Z2-9]' }, 400);
+    }
     const owner = await store.getAccountByInviteCode(code);
     if (owner === null) {
       return c.json({ error: 'unknown code' }, 404);
@@ -174,22 +367,29 @@ export function createApp(deps: Deps) {
       createdAt: existing?.createdAt ?? now(),
       updatedAt: now(),
     });
-    await push.send(owner, {
-      title: me.name,
-      body: 'quiere entrar a tu círculo',
-      data: { kind: 'invite', from: me.id },
-    });
+    // Redeeming again is how one caller could notify the same person over and over,
+    // with their own name as the title. The link is already written either way.
+    if (owner.pushToken !== null && fits(`push:${me.id}:${owner.id}`, LIMITS.pushPerPair)) {
+      await push.send(owner, {
+        title: me.name,
+        body: 'quiere entrar a tu círculo',
+        data: { kind: 'invite', from: me.id },
+      });
+    }
     return c.json({ ok: true, status: 'pending' });
   });
 
   /** Accepting is what makes it mutual: both directions become 'member' at once. */
   app.post('/invite/accept', async (c) => {
-    const body: unknown = await c.req.json().catch(() => null);
-    const memberId = isObject(body) ? str(body.memberId) : null;
-    if (memberId === null) {
-      return c.json({ error: 'memberId is required' }, 400);
-    }
     const me = c.get('account');
+    if (!fits(`accept:${me.id}`, LIMITS.acceptPerAccount)) {
+      return over(c, LIMITS.acceptPerAccount);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const memberId = isObject(body) ? id(body.memberId) : null;
+    if (memberId === null) {
+      return c.json({ error: 'memberId must be a UUID v7' }, 400);
+    }
     const pending = await store.getLink(me.id, memberId);
     if (pending === null) {
       return c.json({ error: 'no request from that person' }, 404);
@@ -207,11 +407,13 @@ export function createApp(deps: Deps) {
       createdAt: back?.createdAt ?? now(),
       updatedAt: now(),
     });
-    await push.send(other, {
-      title: me.name,
-      body: 'te aceptó en su círculo',
-      data: { kind: 'accepted', from: me.id },
-    });
+    if (other.pushToken !== null && fits(`push:${me.id}:${other.id}`, LIMITS.pushPerPair)) {
+      await push.send(other, {
+        title: me.name,
+        body: 'te aceptó en su círculo',
+        data: { kind: 'accepted', from: me.id },
+      });
+    }
     return c.json({ ok: true });
   });
 
@@ -220,12 +422,15 @@ export function createApp(deps: Deps) {
    * the circle of whoever created it: a challenge is not public (that is ADR-0032).
    */
   app.post('/challenge/join', async (c) => {
-    const body: unknown = await c.req.json().catch(() => null);
-    const challengeId = isObject(body) ? str(body.challengeId) : null;
-    if (challengeId === null) {
-      return c.json({ error: 'challengeId is required' }, 400);
-    }
     const me = c.get('account');
+    if (!fits(`join:${me.id}`, LIMITS.joinPerAccount)) {
+      return over(c, LIMITS.joinPerAccount);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const challengeId = isObject(body) ? id(body.challengeId) : null;
+    if (challengeId === null) {
+      return c.json({ error: 'challengeId must be a UUID v7' }, 400);
+    }
     const challenge = await store.getChallenge(challengeId);
     if (challenge === null || challenge.archivedAt !== null) {
       return c.json({ error: 'unknown challenge' }, 404);
@@ -257,15 +462,27 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'bad request' }, 400);
     }
     const me = c.get('account');
+    if (!fits(`sync:${me.id}`, LIMITS.syncPerAccount)) {
+      return over(c, LIMITS.syncPerAccount);
+    }
     const at = now();
     const since = num(body.since) ?? 0;
     const rejected: string[] = [];
+
+    // One sync is one phone's batch, not a bulk load. A body that claims otherwise is
+    // refused whole rather than half written.
+    for (const field of ['weeks', 'challenges', 'marks', 'kudos', 'nudges'] as const) {
+      const rows = body[field];
+      if (Array.isArray(rows) && rows.length > MAX_ROWS) {
+        return c.json({ error: `too many ${field}: at most ${MAX_ROWS} per sync` }, 400);
+      }
+    }
 
     for (const row of Array.isArray(body.weeks) ? body.weeks : []) {
       if (!isObject(row)) {
         continue;
       }
-      const weekKey = str(row.weekKey);
+      const weekKey = dateKey(row.weekKey);
       if (weekKey === null) {
         continue;
       }
@@ -288,28 +505,30 @@ export function createApp(deps: Deps) {
       if (!isObject(row)) {
         continue;
       }
-      const id = str(row.id);
-      const name = str(row.name);
-      const startWeekKey = str(row.startWeekKey);
-      if (id === null || name === null || startWeekKey === null) {
+      const challengeId = id(row.id);
+      const name = str(row.name, MAX_CHALLENGE_NAME);
+      const startWeekKey = dateKey(row.startWeekKey);
+      if (challengeId === null || name === null || startWeekKey === null) {
         continue;
       }
-      const existing = await store.getChallenge(id);
+      const existing = await store.getChallenge(challengeId);
       // Only the person who made a challenge can change it; the rest join and mark.
       if (existing !== null && existing.createdBy !== me.id) {
-        rejected.push(id);
+        rejected.push(challengeId);
         continue;
       }
+      // Ids, not names: a participant that is not shaped like one could not have been
+      // written by a phone, and it is the key rows elsewhere are matched on.
       const participantIds = Array.isArray(row.participantIds)
-        ? row.participantIds.filter((value): value is string => typeof value === 'string')
+        ? row.participantIds.filter((value): value is string => isUuidV7(value))
         : [me.id];
       const challenge: Challenge = {
-        id,
+        id: challengeId,
         createdBy: me.id,
         name,
         weeklyTarget: num(row.weeklyTarget) ?? 4,
         startWeekKey,
-        endDayKey: str(row.endDayKey),
+        endDayKey: dateKey(row.endDayKey),
         participantIds,
         archivedAt: num(row.archivedAt),
         createdAt: existing?.createdAt ?? at,
@@ -322,8 +541,8 @@ export function createApp(deps: Deps) {
       if (!isObject(row)) {
         continue;
       }
-      const challengeId = str(row.challengeId);
-      const dayKey = str(row.dayKey);
+      const challengeId = id(row.challengeId);
+      const dayKey = dateKey(row.dayKey);
       if (challengeId === null || dayKey === null) {
         continue;
       }
@@ -344,18 +563,25 @@ export function createApp(deps: Deps) {
       if (!isObject(row)) {
         continue;
       }
-      const id = str(row.id);
-      const toId = str(row.toId);
-      const dayKey = str(row.dayKey);
-      if (id === null || toId === null || dayKey === null || toId === me.id) {
+      const kudosId = id(row.id);
+      const toId = id(row.toId);
+      const dayKey = dateKey(row.dayKey);
+      if (kudosId === null || toId === null || dayKey === null || toId === me.id) {
         continue;
       }
       const link = await store.getLink(me.id, toId);
       if (link?.status !== 'member') {
-        rejected.push(id);
+        rejected.push(kudosId);
         continue;
       }
-      const kudos: Kudos = { id, fromId: me.id, toId, dayKey, createdAt: at, updatedAt: at };
+      const kudos: Kudos = {
+        id: kudosId,
+        fromId: me.id,
+        toId,
+        dayKey,
+        createdAt: at,
+        updatedAt: at,
+      };
       await store.putKudos(kudos);
     }
 
@@ -363,11 +589,17 @@ export function createApp(deps: Deps) {
       if (!isObject(row)) {
         continue;
       }
-      const id = str(row.id);
-      const toId = str(row.toId);
-      const challengeId = str(row.challengeId);
-      const dayKey = str(row.dayKey);
-      if (id === null || toId === null || challengeId === null || dayKey === null || toId === me.id) {
+      const nudgeId = id(row.id);
+      const toId = id(row.toId);
+      const challengeId = id(row.challengeId);
+      const dayKey = dateKey(row.dayKey);
+      if (
+        nudgeId === null ||
+        toId === null ||
+        challengeId === null ||
+        dayKey === null ||
+        toId === me.id
+      ) {
         continue;
       }
       const challenge = await store.getChallenge(challengeId);
@@ -377,13 +609,28 @@ export function createApp(deps: Deps) {
         !challenge.participantIds.includes(me.id) ||
         !challenge.participantIds.includes(toId)
       ) {
-        rejected.push(id);
+        rejected.push(nudgeId);
         continue;
       }
-      const nudge: Nudge = { id, fromId: me.id, toId, challengeId, dayKey, createdAt: at, updatedAt: at };
+      const nudge: Nudge = {
+        id: nudgeId,
+        fromId: me.id,
+        toId,
+        challengeId,
+        dayKey,
+        createdAt: at,
+        updatedAt: at,
+      };
       await store.putNudge(nudge);
       const target = await store.getAccount(toId);
-      if (target !== null) {
+      // The row is always written; the notification is the part with a budget. Re-syncing
+      // the same nudge is how a person inside a challenge could turn one allowed nudge
+      // into a stream of notifications, and the text carries their own name.
+      if (
+        target !== null &&
+        target.pushToken !== null &&
+        fits(`push:${me.id}:${toId}`, LIMITS.pushPerPair)
+      ) {
         await push.send(target, {
           title: `${me.name} te empuja`,
           body: `hoy no has marcado ${challenge.name}.`,

@@ -39,6 +39,21 @@ export function credentialsFrom(header: string | undefined): Credentials | null 
   return { id: token.slice(0, dot), secret: token.slice(dot + 1) };
 }
 
+/**
+ * The id the phone picks for itself: the UUID v7 of `src/lib/uuid.ts`, which is what
+ * every id in the app is. Checked here because the id is the one field a caller names
+ * freely, and an unshaped one is a row key somebody else can guess or squat: it is the
+ * primary key of `accounts`, it rides in every `Authorization` header, and — for the
+ * invite code — it is what the code has to derive from.
+ *
+ * 36 characters, version nibble 7, variant 10. Nothing longer reaches the database.
+ */
+const UUID_V7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export function isUuidV7(value: unknown): value is string {
+  return typeof value === 'string' && value.length === 36 && UUID_V7.test(value);
+}
+
 /** Lowercase, 3 to 20 of `[a-z0-9_]`: unique across accounts (ADR-0032 §4). */
 export function normalizeHandle(handle: string): string | null {
   const clean = handle.trim().toLowerCase();

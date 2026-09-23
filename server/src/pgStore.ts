@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
+import { ConflictError } from './store.ts';
 import type { Account, Challenge, Link, Store } from './store.ts';
 
 /**
@@ -15,6 +16,78 @@ import type { Account, Challenge, Link, Store } from './store.ts';
  */
 
 const { Pool } = pg;
+
+/** Loopback: a Postgres on the same machine speaks plaintext and has no certificate. */
+const LOOPBACK = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
+
+export type TlsChoice = false | true | { ca: string };
+
+/**
+ * What TLS to ask for, and why it is never `rejectUnauthorized: false`.
+ *
+ * `ssl: true` reaches `tls.connect` untouched (pg/lib/connection.js hands the value over
+ * and sets `servername` to the host), so the certificate is checked against Node's trust
+ * store and against the hostname. Neon needs nothing else: it serves a certificate from
+ * a public CA (ISRG / Let's Encrypt) that Node already carries.
+ *
+ * Turning the check off leaves the connection encrypted against someone listening and
+ * wide open to anyone able to answer in the database's place — and since the connection
+ * string carries its own password, answering in its place is how you collect it.
+ *
+ * `DATABASE_CA_CERT` is for the day the database sits behind a private CA; it is then
+ * the only anchor trusted, which is stricter and not weaker.
+ */
+export function tlsFor(
+  hostname: string,
+  ca: string | undefined = process.env.DATABASE_CA_CERT,
+): TlsChoice {
+  if (LOOPBACK.has(hostname)) {
+    return false;
+  }
+  const trimmed = ca?.trim();
+  return trimmed === undefined || trimmed === '' ? true : { ca: trimmed };
+}
+
+/**
+ * `sslmode` and friends in the URL win over the `ssl` option — node-postgres parses the
+ * connection string last (`Object.assign({}, config, parse(connectionString))`), so a
+ * `?sslmode=no-verify` inherited from a provider's copy button would silently undo the
+ * decision above. Strip those, and only those.
+ *
+ * By hand, on the query string alone: `new URL(...).toString()` would re-encode the
+ * password on its way through, and a password that arrives changed is an outage.
+ */
+export function withoutSslParams(connectionString: string): { url: string; hostname: string } {
+  const hostname = new URL(connectionString).hostname;
+  const mark = connectionString.indexOf('?');
+  if (mark === -1) {
+    return { url: connectionString, hostname };
+  }
+  const kept = connectionString
+    .slice(mark + 1)
+    .split('&')
+    .filter((pair) => pair !== '' && !(pair.split('=')[0] ?? '').toLowerCase().startsWith('ssl'));
+  const base = connectionString.slice(0, mark);
+  return { url: kept.length === 0 ? base : `${base}?${kept.join('&')}`, hostname };
+}
+
+/** Postgres says 23505 for a unique violation, and names the constraint it broke. */
+function asConflict(error: unknown): ConflictError | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+  const { code, constraint } = error as { code?: unknown; constraint?: unknown };
+  if (code !== '23505') {
+    return null;
+  }
+  if (constraint === 'accounts_invite_code_key') {
+    return new ConflictError('inviteCode');
+  }
+  if (constraint === 'accounts_handle_key') {
+    return new ConflictError('handle');
+  }
+  return null;
+}
 
 function ms(value: unknown): number {
   return typeof value === 'string' ? Number(value) : Number(value ?? 0);
@@ -55,11 +128,8 @@ function toAccount(row: AccountRow): Account {
 export type PgStore = Store & { migrate(): Promise<void>; close(): Promise<void> };
 
 export function createPgStore(connectionString: string): PgStore {
-  const pool = new Pool({
-    connectionString,
-    // Neon and Railway both terminate TLS in front; a plain local Postgres has none.
-    ssl: connectionString.includes('localhost') ? undefined : { rejectUnauthorized: false },
-  });
+  const { url, hostname } = withoutSslParams(connectionString);
+  const pool = new Pool({ connectionString: url, ssl: tlsFor(hostname) });
 
   const query = async <T>(text: string, values: unknown[] = []): Promise<T[]> => {
     const result = await pool.query(text, values);
@@ -84,30 +154,49 @@ export function createPgStore(connectionString: string): PgStore {
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
     async getAccountByInviteCode(code) {
-      const rows = await query<AccountRow>('select * from accounts where invite_code = $1', [code]);
+      // `invite_code` is unique, so there is at most one row. The order and the limit are
+      // what makes that true of the answer as well and not only of the intention: an
+      // unordered `select *` picked whichever row Postgres reached first, which on a
+      // database written before the constraint meant the code's owner and the account
+      // that copied it took turns.
+      const rows = await query<AccountRow>(
+        'select * from accounts where invite_code = $1 order by created_at asc, id asc limit 1',
+        [code],
+      );
       return rows[0] === undefined ? null : toAccount(rows[0]);
     },
     async putAccount(account) {
-      await query(
-        `insert into accounts (id, secret_hash, name, handle, invite_code, push_token, time_zone, nudges_on, created_at, updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-         on conflict (id) do update set
-           secret_hash = excluded.secret_hash, name = excluded.name, handle = excluded.handle,
-           invite_code = excluded.invite_code, push_token = excluded.push_token,
-           time_zone = excluded.time_zone, nudges_on = excluded.nudges_on, updated_at = excluded.updated_at`,
-        [
-          account.id,
-          account.secretHash,
-          account.name,
-          account.handle,
-          account.inviteCode,
-          account.pushToken,
-          account.timeZone,
-          account.nudgesOn,
-          account.createdAt,
-          account.updatedAt,
-        ],
-      );
+      try {
+        await query(
+          `insert into accounts (id, secret_hash, name, handle, invite_code, push_token, time_zone, nudges_on, created_at, updated_at)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+           on conflict (id) do update set
+             secret_hash = excluded.secret_hash, name = excluded.name, handle = excluded.handle,
+             invite_code = excluded.invite_code, push_token = excluded.push_token,
+             time_zone = excluded.time_zone, nudges_on = excluded.nudges_on, updated_at = excluded.updated_at`,
+          [
+            account.id,
+            account.secretHash,
+            account.name,
+            account.handle,
+            account.inviteCode,
+            account.pushToken,
+            account.timeZone,
+            account.nudgesOn,
+            account.createdAt,
+            account.updatedAt,
+          ],
+        );
+      } catch (error) {
+        // The unique constraints are the ones that decide, not the read before the
+        // write: two phones can claim one code in the same millisecond and only one
+        // insert lands. The loser gets a 409 instead of a 500.
+        const conflict = asConflict(error);
+        if (conflict !== null) {
+          throw conflict;
+        }
+        throw error;
+      }
     },
     async deleteAccount(id) {
       // The cascades take the links, weeks, marks, cheers and nudges with it; a

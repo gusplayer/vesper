@@ -5,6 +5,22 @@
  * cursor over that column and nothing else.
  */
 
+/**
+ * Two accounts cannot hold the same handle or the same invite code. The store raises
+ * this instead of a bare database error so the API can answer 409 and the phone can act
+ * on it: a taken handle asks the user for another one, a taken invite code means the
+ * phone bumps `codeGeneration` and derives the next one.
+ */
+export class ConflictError extends Error {
+  field: 'handle' | 'inviteCode';
+
+  constructor(field: 'handle' | 'inviteCode') {
+    super(`${field} taken`);
+    this.name = 'ConflictError';
+    this.field = field;
+  }
+}
+
 export type Account = {
   id: string;
   secretHash: string;
@@ -85,6 +101,7 @@ export type Store = {
   getAccount(id: string): Promise<Account | null>;
   getAccountByHandle(handle: string): Promise<Account | null>;
   getAccountByInviteCode(code: string): Promise<Account | null>;
+  /** Raises `ConflictError` when the handle or the invite code belongs to someone else. */
   putAccount(account: Account): Promise<void>;
   deleteAccount(id: string): Promise<void>;
 
