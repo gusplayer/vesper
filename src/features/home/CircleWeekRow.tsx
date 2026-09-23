@@ -30,6 +30,8 @@ export function CircleWeekRow({ now, todayIndex }: CircleWeekRowProps) {
       <ChallengeWeek
         days={challenge.days}
         todayIndex={todayIndex}
+        pitch="md"
+
         onPress={() => router.push({ pathname: '/circle/challenge', params: { id: challenge.id } })}
         accessibilityLabel={t.challenge.openA11y(challenge.name)}
       />

@@ -78,6 +78,7 @@ export const circle: typeof shape = {
     otherLine: (name, progress, met) => (met ? `${name} kept it` : `${name} is at ${progress}`),
     ended: {
       title: 'How it ended',
+      lastWeek: 'Its last week',
       weeks: (met, total) =>
         met === total
           ? `You kept ${total === 1 ? 'the week' : `all ${total} weeks`}.`

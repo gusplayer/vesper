@@ -89,6 +89,10 @@ export default function ChallengeScreen() {
   const todayIndex = weekdayIndex(now);
   const active = view.status === 'active';
   const others = standings.filter((standing) => !standing.isMe);
+  // The week the page draws is the one the standings are on: while it runs that is this
+  // week, and once it is over it is the challenge's last one. Reading "0 de 4" over a
+  // week the challenge was not running in is worse than saying nothing.
+  const mine = standings.find((standing) => standing.isMe) ?? null;
   const markedToday = myWeek?.markedToday ?? false;
   const canMark = view.joined && challenge.habitId !== null && active;
   // A nudge is between people who share the challenge, while it runs.
@@ -182,18 +186,22 @@ export default function ChallengeScreen() {
         </Text>
       </Stack>
 
-      {myWeek === null ? null : (
+      {mine === null || myWeek === null ? null : (
         <Stack align="center" gap="sm">
           <ChallengeWeek
-            days={myWeek.days}
+            days={mine.days}
             todayIndex={active ? todayIndex : null}
             labels={strings.format.weekdayInitials}
             size="md"
           />
           <Stack align="center" gap="xs">
-            <Text variant="heading">{t.challenge.progress(myWeek.done, myWeek.target)}</Text>
+            <Text variant="heading">{t.challenge.progress(mine.done, mine.target)}</Text>
             <Text variant="label" tone="secondary">
-              {active ? challengeOutlookText(myWeek.outlook, t) : t.challenge.status.ended}
+              {active
+                ? challengeOutlookText(myWeek.outlook, t)
+                : view.status === 'ended'
+                  ? t.challenge.ended.lastWeek
+                  : t.challenge.outlook.notStarted}
             </Text>
           </Stack>
         </Stack>

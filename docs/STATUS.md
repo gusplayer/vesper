@@ -305,3 +305,24 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   diciendo que no hay conexión. Ese cliente es la siguiente tanda.
 - Pendiente de decisión: desplegar en Railway + Neon (cuesta dinero y usa las cuentas del
   dueño), y el ADR-0032, que depende de que esto esté desplegado.
+
+- **2026-09-22 · La semana del reto se alinea con la de Focus, y un reto terminado deja
+  de mentir sobre "esta semana".** `HeatGrid` gana `pitch`: con `pitch="md"` los cuadros
+  chicos se dibujan sobre las columnas de la grilla grande, así que la fila del reto en
+  Focus cae exactamente bajo los siete días de arriba en vez de flotar centrada con su
+  propio ancho. Y la cabecera del reto pasa a dibujar la semana que muestran las
+  posiciones de abajo —la actual mientras corre, la última cuando terminó—, con la línea
+  "Su última semana": antes decía "0 de 4" sobre una semana en la que el reto ya no
+  existía, mientras la lista de participantes mostraba otra.
+- Verificado en el simulador iPhone 17 Pro con `idb`: la fila de puntos alineada bajo la
+  grilla, el reto terminado con su última semana, "Así terminó · Cumpliste 0 de 3
+  semanas", "Repetir 21 días" y "Archivar el reto". Con el permiso de notificaciones
+  concedido y un reto de demostración vencido, el plan que recibe el sistema incluye
+  `challenge-end-<id>-2026-09-22` · "Caminar is over" junto a las rutinas, el cierre
+  semanal y la racha: el aviso de cierre del ADR-0031 llega de verdad al planificador.
+  `tsc` limpio, `eslint` sin avisos, 825 tests en 59 archivos.
+- No verificado: el aviso de reto en riesgo en la bandeja. Su hora es la del recordatorio
+  (20:00, el selector solo ofrece 8:00–21:00) y la verificación se hizo a las 22:46, así
+  que hoy no había ninguna hora futura donde pudiera caer; el camino que recorre es el
+  mismo que el del aviso de cierre, que sí se vio. Tampoco llegó ninguno a la bandeja
+  misma, ni se probó nada en un teléfono.

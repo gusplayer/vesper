@@ -8,6 +8,8 @@ type ChallengeWeekProps = {
   /** One letter per column, drawn above the row. Left out where the line already says it. */
   labels?: readonly string[];
   size?: 'sm' | 'md';
+  /** 'md' puts the small squares on the home grid's columns, for the row under it. */
+  pitch?: 'own' | 'md';
   onPress?: () => void;
   accessibilityLabel?: string;
 };
@@ -22,6 +24,7 @@ export function ChallengeWeek({
   todayIndex,
   labels,
   size = 'sm',
+  pitch = 'own',
   onPress,
   accessibilityLabel,
 }: ChallengeWeekProps) {
@@ -34,6 +37,7 @@ export function ChallengeWeek({
       }))}
       columnLabels={labels}
       size={size}
+      pitch={pitch}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
     />

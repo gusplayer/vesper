@@ -113,6 +113,8 @@ export const circle = {
     /** The card a finished challenge leaves: how the whole thing went. */
     ended: {
       title: 'Así terminó',
+      /** Under the week a finished challenge draws: it is its last one, not this one. */
+      lastWeek: 'Su última semana',
       /** 'Cumpliste 3 de 3 semanas.' */
       weeks: (met: number, total: number) =>
         met === total

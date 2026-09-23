@@ -27,6 +27,12 @@ type HeatGridProps = {
    * belong to.
    */
   size?: 'sm' | 'md';
+  /**
+   * 'md' keeps the small squares on the big grid's columns: same seven column centres,
+   * same total width, smaller marks. A week drawn under another week has to line up
+   * with it or the two read as unrelated things that happen to be near each other.
+   */
+  pitch?: 'own' | 'md';
 };
 
 const CELL = 28;
@@ -40,18 +46,28 @@ const RADIUS_RATIO = 0.28;
  * read at a glance, which is what the middle of that page is for. The squares light
  * up one by one, in no order, when the grid appears (HeatSquare); today keeps breathing.
  */
-export function HeatGrid({ cells, columns = 7, columnLabels, onPress, accessibilityLabel, size = 'md' }: HeatGridProps) {
+export function HeatGrid({
+  cells,
+  columns = 7,
+  columnLabels,
+  onPress,
+  accessibilityLabel,
+  size = 'md',
+  pitch = 'own',
+}: HeatGridProps) {
   const reduceMotion = useReduceMotion();
   const cell = size === 'md' ? CELL : SMALL_CELL;
-  const gap = size === 'md' ? GAP : SMALL_GAP;
-  const width = columns * cell + (columns - 1) * gap;
+  // The slot is what a column occupies; the cell is what is drawn inside it.
+  const slot = pitch === 'md' ? CELL : cell;
+  const gap = pitch === 'md' || size === 'md' ? GAP : SMALL_GAP;
+  const width = columns * slot + (columns - 1) * gap;
 
   const grid = (
     <View style={[styles.wrap, { width }]}>
       {columnLabels === undefined ? null : (
         <View style={[styles.labels, { columnGap: gap }]}>
           {columnLabels.map((label, index) => (
-            <View key={index} style={{ width: cell }}>
+            <View key={index} style={{ width: slot }}>
               <Text variant="caption" tone="secondary" align="center">
                 {label}
               </Text>
@@ -61,14 +77,15 @@ export function HeatGrid({ cells, columns = 7, columnLabels, onPress, accessibil
       )}
       <View style={[styles.cells, { gap }]}>
         {cells.map((day) => (
-          <HeatSquare
-            key={day.key}
-            intensity={day.intensity}
-            today={day.today === true}
-            size={cell}
-            radius={cell * RADIUS_RATIO}
-            reduceMotion={reduceMotion}
-          />
+          <View key={day.key} style={[styles.slot, { width: slot }]}>
+            <HeatSquare
+              intensity={day.intensity}
+              today={day.today === true}
+              size={cell}
+              radius={cell * RADIUS_RATIO}
+              reduceMotion={reduceMotion}
+            />
+          </View>
         ))}
       </View>
     </View>
@@ -99,5 +116,8 @@ const styles = StyleSheet.create({
   cells: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  slot: {
+    alignItems: 'center',
   },
 });
