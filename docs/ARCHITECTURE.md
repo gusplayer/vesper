@@ -10,7 +10,7 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Runtime | Expo SDK 57 + dev client | Módulos nativos: SQLite, notificaciones, Salud, widgets, Screen Time, bloqueo Android (ADR-0001, ADR-0017) |
 | Lenguaje | TypeScript 6 estricto | `strict: true`, `noUnusedLocals`, sin `any` |
 | Navegación | expo-router | Un `Stack` raíz con dos guardas (onboarding / app), cuatro pestañas de texto (`expo-router/js-tabs` con `TabBar` propio) y rutas a pantalla completa para la sesión |
-| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`010` en TypeScript |
+| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`011` en TypeScript |
 | Ids | UUID v7 propio sobre `expo-crypto` | 20 líneas. Evita `uuid` + `react-native-get-random-values` |
 | Estado | Zustand | Tres stores que cachean SQLite (`app`, `focus`, `circle`), el idioma, y borradores efímeros (modo, onboarding, duración) |
 | Texto | Dos diccionarios tipados (`src/i18n/es`, `en`) | Sin librería de i18n (ADR-0020) |
@@ -85,7 +85,7 @@ src/
     client.ts             instancia de op-sqlite, pragmas y runner de migraciones
     boot.ts               abre, migra, siembra, recupera huérfanas; resolveActivityId; reset
     sql.ts                helpers de texto SQL, puros
-    migrations/           001_init … 010_dictated_code, en TypeScript
+    migrations/           001_init … 011_unshared_metrics, en TypeScript
     repositories/         toda escritura pasa por acá: activities, habits, sessions,
                           settings, modes, schedules, circle, keys
     queries/              modelos de lectura: dayStats (stats por día desde sessions)

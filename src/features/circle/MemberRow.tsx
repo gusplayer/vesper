@@ -15,10 +15,14 @@ type MemberRowProps = {
  * estimated social floor on its own line when they share it (never summed, ADR-0005).
  * The kudos chip is the only gesture: once a day, no counter. The user's own row says
  * 'Tú' and has no chip.
+ *
+ * A metric somebody chose not to share reads the same as no data at all, on purpose:
+ * the row must not let anyone tell "did nothing" from "did not share".
  */
 export function MemberRow({ row, kudosGiven, onKudos }: MemberRowProps) {
   const t = useStrings().circle.member;
-  const lines = [`${t.handle(row.handle)} · ${row.hasData ? t.focus(durationText(row.focusMs)) : t.noData}`];
+  const focus = row.hasData && row.focusMs !== null ? t.focus(durationText(row.focusMs)) : t.noData;
+  const lines = [`${t.handle(row.handle)} · ${focus}`];
   if (row.hasData && row.socialMs !== null) {
     lines.push(t.social(durationText(row.socialMs)));
   }

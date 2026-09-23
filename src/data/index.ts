@@ -6,6 +6,7 @@ import {
   challengeStatus,
   challengeWeeks,
   circleWeek,
+  sharedWeek,
   inviteCodeFor,
   kudosReceivedInWeek,
   kudosSenderNames,
@@ -296,9 +297,10 @@ export function useCircleWeek(now: number): CircleWeekRow[] {
     const focusMs = week.reduce((total, day) => total + day.focusMs, 0);
     const habitsDone = habits.reduce((total, h) => total + Math.min(h.markedDays, h.habit.weeklyTarget), 0);
     const habitsTarget = habits.reduce((total, h) => total + h.habit.weeklyTarget, 0);
-    const mine = { focusMs, socialMs: share.social ? USAGE.weekMs : null, habitsDone, habitsTarget };
+    // Every switch passes through here, not just social: what is off never leaves.
+    const mine = sharedWeek({ focusMs, socialMs: USAGE.weekMs, habitsDone, habitsTarget }, share);
     return circleWeek(members, memberWeeks, { profile, week: mine }, weekKeyOf(now));
-  }, [profile, share.social, members, memberWeeks, week, habits, now]);
+  }, [profile, share, members, memberWeeks, week, habits, now]);
 }
 
 /** The ids of the people the user already cheered today. */

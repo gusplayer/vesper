@@ -11,7 +11,7 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **900 tests en 65 archivos**, todos en verde; el módulo
+avisos y `npx vitest run` con **907 tests en 65 archivos**, todos en verde; el módulo
 Kotlin compila con Gradle.
 
 ## Estado actual
@@ -363,3 +363,16 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   sostiene el candado es el tope, no la longitud, porque el contador vive en la fila de la
   sesión y conseguir una sesión nueva exige la llave que se está atacando. Seis dígitos
   con cinco intentos es una vez cada 93 años; cuatro dígitos habría sido una vez al año.
+
+- **2026-09-23 · Los tres interruptores del círculo cumplen lo que prometen.** De los tres
+  de Ajustes › Círculo, solo el de redes estaba conectado: apagar "horas de foco" o
+  "hábitos" se guardaba y no hacía nada. Hoy no se notaba porque no hay sincronización,
+  pero el día que el cliente entre habría compartido lo que la pantalla decía que no.
+  `sharedWeek` en el dominio aplica los tres, con un test por cada uno, y lo que no se
+  comparte lee null en vez de cero: cero se lee como "no hizo nada esta semana".
+  Migración 011 para que la tabla pueda guardar esa diferencia, y el guardia de
+  `sql.test.ts` ahora reconoce la reconstrucción de tabla que SQLite obliga a hacer, sin
+  dejar pasar un DROP suelto.
+- Pendiente para quien conecte el cliente: `server/src/schema.sql` tiene `focus_ms bigint
+  not null`, así que el servidor todavía no puede recibir "no lo comparte". Es del ADR-0033
+  y hay que avisarle a esa tanda.

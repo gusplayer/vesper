@@ -28,6 +28,7 @@ import {
   shiftDayKey,
   weekDayKeys,
   weekKeyOf,
+  sharedWeek,
 } from './circle';
 import { dayKeyOf } from './day';
 import { aMark } from './fixtures';
@@ -166,11 +167,18 @@ describe('circleWeek', () => {
     expect(rows.find((r) => r.isMe)).toMatchObject({ name: 'Gus', handle: 'gus', focusMs: 5 * HOUR, hasData: true });
   });
 
-  it('sorts a member without a row for that week last, with zeros and no social', () => {
+  it('sorts a member without a row for that week last, with nothing rather than zeros', () => {
     const rows = circleWeek(members, [week('luis', 1 * HOUR)], me, WEEK);
 
     expect(rows.map((r) => r.id)).toEqual([ME, 'luis', 'ana', 'sofia']);
-    expect(rows[2]).toMatchObject({ hasData: false, focusMs: 0, socialMs: null, habitsDone: 0, habitsTarget: 0 });
+    // Null, not zero: "no row this week" must not read as "did nothing this week".
+    expect(rows[2]).toMatchObject({
+      hasData: false,
+      focusMs: null,
+      socialMs: null,
+      habitsDone: null,
+      habitsTarget: null,
+    });
   });
 
   it('reads only the rows of the requested week', () => {
@@ -565,5 +573,53 @@ describe('seats', () => {
     expect(circleFull(eleven)).toBe(false);
     expect(circleFull([...eleven, member('p', 'Pending', 'pending')])).toBe(true);
     expect(circleFull([...eleven, member('i', 'Invited', 'invited')])).toBe(true);
+  });
+});
+
+describe('sharedWeek', () => {
+  const full = { focusMs: 3 * HOUR, socialMs: 5 * HOUR, habitsDone: 4, habitsTarget: 5 };
+
+  it('shares focus and habits by default, and never social', () => {
+    expect(sharedWeek(full, DEFAULT_SHARE_PREFS)).toEqual({
+      focusMs: 3 * HOUR,
+      socialMs: null,
+      habitsDone: 4,
+      habitsTarget: 5,
+    });
+  });
+
+  it('keeps back the focus hours when that switch is off', () => {
+    // The defect this guards against: only `social` was ever consulted, so a user who
+    // turned focus off went on sharing it (ADR-0021 §4).
+    const out = sharedWeek(full, { focus: false, habits: true, social: false });
+    expect(out.focusMs).toBeNull();
+    expect(out.habitsDone).toBe(4);
+  });
+
+  it('keeps back both habit numbers together, never one of the two', () => {
+    const out = sharedWeek(full, { focus: true, habits: false, social: false });
+    expect(out.habitsDone).toBeNull();
+    expect(out.habitsTarget).toBeNull();
+    expect(out.focusMs).toBe(3 * HOUR);
+  });
+
+  it('shares social only when it is switched on', () => {
+    expect(sharedWeek(full, { focus: true, habits: true, social: true }).socialMs).toBe(5 * HOUR);
+    expect(sharedWeek(full, { focus: true, habits: true, social: false }).socialMs).toBeNull();
+  });
+
+  it('with everything off, nothing at all leaves the phone', () => {
+    expect(sharedWeek(full, { focus: false, habits: false, social: false })).toEqual({
+      focusMs: null,
+      socialMs: null,
+      habitsDone: null,
+      habitsTarget: null,
+    });
+  });
+
+  it('passes a metric the user has none of through as it is, not as null', () => {
+    // Zero focus is a fact and is shared; null means "not shared". They must not blur.
+    const empty = { focusMs: 0, socialMs: 0, habitsDone: 0, habitsTarget: 0 };
+    expect(sharedWeek(empty, DEFAULT_SHARE_PREFS).focusMs).toBe(0);
   });
 });

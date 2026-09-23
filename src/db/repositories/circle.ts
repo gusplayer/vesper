@@ -71,10 +71,10 @@ export function removeMember(id: string): void {
 type MemberWeekRow = {
   member_id: string;
   week_key: string;
-  focus_ms: number;
+  focus_ms: number | null;
   social_ms: number | null;
-  habits_done: number;
-  habits_target: number;
+  habits_done: number | null;
+  habits_target: number | null;
   updated_at: number;
 };
 

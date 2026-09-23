@@ -206,11 +206,13 @@ export type MemberWeek = {
   memberId: string;
   /** The DayKey of that week's Monday. */
   weekKey: DayKey;
-  focusMs: number;
+  /** Null when that person does not share their focus hours (ADR-0021 §4). */
+  focusMs: number | null;
   /** Estimated floor, null when the member does not share it. Never summed — ADR-0005. */
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  /** Null as a pair when that person does not share their habits and challenges. */
+  habitsDone: number | null;
+  habitsTarget: number | null;
   updatedAt: Millis;
 };
 

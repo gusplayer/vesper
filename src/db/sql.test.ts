@@ -54,11 +54,32 @@ describe('splitStatements', () => {
       const statements = splitStatements(migration.sql);
 
       expect(statements.length).toBeGreaterThan(0);
+      // SQLite cannot drop a NOT NULL, so loosening one means rebuilding the table:
+      // create `<name>_new`, copy, drop the old, rename. The INSERT and the DROP of
+      // that dance are allowed only inside a migration that does the whole dance, so a
+      // stray DROP TABLE still fails this test.
+      const rebuilds = statements.some((s) => /^CREATE TABLE \w+_new /.test(s)) &&
+        statements.some((s) => /^ALTER TABLE \w+_new RENAME TO /.test(s));
       for (const statement of statements) {
         // An UPDATE only ever fills a column the same migration just added (007).
-        expect(
-          statement.startsWith('CREATE ') || statement.startsWith('ALTER TABLE ') || statement.startsWith('UPDATE '),
-        ).toBe(true);
+        const additive =
+          statement.startsWith('CREATE ') || statement.startsWith('ALTER TABLE ') || statement.startsWith('UPDATE ');
+        const partOfRebuild =
+          rebuilds && (statement.startsWith('INSERT INTO ') || statement.startsWith('DROP TABLE '));
+        expect(additive || partOfRebuild).toBe(true);
+      }
+    }
+  });
+
+  it('never drops a table except as part of a rebuild that puts it back', () => {
+    for (const migration of migrations) {
+      const statements = splitStatements(migration.sql);
+      for (const statement of statements) {
+        const dropped = /^DROP TABLE (\w+)/.exec(statement)?.[1];
+        if (dropped === undefined) {
+          continue;
+        }
+        expect(statements).toContain(`ALTER TABLE ${dropped}_new RENAME TO ${dropped}`);
       }
     }
   });

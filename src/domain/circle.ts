@@ -79,21 +79,41 @@ export type CircleWeekRow = {
   name: string;
   handle: string;
   isMe: boolean;
-  focusMs: number;
+  /** Null when that person does not share their focus hours. */
+  focusMs: number | null;
   /** Estimated floor, null when not shared. Shown on its own line, never summed. */
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  /** Null as a pair when that person does not share their habits and challenges. */
+  habitsDone: number | null;
+  habitsTarget: number | null;
   /** False for a member with no MemberWeek row for that week. Sorted last. */
   hasData: boolean;
 };
 
 export type MyWeek = {
-  focusMs: number;
+  focusMs: number | null;
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  habitsDone: number | null;
+  habitsTarget: number | null;
 };
+
+/**
+ * The user's week with the share preferences applied: what is switched off reads null
+ * and never leaves the phone (ADR-0021 §4, "lo que no compartes no sale del teléfono").
+ *
+ * This is the piece the three switches in Ajustes › Círculo were always supposed to
+ * pass through. Until now only `social` had a consumer, so a user who turned focus or
+ * habits off kept sharing them — a promise written on screen that the code did not
+ * keep. It is pure and tested here so the sync, when it exists, cannot forget it either.
+ */
+export function sharedWeek(week: MyWeek, prefs: SharePrefs): MyWeek {
+  return {
+    focusMs: prefs.focus ? week.focusMs : null,
+    socialMs: prefs.social ? week.socialMs : null,
+    habitsDone: prefs.habits ? week.habitsDone : null,
+    habitsTarget: prefs.habits ? week.habitsTarget : null,
+  };
+}
 
 /**
  * The circle's week: members with status 'member' plus the user, sorted by focus,
@@ -128,19 +148,23 @@ export function circleWeek(
       name: member.name,
       handle: member.handle,
       isMe: false,
-      focusMs: week?.focusMs ?? 0,
+      focusMs: week?.focusMs ?? null,
       socialMs: week?.socialMs ?? null,
-      habitsDone: week?.habitsDone ?? 0,
-      habitsTarget: week?.habitsTarget ?? 0,
+      habitsDone: week?.habitsDone ?? null,
+      habitsTarget: week?.habitsTarget ?? null,
       hasData: week !== undefined,
     });
   }
-  // Array.prototype.sort is stable: ties keep the input order, the user first.
+  // Array.prototype.sort is stable: ties keep the input order, the user first. Someone
+  // who does not share their hours has nothing to sort by and goes with the rows that
+  // have no data — sorting them as zero would read as "did nothing this week".
   return rows.sort((a, b) => {
-    if (a.hasData !== b.hasData) {
-      return a.hasData ? -1 : 1;
+    const aHas = a.hasData && a.focusMs !== null;
+    const bHas = b.hasData && b.focusMs !== null;
+    if (aHas !== bHas) {
+      return aHas ? -1 : 1;
     }
-    return b.focusMs - a.focusMs;
+    return (b.focusMs ?? 0) - (a.focusMs ?? 0);
   });
 }
 
