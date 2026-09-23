@@ -53,20 +53,24 @@ class ShieldActivity : Activity() {
 
     private var current: WeakReference<ShieldActivity>? = null
 
-    fun open(context: Context, copy: ShieldCopy, releaseLine: String?) {
+    /** True when the activity was started; false when the system refused it. */
+    fun open(context: Context, copy: ShieldCopy, releaseLine: String?): Boolean {
       val intent = Intent(context, ShieldActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
         .putExtra(EXTRA_TITLE, copy.title)
         .putExtra(EXTRA_SUBTITLE, copy.subtitle)
         .putExtra(EXTRA_BUTTON, copy.button)
         .putExtra(EXTRA_RELEASE, releaseLine)
-      try {
+      return try {
         context.startActivity(intent)
         Log.i(TAG, "shield up (activity)")
+        true
       } catch (error: Exception) {
         // Background activity starts are restricted on Android 10+; without the overlay
-        // permission this can be refused too. Nothing more to try this tick.
+        // permission this can be refused too. Nothing more to try this tick; the caller
+        // leaves `isShowing` false so the next tick tries again.
         Log.w(TAG, "ShieldActivity refused: ${error.message}")
+        false
       }
     }
 

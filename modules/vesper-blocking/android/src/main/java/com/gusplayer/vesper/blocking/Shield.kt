@@ -32,6 +32,9 @@ import java.util.Date
  *
  * Everything runs on the main thread. The service and the activity both talk to this
  * singleton, so `isShowing` is the one truth the JS `isShielding()` reads.
+ *
+ * The overlay keeps the screen on for [AWAKE_MS] after it goes up, and no longer: see
+ * [letScreenSleepNow].
  */
 object Shield {
   private const val TAG = "VesperBlocking"
@@ -49,6 +52,7 @@ object Shield {
   private val main = Handler(Looper.getMainLooper())
   private var overlay: View? = null
   private var windowManager: WindowManager? = null
+  private val letScreenSleep = Runnable { letScreenSleepNow() }
 
   @Volatile
   var isShowing: Boolean = false
@@ -85,7 +89,9 @@ object Shield {
       // addView would succeed and the window would be silently kept off screen
       // (mForceHideNonSystemOverlayWindow); the activity is the only shield that shows.
       Log.i(TAG, "$blockedPackage hides overlays; using ShieldActivity")
-      ShieldActivity.open(context, copy, releaseLine)
+      // Nothing is up if the start was refused: `isShowing` has to say so, or every
+      // later tick returns early and the session runs with no shield at all.
+      isShowing = ShieldActivity.open(context, copy, releaseLine)
       return
     }
     val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -94,13 +100,41 @@ object Shield {
       wm.addView(view, overlayParams())
       overlay = view
       windowManager = wm
+      main.postDelayed(letScreenSleep, AWAKE_MS)
       Log.i(TAG, "shield up (overlay)")
     } catch (error: Exception) {
       // WindowManager.BadTokenException without the permission, SecurityException on
       // some OEMs. The activity is the fallback; it looks the same.
       Log.w(TAG, "overlay refused (${error.javaClass.simpleName}); falling back to ShieldActivity")
-      ShieldActivity.open(context, copy, releaseLine)
+      isShowing = ShieldActivity.open(context, copy, releaseLine)
     }
+  }
+
+  /**
+   * Takes FLAG_KEEP_SCREEN_ON off the overlay once the shield has been up for
+   * [AWAKE_MS].
+   *
+   * The flag went in with phase 1 (ADR-0019) without a reason of its own: the shield
+   * appears without the user asking for it, so it has to survive the seconds left on a
+   * short display timeout, or the user taps the app and finds a black screen. That
+   * reason lasts half a minute. Keeping the flag for the whole session meant a
+   * full-brightness screen for as long as the plan ran — up to the 12 h cap of an open
+   * session — on a static image, with ACTION_SCREEN_OFF never arriving, so
+   * ForegroundWatcher also went on polling queryEvents every 800 ms. After the grace
+   * the display sleeps on its own timeout; a touch on the shield restarts it, the way
+   * any other window behaves, and the watcher stops with the screen.
+   */
+  private fun letScreenSleepNow() {
+    val view = overlay ?: return
+    val wm = windowManager ?: return
+    val params = view.layoutParams as? WindowManager.LayoutParams ?: return
+    if (params.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON == 0) {
+      return
+    }
+    params.flags = params.flags and WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON.inv()
+    runCatching { wm.updateViewLayout(view, params) }
+      .onSuccess { Log.i(TAG, "shield stopped keeping the screen on") }
+      .onFailure { Log.w(TAG, "could not drop KEEP_SCREEN_ON: ${it.message}") }
   }
 
   private fun hideNow() {
@@ -108,6 +142,7 @@ object Shield {
       return
     }
     isShowing = false
+    main.removeCallbacks(letScreenSleep)
     overlay?.let { view ->
       runCatching { windowManager?.removeViewImmediate(view) }
     }
@@ -141,6 +176,11 @@ object Shield {
     hideNow()
   }
 
+  /**
+   * FLAG_KEEP_SCREEN_ON is here only for the first [AWAKE_MS]; [letScreenSleepNow]
+   * takes it away. It must never outlive the grace: the shield is a static image over
+   * a session that can last hours.
+   */
   private fun overlayParams(): WindowManager.LayoutParams {
     val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -263,4 +303,7 @@ object Shield {
 
   private fun dp(context: Context, value: Float): Int =
     TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, context.resources.displayMetrics).toInt()
+
+  /** How long the shield keeps the screen awake after it goes up. */
+  private const val AWAKE_MS = 30_000L
 }
