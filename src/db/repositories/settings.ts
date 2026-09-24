@@ -1,4 +1,4 @@
-import type { NotificationPrefs, Rules, Settings } from '../../data/types';
+import type { CircleAccount, NotificationPrefs, Rules, Settings } from '../../data/types';
 import { DEFAULT_SHARE_PREFS } from '../../domain/circle';
 import type { Profile, SharePrefs } from '../../domain/types';
 import { getDb } from '../client';
@@ -23,6 +23,16 @@ export const SETTING_KEYS = {
   circleProfile: 'circle_profile',
   /** What the user shares with the circle, JSON. Missing reads as the defaults. */
   circleShare: 'circle_share',
+  /**
+   * That an account exists on the circle's server, JSON `{ id, createdAt }`. The id is
+   * `circle_profile.id`. Absent until the user invites someone or uses a code
+   * (ADR-0044 §2). The secret is not here: it lives in the keychain.
+   */
+  circleAccount: 'circle_account',
+  /** The sync cursor: `now` from the last `POST /sync`. Missing reads as 0. */
+  circleSyncSince: 'circle_sync_since',
+  /** When the server last answered, epoch ms. Missing means it never has. */
+  circleSyncedAt: 'circle_synced_at',
 } as const;
 
 export function get(key: string): string | null {
@@ -235,4 +245,57 @@ export function getSharePrefs(defaults: SharePrefs = DEFAULT_SHARE_PREFS): Share
 
 export function setSharePrefs(prefs: SharePrefs, now: number): void {
   setJson(SETTING_KEYS.circleShare, prefs, now);
+}
+
+// --- The circle's account (ADR-0044) -------------------------------------------------
+
+/**
+ * A stored account marker, or null. Only the id and when it was created: the secret is
+ * in the keychain, and a marker without a usable id is no account at all.
+ */
+export function parseAccount(raw: unknown): CircleAccount | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const { id, createdAt } = raw;
+  if (typeof id !== 'string' || id.length === 0) {
+    return null;
+  }
+  return { id, createdAt: typeof createdAt === 'number' && Number.isFinite(createdAt) ? createdAt : 0 };
+}
+
+export function getAccount(): CircleAccount | null {
+  return parseAccount(getJson<unknown>(SETTING_KEYS.circleAccount));
+}
+
+export function setAccount(account: CircleAccount, now: number): void {
+  setJson(SETTING_KEYS.circleAccount, account, now);
+}
+
+/** Deleting the account: the marker, the cursor and the stamp go together. */
+export function clearAccount(): void {
+  const db = getDb();
+  for (const key of [SETTING_KEYS.circleAccount, SETTING_KEYS.circleSyncSince, SETTING_KEYS.circleSyncedAt]) {
+    db.executeSync('DELETE FROM settings WHERE key = ?', [key]);
+  }
+}
+
+/** The sync cursor. A missing or unreadable one is 0: ask the server for everything. */
+export function getSyncSince(): number {
+  const since = getNumber(SETTING_KEYS.circleSyncSince);
+  return since !== null && since >= 0 ? since : 0;
+}
+
+/**
+ * Moves the cursor and stamps the success in one write each. Only ever called after a
+ * `/sync` that answered: a failed sync leaves the cursor where it was, so nothing
+ * another phone wrote is skipped (ADR-0044 §5).
+ */
+export function setSynced(since: number, now: number): void {
+  setNumber(SETTING_KEYS.circleSyncSince, since, now);
+  setNumber(SETTING_KEYS.circleSyncedAt, now, now);
+}
+
+export function getSyncedAt(): number | null {
+  return getNumber(SETTING_KEYS.circleSyncedAt);
 }

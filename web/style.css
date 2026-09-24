@@ -188,3 +188,51 @@ p.quiet {
 footer {
   margin-top: 8px;
 }
+
+/*
+ * The legal pages (ADR-0046): both languages live in the page and legal.js hides one.
+ * A `section` is a flex child of `main`, which centres its children, so without a width
+ * it shrinks to its text and the cards stop lining up with the ones above the rule.
+ */
+main > section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+main > section[hidden],
+main > hr[hidden] {
+  display: none;
+}
+
+/* Lists inside a card: the only text on these pages that is not centred, because a
+   bulleted line that is centred is unreadable. */
+.card ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 15px;
+  color: var(--ink-secondary);
+  text-align: left;
+  text-wrap: pretty;
+}
+
+.card li + li {
+  margin-top: 6px;
+}
+
+/* Links read as ink with a quiet underline: no blue, no new colour. */
+main a:not(.button) {
+  color: var(--ink);
+  text-decoration-color: var(--ink-tertiary);
+  text-underline-offset: 3px;
+}
+
+/* The language switch legal.js appends: one word, the size of the quiet lines. */
+main a.switch {
+  font-size: 14px;
+  color: var(--ink-tertiary);
+  text-decoration-color: var(--ink-tertiary);
+  text-underline-offset: 3px;
+}

@@ -21,6 +21,14 @@ const unavailable = 'Todavía no hay conexión con otros teléfonos. Lo que ves 
 export const circle = {
   sync: {
     unavailable,
+    /** Hay cuenta, pero el servidor todavía no ha contestado ni una vez. */
+    pending: 'Tu círculo se sincroniza cuando haya conexión.',
+    /** 'Sincronizado el 24/09/26, 3:20 p. m.' */
+    synced: (when: string) => `Sincronizado el ${when}.`,
+    /** No se pudo, y nunca se había podido. */
+    failedNever: 'No se pudo sincronizar. Lo que ves es lo de este teléfono.',
+    /** No se pudo, y la última vez que sí fue esta. */
+    failed: (when: string) => `No se pudo sincronizar. La última vez fue el ${when}.`,
   },
   /** The section at the end of Actividad › Semanal. */
   section: {
@@ -43,6 +51,8 @@ export const circle = {
     /** 'redes · 2h (estimado)'. An estimated floor on its own line, never summed (ADR-0005). */
     social: (hours: string) => `redes · ${hours} (estimado)`,
     noData: 'sin datos esta semana',
+    /** Null is "not shared", never zero: zero diría que no hizo nada (ADR-0033). */
+    notShared: 'no comparte esta cifra',
     kudos: 'Dar ánimo',
     kudosSent: 'Enviado',
   },
@@ -168,7 +178,7 @@ export const circle = {
     nudge: 'Empujar',
     nudged: 'Enviado',
     nudgeA11y: (name: string) => `Empujar a ${name}`,
-    nudgeHint: 'Un empujón al día por persona. Llega cuando exista el servidor.',
+    nudgeHint: 'Un empujón al día por persona. Le llega cuando tu círculo se sincroniza, nunca en medio de una sesión.',
     /** 'Ana te empujó hoy.', 'Ana y Luis te empujaron hoy.' */
     nudgedYou: (names: readonly string[]) =>
       names.length === 1 ? `${names[0]} te empujó hoy.` : `${joinNames(names)} te empujaron hoy.`,
@@ -228,14 +238,50 @@ export const circle = {
     codeField: 'Código',
     codePlaceholder: 'seis letras o números',
     send: 'Pedir entrar a su círculo',
-    /** What `invite` answers. Nothing is verified: there is no server to ask. */
+    /**
+     * Lo que contesta pedir entrar (ADR-0044). Las tres primeras se saben en el
+     * teléfono; las demás las contesta el servidor. Ninguna abre un modal: son una
+     * línea debajo del campo (ADR-0044 §5).
+     */
     result: {
       /** Not shaped like a code. Says what one looks like, never that it "does not exist". */
       invalid: 'Un código son seis letras o números.',
       self: 'Ese es tu propio código.',
-      /** A well-formed code nobody can look up yet: the platform's own reason. */
-      unavailable,
+      full: 'Tu círculo está lleno. Quita a alguien para pedir entrar a otro.',
+      noProfile: 'Primero crea tu perfil en Ajustes › Círculo.',
+      /** Salió. La otra persona todavía tiene que aceptar. */
+      sent: 'Listo. La otra persona decide si te acepta.',
+      /** Ya se habían invitado en el otro sentido: el vínculo ya estaba. */
+      alreadyMember: 'Ya están en el mismo círculo.',
+      unknownCode: 'Ese código no existe o ya no funciona.',
+      /** El servidor confirma lo que el teléfono no pudo: el código es del que pregunta. */
+      ownCode: 'Ese es tu propio código.',
+      /** 429: el servidor solo deja unos pocos intentos por hora. */
+      tooMany: 'Demasiados intentos. Espera un rato y vuelve a probar.',
+      /** El llavero del teléfono no guarda la clave: no es falta de conexión (regla 8). */
+      noKeychain: 'Este teléfono no puede guardar la clave de tu cuenta, así que no se creó ninguna.',
+      handleTaken: 'Tu alias ya es de otra persona. Elige otro para poder pedir entrar.',
+      offline: 'Sin conexión. Vuelve a intentar cuando la tengas.',
     },
+    /** Mientras el servidor reserva tu código. */
+    preparing: 'Preparando tu invitación…',
+    /**
+     * Por qué tu código todavía no sirve (ADR-0044 §2). Aparece en lugar del QR:
+     * un código que nadie puede usar no se muestra como si funcionara.
+     */
+    problem: {
+      offline: 'Sin conexión. Tu código todavía no funciona para nadie más.',
+      busy: 'Demasiados intentos. Espera un rato y vuelve a abrir esta pantalla.',
+      handleTaken: 'Tu alias ya es de otra persona. Elige otro y tu código empieza a funcionar.',
+      noKeychain: 'Este teléfono no puede guardar la clave de tu cuenta, así que no se creó ninguna.',
+      lostKey: 'Ya hay una cuenta con este perfil y este teléfono no tiene su clave de respaldo. Sin ella no se puede usar.',
+      codeTaken: 'Tu código ya es de otra persona. Genera uno nuevo y vuelve a intentar.',
+      server: 'El servidor no pudo crear tu cuenta. Inténtalo más tarde.',
+      noProfile: 'Primero crea tu perfil en Ajustes › Círculo.',
+    },
+    changeHandle: 'Cambiar tu alias',
+    /** El botón de compartir, mientras la cuenta nace. */
+    sharing: 'Preparando…',
     pending: 'Quieren entrar a tu círculo',
     /** Under the name of someone who used the user's code. */
     invitedYou: 'usó tu código',
@@ -250,7 +296,11 @@ export const circle = {
     removeQuestion: (name: string) => `¿Quitar a ${name} de tu círculo?`,
     removeMessage: 'Deja de ver tus números y tú los suyos. Sus marcas en los retos se borran.',
     removeConfirm: 'Quitar',
-    prototypeNote: 'En el prototipo nadie recibe la solicitud.',
+    /**
+     * Ya no es un prototipo: la solicitud sale de verdad (ADR-0044). Lo que todavía
+     * no existe es el aviso, que es la otra mitad de ADR-0037.
+     */
+    prototypeNote: 'La solicitud llega al otro teléfono cuando se sincroniza. Todavía no le suena un aviso.',
   },
   /** circle/join: where an invite link lands. */
   join: {
@@ -263,6 +313,28 @@ export const circle = {
     noProfileTitle: 'Primero crea tu perfil.',
     noProfileBody: 'Un nombre y un alias, en este teléfono. Luego vuelve a tocar el link.',
     createProfile: 'Crear tu perfil',
+  },
+  /**
+   * La frase que arma el teléfono cuando llega un push del círculo (ADR-0037). Del
+   * servidor viajan quién, qué y cuándo; ninguna palabra. El nombre es el que el
+   * círculo ya sincronizó, y '@alias' cuando todavía no conoce a esa persona —que es
+   * justo el caso de una invitación—. El nombre del reto no viaja: quien recibe el
+   * empujón ya está en él.
+   */
+  push: {
+    nudge: {
+      /** 'Ana te empuja', '@ana te empuja'. */
+      title: (name: string) => `${name} te empuja`,
+      body: 'Hoy no has marcado el reto.',
+    },
+    invite: {
+      title: (name: string) => `${name} quiere entrar a tu círculo`,
+      body: 'Puedes aceptar o no. Nada se comparte hasta que aceptes.',
+    },
+    accepted: {
+      title: (name: string) => `${name} entró a tu círculo`,
+      body: 'Ya se ven la semana.',
+    },
   },
   /** Ajustes › Círculo. */
   settings: {
@@ -285,5 +357,26 @@ export const circle = {
     leaveQuestion: '¿Salir del círculo?',
     leaveMessage: 'Se borran las personas, sus números, los ánimos y los retos. Tu perfil y tus hábitos se quedan.',
     leaveConfirm: 'Salir',
+    /** La clave de respaldo (ADR-0044 §3). Solo aparece cuando hay cuenta. */
+    backup: 'Clave de respaldo',
+    backupHint:
+      'Guárdala en tu gestor de contraseñas. Sin ella, reinstalar pierde tu círculo: no hay correo con el que recuperarlo.',
+    backupCopy: 'Copiar',
+    backupCopied: 'Copiada',
+    backupNone: 'Todavía no tienes cuenta. Aparece cuando invites a alguien o uses un código.',
+    deleteAccount: 'Borrar la cuenta',
+    deleteQuestion: '¿Borrar tu cuenta del círculo?',
+    deleteMessage:
+      'Se borran tus datos del servidor y tu clave de este teléfono. La app sigue funcionando entera, sin círculo.',
+    deleteConfirm: 'Borrar',
+    deleteFailed: 'No se pudo borrar la cuenta. Inténtalo cuando haya conexión.',
+    /**
+     * "Borrar todo y reiniciar" sin red: la base se vacía igual y la clave sale del
+     * llavero, pero la cuenta sigue en el servidor y ya no hay con qué borrarla.
+     * Se dice en voz alta, no en una nota al pie (ADR-0044 §7).
+     */
+    resetLeftAccountTitle: 'Tu cuenta del círculo sigue en el servidor',
+    resetLeftAccount:
+      'No había conexión para borrarla. Este teléfono ya no tiene su clave, así que nadie volverá a entrar con ella.',
   },
 };

@@ -1,5 +1,6 @@
 import type { CircleWeekRow } from '../../data';
 import { Avatar, Chip, ListRow } from '../../design/components';
+import { metricState } from '../../domain/circle';
 import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 
@@ -18,9 +19,15 @@ type MemberRowProps = {
  */
 export function MemberRow({ row, kudosGiven, onKudos }: MemberRowProps) {
   const t = useStrings().circle.member;
-  const lines = [`${t.handle(row.handle)} · ${row.hasData ? t.focus(durationText(row.focusMs)) : t.noData}`];
-  if (row.hasData && row.socialMs !== null) {
-    lines.push(t.social(durationText(row.socialMs)));
+  // Three states, not two: a shared zero is a real empty week, a null is a number its
+  // owner keeps, and no row at all is an absence. Collapsing the last two would print
+  // "0 min" over someone who simply did not publish (ADR-0033, migration 010).
+  const focus = metricState(row.focusMs, row.hasData);
+  const focusText =
+    focus === 'shared' ? t.focus(durationText(row.focusMs ?? 0)) : focus === 'private' ? t.notShared : t.noData;
+  const lines = [`${t.handle(row.handle)} · ${focusText}`];
+  if (metricState(row.socialMs, row.hasData) === 'shared') {
+    lines.push(t.social(durationText(row.socialMs ?? 0)));
   }
   return (
     <ListRow

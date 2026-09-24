@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useApps, useAppStore } from '../../data';
 import { useModeDraftStore } from '../../data/modeDraft';
@@ -14,6 +14,7 @@ import {
   selectionSummaryText,
   status as blockingStatus,
 } from '../../platform/blocking';
+import { isAndroid } from '../../platform/capabilities';
 
 /**
  * Picks the apps of the mode draft. From onboarding (`onboarding=1`) it writes into
@@ -22,6 +23,11 @@ import {
  * With `native=1` it shows Apple's own picker instead of the catalogue: the result is
  * an opaque Screen Time token stored on the mode, never a list of names (ADR-0004).
  * Where Screen Time is missing the screen says why and offers the way back.
+ *
+ * Android grants usage access outside the app, so the same screen also offers the way
+ * in: the disclosure Play requires (`usage-access`, ADR-0046 §2) and, on the way back,
+ * a fresh read of `status()`. It is offered only when the access is what is missing —
+ * a build without the blocking module has nothing to grant.
  */
 export default function ModeAppsScreen() {
   const router = useRouter();
@@ -70,6 +76,16 @@ export default function ModeAppsScreen() {
     };
   }, [nativePicker, reason]);
 
+  // Android answers this in Settings, not in a dialog: whatever the user did over
+  // there, the screen re-reads it the moment it comes back into view.
+  useFocusEffect(
+    useCallback(() => {
+      if (isAndroid) {
+        setReason(blockingStatus().reason);
+      }
+    }, []),
+  );
+
   if (!nativePicker) {
     // The catalogue is a list of names, never a block: where the device cannot block
     // for real, the picker says so instead of letting the list pass for one (rule 8).
@@ -102,12 +118,26 @@ export default function ModeAppsScreen() {
   };
 
   if (reason !== null) {
+    // Only the two Android toggles can be granted from here; every other reason
+    // (no module, no entitlement, a simulator) is a fact, not a permission.
+    const canGrant =
+      isAndroid &&
+      (reason === t.modes.blocking.androidNoUsageAccess || reason === t.modes.blocking.androidNoOverlay);
     return (
-      <Screen footer={<Button variant="ghost" label={t.common.back} onPress={() => router.back()} />}>
+      <Screen
+        footer={
+          <>
+            {canGrant ? (
+              <Button label={t.modes.usageAccess.grant} onPress={() => router.push('/usage-access')} />
+            ) : null}
+            <Button variant="ghost" label={t.common.back} onPress={() => router.back()} />
+          </>
+        }
+      >
         <PageHeader onBack={() => router.back()} title={t.modes.apps.realTitle} />
         <Card>
           <Stack gap="xs">
-            <Text variant="heading">{t.modes.apps.unavailable}</Text>
+            <Text variant="heading">{canGrant ? t.modes.usageAccess.title : t.modes.apps.unavailable}</Text>
             <Text variant="label" tone="secondary">
               {reason}
             </Text>

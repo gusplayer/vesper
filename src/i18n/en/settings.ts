@@ -79,8 +79,12 @@ export const settings: typeof shape = {
     title: 'About Vesper',
     version: (number) => `Version ${number}`,
     body: 'Vesper measures the time you invest, not the time you consume. What you do with focus, what Health verifies and what the phone estimates live in separate columns and are never added up. The idea is that you see your time as something you allocate, not something you lose.',
+    terms: 'Terms of use',
+    privacy: 'Privacy',
+    legalNote: 'They open in your browser.',
+    linkFailed: 'The browser could not be opened.',
     prototypeNote:
-      'Vesper starts with sample data so it is not empty. You can erase it from Settings. The circle does not talk to anyone else yet.',
+      'Vesper starts with sample data so it is not empty. You can erase it from Settings. The circle only syncs once you invite someone.',
   },
   emergency: {
     title: 'Emergency unlock',
@@ -94,7 +98,7 @@ export const settings: typeof shape = {
     title: 'Health',
     blocks: {
       how: { title: 'How you use it', text: 'Verified habits mark themselves: gym, steps, sleep. You touch nothing.' },
-      privacy: { title: 'How we use it', text: 'What Health shares never leaves the phone. There is no account or server.' },
+      privacy: { title: 'How we use it', text: 'What Health shares never leaves the phone. Vesper only reads; it never writes to Health.' },
       why: {
         title: 'Why it matters',
         text: 'A habit that marks itself is not up for debate. Verified and declared time are never added up.',
@@ -104,7 +108,7 @@ export const settings: typeof shape = {
     connect: 'Connect Health',
     connecting: 'Connecting…',
     disconnect: 'Disconnect',
-    syncNote: 'Health is read when the app opens and every 15 minutes. Nothing leaves the phone.',
+    syncNote: 'Health is read when the app opens and every 15 minutes. No Health data leaves the phone.',
     install: 'Install Health Connect',
     healthConnectNote:
       'On Android, Health is read from Health Connect. If you do not see your steps, open Health Connect and link Samsung Health, Fit or your watch.',
@@ -135,7 +139,8 @@ export const settings: typeof shape = {
       },
       {
         question: 'Does Vesper upload my data?',
-        answer: 'No. There is no account or server. Everything lives on this phone.',
+        answer:
+          'Almost nothing. Your sessions, modes, habits and anything from Health live only on this phone. The only thing that leaves is what you share with your circle, and only if you turn it on.',
       },
     ],
     footer: 'Something else? There is nowhere to write yet.',
@@ -215,8 +220,8 @@ export const settings: typeof shape = {
     dailyCaption:
       'At most two notices a day besides the session and routine ones, from that hour on and a few minutes apart. Nothing between 22:00 and 8:00, and never during a session.',
     nudges: {
-      label: 'Nudges',
-      description: 'When someone in your circle nudges you on a challenge. Arrives once there is a server.',
+      label: 'Circle notices',
+      description: 'When someone nudges you on a challenge, asks to join your circle, or accepts you into theirs. Never during a session.',
     },
     updates: { label: 'Important news', description: 'Changes worth knowing about' },
   },

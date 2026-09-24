@@ -34,7 +34,9 @@ sigue vigente y cuál fue superado.
    vuelve a claro. Nunca `#000` ni `#fff`.
 6. **Sin animaciones de spring, escala o parallax.** Fade de 160 ms entre rutas, sin rebote
    de scroll. Lo único que se anima es opacidad (disoluciones, grilla, respiración).
-7. **Local-first.** La app funciona completa sin red y sin cuenta. No agregues backend sin ADR.
+7. **Local-first.** Todo funciona sin red y sin cuenta, salvo el círculo, que desde
+   ADR-0044 tiene cuenta por dispositivo —sin correo, secreto en el llavero— que **nace
+   solo al invitar a alguien o usar un código**. Nada más viaja. No agregues backend sin ADR.
 8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un
    permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué
    no (ADR-0017). El onboarding puede pedirlos, pero nunca los exige (ADR-0026).

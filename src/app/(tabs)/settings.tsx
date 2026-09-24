@@ -21,10 +21,24 @@ export default function SettingsScreen() {
   const onOff = (flag: boolean) => (flag ? t.settings.tab.enabled : t.settings.tab.disabled);
   const languageValue = preference === 'auto' ? t.settings.language.auto : t.settings.language.names[preference];
 
+  /**
+   * The reset deletes the circle account before it empties the database (ADR-0044
+   * §7), so it has to be awaited. When there was no network to delete it with, the
+   * account outlives the phone's copy of it and that is said out loud: the app is
+   * already on its way to onboarding, so the only place left to say it is an alert.
+   */
+  const reset = () => {
+    void resetAndRehydrate(Date.now()).then((outcome) => {
+      if (outcome.accountLeft) {
+        Alert.alert(t.circle.settings.resetLeftAccountTitle, t.circle.settings.resetLeftAccount);
+      }
+    });
+  };
+
   const confirmReset = () => {
     Alert.alert(t.settings.tab.resetConfirmTitle, t.settings.tab.resetConfirmMessage, [
       { text: t.common.cancel, style: 'cancel' },
-      { text: t.settings.tab.resetConfirm, style: 'destructive', onPress: () => resetAndRehydrate(Date.now()) },
+      { text: t.settings.tab.resetConfirm, style: 'destructive', onPress: reset },
     ]);
   };
 

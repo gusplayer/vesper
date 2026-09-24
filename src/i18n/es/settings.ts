@@ -107,8 +107,13 @@ export const settings = {
     /** 'Versión 2026.9.1'. The number lives in code. */
     version: (number: string) => `Versión ${number}`,
     body: 'Vesper mide el tiempo que inviertes, no el que consumes. Lo que haces con foco, lo que verifica Salud y lo que el teléfono estima viven en columnas distintas y nunca se suman. La idea es que veas tu tiempo como algo que se asigna, no como algo que se pierde.',
+    /** The two texts live on the web, not in the app (ADR-0046). These rows open it. */
+    terms: 'Términos de uso',
+    privacy: 'Privacidad',
+    legalNote: 'Se abren en el navegador.',
+    linkFailed: 'No se pudo abrir el navegador.',
     prototypeNote:
-      'Vesper arranca con datos de ejemplo para que no la veas vacía. Puedes borrarlos desde Ajustes. El círculo todavía no habla con nadie más.',
+      'Vesper arranca con datos de ejemplo para que no la veas vacía. Puedes borrarlos desde Ajustes. El círculo se sincroniza solo cuando invitas a alguien.',
   },
   emergency: {
     title: 'Desbloqueo de emergencia',
@@ -124,7 +129,7 @@ export const settings = {
     title: 'Salud',
     blocks: {
       how: { title: 'Cómo lo usas', text: 'Los hábitos verificados se marcan solos: gym, pasos, sueño. Tú no tocas nada.' },
-      privacy: { title: 'Cómo lo usamos', text: 'Lo que Salud comparte nunca sale del teléfono. No hay cuenta ni servidor.' },
+      privacy: { title: 'Cómo lo usamos', text: 'Lo que Salud comparte nunca sale del teléfono. Vesper solo lee; nunca escribe en Salud.' },
       why: {
         title: 'Por qué importa',
         text: 'Un hábito que se marca solo no se discute. Lo verificado y lo declarado nunca se suman.',
@@ -134,7 +139,7 @@ export const settings = {
     connect: 'Conectar Salud',
     connecting: 'Conectando…',
     disconnect: 'Desconectar',
-    syncNote: 'Salud se lee al abrir la app y cada 15 minutos. Nada sale del teléfono.',
+    syncNote: 'Salud se lee al abrir la app y cada 15 minutos. Ningún dato de Salud sale del teléfono.',
     /** Android: Health Connect, not the app, holds what is read (ADR-0043). */
     install: 'Instalar Health Connect',
     healthConnectNote:
@@ -166,7 +171,8 @@ export const settings = {
       },
       {
         question: '¿Vesper sube mis datos?',
-        answer: 'No. No hay cuenta ni servidor. Todo vive en este teléfono.',
+        answer:
+          'Casi nada. Tus sesiones, modos, hábitos y lo que viene de Salud viven solo en este teléfono. Lo único que sale es lo que compartes con tu círculo, y solo si lo enciendes.',
       },
     ],
     footer: '¿Otra cosa? Todavía no hay a dónde escribir.',
@@ -258,8 +264,8 @@ export const settings = {
     dailyCaption:
       'Máximo dos avisos al día fuera de la sesión y la rutina, desde esa hora y con unos minutos entre uno y otro. Nada entre 22:00 y 8:00, y nunca durante una sesión.',
     nudges: {
-      label: 'Empujones',
-      description: 'Cuando alguien de tu círculo te empuja en un reto. Llega cuando exista el servidor.',
+      label: 'Avisos del círculo',
+      description: 'Cuando alguien te empuja en un reto, pide entrar a tu círculo o te acepta en el suyo. Nunca durante una sesión.',
     },
     updates: { label: 'Novedades importantes', description: 'Cambios que vale la pena saber' },
   },

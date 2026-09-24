@@ -112,13 +112,17 @@ enlace y pegar la URL. Los fotogramas clave están en `docs/media/android-*.png`
   `Settings.ACTION_USAGE_ACCESS_SETTINGS` y comprueba al volver. Solo se pide cuando el
   usuario entra a "Apps reales (Tiempo de uso)" dentro de un modo; nunca en el arranque.
 - **Divulgación destacada (obligatoria antes de mandar a Ajustes, política de datos del
-  usuario):** una pantalla propia, no un `Alert`, con este texto y un solo botón que abre
-  Ajustes. Hoy `requestAuthorization()` abre Ajustes directamente: hay que anteponer esta
-  pantalla antes de publicar.
+  usuario):** **existe desde ADR-0046**, como la ruta `/usage-access` (`src/app/usage-access.tsx`):
+  una pantalla propia, no un `Alert`, con tres bloques —los dos propósitos por separado y
+  la privacidad—, un botón que abre Ajustes y una salida. Se antepone en los dos sitios
+  que piden el permiso: el paso de onboarding y "Apps reales" dentro de un modo. En iOS no
+  se muestra.
 
   > **Vesper needs Usage access.** Vesper uses it for two things: during a focus session it checks which app is on screen, so it can show the reminder when you open one of the apps you chose; and in the Activity tab it shows how long each of those apps was in front today and this week. Both are processed on your phone and never leave it. Vesper stores no history of the apps you use: it asks the system each time and shows the answer.
 
-  > **Vesper necesita el acceso de uso.** Durante una sesión de foco, Vesper comprueba qué app está en pantalla para mostrarte el recordatorio cuando abres una de las apps que elegiste. Esa información se usa solo para eso, se procesa en tu teléfono y nunca sale de él. Vesper no guarda historial de las apps que usas.
+  > **Vesper necesita el acceso a datos de uso.** Durante una sesión: Vesper mira qué app está al frente para cubrirla con el recordatorio cuando abres una de las que elegiste; la compara con tu lista y la suelta. En la pestaña Actividad: con la app abierta y sin sesión corriendo, Vesper le pregunta al sistema cuánto estuvo al frente hoy y esta semana cada app que elegiste, y te muestra el desglose. Nada de esto sale de tu teléfono y no va a ningún servidor. Vesper tampoco guarda historial de las apps que usas: se lo pregunta al sistema cada vez y muestra la respuesta.
+
+  (Es el texto que la pantalla muestra de verdad, en `modes.usageAccess` de los dos diccionarios.)
 
 - **Sin él:** `status()` responde "Falta el acceso de uso" y la pantalla lo dice; el resto
   de la app funciona igual.
@@ -293,7 +297,12 @@ entrenamiento o sueño. Lee solo la semana en curso, en el teléfono, con la app
 
 ## Pendientes antes de enviar
 
-- Pantalla de divulgación destacada antes de `requestAuthorization()` (b). Hoy no existe.
+- ~~Pantalla de divulgación destacada antes de `requestAuthorization()` (b).~~ Hecha
+  (ADR-0046, ruta `/usage-access`). **Sin caminar en un teléfono**: falta verla una vez en
+  Android desde el onboarding y desde Apps reales.
+- `SYSTEM_ALERT_WINDOW` tiene su divulgación escrita en este documento y **sin pantalla
+  propia**. No la exige la política de datos del usuario (no lee datos), así que se deja
+  fuera a propósito: un cuarto bloque diluiría la que Play sí lee.
 - Subir el video y reemplazar `<<VIDEO_URL>>` (a.5).
 - Publicar la política de privacidad con los tres tipos de Health Connect (f).
 - Verificar en el manifiesto fusionado del build de release que la lista de permisos sea

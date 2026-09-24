@@ -21,8 +21,13 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Bloqueo Android | módulo Expo local en Kotlin, `modules/vesper-blocking/` | Sin AccessibilityService (ADR-0019) |
 | Gráficos | `View` y `react-native-svg` | Barras, grillas, QR y arte de foco a mano |
 
-Sin backend. Sin cuenta de usuario. Sin sync. El círculo (ADR-0021) tiene sus tablas y
-`platform/circle.status()` dice que no hay servidor.
+**Local-first, y el círculo es la única excepción.** Foco, modos, rutinas, hábitos y
+vida funcionan enteros sin red y sin cuenta. El círculo tiene servidor desde ADR-0033 y
+cliente desde ADR-0044: una cuenta por dispositivo, sin correo, cuyo secreto vive en el
+llavero y **que nace solo cuando invitas a alguien o usas un código**. Quien nunca invite
+a nadie no tiene cuenta en ningún servidor. Lo que sube va métrica por métrica, según los
+tres interruptores de Ajustes › Círculo, y lo que no se comparte viaja como `null`, nunca
+como cero (ADR-0033, ADR-0035).
 
 ## Estructura
 
@@ -99,7 +104,7 @@ src/
     orientation.ts, circle.ts
     hooks/                useNotificationSync, useHealthSync, useLiveActivitySync,
                           useBlockingSync, useRoutineSync, useRoutineWindowsSync, useUsageSync
-    PlatformEffects.tsx   monta los siete hooks una vez, bajo el layout raíz
+    PlatformEffects.tsx   monta los nueve hooks una vez, bajo el layout raíz
   widgets/FocusActivity.tsx   la Live Activity; no importa nada de la app
   dev/                    route.ts (banderas) y DevJump.tsx. Solo en __DEV__
 modules/vesper-blocking/  módulo Expo local (Kotlin): servicio, vigilante, escudo, alarmas

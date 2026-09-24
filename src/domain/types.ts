@@ -195,16 +195,25 @@ export type SharePrefs = {
 /**
  * One member's week as the circle sees it: what a server would deliver. The UI derives
  * everything from these rows and from the user's own stores; there is no other path.
+ *
+ * **Every metric is nullable, and null is "this person does not share it"** (ADR-0021
+ * §4, ADR-0033). Zero is a number a person can honestly have, so the two can never be
+ * the same value: a null focus rendered as "0 h" says "no hice nada esta semana" about
+ * someone who only kept the number to themselves. A member with no row at all for a
+ * week is a third thing again; `domain/circle.metricState` is what tells them apart.
  */
 export type MemberWeek = {
   memberId: string;
   /** The DayKey of that week's Monday. */
   weekKey: DayKey;
-  focusMs: number;
+  /** Focus in the week, null when the member does not share it. */
+  focusMs: number | null;
   /** Estimated floor, null when the member does not share it. Never summed — ADR-0005. */
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  /** Habit marks kept, null when the member does not share habits. */
+  habitsDone: number | null;
+  /** Habit marks promised, null when the member does not share habits. */
+  habitsTarget: number | null;
   updatedAt: Millis;
 };
 

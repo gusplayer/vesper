@@ -28,6 +28,8 @@ import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
 import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
 import { freshInstallLocale, useLocaleStore } from '../i18n/store';
+import { clearCredentials } from '../platform/circle';
+import { deleteCircleAccount, forgetCircleSync } from '../platform/hooks/useCircleSync';
 import { myChallengeWeeks, type MyChallengeWeek } from './challenges';
 import { useOnboardingDraft } from './onboardingDraft';
 import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
@@ -89,12 +91,50 @@ export function bootAndHydrate(now: number): BootResult {
   return result;
 }
 
+/** What "Borrar todo y reiniciar" leaves behind, when it cannot leave nothing. */
+export type ResetOutcome = {
+  result: BootResult;
+  /**
+   * True when there was a circle account and the server could not be reached to
+   * delete it. The database is empty either way and the key is out of the keychain;
+   * what is left is a row on a server nobody can claim any more, and the screen says
+   * so out loud rather than pretending the reset was total.
+   */
+  accountLeft: boolean;
+};
+
 /**
  * "Borrar todo y reiniciar": empties every table, reseeds the demo data and refills
  * the stores. With `onboardingDone` back to false the root layout's guard sends the
  * user through onboarding again, so its draft is cleared too.
+ *
+ * **The circle account goes first** (ADR-0044 §7). Emptying the database alone would
+ * leave the account alive on the server and its secret orphaned in the keychain — a
+ * secret belonging to a profile this phone no longer has, which nothing would ever
+ * use and nothing would ever delete. So: delete the account, then wipe.
+ *
+ * Without network the delete cannot happen and the reset still does: a phone that is
+ * offline must not be stuck with its data. The keychain is cleared anyway, because
+ * the entry is useless the moment the profile it names is gone, and the caller is
+ * told the server's copy outlived it.
+ *
+ * This is the one place `src/data/` reaches into `src/platform/` (the arrow normally
+ * runs the other way). The alternative was a screen that has to remember to delete
+ * an account before it wipes, and a reset that is only complete when it is called
+ * from the right screen.
  */
-export function resetAndRehydrate(now: number): BootResult {
+export async function resetAndRehydrate(now: number): Promise<ResetOutcome> {
+  const hadAccount = useCircleStore.getState().account !== null;
+  const deleted = hadAccount ? await deleteCircleAccount(now) : true;
+  if (!deleted) {
+    await clearCredentials();
+    forgetCircleSync();
+  }
+  return { result: wipeAndRehydrate(now), accountLeft: hadAccount && !deleted };
+}
+
+/** The local half of the reset, once the account has been dealt with. */
+function wipeAndRehydrate(now: number): BootResult {
   // The language survives the reset: it was a deliberate choice, not data, and the
   // demo data is written in the language the app is showing right now (ADR-0020).
   const { preference, locale } = useLocaleStore.getState();
@@ -345,6 +385,12 @@ export function usePendingInvites(): Member[] {
  * come from their own stores; social use is the estimated floor and goes in only
  * when they chose to share it *and* the phone gave a figure of their own; otherwise
  * the row says "not shared" (ADR-0005, ADR-0021, ADR-0033).
+ *
+ * **The user's own row is built through the same three switches the upload is**
+ * (`buildUpload` in src/platform/circleApi.ts). Showing hours here that the circle
+ * never receives would make the app teach the user something different from what
+ * everyone else sees of them, which is the one thing Ajustes › Círculo promises it
+ * does not do. A metric turned off is null, never zero: zero says "did nothing".
  */
 export function useCircleWeek(now: number): CircleWeekRow[] {
   const profile = useProfile();
@@ -363,9 +409,14 @@ export function useCircleWeek(now: number): CircleWeekRow[] {
     const habitsTarget = habits.reduce((total, h) => total + h.habit.weeklyTarget, 0);
     // `socialWeekMs` is null while the floor is the demo one: the circle says "not
     // shared" rather than publishing seed data as this person's week (ADR-0035 §2).
-    const mine = { focusMs, socialMs: share.social ? socialWeekMs : null, habitsDone, habitsTarget };
+    const mine = {
+      focusMs: share.focus ? focusMs : null,
+      socialMs: share.social ? socialWeekMs : null,
+      habitsDone: share.habits ? habitsDone : null,
+      habitsTarget: share.habits ? habitsTarget : null,
+    };
     return circleWeek(members, memberWeeks, { profile, week: mine }, weekKeyOf(now));
-  }, [profile, share.social, socialWeekMs, members, memberWeeks, week, habits, now]);
+  }, [profile, share.focus, share.habits, share.social, socialWeekMs, members, memberWeeks, week, habits, now]);
 }
 
 /** The ids of the people the user already cheered today. */
@@ -552,4 +603,14 @@ export function useChallengesByHabit(now: number): Map<string, { id: string; nam
 export function useInviteCode(): string | null {
   const profile = useProfile();
   return useMemo(() => (profile === null ? null : inviteCodeFor(profile)), [profile]);
+}
+
+/**
+ * The same code, read at call time. For a handler that has just awaited something
+ * that may have bumped the generation — claiming the account past a collision —
+ * where the value it closed over while rendering is no longer the code on screen.
+ */
+export function getInviteCode(): string | null {
+  const profile = useCircleStore.getState().profile;
+  return profile === null ? null : inviteCodeFor(profile);
 }

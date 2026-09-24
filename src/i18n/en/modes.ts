@@ -87,6 +87,26 @@ export const modes: typeof shape = {
     categories: (count) => `${count} ${count === 1 ? 'category' : 'categories'}`,
     sites: (count) => `${count} ${count === 1 ? 'site' : 'sites'}`,
   },
+  usageAccess: {
+    title: 'Vesper needs usage access',
+    session: {
+      heading: 'During a focus session',
+      body: 'Vesper checks which app is in front, so it can cover it with the reminder when you open one of the apps you chose. It compares it with your list and drops it.',
+    },
+    activity: {
+      heading: 'In the Activity tab',
+      body: 'With the app open and no session running, Vesper asks the system how long each app you chose was in front today and this week, and shows you the breakdown.',
+    },
+    privacy: {
+      heading: 'None of this leaves your phone',
+      body: 'Everything is processed here and goes to no server. Vesper keeps no history of the apps you use either: it asks the system each time and shows the answer.',
+    },
+    continueLabel: 'Continue',
+    opening: 'Opening Settings…',
+    systemPrompt: 'Android takes you to Settings to turn the access on. You can remove it whenever you want and the rest of Vesper works the same.',
+    failed: 'usage access was not turned on',
+    grant: 'Give usage access',
+  },
   websites: {
     blocked: 'Blocked sites',
     allowed: 'Allowed sites',

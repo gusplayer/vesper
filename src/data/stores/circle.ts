@@ -26,6 +26,8 @@ import {
   type SharePrefs,
 } from '../../domain/types';
 import { uuidv7 } from '../../lib/uuid';
+import type { CircleAccount } from '../types';
+import { DEMO_CHALLENGE_ID, DEMO_MEMBER_IDS } from '../circleSeed';
 import { useAppStore } from './app';
 
 /**
@@ -33,16 +35,35 @@ import { useAppStore } from './app';
  * hooks in src/data/index.ts and write through these actions; each one writes
  * through its repository first, then updates the cache, like the app store.
  *
- * There is no server yet, so a code typed in goes nowhere: `invite` answers with why
- * and creates nothing; `src/platform/circle.ts` says the same to the screens. A nudge
- * (ADR-0027) is recorded here and shown as sent; delivering it is the backend's job.
+ * Since ADR-0044 there is a server, and the rule that holds this file together is
+ * that it still cannot reach it: **everything is written to SQLite first** and the
+ * sync in `src/platform/hooks/useCircleSync.ts` carries it up afterwards. A nudge, a
+ * kudos, an accepted invitation all land here whether or not there is network, and a
+ * failed sync reverts none of them (ADR-0044 §5).
+ *
+ * The account is the one thing this store only records: it is born in the sync, the
+ * first time the user invites someone or uses a code, and never when the local profile
+ * is created (ADR-0044 §2). Its secret is not here — it is in the keychain, behind
+ * `src/platform/circle.ts`. What is here is the marker, the cursor and when the server
+ * last answered, which is all `status()` needs to tell the truth.
+ *
  * Nothing here schedules a notification: what the circle notifies is someone else's
- * act, and that arrives with the server.
+ * act, and composing that line is the push half of ADR-0037.
  */
 
 export type InviteResult = InviteCodeOutcome;
 export type AcceptResult = 'ok' | 'full';
 export type JoinResult = 'ok' | 'habitsFull';
+
+/** What a sync hands over: the same rows the demo seed writes, from a server instead. */
+export type RemoteRows = {
+  members: readonly Member[];
+  weeks: readonly MemberWeek[];
+  challenges: readonly Challenge[];
+  marks: readonly ChallengeMark[];
+  kudos: readonly Kudos[];
+  nudges: readonly Nudge[];
+};
 
 type ChallengeInput = {
   name: string;
@@ -57,6 +78,14 @@ type ChallengeInput = {
 type CircleState = {
   profile: Profile | null;
   share: SharePrefs;
+  /** Null until the user invites someone or uses a code (ADR-0044 §2). */
+  account: CircleAccount | null;
+  /** When the server last answered. Null while it never has. */
+  syncedAt: number | null;
+  /** The cursor: rows the server changed after this come back. 0 asks for everything. */
+  syncSince: number;
+  /** The last attempt did not reach the server. Not stored: it is about right now. */
+  syncFailed: boolean;
   members: Member[];
   memberWeeks: MemberWeek[];
   kudos: Kudos[];
@@ -66,6 +95,23 @@ type CircleState = {
 
   /** Reads everything from the database. Called once at boot and after a reset. */
   hydrate: (now?: number) => void;
+
+  // The account and the sync (ADR-0044). Written by platform/hooks/useCircleSync.
+  /**
+   * Records that this phone now has an account, and retires the demo circle in the
+   * same breath: from here on the people, the weeks and the marks are other people's
+   * (ADR-0033 §8). Does nothing if there already is one.
+   */
+  setAccount: (account: CircleAccount, now: number) => void;
+  /** "Borrar la cuenta": the marker, the cursor and every row of the circle. */
+  clearAccount: (now: number) => void;
+  markSynced: (since: number, now: number) => void;
+  markSyncFailed: () => void;
+  /**
+   * Writes what the server sent. Rows arrive already folded into domain rows
+   * (`foldDownload`), so this store never learns the shape of the wire.
+   */
+  applyRemote: (rows: RemoteRows) => void;
 
   // Identity
   createProfile: (input: { name: string; handle: string }, now: number) => void;
@@ -141,6 +187,59 @@ function linkHabit(name: string, weeklyTarget: number): string | null {
   return created?.id ?? null;
 }
 
+/**
+ * The cache after a sync: what arrived replaces what was there by id, what did not
+ * arrive is left alone. The server is the authority over its own rows and silent
+ * about everyone else's, so a row it did not mention is not a row it deleted.
+ */
+function mergeById<T extends { id: string }>(current: readonly T[], incoming: readonly T[]): T[] {
+  if (incoming.length === 0) {
+    return [...current];
+  }
+  const byId = new Map(incoming.map((row) => [row.id, row]));
+  const merged = current.map((row) => byId.get(row.id) ?? row);
+  const known = new Set(current.map((row) => row.id));
+  return [...merged, ...incoming.filter((row) => !known.has(row.id))];
+}
+
+/** The same, keyed on (member, week), which is what member_weeks is unique on. */
+function mergeWeeks(current: readonly MemberWeek[], incoming: readonly MemberWeek[]): MemberWeek[] {
+  if (incoming.length === 0) {
+    return [...current];
+  }
+  const keyOf = (week: MemberWeek): string => `${week.memberId}/${week.weekKey}`;
+  const byKey = new Map(incoming.map((week) => [keyOf(week), week]));
+  const merged = current.map((week) => byKey.get(keyOf(week)) ?? week);
+  const known = new Set(current.map(keyOf));
+  return [...merged, ...incoming.filter((week) => !known.has(keyOf(week)))];
+}
+
+/**
+ * The demo circle, withdrawn (ADR-0033 §8, ADR-0044). It stands in only while nothing
+ * is real; the moment an account exists, the people in the circle are people, and
+ * leaving four invented ones among them would be the flag-instead-of-capability this
+ * project refuses (rule 8).
+ *
+ * The four seeded people go with everything of theirs — weeks, kudos, nudges, marks —
+ * and the seeded challenge is archived rather than deleted, because the user's own
+ * marks in it are habit marks of their own and those are not demo data.
+ */
+function retireDemoCircle(now: number): void {
+  const store = useCircleStore.getState();
+  for (const id of DEMO_MEMBER_IDS) {
+    if (!store.members.some((member) => member.id === id)) {
+      continue;
+    }
+    store.removeMember(id);
+  }
+  const demoChallenge = useCircleStore
+    .getState()
+    .challenges.find((challenge) => challenge.id === DEMO_CHALLENGE_ID && challenge.archivedAt === null);
+  if (demoChallenge !== undefined) {
+    useCircleStore.getState().archiveChallenge(DEMO_CHALLENGE_ID, now);
+  }
+}
+
 export const useCircleStore = create<CircleState>((set, get) => {
   const saveProfile = (profile: Profile, now: number): void => {
     settingsRepo.setProfile(profile, now);
@@ -159,6 +258,10 @@ export const useCircleStore = create<CircleState>((set, get) => {
   return {
     profile: null,
     share: DEFAULT_SHARE_PREFS,
+    account: null,
+    syncedAt: null,
+    syncSince: 0,
+    syncFailed: false,
     members: [],
     memberWeeks: [],
     kudos: [],
@@ -170,12 +273,80 @@ export const useCircleStore = create<CircleState>((set, get) => {
       set({
         profile: settingsRepo.getProfile(),
         share: settingsRepo.getSharePrefs(DEFAULT_SHARE_PREFS),
+        account: settingsRepo.getAccount(),
+        syncedAt: settingsRepo.getSyncedAt(),
+        syncSince: settingsRepo.getSyncSince(),
+        syncFailed: false,
         members: circleRepo.listMembers(),
         memberWeeks: circleRepo.listMemberWeeks(),
         kudos: circleRepo.listKudos(),
         nudges: circleRepo.listNudges(),
         challenges: circleRepo.listChallenges(),
         challengeMarks: circleRepo.listChallengeMarks(),
+      });
+    },
+
+    setAccount: (account, now) => {
+      if (get().account !== null) {
+        return;
+      }
+      settingsRepo.setAccount(account, now);
+      set({ account });
+      retireDemoCircle(now);
+    },
+
+    clearAccount: (now) => {
+      settingsRepo.clearAccount();
+      set({ account: null, syncedAt: null, syncSince: 0, syncFailed: false });
+      // Deleting the account deletes its rows on the server (ADR-0033 §6); keeping
+      // the copies here would leave a circle that answers to nobody. The profile and
+      // the habits stay: the app goes back to being local and keeps working whole.
+      get().leaveCircle(now);
+    },
+
+    markSynced: (since, now) => {
+      settingsRepo.setSynced(since, now);
+      set({ syncedAt: now, syncSince: since, syncFailed: false });
+    },
+
+    markSyncFailed: () => {
+      set({ syncFailed: true });
+    },
+
+    applyRemote: (rows) => {
+      const before = get();
+      // The database first, row by row through the repository, then the cache — the
+      // same order every other action here follows. A row that fails to write is one
+      // row missing from the next hydrate, not a cache that claims something the
+      // database does not have.
+      for (const member of rows.members) {
+        circleRepo.upsertMember(member);
+      }
+      for (const week of rows.weeks) {
+        circleRepo.upsertMemberWeek(week);
+      }
+      for (const challenge of rows.challenges) {
+        circleRepo.upsertChallenge(challenge);
+      }
+      for (const mark of rows.marks) {
+        circleRepo.upsertChallengeMark(mark);
+      }
+      for (const kudos of rows.kudos) {
+        circleRepo.insertKudos(kudos);
+      }
+      // `insertNudge` is a plain INSERT: the table has no rule for a repeat, so the
+      // same nudge arriving twice would be a primary key error, not a no-op.
+      const freshNudges = rows.nudges.filter((nudge) => !before.nudges.some((n) => n.id === nudge.id));
+      for (const nudge of freshNudges) {
+        circleRepo.insertNudge(nudge);
+      }
+      set({
+        members: mergeById(before.members, rows.members),
+        memberWeeks: mergeWeeks(before.memberWeeks, rows.weeks),
+        challenges: mergeById(before.challenges, rows.challenges),
+        challengeMarks: mergeById(before.challengeMarks, rows.marks),
+        kudos: mergeById(before.kudos, rows.kudos),
+        nudges: [...before.nudges, ...freshNudges],
       });
     },
 

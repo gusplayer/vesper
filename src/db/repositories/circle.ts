@@ -69,24 +69,46 @@ export function removeMember(id: string): void {
 
 // --- Member weeks ------------------------------------------------------------------
 
+/**
+ * The `*_shared` columns of migration 010 are the truth: NULL there is "this person
+ * does not share it", and zero is a week someone really had. `focus_ms`, `habits_done`
+ * and `habits_target` are 004's `NOT NULL DEFAULT 0` columns, which SQLite will not
+ * let go of; they are written as `value ?? 0` so they never hold a stale number, and
+ * read by nothing. Optional in the type because a handle that has not run 010 would
+ * hand back a row without them.
+ */
 type MemberWeekRow = {
   member_id: string;
   week_key: string;
+  /** Legacy, 004. Use `focus_ms_shared`. */
   focus_ms: number;
+  focus_ms_shared?: number | null;
   social_ms: number | null;
+  /** Legacy, 004. Use `habits_done_shared`. */
   habits_done: number;
+  habits_done_shared?: number | null;
+  /** Legacy, 004. Use `habits_target_shared`. */
   habits_target: number;
+  habits_target_shared?: number | null;
   updated_at: number;
 };
+
+/**
+ * The shared value of one metric. `undefined` is a column that is not there yet, and
+ * falls back to 004's number; an explicit `null` is the answer itself and stays null.
+ */
+function shared(value: number | null | undefined, legacy: number): number | null {
+  return value === undefined ? legacy : value;
+}
 
 function toMemberWeek(row: MemberWeekRow): MemberWeek {
   return {
     memberId: row.member_id,
     weekKey: row.week_key,
-    focusMs: row.focus_ms,
+    focusMs: shared(row.focus_ms_shared, row.focus_ms),
     socialMs: row.social_ms,
-    habitsDone: row.habits_done,
-    habitsTarget: row.habits_target,
+    habitsDone: shared(row.habits_done_shared, row.habits_done),
+    habitsTarget: shared(row.habits_target_shared, row.habits_target),
     updatedAt: row.updated_at,
   };
 }
@@ -98,24 +120,34 @@ export function listMemberWeeks(): MemberWeek[] {
   ).map(toMemberWeek);
 }
 
-/** Replaces the week by (member, week): what a sync would do when a number changes. */
+/**
+ * Replaces the week by (member, week): what a sync would do when a number changes.
+ * Each metric is written twice — nullable where it means something, and `?? 0` into
+ * 004's NOT NULL column, which only exists because SQLite cannot drop the constraint.
+ */
 export function upsertMemberWeek(week: MemberWeek): void {
   getDb().executeSync(
     `INSERT INTO member_weeks
-       (member_id, week_key, focus_ms, social_ms, habits_done, habits_target, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+       (member_id, week_key, focus_ms, focus_ms_shared, social_ms, habits_done, habits_done_shared, habits_target, habits_target_shared, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(member_id, week_key) DO UPDATE SET
        focus_ms = excluded.focus_ms,
+       focus_ms_shared = excluded.focus_ms_shared,
        social_ms = excluded.social_ms,
        habits_done = excluded.habits_done,
+       habits_done_shared = excluded.habits_done_shared,
        habits_target = excluded.habits_target,
+       habits_target_shared = excluded.habits_target_shared,
        updated_at = excluded.updated_at`,
     [
       week.memberId,
       week.weekKey,
+      week.focusMs ?? 0,
       week.focusMs,
       week.socialMs,
+      week.habitsDone ?? 0,
       week.habitsDone,
+      week.habitsTarget ?? 0,
       week.habitsTarget,
       week.updatedAt,
     ],

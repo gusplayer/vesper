@@ -6,10 +6,16 @@
 export const onboarding = {
   welcome: {
     start: 'Empezar',
-    legal: 'Al continuar aceptas los Términos y la Privacidad.',
+    legal: 'Al continuar aceptas:',
+    /** The two legal pages live on the web and the app links out (ADR-0046). */
+    terms: 'Términos',
+    privacy: 'Privacidad',
+    /** VoiceOver: the thing, then what a tap does. */
+    openTerms: 'Términos de uso, abre el navegador',
+    openPrivacy: 'Privacidad, abre el navegador',
     titleLine1: 'Tu tiempo es tuyo.',
     titleLine2: 'Vuelve a lo que importa.',
-    subtitle: 'Sin cuenta, sin nube. Todo queda en tu teléfono.',
+    subtitle: 'Funciona sin cuenta y sin conexión. Todo empieza en tu teléfono.',
   },
   goal: {
     title: '¿Para qué es tu primer modo?',
@@ -46,8 +52,21 @@ export const onboarding = {
       heading: 'Por qué importa',
       body: 'Así Vesper te ayuda a crear tiempo con intención, sin borrar apps.',
     },
+    /**
+     * Android has no Screen Time, so naming it there would point at a feature the
+     * phone does not have. Same three ideas, its own words (ADR-0046).
+     */
+    android: {
+      title: 'Deja que Vesper bloquee apps',
+      use: 'Eliges qué apps bloquear en tus modos, y Vesper las cubre mientras enfocas.',
+      allow: 'Continuar',
+      systemPrompt: 'Android te va a llevar a Ajustes. Puedes quitarlo cuando quieras.',
+      connectFailed: 'No se pudo activar el bloqueo',
+    },
     allow: 'Permitir acceso',
     asking: 'Pidiendo…',
+    /** Android only: there the button leads to the disclosure, so the step needs its own way out (ADR-0026). */
+    notNow: 'Ahora no',
     systemPrompt: 'iOS te va a pedir confirmar. Puedes cambiarlo después en Ajustes.',
     continueWithout: (reason: string) => `Puedes seguir sin esto: ${reason}.`,
     connectFailed: 'No se pudo conectar Tiempo de uso',

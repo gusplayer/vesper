@@ -105,6 +105,10 @@ export default function RootLayout() {
           <SessionGate />
           <StreakSettle />
           <Stack screenOptions={stackScreenOptions}>
+            {/* The usage-access disclosure belongs to no world: Play requires it right
+                before the system page, and that page is asked for from the onboarding
+                step and from a mode's real-app picker alike (ADR-0046). */}
+            <Stack.Screen name="usage-access" />
             <Stack.Protected guard={!onboardingDone}>
               <Stack.Screen name="onboarding" />
             </Stack.Protected>

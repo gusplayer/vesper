@@ -7,6 +7,7 @@ import { SCHEDULE_STAMPS_SQL } from './006_schedule_stamps';
 import { STREAK_NUDGES_SQL } from './007_streak_nudges';
 import { ROUTINE_STARTS_SQL } from './008_routine_starts';
 import { CHALLENGE_MARK_SOURCE_SQL } from './009_challenge_mark_source';
+import { MEMBER_WEEKS_NOT_SHARED_SQL } from './010_member_weeks_not_shared';
 
 export type Migration = {
   /** Monotonic. Recorded in _migrations so it is applied exactly once. */
@@ -26,4 +27,5 @@ export const migrations: Migration[] = [
   { id: 7, name: 'streak_nudges', sql: STREAK_NUDGES_SQL },
   { id: 8, name: 'routine_starts', sql: ROUTINE_STARTS_SQL },
   { id: 9, name: 'challenge_mark_source', sql: CHALLENGE_MARK_SOURCE_SQL },
+  { id: 10, name: 'member_weeks_not_shared', sql: MEMBER_WEEKS_NOT_SHARED_SQL },
 ];

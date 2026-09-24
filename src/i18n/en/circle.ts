@@ -16,6 +16,10 @@ const unavailable = 'There is no connection between phones yet. What you see is 
 export const circle: typeof shape = {
   sync: {
     unavailable,
+    pending: 'Your circle syncs as soon as there is a connection.',
+    synced: (when) => `Synced on ${when}.`,
+    failedNever: 'Could not sync. What you see is this phone only.',
+    failed: (when) => `Could not sync. The last time was ${when}.`,
   },
   section: {
     title: 'Your circle',
@@ -33,6 +37,7 @@ export const circle: typeof shape = {
     focus: (hours) => `${hours} of focus`,
     social: (hours) => `social · ${hours} (estimated)`,
     noData: 'no data this week',
+    notShared: 'does not share this one',
     kudos: 'Cheer',
     kudosSent: 'Sent',
   },
@@ -117,7 +122,7 @@ export const circle: typeof shape = {
     nudge: 'Nudge',
     nudged: 'Nudged',
     nudgeA11y: (name) => `Nudge ${name}`,
-    nudgeHint: 'One nudge a day per person. It arrives once there is a server.',
+    nudgeHint: 'One nudge a day per person. It reaches them when your circle syncs, never in the middle of a session.',
     nudgedYou: (names) => `${joinNames(names)} nudged you today.`,
   },
   home: {
@@ -170,8 +175,30 @@ export const circle: typeof shape = {
     result: {
       invalid: 'A code is six letters or digits.',
       self: 'That is your own code.',
-      unavailable,
+      full: 'Your circle is full. Remove someone to ask to join another.',
+      noProfile: 'Create your profile first, in Settings › Circle.',
+      sent: 'Done. The other person decides whether to accept you.',
+      alreadyMember: 'You are already in the same circle.',
+      unknownCode: 'That code does not exist, or it stopped working.',
+      ownCode: 'That is your own code.',
+      tooMany: 'Too many tries. Wait a while and try again.',
+      noKeychain: 'This phone cannot keep your account key, so no account was created.',
+      handleTaken: 'Your handle already belongs to someone else. Pick another one to ask.',
+      offline: 'No connection. Try again when you have one.',
     },
+    preparing: 'Getting your invitation ready…',
+    problem: {
+      offline: 'No connection. Your code does not work for anyone else yet.',
+      busy: 'Too many tries. Wait a while and open this screen again.',
+      handleTaken: 'Your handle already belongs to someone else. Pick another one and your code starts working.',
+      noKeychain: 'This phone cannot keep your account key, so no account was created.',
+      lostKey: 'There is already an account for this profile and this phone does not have its backup key. Without it the account cannot be used.',
+      codeTaken: 'Your code already belongs to someone else. Generate a new one and try again.',
+      server: 'The server could not create your account. Try again later.',
+      noProfile: 'Create your profile first, in Settings › Circle.',
+    },
+    changeHandle: 'Change your handle',
+    sharing: 'Getting ready…',
     pending: 'Asking to join your circle',
     invitedYou: 'used your code',
     accept: 'Accept',
@@ -184,7 +211,7 @@ export const circle: typeof shape = {
     removeQuestion: (name) => `Remove ${name} from your circle?`,
     removeMessage: 'They stop seeing your numbers and you theirs. Their marks in challenges are deleted.',
     removeConfirm: 'Remove',
-    prototypeNote: 'In the prototype nobody receives the request.',
+    prototypeNote: 'The request reaches the other phone when it syncs. No alert wakes them yet.',
   },
   join: {
     title: 'Join a circle',
@@ -195,6 +222,20 @@ export const circle: typeof shape = {
     noProfileTitle: 'Create your profile first.',
     noProfileBody: 'A name and a handle, on this phone. Then tap the link again.',
     createProfile: 'Create your profile',
+  },
+  push: {
+    nudge: {
+      title: (name) => `${name} is nudging you`,
+      body: 'You have not marked the challenge today.',
+    },
+    invite: {
+      title: (name) => `${name} wants to join your circle`,
+      body: 'You can accept or not. Nothing is shared until you do.',
+    },
+    accepted: {
+      title: (name) => `${name} joined your circle`,
+      body: 'You can see each other’s week now.',
+    },
   },
   settings: {
     title: 'Circle',
@@ -216,5 +257,20 @@ export const circle: typeof shape = {
     leaveQuestion: 'Leave the circle?',
     leaveMessage: 'People, their numbers, cheers and challenges are deleted. Your profile and habits stay.',
     leaveConfirm: 'Leave',
+    backup: 'Backup key',
+    backupHint:
+      'Keep it in your password manager. Without it, reinstalling loses your circle: there is no email to recover it with.',
+    backupCopy: 'Copy',
+    backupCopied: 'Copied',
+    backupNone: 'You do not have an account yet. It appears when you invite someone or use a code.',
+    deleteAccount: 'Delete the account',
+    deleteQuestion: 'Delete your circle account?',
+    deleteMessage:
+      'Your data is deleted from the server and your key from this phone. The app keeps working in full, without a circle.',
+    deleteConfirm: 'Delete',
+    deleteFailed: 'Could not delete the account. Try again when there is a connection.',
+    resetLeftAccountTitle: 'Your circle account is still on the server',
+    resetLeftAccount:
+      'There was no connection to delete it. This phone no longer has its key, so nobody will get in with it again.',
   },
 };

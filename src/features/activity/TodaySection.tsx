@@ -16,9 +16,28 @@ type TodaySectionProps = {
  * subtraction — and the social estimate sits beside it instead of inside it
  * (ADR-0004). Three provenances that are never added together (ADR-0005).
  *
- * The estimate keeps this screen's own wording, which says out loud that it is a
- * floor; only the activity rows are labelled by the ledger, from the table the
- * sessions point at.
+ * The focus row is the exception and it is drawn here, not asked of the ledger
+ * (ADR-0045): a partition has no room for a zero, but the screen that carries the
+ * figure the app exists for cannot hide it on the day it reads zero. It is always
+ * the first row, and its number is the ledger's own `declaredMs`, not the Focus
+ * tab's counter. The two measure different things on purpose: Focus credits a
+ * session whole to the day it started, the ledger clips every interval to the day it
+ * is partitioning. Taking the counter here would let a part exceed its total the
+ * morning after a session crossed midnight, and would leave minutes in no row at
+ * all, since 'unregistered' is the complement of the clipped union (ADR-0045).
+ *
+ * Under it hang the ledger's declared rows, one per activity: its breakdown, the
+ * same shape 'redes' already has with its apps. They are drawn as indented ListRows
+ * rather than `AppRow subordinate` because an activity is a word, not an app — it
+ * has no icon and no color anywhere else in the app (the mode editor picks one with
+ * a plain Chip), and an AppTile with its initial would invent an identity for it and
+ * read as one more app two rows above the real ones. The icon column indents the
+ * label to exactly where the app breakdown's names start (`layout.icon.lg` and
+ * `layout.appIcon.sm` are both 24), so both breakdowns line up.
+ *
+ * Nothing is added across provenances: the total and its parts are both declared
+ * time (rule 9), and the estimate row keeps this screen's own wording, which says
+ * out loud that it is a floor.
  */
 export function TodaySection({ now }: TodaySectionProps) {
   const t = useStrings();
@@ -38,6 +57,7 @@ export function TodaySection({ now }: TodaySectionProps) {
   return (
     <Section title={copy.title}>
       <ListGroup>
+        <ListRow label={copy.focused} value={durationText(ledger.declaredMs)} />
         {ledger.rows.map((row) => {
           if (row.key === 'usage') {
             // The breakdown hangs off this row, so it is rendered with it and never
@@ -62,6 +82,17 @@ export function TodaySection({ now }: TodaySectionProps) {
                   />
                 ))}
               </Fragment>
+            );
+          }
+          if (row.provenance === 'declared') {
+            // How the focus row above splits, one line per activity (ADR-0045).
+            return (
+              <ListRow
+                key={row.key}
+                icon="corner-down-right"
+                label={capitalize(row.label)}
+                value={durationText(row.ms)}
+              />
             );
           }
           return (

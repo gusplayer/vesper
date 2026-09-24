@@ -214,6 +214,55 @@ describe('getActiveModeId / setActiveModeId', () => {
   });
 });
 
+describe('the circle account (ADR-0044)', () => {
+  it('is null until one is written, and never a half one', () => {
+    expect(settings.getAccount()).toBeNull();
+    expect(settings.parseAccount({ createdAt: 5 })).toBeNull();
+    expect(settings.parseAccount('nope')).toBeNull();
+  });
+
+  it('keeps the id and the time, and nothing that could be a secret', () => {
+    settings.setAccount({ id: 'profile-1', createdAt: T0 }, T0);
+
+    const call = fake.callMatching(/INSERT INTO settings/);
+    expect(call.params?.[0]).toBe('circle_account');
+    expect(JSON.parse(String(call.params?.[1]))).toEqual({ id: 'profile-1', createdAt: T0 });
+    expect(String(call.params?.[1])).not.toContain('secret');
+  });
+
+  it('reads a marker with no timestamp as one created at zero, not as no account', () => {
+    expect(settings.parseAccount({ id: 'profile-1' })).toEqual({ id: 'profile-1', createdAt: 0 });
+  });
+
+  it('takes the marker, the cursor and the stamp away together', () => {
+    settings.clearAccount();
+
+    const deleted = fake.calls
+      .filter((call) => /DELETE FROM settings/.test(call.sql))
+      .map((call) => call.params?.[0]);
+    expect(deleted).toEqual(['circle_account', 'circle_sync_since', 'circle_synced_at']);
+  });
+});
+
+describe('the sync cursor', () => {
+  it('is zero when missing or nonsense, so the first sync asks for everything', () => {
+    expect(settings.getSyncSince()).toBe(0);
+
+    fake.whenSql('SELECT value', [{ value: 'soon' }]);
+    expect(settings.getSyncSince()).toBe(0);
+  });
+
+  it('moves and stamps in one go', () => {
+    settings.setSynced(1234, T0);
+
+    const writes = fake.calls.filter((call) => /INSERT INTO settings/.test(call.sql));
+    expect(writes.map((call) => call.params?.slice(0, 2))).toEqual([
+      ['circle_sync_since', '1234'],
+      ['circle_synced_at', String(T0)],
+    ]);
+  });
+});
+
 describe('schema', () => {
   it('only inserts columns that exist in the settings table', () => {
     settings.set('k', 'v', T0);

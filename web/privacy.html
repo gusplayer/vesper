@@ -7,105 +7,139 @@
     <meta name="description" content="Qué datos toca Vesper, dónde viven y cómo se borran." />
     <!--
       BORRADOR (2026-09-24). Escrito contra el código de este commit: ADR-0017, 0021, 0029,
-      0033, 0042 y 0043. Antes de publicarlo: poner el correo de contacto (marcado con
-      [CONTACTO]), la fecha de vigencia, y que lo revise quien firma por la app. Cada vez
-      que cambie qué sale del teléfono, esta página cambia en el mismo commit.
+      0033, 0035, 0042, 0043, 0044 y 0046. Antes de publicarlo: poner el correo de contacto
+      (marcado con [CONTACTO]), la fecha de vigencia, y que lo lea alguien con criterio
+      legal. Cada vez que cambie qué sale del teléfono, esta página cambia en el mismo
+      commit. Los dos idiomas están en la página y legal.js esconde el que no se pidió.
     -->
     <link rel="stylesheet" href="/style.css" />
     <link rel="preload" href="/fonts/Outfit_400Regular.ttf" as="font" type="font/ttf" crossorigin />
   </head>
   <body>
     <main>
-      <h1>Privacidad</h1>
-      <p>
-        Vesper funciona entera en tu teléfono, sin cuenta y sin red. Esta página dice qué datos
-        toca, dónde viven y cómo se borran. Si algo de aquí deja de ser cierto, la página cambia
-        antes que la app.
-      </p>
+      <section lang="es">
+        <h1>Privacidad</h1>
+        <p>
+          Vesper funciona entera en tu teléfono y sin red. Lo único que sale de ahí es lo que
+          compartes con tu círculo, si lo usas, y solo lo que enciendes; mientras no invites a
+          nadie, no hay cuenta en ningún servidor. Esta página dice qué datos toca la app, dónde
+          viven y cómo se borran; las reglas de uso están en <a href="/terms">Términos</a>. Si algo
+          de aquí deja de ser cierto, la página cambia antes que la app.
+        </p>
 
-      <div class="card">
-        <h2>Lo que se queda en tu teléfono</h2>
-        <p>
-          Tus modos, rutinas, sesiones de foco, hábitos, meta semanal y, si la pones, tu fecha de
-          nacimiento. Viven en una base de datos local. No hay copia en ningún servidor.
-        </p>
-        <p>
-          <strong>Bloqueo de apps.</strong> En iPhone, Tiempo de uso te deja elegir apps y Vesper
-          recibe un identificador opaco que no dice cuáles son. En Android, Vesper guarda los
-          nombres de paquete de las apps que eliges y, durante una sesión, mira qué app está al
-          frente para cubrirla. El uso por app que ves en Actividad se lee cuando lo abres y no se
-          guarda.
-        </p>
-      </div>
+        <div class="card">
+          <h2>Lo que se queda en tu teléfono</h2>
+          <p>
+            Tus modos, rutinas, sesiones de foco, hábitos, meta semanal y, si la pones, tu fecha de
+            nacimiento. Viven en una base de datos local. No hay copia en ningún servidor.
+          </p>
+          <p>
+            <strong>Bloqueo y uso por app.</strong> En iPhone, Tiempo de uso te deja elegir apps y
+            Vesper recibe un identificador opaco que no dice cuáles son. En Android, Vesper guarda los
+            nombres de paquete de las apps que eliges. El permiso de acceso al uso sirve para dos
+            cosas y solo para esas dos: durante una sesión, ver qué app está al frente para cubrirla;
+            y con la app abierta, sumar cuánto estuviste hoy y esta semana en las apps que tus modos
+            bloquean. Esa lectura se hace en el momento, no se guarda y no sale del teléfono. Las
+            apps que un modo deja vivas no se miden, y Vesper nunca lee el contenido de ninguna.
+          </p>
+        </div>
 
-      <div class="card">
-        <h2>Salud</h2>
-        <p>
-          Si la conectas, Vesper lee de Salud (iPhone) o Health Connect (Android) tres cosas de la
-          semana en curso: pasos, entrenamientos y sueño. Las usa solo para marcar tus hábitos
-          verificados. Nunca escribe en Salud, nunca lee otros tipos y no guarda las muestras: guarda
-          solo qué días quedó cumplido cada hábito.
-        </p>
-        <p>
-          Los datos de Salud no se usan para publicidad, no se venden y no se comparten con nadie,
-          con una sola excepción que tú eliges: un reto del círculo (abajo).
-        </p>
-      </div>
+        <div class="card">
+          <h2>Salud</h2>
+          <p>
+            Si la conectas, Vesper lee de Salud (iPhone) o Health Connect (Android) tres cosas de la
+            semana en curso: pasos, entrenamientos y sueño. Las usa solo para marcar tus hábitos
+            verificados. Nunca escribe en Salud, nunca lee otros tipos y no guarda las muestras: guarda
+            solo qué días quedó cumplido cada hábito.
+          </p>
+          <p>
+            Los datos de Salud no se usan para publicidad, no se venden y no se comparten con nadie,
+            con una sola excepción que tú eliges: un reto del círculo (abajo).
+          </p>
+        </div>
 
-      <div class="card">
-        <h2>El círculo, si lo usas</h2>
-        <p>
-          El círculo es opcional. Hoy no sale nada del teléfono: lo que ves en él es de ejemplo.
-          Cuando la app se conecte con el servidor del círculo, esto es lo que viajará y nada más:
-        </p>
-        <ul>
-          <li>Una cuenta sin correo: un identificador y un secreto que genera tu teléfono. El
-            servidor guarda solo una huella del secreto.</li>
-          <li>Tu nombre y tu alias, para que te reconozcan las personas de tu círculo.</li>
-          <li>Tu semana, si eliges compartirla: horas de foco, hábitos cumplidos y, solo si lo
-            activas, el estimado de redes. Nunca tus sesiones, tus apps ni tus horas.</li>
-          <li>Los retos a los que te unes, y qué días cumpliste cada uno, con cómo se contó ese día
-            (con Salud, con una sesión o a mano). En un reto de pasos tu círculo ve qué días
-            llegaste a la meta, <strong>nunca cuántos pasos diste</strong>. Unirte a un reto es
-            elegir compartir eso, y la app lo dice antes del botón.</li>
-          <li>Ánimos y empujones que das, y un token de notificaciones para recibir los tuyos.</li>
-        </ul>
-        <p>
-          El servidor no tiene analítica, no guarda tu ubicación y no le pasa nada a terceros. Las
-          notificaciones viajan por el servicio de avisos de Expo, que solo ve el token y el aviso.
-        </p>
-      </div>
+        <div class="card">
+          <h2>El círculo, si lo usas</h2>
+          <p>
+            El círculo es opcional y la cuenta nace tarde: la primera vez que invitas a alguien o usas
+            un código. Si nunca invitas a nadie, no hay cuenta en ningún servidor y nada tuyo sale del
+            teléfono. Desde ahí sube esto y nada más:
+          </p>
+          <ul>
+            <li>Una cuenta sin correo: un identificador y un secreto que genera tu teléfono. El
+              servidor guarda solo una huella del secreto.</li>
+            <li>Tu nombre, tu alias —único, para que nadie se haga pasar por otro— y el código con
+              el que invitas.</li>
+            <li>Tu semana, métrica por métrica, según los tres interruptores de Ajustes › Círculo:
+              horas de foco, hábitos cumplidos y el piso estimado de redes. Lo que está apagado viaja
+              como «no lo comparte», nunca como un cero. Y el estimado de ejemplo que la app muestra
+              cuando el teléfono no da una cifra propia no se comparte nunca, con el interruptor
+              encendido o apagado.</li>
+            <li>Los retos a los que te unes, y qué días cumpliste cada uno, con cómo se contó ese día
+              (con Salud, con una sesión o a mano). En un reto de pasos tu círculo ve qué días
+              llegaste a la meta, <strong>nunca cuántos pasos diste</strong>. Unirte a un reto es
+              elegir compartir eso, y la app lo dice antes del botón.</li>
+            <li>Ánimos y empujones que das, y —si aceptas avisos— un token de notificaciones y el
+              nombre de tu zona horaria, que sirve para agrupar los ánimos al final de tu día.</li>
+          </ul>
+          <p>
+            Nunca suben tus sesiones, tus intenciones, tus modos, las apps que eliges, lo que midió
+            Tiempo de uso o el uso por app, ni nada que venga de Salud. La app suma en el teléfono y
+            el servidor recibe totales.
+          </p>
+          <p>
+            El servidor no tiene analítica, no guarda tu ubicación y no le pasa nada a terceros. Ve tu
+            dirección IP, como cualquier servidor, y la usa solo para contar cuántas cuentas y cuántos
+            intentos de código vienen de ahí; ese conteo vive en memoria y no se guarda. Las
+            notificaciones viajan por el servicio de avisos de Expo, que ve el token y nada más: el
+            aviso sale sin palabras —quién, qué y cuándo— y la frase la escribe tu teléfono.
+          </p>
+        </div>
 
-      <div class="card">
-        <h2>Cómo se borra</h2>
-        <p>
-          <strong>En el teléfono:</strong> Ajustes › Borrar todo y reiniciar vacía la base de datos.
-          Desinstalar la app también. Desconectar Salud en Ajustes › Salud borra las marcas que vinieron
-          de ahí, y puedes quitar el permiso en Salud o Health Connect cuando quieras.
-        </p>
-        <p>
-          <strong>En el servidor del círculo:</strong> cuando el círculo se conecte, salir de él
-          borrará tu cuenta y todas sus filas en el acto, sin copia. Hoy no hay nada que borrar ahí.
-        </p>
-      </div>
+        <div class="card">
+          <h2>Cómo se borra</h2>
+          <p>
+            <strong>En el teléfono:</strong> Ajustes › Borrar todo y reiniciar vacía la base de datos.
+            Desinstalar la app también. Desconectar Salud en Ajustes › Salud borra las marcas que vinieron
+            de ahí, y puedes quitar el permiso en Salud o Health Connect cuando quieras.
+          </p>
+          <p>
+            <strong>En el servidor del círculo:</strong> Ajustes › Círculo borra tu cuenta cuando
+            quieras, y con ella todas sus filas, en el acto y sin copia. Es un botón propio: vaciar la
+            base del teléfono no la borra. Salir del círculo borra de tu teléfono a las personas y sus
+            números. Si nunca invitaste a nadie, allá no hay nada que borrar.
+          </p>
+        </div>
 
-      <div class="card">
-        <h2>Lo que Vesper no hace</h2>
-        <p>
-          No tiene anuncios, no usa SDKs de terceros para analítica ni para anuncios, no vende datos y
-          no lee el contenido de tus apps. No está dirigida a menores de 18 años.
-        </p>
-      </div>
+        <div class="card">
+          <h2>Esta página y la de invitación</h2>
+          <p>
+            El sitio no usa cookies, no tiene analítica y no carga nada de otro dominio: hasta la
+            fuente se sirve desde aquí. La página que recibe un link de invitación no le pregunta al
+            servidor si el código existe; el código viaja en el link y se queda en tu navegador.
+          </p>
+        </div>
 
-      <p class="quiet">Preguntas o pedidos sobre tus datos: [CONTACTO].</p>
+        <div class="card">
+          <h2>Lo que Vesper no hace</h2>
+          <p>
+            No tiene anuncios, no usa SDKs de terceros para analítica ni para anuncios, no vende datos y
+            no lee el contenido de tus apps. No está dirigida a menores de 18 años.
+          </p>
+        </div>
+
+        <p class="quiet">Preguntas o pedidos sobre tus datos: [CONTACTO].</p>
+      </section>
 
       <hr class="rule" />
 
       <section lang="en">
         <h1>Privacy</h1>
         <p>
-          Vesper runs entirely on your phone, with no account and no network. This page says what
-          data it touches, where it lives and how it is deleted.
+          Vesper runs entirely on your phone and with no network. The only thing that leaves it is
+          what you share with your circle, if you use it, and only what you turn on; until you invite
+          someone there is no account on any server. This page says what data the app touches, where
+          it lives and how it is deleted; the rules for using it are in <a href="/terms">Terms</a>.
         </p>
 
         <div class="card">
@@ -113,9 +147,12 @@
           <p>
             Your modes, routines, focus sessions, habits, weekly goal and, if you add it, your birth
             date, in a local database with no copy on any server. On iPhone, Screen Time gives Vesper
-            an opaque token for the apps you pick. On Android, Vesper keeps the package names you pick
-            and, during a session, checks which app is in front to cover it. Per-app use in Activity is
-            read when you open it and never kept.
+            an opaque token for the apps you pick. On Android, Vesper keeps the package names you pick,
+            and usage access is used for two things and only those two: during a session, seeing which
+            app is in front so it can be covered; and, with the app open, adding up how long you spent
+            today and this week in the apps your modes block. That reading happens on the spot, is
+            never kept and never leaves the phone. Apps a mode leaves alive are not measured, and
+            Vesper never reads what is inside any of them.
           </p>
         </div>
 
@@ -133,15 +170,26 @@
         <div class="card">
           <h2>The circle, if you use it</h2>
           <p>
-            The circle is optional. Today nothing leaves the phone; what you see there is sample data.
-            Once the app talks to the circle server, this is all that travels: an account with no email
-            (an id and a secret your phone makes; the server keeps only a hash), your name and handle,
-            your week if you share it (focus hours, habits done and, only if you turn it on, the social
-            estimate), the challenges you join with which days you did each and how that day was
-            counted, and cheers and nudges with a notification token. In a steps challenge your circle
-            sees which days you reached the goal, <strong>never how many steps</strong>. Joining is
-            choosing to share that, and the app says so before the button. Notifications go through
-            Expo's push service, which sees only the token and the notice.
+            The circle is optional, and the account is born late: the first time you invite someone or
+            use a code. If you never invite anyone, there is no account on any server. From then on
+            this is all that travels: an account with no email (an id and a secret your phone makes;
+            the server keeps only a hash), your name, your unique handle and the code you invite with,
+            your week metric by metric following the three switches in Settings › Circle (focus hours,
+            habits done, the estimated social floor — what is off travels as "not shared", never as a
+            zero, and the sample estimate is never shared at all), the challenges you join with which
+            days you did each and how that day was counted, cheers and nudges, and, if you accept
+            notices, a push token and your time zone name. In a steps challenge your circle sees which
+            days you reached the goal, <strong>never how many steps</strong>. Joining is choosing to
+            share that, and the app says so before the button.
+          </p>
+          <p>
+            Your sessions, intentions, modes, chosen apps, anything Screen Time or per-app usage
+            measured and anything from Health never travel. The phone does the adding up; the server
+            receives totals. The server has no analytics, keeps no location and hands nothing to third
+            parties; it sees your IP address, as any server does, and uses it only to count how many
+            accounts and code attempts come from there, in memory and never stored. Notifications go
+            through Expo's push service, which sees the token and nothing else: the notice leaves with
+            no words — who, what and when — and your phone writes the sentence.
           </p>
         </div>
 
@@ -149,9 +197,20 @@
           <h2>How it is deleted</h2>
           <p>
             On the phone: Settings › Delete everything and start over, or uninstall. Disconnecting Health
-            in Settings › Health deletes the marks that came from it. On the circle server: once the
-            circle is connected, leaving it will delete your account and every row it owns, at once.
-            Today there is nothing there to delete.
+            in Settings › Health deletes the marks that came from it. On the circle server: Settings ›
+            Circle deletes your account and every row it owns, at once and with no copy. It is a button
+            of its own — emptying the phone's database does not delete it. Leaving the circle removes
+            the people and their numbers from your phone. If you never invited anyone, there is nothing
+            there to delete.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>This page and the invite page</h2>
+          <p>
+            The site uses no cookies, has no analytics and loads nothing from another domain — even
+            the font is served from here. The page that receives an invitation link never asks the
+            server whether the code exists; the code travels in the link and stays in your browser.
           </p>
         </div>
 
@@ -166,5 +225,7 @@
         <p class="quiet">Questions or requests about your data: [CONTACTO].</p>
       </section>
     </main>
+
+    <script src="/legal.js"></script>
   </body>
 </html>

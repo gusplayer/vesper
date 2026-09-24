@@ -3,10 +3,14 @@ import type { onboarding as shape } from '../es/onboarding';
 export const onboarding: typeof shape = {
   welcome: {
     start: 'Get started',
-    legal: 'By continuing you accept the Terms and the Privacy policy.',
+    legal: 'By continuing you accept:',
+    terms: 'Terms',
+    privacy: 'Privacy',
+    openTerms: 'Terms of use, opens the browser',
+    openPrivacy: 'Privacy, opens the browser',
     titleLine1: 'Your time is yours.',
     titleLine2: 'Get back to what matters.',
-    subtitle: 'No account, no cloud. Everything stays on your phone.',
+    subtitle: 'Works with no account and no connection. It all starts on your phone.',
   },
   goal: {
     title: 'What is your first mode for?',
@@ -42,8 +46,16 @@ export const onboarding: typeof shape = {
       heading: 'Why it matters',
       body: 'This is how Vesper helps you make time with intention, without deleting apps.',
     },
+    android: {
+      title: 'Let Vesper block apps',
+      use: 'You pick which apps to block in your modes, and Vesper covers them while you focus.',
+      allow: 'Continue',
+      systemPrompt: 'Android takes you to Settings. You can remove it whenever you want.',
+      connectFailed: 'Could not turn blocking on',
+    },
     allow: 'Allow access',
     asking: 'Asking…',
+    notNow: 'Not now',
     systemPrompt: 'iOS will ask you to confirm. You can change it later in Settings.',
     continueWithout: (reason) => `You can go on without this: ${reason}.`,
     connectFailed: 'Could not connect Screen Time',

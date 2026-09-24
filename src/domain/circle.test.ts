@@ -10,6 +10,7 @@ import {
   challengeWeeksMet,
   circleFull,
   circleWeek,
+  metricState,
   dayKeyStart,
   DEFAULT_SHARE_PREFS,
   endDayKeyFor,
@@ -55,7 +56,8 @@ function member(id: string, name: string, status: Member['status'] = 'member'): 
   return { id, name, handle: id, status, joinedAt: status === 'member' ? 1 : null, createdAt: 1 };
 }
 
-function week(memberId: string, focusMs: number, overrides: Partial<MemberWeek> = {}): MemberWeek {
+/** `focusMs: null` is a member who does not share it; 0 is a week with no focus. */
+function week(memberId: string, focusMs: number | null, overrides: Partial<MemberWeek> = {}): MemberWeek {
   return {
     memberId,
     weekKey: WEEK,
@@ -167,11 +169,17 @@ describe('circleWeek', () => {
     expect(rows.find((r) => r.isMe)).toMatchObject({ name: 'Gus', handle: 'gus', focusMs: 5 * HOUR, hasData: true });
   });
 
-  it('sorts a member without a row for that week last, with zeros and no social', () => {
+  it('sorts a member without a row for that week last, with nulls and no social', () => {
     const rows = circleWeek(members, [week('luis', 1 * HOUR)], me, WEEK);
 
     expect(rows.map((r) => r.id)).toEqual([ME, 'luis', 'ana', 'sofia']);
-    expect(rows[2]).toMatchObject({ hasData: false, focusMs: 0, socialMs: null, habitsDone: 0, habitsTarget: 0 });
+    expect(rows[2]).toMatchObject({
+      hasData: false,
+      focusMs: null,
+      socialMs: null,
+      habitsDone: null,
+      habitsTarget: null,
+    });
   });
 
   it('reads only the rows of the requested week', () => {
@@ -203,6 +211,75 @@ describe('circleWeek', () => {
 
   it('shows the user alone when there are no members', () => {
     expect(circleWeek([], [], me, WEEK).map((r) => r.id)).toEqual([ME]);
+  });
+
+  it('never turns a metric that is not shared into a zero', () => {
+    const weeks = [week('ana', 0), week('luis', null, { habitsDone: null, habitsTarget: null })];
+
+    const rows = circleWeek(members.slice(0, 2), weeks, me, WEEK);
+
+    // Ana shares her week and it was an empty one; Luis shares neither number.
+    expect(rows.find((r) => r.id === 'ana')).toMatchObject({ focusMs: 0, habitsDone: 2, hasData: true });
+    expect(rows.find((r) => r.id === 'luis')).toMatchObject({
+      focusMs: null,
+      habitsDone: null,
+      habitsTarget: null,
+      hasData: true,
+    });
+  });
+
+  it('orders people who share their focus first, then those who do not, then the rows that are missing', () => {
+    // Sofia has no row at all; Luis has one and keeps his focus to himself.
+    const weeks = [week('ana', 7 * HOUR), week('luis', null)];
+
+    const rows = circleWeek(members, weeks, me, WEEK);
+
+    expect(rows.map((r) => r.id)).toEqual(['ana', ME, 'luis', 'sofia']);
+  });
+
+  it('does not sort someone who shares nothing below someone who shared a zero', () => {
+    // A null is not the smallest number: it is no number, so it leaves the order
+    // instead of being handed the last place (ADR-0021 §3).
+    const weeks = [week('ana', null), week('luis', 0)];
+
+    const rows = circleWeek(members.slice(0, 2), weeks, me, WEEK);
+
+    expect(rows.map((r) => r.id)).toEqual([ME, 'luis', 'ana']);
+  });
+
+  it('keeps the circle order among the people who share no focus', () => {
+    const weeks = [week('ana', null), week('luis', null), week('sofia', null)];
+
+    const rows = circleWeek(members, weeks, me, WEEK);
+
+    expect(rows.map((r) => r.id)).toEqual([ME, 'ana', 'luis', 'sofia']);
+  });
+
+  it('treats the user like everyone else: their own nulls are nulls', () => {
+    const shy = { profile, week: { focusMs: null, socialMs: null, habitsDone: null, habitsTarget: null } };
+
+    const rows = circleWeek(members.slice(0, 1), [week('ana', 1 * HOUR)], shy, WEEK);
+
+    expect(rows.map((r) => r.id)).toEqual(['ana', ME]);
+    expect(rows.find((r) => r.isMe)).toMatchObject({ focusMs: null, habitsDone: null, hasData: true });
+  });
+});
+
+describe('metricState', () => {
+  it('tells a shared number, a number that is not shared, and no row apart', () => {
+    expect(metricState(3 * HOUR, true)).toBe('shared');
+    expect(metricState(0, true)).toBe('shared');
+    expect(metricState(null, true)).toBe('private');
+    expect(metricState(null, false)).toBe('missing');
+  });
+
+  it('answers the same for the user and for anybody else', () => {
+    const shy = { profile, week: { focusMs: null, socialMs: null, habitsDone: null, habitsTarget: null } };
+    const rows = circleWeek([member('ana', 'Ana')], [week('ana', null)], shy, WEEK);
+
+    for (const row of rows) {
+      expect(metricState(row.focusMs, row.hasData)).toBe('private');
+    }
   });
 });
 

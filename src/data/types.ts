@@ -200,4 +200,18 @@ export type Activity = {
   label: string;
 };
 
+/**
+ * That this phone has an account on the circle's server (ADR-0044). It is born the
+ * first time the user invites someone or uses a code, never when the local profile is
+ * created: whoever invites nobody has an account on no server.
+ *
+ * The id **is** `Profile.id`, because the server checks that the invite code derives
+ * from it (server/README.md). The secret is not here and never is: it lives in the
+ * keychain, behind `src/platform/circle.ts`.
+ */
+export type CircleAccount = {
+  id: string;
+  createdAt: number;
+};
+
 export type { Depth, Habit, HabitMark, Session };

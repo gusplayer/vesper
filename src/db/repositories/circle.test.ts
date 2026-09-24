@@ -4,6 +4,7 @@ import type { Challenge, ChallengeMark, Kudos, Member, MemberWeek, Nudge } from 
 import { CIRCLE_SQL } from '../migrations/004_circle';
 import { STREAK_NUDGES_SQL } from '../migrations/007_streak_nudges';
 import { CHALLENGE_MARK_SOURCE_SQL } from '../migrations/009_challenge_mark_source';
+import { MEMBER_WEEKS_NOT_SHARED_SQL } from '../migrations/010_member_weeks_not_shared';
 import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as circle from './circle';
 import * as settings from './settings';
@@ -50,9 +51,12 @@ const weekRow = {
   member_id: 'ana',
   week_key: '2026-08-17',
   focus_ms: 3_600_000,
+  focus_ms_shared: 3_600_000,
   social_ms: null,
   habits_done: 3,
+  habits_done_shared: 3,
   habits_target: 5,
+  habits_target_shared: 5,
   updated_at: T0,
 };
 
@@ -171,12 +175,61 @@ describe('member weeks', () => {
     expect(listed[1]).toMatchObject({ memberId: 'luis', socialMs: 900_000 });
   });
 
+  it('reads a metric the member does not share as null, never as zero', () => {
+    // What a sync writes for someone with focus and habits switched off: the legacy
+    // NOT NULL columns of 004 hold 0, and the columns of 010 hold the answer.
+    fake.whenSql('FROM member_weeks', [
+      {
+        ...weekRow,
+        focus_ms: 0,
+        focus_ms_shared: null,
+        habits_done: 0,
+        habits_done_shared: null,
+        habits_target: 0,
+        habits_target_shared: null,
+      },
+    ]);
+
+    expect(circle.listMemberWeeks()[0]).toMatchObject({
+      focusMs: null,
+      habitsDone: null,
+      habitsTarget: null,
+    });
+  });
+
+  it('reads a shared zero as zero: a week someone really had', () => {
+    fake.whenSql('FROM member_weeks', [
+      { ...weekRow, focus_ms: 0, focus_ms_shared: 0, habits_done: 0, habits_done_shared: 0 },
+    ]);
+
+    expect(circle.listMemberWeeks()[0]).toMatchObject({ focusMs: 0, habitsDone: 0 });
+  });
+
   it('upserts on the (member, week) pair', () => {
     circle.upsertMemberWeek({ ...week, socialMs: 1_000 });
 
     const call = fake.callMatching(/INSERT INTO member_weeks/);
     expect(call.sql).toContain('ON CONFLICT(member_id, week_key) DO UPDATE');
-    expect(call.params).toEqual(['ana', '2026-08-17', 3_600_000, 1_000, 3, 5, T0]);
+    expect(call.params).toEqual(['ana', '2026-08-17', 3_600_000, 3_600_000, 1_000, 3, 3, 5, 5, T0]);
+  });
+
+  it('writes a null metric as null, and as 0 into the legacy NOT NULL column', () => {
+    circle.upsertMemberWeek({ ...week, focusMs: null, habitsDone: null, habitsTarget: null });
+
+    // focus_ms, focus_ms_shared, social_ms, habits_done, habits_done_shared,
+    // habits_target, habits_target_shared.
+    expect(fake.callMatching(/INSERT INTO member_weeks/).params).toEqual([
+      'ana',
+      '2026-08-17',
+      0,
+      null,
+      null,
+      0,
+      null,
+      0,
+      null,
+      T0,
+    ]);
   });
 
   it('deletes every week of a member', () => {
@@ -419,7 +472,10 @@ describe('schema', () => {
     expect(inserts).toHaveLength(6);
     for (const call of inserts) {
       const { table, columns } = insertColumns(call.sql);
-      const declared = ddlColumns(`${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}\n${CHALLENGE_MARK_SOURCE_SQL}`, table);
+      const declared = ddlColumns(
+        `${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}\n${CHALLENGE_MARK_SOURCE_SQL}\n${MEMBER_WEEKS_NOT_SHARED_SQL}`,
+        table,
+      );
       expect(declared).not.toContain('PRIMARY');
       for (const column of columns) {
         expect(declared).toContain(column);

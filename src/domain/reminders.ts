@@ -97,7 +97,7 @@ export const REACTIVATION_DAYS: readonly number[] = [3, 7];
  * every remaining day, then the challenge that just ended, then the two about use.
  * The nudge sits above all of them and is not planned here: it arrives as a push.
  */
-const DAILY_KINDS: readonly NotificationKind[] = [
+export const DAILY_KINDS: readonly NotificationKind[] = [
   'streakRisk',
   'challengeRisk',
   'challengeEnd',

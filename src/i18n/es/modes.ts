@@ -101,6 +101,33 @@ export const modes = {
     categories: (count: number) => `${count} ${count === 1 ? 'categoría' : 'categorías'}`,
     sites: (count: number) => `${count} ${count === 1 ? 'sitio' : 'sitios'}`,
   },
+  /**
+   * The prominent disclosure Play requires before the system's usage-access page
+   * (ADR-0046, docs/PLAY_DECLARATIONS.md). Android only; the route is `usage-access`.
+   * The two purposes are said apart because the build has two.
+   */
+  usageAccess: {
+    title: 'Vesper necesita el acceso a datos de uso',
+    session: {
+      heading: 'Durante una sesión',
+      body: 'Vesper mira qué app está al frente para cubrirla con el recordatorio cuando abres una de las que elegiste. La compara con tu lista y la suelta.',
+    },
+    activity: {
+      heading: 'En la pestaña Actividad',
+      body: 'Con la app abierta y sin sesión corriendo, Vesper le pregunta al sistema cuánto estuvo al frente hoy y esta semana cada app que elegiste, y te muestra el desglose.',
+    },
+    privacy: {
+      heading: 'Nada de esto sale de tu teléfono',
+      body: 'Todo se procesa aquí y no va a ningún servidor. Vesper tampoco guarda historial de las apps que usas: se lo pregunta al sistema cada vez y muestra la respuesta.',
+    },
+    /** `continue` is a reserved word; the key says it is the label. */
+    continueLabel: 'Continuar',
+    opening: 'Abriendo Ajustes…',
+    systemPrompt: 'Android te lleva a Ajustes para que actives el acceso. Puedes quitarlo cuando quieras y el resto de Vesper funciona igual.',
+    failed: 'no se activó el acceso a datos de uso',
+    /** On the real-app picker, where the access is what is missing. */
+    grant: 'Dar el acceso a datos de uso',
+  },
   websites: {
     blocked: 'Sitios bloqueados',
     allowed: 'Sitios permitidos',

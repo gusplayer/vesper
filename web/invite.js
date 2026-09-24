@@ -17,7 +17,7 @@
       openHint: 'Si tienes Vesper en este teléfono, el botón la abre con el código adentro.',
       noAppTitle: '¿No tienes Vesper?',
       noAppBody:
-        'Es una app de foco: bloquea lo que te distrae mientras trabajas y te devuelve el tiempo. No pide cuenta ni correo, y todo se queda en tu teléfono.',
+        'Es una app de foco: bloquea lo que te distrae mientras trabajas y te devuelve el tiempo. No pide cuenta ni correo, y de tu círculo sale solo lo que tú enciendes.',
       noAppSoon: 'Todavía no está en las tiendas. Guarda este código: te va a servir el día que la instales.',
       privacy: 'Esta página no guarda nada, no usa cookies y no carga nada de otro sitio. El código viaja en el link y no sale de aquí.',
       noCodeTitle: 'Este link no trae un código',
@@ -30,7 +30,7 @@
       openHint: 'If Vesper is on this phone, the button opens it with the code inside.',
       noAppTitle: 'You don’t have Vesper?',
       noAppBody:
-        'It is a focus app: it blocks what distracts you while you work and gives the time back. No account, no email, and everything stays on your phone.',
+        'It is a focus app: it blocks what distracts you while you work and gives the time back. No account, no email, and only what you turn on leaves your circle.',
       noAppSoon: 'It is not in the stores yet. Keep this code: it will work the day you install it.',
       privacy: 'This page stores nothing, uses no cookies and loads nothing from anywhere else. The code travels in the link and goes no further.',
       noCodeTitle: 'This link carries no code',

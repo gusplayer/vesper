@@ -79,28 +79,77 @@ export type CircleWeekRow = {
   name: string;
   handle: string;
   isMe: boolean;
-  focusMs: number;
+  /** Focus in the week, null when that person does not share it. Never zero for null. */
+  focusMs: number | null;
   /** Estimated floor, null when not shared. Shown on its own line, never summed. */
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  /** Habit marks kept, null when that person does not share habits. */
+  habitsDone: number | null;
+  /** Habit marks promised, null when that person does not share habits. */
+  habitsTarget: number | null;
   /** False for a member with no MemberWeek row for that week. Sorted last. */
   hasData: boolean;
 };
 
+/** The user's own week, with the same nulls as anyone else's: see `circleWeek`. */
 export type MyWeek = {
-  focusMs: number;
+  focusMs: number | null;
   socialMs: number | null;
-  habitsDone: number;
-  habitsTarget: number;
+  habitsDone: number | null;
+  habitsTarget: number | null;
 };
 
 /**
+ * Which of three different things one number on a circle row is. They look alike on
+ * a screen and mean opposite things, so nothing derives them by squinting at a value:
+ *
+ * - `shared`: there is a number, and **zero is one of them** — a real week in which
+ *   that person focused nothing, which they chose to publish.
+ * - `private`: they do not share that metric (ADR-0021 §4). Nothing is known and
+ *   nothing may be guessed; showing it as 0 is the lie ADR-0033 named on the server
+ *   and ADR-0035 named again for the user's own social floor.
+ * - `missing`: there is no row for that week at all — they have not synced it, or
+ *   they joined the circle after it ended. Not a choice, just an absence.
+ */
+export type MetricState = 'shared' | 'private' | 'missing';
+
+/**
+ * The state of one metric of one row: `metricState(row.focusMs, row.hasData)`. The
+ * single place the app is allowed to decide what a null means, so a screen never has
+ * to, and so the user's own row and everyone else's answer the same way.
+ */
+export function metricState(value: number | null, hasData: boolean): MetricState {
+  if (!hasData) {
+    return 'missing';
+  }
+  return value === null ? 'private' : 'shared';
+}
+
+/**
+ * Where a row falls when the week is ordered. ADR-0021 §3 orders by focus hours and
+ * nothing else, without positions — which only says what to do with the people who
+ * published a number. Someone who does not share their focus has no hours to be
+ * ordered by, and sorting them as zero would hand them the last place as if they had
+ * earned it: a position, invented out of a silence. So they leave the ordered part
+ * and keep the circle's own order (stable sort, the user first), after everyone with
+ * a number and before the people with no row for that week at all, who are the older
+ * absence and stay last, as they already did.
+ */
+function focusRank(row: CircleWeekRow): number {
+  if (!row.hasData) {
+    return 2;
+  }
+  return row.focusMs === null ? 1 : 0;
+}
+
+/**
  * The circle's week: members with status 'member' plus the user, sorted by focus,
- * most first, with the members that have no row for that week at the end. The
- * user's row carries `me.week` as given; the caller applies the share preferences
- * before building it (a metric not shared reads null), so this function never has
- * to know what the user chose.
+ * most first, then the people who do not share their focus, then the ones with no
+ * row for that week. The user's row carries `me.week` as given; the caller applies
+ * the share preferences before building it (a metric not shared reads null), so this
+ * function never has to know what the user chose — and the user's row is built out of
+ * the same nulls as everybody else's, which is what keeps the screen honest about
+ * what the circle actually sees of them (ADR-0035 §2).
  */
 export function circleWeek(
   members: readonly Member[],
@@ -128,19 +177,24 @@ export function circleWeek(
       name: member.name,
       handle: member.handle,
       isMe: false,
-      focusMs: week?.focusMs ?? 0,
+      // `?? null` only ever fires for a member with no row: inside a row a null is
+      // already the answer, and must reach the screen untouched.
+      focusMs: week?.focusMs ?? null,
       socialMs: week?.socialMs ?? null,
-      habitsDone: week?.habitsDone ?? 0,
-      habitsTarget: week?.habitsTarget ?? 0,
+      habitsDone: week?.habitsDone ?? null,
+      habitsTarget: week?.habitsTarget ?? null,
       hasData: week !== undefined,
     });
   }
   // Array.prototype.sort is stable: ties keep the input order, the user first.
   return rows.sort((a, b) => {
-    if (a.hasData !== b.hasData) {
-      return a.hasData ? -1 : 1;
+    const rank = focusRank(a) - focusRank(b);
+    if (rank !== 0) {
+      return rank;
     }
-    return b.focusMs - a.focusMs;
+    // Both ranks are the same, so either both have hours or neither does; with
+    // neither, this is 0 and the input order stands.
+    return (b.focusMs ?? 0) - (a.focusMs ?? 0);
   });
 }
 

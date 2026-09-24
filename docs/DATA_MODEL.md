@@ -15,15 +15,16 @@ columnas de fecha en texto.
 Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
 fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
-Hoy hay ocho: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
+Hoy hay diez: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
 `003_routines.ts` (duración de rutinas, ADR-0019), `004_circle.ts` (ADR-0021),
 `005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022),
 `006_schedule_stamps.ts` (`schedules.updated_at`: una ventana ya abierta al guardar o
 encender la rutina no arranca sesión, ADR-0026), `007_streak_nudges.ts` (racha, días de
 gracia y empujones, ADR-0027), `008_routine_starts.ts` (la marca de rutina pasa de una
-sola a un mapa por rutina, ADR-0036) y `009_challenge_mark_source.ts` (de dónde vino cada
-marca de reto, ADR-0042). El índice está
-en `src/db/migrations/index.ts`; se aplican en orden y solo se agrega al final.
+sola a un mapa por rutina, ADR-0036), `009_challenge_mark_source.ts` (de dónde vino cada
+marca de reto, ADR-0042) y `010_member_weeks_not_shared.ts` (una métrica que alguien no
+comparte es NULL, nunca cero, ADR-0033). El índice está en `src/db/migrations/index.ts`;
+se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
 
@@ -217,14 +218,15 @@ CREATE TABLE circle_members (
 
 -- Una fila por persona y semana: lo que el servidor entregará. social_ms NULL es
 -- "no lo comparte"; cuando existe es un piso estimado y va en su propia línea,
--- nunca sumado con el foco (ADR-0005).
+-- nunca sumado con el foco (ADR-0005). Las otras tres métricas nacieron NOT NULL y
+-- las vuelve nulables la migración 010: hoy se leen de las columnas *_shared.
 CREATE TABLE member_weeks (
   member_id     TEXT NOT NULL,
   week_key      TEXT NOT NULL,          -- lunes de esa semana, 'YYYY-MM-DD' local
-  focus_ms      INTEGER NOT NULL DEFAULT 0,
+  focus_ms      INTEGER NOT NULL DEFAULT 0,   -- heredada de 004, no se lee (ver 010)
   social_ms     INTEGER,
-  habits_done   INTEGER NOT NULL DEFAULT 0,
-  habits_target INTEGER NOT NULL DEFAULT 0,
+  habits_done   INTEGER NOT NULL DEFAULT 0,   -- heredada de 004, no se lee (ver 010)
+  habits_target INTEGER NOT NULL DEFAULT 0,   -- heredada de 004, no se lee (ver 010)
   updated_at    INTEGER NOT NULL,
   PRIMARY KEY (member_id, week_key)
 );
@@ -275,6 +277,21 @@ CREATE TABLE challenge_marks (
   UNIQUE(challenge_id, member_id, day_key)
 );
 CREATE INDEX idx_challenge_marks_challenge ON challenge_marks(challenge_id);
+
+-- 010_member_weeks_not_shared.ts (ADR-0033, ADR-0021 §4)
+
+-- NULL es "esta persona no comparte esa métrica"; un número, cero incluido, es un
+-- número que esa persona tuvo. Son dos frases distintas y no pueden ser el mismo
+-- valor: un foco nulo pintado como "0 h" dice "no hice nada esta semana" de alguien
+-- que solo se guardó la cifra. SQLite no deja quitar un NOT NULL con ALTER y una
+-- reconstrucción necesitaría INSERT ... SELECT y DROP TABLE, que src/db/sql.test.ts
+-- prohíbe; así que, igual que 007 con challenges.end_day_key, la columna nulable va
+-- al lado de la heredada, se rellena una vez y desde aquí es la única que se lee.
+-- Las de 004 se siguen escribiendo como `valor ?? 0` para que nunca queden rancias.
+ALTER TABLE member_weeks ADD COLUMN focus_ms_shared INTEGER;
+ALTER TABLE member_weeks ADD COLUMN habits_done_shared INTEGER;
+ALTER TABLE member_weeks ADD COLUMN habits_target_shared INTEGER;
+UPDATE member_weeks SET focus_ms_shared = focus_ms, habits_done_shared = habits_done, habits_target_shared = habits_target;
 
 -- 009_challenge_mark_source.ts (ADR-0042)
 
