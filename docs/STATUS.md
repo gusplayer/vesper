@@ -11,10 +11,12 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **898 tests en 65 archivos**, todos en verde, y también con
+avisos y `npx vitest run` con **1000 tests en 69 archivos**, todos en verde, y también con
 `npm run test:dst` (la misma suite en una zona con horario de verano); los dos módulos Kotlin
-compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **55** tests y
-está desplegado; la app todavía no le habla (ADR-0033).
+compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **55** tests, está
+desplegado, y **la app por fin le habla** desde ADR-0044: cuenta por dispositivo que nace al
+invitar, secreto en el llavero y sincronía. Lo que no se ha ejecutado nunca es el ciclo
+completo entre dos teléfonos.
 
 ## Estado actual
 
