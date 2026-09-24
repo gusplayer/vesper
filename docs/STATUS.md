@@ -614,3 +614,35 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   y el respaldo abre la ficha en `play.google.com` en Chrome. Instalarlo y volver queda
   para un teléfono con Play.
 
+
+- **2026-09-24 · El círculo habla con su servidor, y ejecutar la app encontró dos cosas
+  que ningún test podía.** ADR-0044: cliente completo —capa HTTP con fallos tipados, el
+  secreto en el llavero (`expo-secure-store`) y nunca en SQLite, sincronía al montar, al
+  volver al frente y tras cada escritura, clave de respaldo y borrar la cuenta en
+  Ajustes—. La cuenta **nace tarde**, al invitar o usar un código, así que quien no
+  invite a nadie no tiene cuenta en ningún servidor. ADR-0037 queda cerrado: el teléfono
+  compone la frase y la pasa por el presupuesto de ADR-0027, y un aviso guardado para la
+  mañana se **retira del sistema** si antes empieza una sesión. ADR-0045: la fila del
+  foco siempre está, con el total del propio ledger para que una parte no supere a su
+  total. ADR-0046: existen Términos y Privacidad en la web, la app enlaza, y la
+  divulgación destacada de Play es una ruta real. Migración 010: una métrica que su dueño
+  no comparte se guarda como `null`, no como cero.
+- **Verificado corriendo, emulador Pixel 7 (API 36)**: la pantalla de divulgación con sus
+  dos propósitos separados; el arranque por `BootReveal` hasta la bienvenida; "Works with
+  no account and no connection" y "By continuing you accept: Terms · Privacy" con las dos
+  palabras tocables. Antes, `tsc`, `eslint` y **1000 tests** en verde.
+- **Dos defectos que solo aparecieron al ejecutar, y que ningún test habría visto:**
+  - **La app abría en la divulgación.** Esa ruta se declaró antes de los dos
+    `Stack.Protected` para no pertenecer a ningún mundo, y en expo-router **la primera
+    pantalla de un `Stack` es su ruta inicial**: todo arranque en frío caía ahí. Ahora se
+    declara al final, fuera de las dos guardas igual.
+  - **"Volver" no podía volver.** `router.back()` sin guardia en una ruta que es la
+    primera de la pila le enseña al usuario el error del navegador. Había **53 llamadas
+    así en 32 archivos**; la peor, `circle/join`, que es justo donde aterriza el link de
+    invitación de la web. Todas pasan por `lib/goBack`.
+- **No verificado, y es lo que más falta:** el ciclo completo del círculo contra el
+  servidor desplegado (dos cuentas, código, aceptación, semana, marca, empujón) **no se
+  ejecutó**; la base de producción sigue vacía a propósito. Tampoco: el llavero en un
+  aparato, que un push silencioso despierte la app (necesita build de iOS con
+  `enableBackgroundRemoteNotifications`), la pantalla de clave de respaldo, borrar la
+  cuenta, ni **nada en iOS ni en un teléfono físico**.
