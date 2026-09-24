@@ -30,7 +30,7 @@ está desplegado; la app todavía no le habla (ADR-0033).
 | Motor de rutinas: arranca la sesión de la ventana, espera si hay una, nunca dos veces; rutinas sin hora | real | real | Simulador: a las 16:16 de un miércoles "Trabajo" arrancó sola con "Trabajo profundo" |
 | Notificaciones locales (fin de sesión, fin de pausa, rutinas, cierre semanal; se replanifican al cambiar idioma) | real | real | Simulador iPhone 17: el aviso de rutina "Empieza Lectures · Modo Deep work. Toca para empezar la sesión." salió en la pantalla bloqueada y abrir la app cayó en la sesión. Sin verificar el fin de pausa en segundo plano ni nada en Android |
 | Live Activity: banner, isla (cinco regiones), relojes nativos, pausa en papel (ADR-0023) | real | no aplica | Simulador iPhone 17 Pro: banner contando con la app fuera, isla compacta y expandida en foco y pausa, tocar abre la sesión. Sin verificar sesión sin límite en la isla (solo tests) |
-| Salud: entrenamientos, pasos y sueño marcan hábitos verificados | real (`react-native-health`, con parche) | real (Health Connect vía `modules/vesper-health`, ADR-0043) | Simulador iPhone 17 Pro: "Conectar Salud" abre la hoja de permisos del sistema y queda "Salud conectada · última lectura"; sin datos que leer. Emulador Pixel 6 (API 34): la hoja de Health Connect con los tres tipos, la justificación, la semana leída sin errores y "Abrir Health Connect"; sin datos que leer ni el caso de Play (Android 9 a 13) |
+| Salud: entrenamientos, pasos y sueño marcan hábitos verificados | real (`react-native-health`, con parche) | real (Health Connect vía `modules/vesper-health`, ADR-0043) | Simulador iPhone 17 Pro: "Conectar Salud" abre la hoja de permisos del sistema y queda "Salud conectada · última lectura"; sin datos que leer. Emulador Pixel 6 (API 34): la hoja de Health Connect con los tres tipos, la justificación, la semana leída sin errores y "Abrir Health Connect"; sin datos que leer. Emulador Pixel 6 con Android 13 (API 33) sin Health Connect: "Install Health Connect" con "Health Connect is missing or out of date" debajo; sin Play Store, abre la ficha en `play.google.com` en el navegador. Sin verificar: instalarlo y volver |
 | Bloqueo durante la sesión | integrado (`react-native-device-activity`); **imposible sin el entitlement de Apple** | real (`modules/vesper-blocking`: servicio `specialUse`, escudo superpuesto) | iOS: solo compila; las tres extensiones se generan en `targets/`. Android: emulador Pixel 6 (API 34) por adb: escudo sobre Ajustes y Reloj, baja con "Volver" |
 | Ventanas de rutina con la app cerrada | `DeviceActivity` por día (sin verificar) | `AlarmManager` exactas o con 10 min de holgura, `BootReceiver` | Android: ventana abierta con el proceso muerto, cierre al minuto, alarmas de vuelta tras `adb reboot`, servicio revivido tras `kill -9`. iOS: aritmética con tests, nada en dispositivo |
 | Pausa con el bloqueo (`pausePlan`/`resumePlan`) | `release()` + `applyPlan()` (sin verificar) | del servicio, sin JS | Android: notificación en pausa, reanudación al segundo tras `kill -9`, escudo subiendo sobre Ajustes |
@@ -122,8 +122,8 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
   Xiaomi) en Android. Anotar aquí qué se vio.
 - **Health Connect con datos reales** (ADR-0043): un teléfono con Samsung Health, Fit o
   un reloj escribiendo en Health Connect; ver que pasos, entrenamientos y sueño marquen
-  los hábitos. Y el caso de Android 9 a 13 sin Health Connect: "Instalar Health Connect"
-  abre Play y al volver la pantalla ofrece conectar.
+  los hábitos. Y en un teléfono con Play y Android 9 a 13: instalar Health Connect desde
+  "Instalar Health Connect" y que al volver la pantalla ofrezca conectar.
 - **Play**: declaración de Health Connect y publicar la política de privacidad
   (`web/privacy.html` es un borrador: falta el correo de contacto, la fecha y la
   revisión; `PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
@@ -608,4 +608,9 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   `stores/app.ts` crea un store nuevo con los ajustes por defecto, y la primera escritura
   (`markOpened`) los guarda en la base: se vio volver `onboardingDone` y `healthConnected`
   a `false`. Tras editar el dominio, relanzar la app en vez de fiarse del refresco.
+- **El caso de Play, en un emulador Pixel 6 con Android 13 (API 33, `Vesper_API_33`)**
+  sin Health Connect: Ajustes › Salud muestra "Install Health Connect" y debajo "Health
+  Connect is missing or out of date"; como la imagen no trae Play Store, `market://` falla
+  y el respaldo abre la ficha en `play.google.com` en Chrome. Instalarlo y volver queda
+  para un teléfono con Play.
 
