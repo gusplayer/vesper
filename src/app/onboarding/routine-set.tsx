@@ -1,5 +1,7 @@
 import { router } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import { Button, Card, PageHeader, Screen, Stack, Text, Toggle } from '../../design/components';
 import { commitOnboarding } from '../../features/onboarding/commit';
@@ -25,11 +27,11 @@ export default function RoutineSetScreen() {
       footer={
         <>
           <Button label={copy.save} onPress={save} />
-          <Button label={copy.edit} variant="ghost" onPress={() => router.back()} />
+          <Button label={copy.edit} variant="ghost" onPress={() => goBack(router)} />
         </>
       }
     >
-      <PageHeader onBack={() => router.back()} />
+      <PageHeader onBack={() => goBack(router)} />
 
       <Card>
         <Stack direction="row" align="center" justify="space-between" gap="md">

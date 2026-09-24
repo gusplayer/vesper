@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { Icon, ListGroup, ListRow, PageHeader, Screen, Text } from '../../design/components';
@@ -12,7 +14,7 @@ export default function HelpScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title={t.settings.help.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.help.title} />
 
       <ListGroup title={t.settings.help.faqTitle}>
         {t.settings.help.faqs.map((faq, index) => {

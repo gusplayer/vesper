@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -80,7 +82,7 @@ export default function ChallengeScreen() {
   if (view === null) {
     return (
       <Screen>
-        <PageHeader onBack={() => router.back()} title={t.list.challenges} />
+        <PageHeader onBack={() => goBack(router)} title={t.list.challenges} />
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
@@ -135,7 +137,7 @@ export default function ChallengeScreen() {
         style: 'destructive',
         onPress: () => {
           archiveChallenge(challenge.id, Date.now());
-          router.back();
+          goBack(router);
         },
       },
     ]);
@@ -205,7 +207,7 @@ export default function ChallengeScreen() {
         )
       }
     >
-      <PageHeader onBack={() => router.back()} title={challenge.name} />
+      <PageHeader onBack={() => goBack(router)} title={challenge.name} />
 
       <Stack gap="xs">
         <Text variant="heading">{challengeStatusText(view, t)}</Text>

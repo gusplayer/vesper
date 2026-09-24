@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useEffect, useState } from 'react';
 
 import { useAppStore } from '../../data';
@@ -71,7 +73,7 @@ export default function NotificationsScreen() {
         )
       }
     >
-      <PageHeader onBack={() => router.back()} />
+      <PageHeader onBack={() => goBack(router)} />
       <Text variant="caption" tone="tertiary" align="center">
         {copy.kicker}
       </Text>

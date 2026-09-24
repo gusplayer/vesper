@@ -1,4 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
+
+import { goBack } from '../lib/goBack';
 import { useState } from 'react';
 
 import { useAppStore } from '../data';
@@ -47,7 +49,14 @@ export default function UsageAccessScreen() {
       router.replace('/onboarding/health');
       return;
     }
-    router.back();
+    // This route can be the first one in the stack — a deep link, or a cold launch
+    // that restored it — and then there is nothing to go back to. Without the guard
+    // the navigator shows the user its own error. Focus is the honest fallback.
+    if (router.canGoBack()) {
+      goBack(router);
+      return;
+    }
+    router.replace('/');
   };
 
   const allow = async () => {
@@ -68,11 +77,11 @@ export default function UsageAccessScreen() {
     <PermissionPage
       title={copy.title}
       blocks={blocks}
-      onBack={() => router.back()}
+      onBack={leave}
       footer={
         <>
           <Button label={copy.continueLabel} busyLabel={copy.opening} busy={busy} onPress={() => void allow()} />
-          <Button variant="ghost" label={t.common.back} onPress={() => router.back()} />
+          <Button variant="ghost" label={t.common.back} onPress={leave} />
           <Text variant="caption" tone="secondary" align="center">
             {reason === null ? copy.systemPrompt : reason}
           </Text>

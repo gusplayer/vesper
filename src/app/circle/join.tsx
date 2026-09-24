@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useCircleMembers, useProfile } from '../../data';
@@ -49,7 +51,7 @@ export default function JoinScreen() {
   if (profile === null) {
     return (
       <Screen footer={<Button label={copy.createProfile} onPress={() => router.replace('/settings/circle')} />}>
-        <PageHeader onClose={() => router.back()} title={copy.title} />
+        <PageHeader onClose={() => goBack(router)} title={copy.title} />
         <Stack gap="sm">
           <Text variant="heading">{copy.noProfileTitle}</Text>
           <Text variant="body" tone="secondary">
@@ -77,7 +79,7 @@ export default function JoinScreen() {
         />
       }
     >
-      <PageHeader onClose={() => router.back()} title={copy.title} />
+      <PageHeader onClose={() => goBack(router)} title={copy.title} />
       <Card>
         <Stack gap="sm">
           <Text variant="heading">{code === null ? copy.noCode : copy.body(code)}</Text>

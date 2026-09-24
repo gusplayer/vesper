@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { Card, IconCircle, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { useAppStore, useModeIdeas } from '../../data';
 import type { ModeIdea } from '../../data/types';
@@ -21,12 +23,12 @@ export default function ModeIdeasScreen() {
       depth: idea.depth,
       activityId: idea.activityId,
     });
-    router.back();
+    goBack(router);
   };
 
   return (
     <Screen scroll>
-      <PageHeader onClose={() => router.back()} title={t.modes.ideas.title} />
+      <PageHeader onClose={() => goBack(router)} title={t.modes.ideas.title} />
       {ideas.map((idea) => (
         <Card key={idea.id}>
           <Stack direction="row" align="center" gap="md">

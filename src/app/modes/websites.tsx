@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { WEBSITES } from '../../data';
 import { useModeDraftStore } from '../../data/modeDraft';
 import { SelectionPicker, type PickerItem } from '../../features/modes/SelectionPicker';
@@ -27,8 +29,8 @@ export default function ModeWebsitesScreen() {
       selectedTitle={t.modes.websites.selected}
       listTitle={t.modes.websites.popular}
       onToggle={toggleWebsite}
-      onBack={() => router.back()}
-      onDone={() => router.back()}
+      onBack={() => goBack(router)}
+      onDone={() => goBack(router)}
     />
   );
 }

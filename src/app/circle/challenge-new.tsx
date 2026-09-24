@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useCircleMembers, useCircleStore, useHabitsWeek } from '../../data';
@@ -125,7 +127,7 @@ export default function NewChallengeScreen() {
         </>
       }
     >
-      <PageHeader onBack={() => router.back()} title={t.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.title} />
 
       <FieldRow
         label={t.name}

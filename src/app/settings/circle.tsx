@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useEffect, useState } from 'react';
 import { Alert, Share } from 'react-native';
 
@@ -91,7 +93,7 @@ export default function CircleSettingsScreen() {
     } else {
       updateProfile({ name: trimmedName, handle: trimmedHandle }, Date.now());
     }
-    router.back();
+    goBack(router);
   };
 
   const confirmDelete = () => {
@@ -121,7 +123,7 @@ export default function CircleSettingsScreen() {
         <Button label={profile === null ? t.createProfile : strings.common.save} onPress={save} disabled={!canSave} />
       }
     >
-      <PageHeader onBack={() => router.back()} title={t.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.title} />
 
       <Section title={t.profile}>
         <FieldRow

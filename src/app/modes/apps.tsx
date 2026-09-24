@@ -1,4 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useApps, useAppStore } from '../../data';
@@ -100,8 +102,8 @@ export default function ModeAppsScreen() {
         selectedTitle={t.modes.apps.selected}
         listTitle={t.modes.apps.all}
         onToggle={toggleApp}
-        onBack={() => router.back()}
-        onDone={() => (fromOnboarding ? router.push('/onboarding/screen-time') : router.back())}
+        onBack={() => goBack(router)}
+        onDone={() => (fromOnboarding ? router.push('/onboarding/screen-time') : goBack(router))}
         doneLabel={fromOnboarding ? t.common.continue : t.common.done}
       />
     );
@@ -114,7 +116,7 @@ export default function ModeAppsScreen() {
       // token comes from a system dialog and is not worth making the user redo.
       setModeSelection(draftId, token);
     }
-    router.back();
+    goBack(router);
   };
 
   if (reason !== null) {
@@ -130,11 +132,11 @@ export default function ModeAppsScreen() {
             {canGrant ? (
               <Button label={t.modes.usageAccess.grant} onPress={() => router.push('/usage-access')} />
             ) : null}
-            <Button variant="ghost" label={t.common.back} onPress={() => router.back()} />
+            <Button variant="ghost" label={t.common.back} onPress={() => goBack(router)} />
           </>
         }
       >
-        <PageHeader onBack={() => router.back()} title={t.modes.apps.realTitle} />
+        <PageHeader onBack={() => goBack(router)} title={t.modes.apps.realTitle} />
         <Card>
           <Stack gap="xs">
             <Text variant="heading">{canGrant ? t.modes.usageAccess.title : t.modes.apps.unavailable}</Text>
@@ -149,7 +151,7 @@ export default function ModeAppsScreen() {
 
   return (
     <Screen scroll footer={<Button label={t.common.done} onPress={done} />}>
-      <PageHeader onBack={() => router.back()} title={t.modes.apps.realTitle} />
+      <PageHeader onBack={() => goBack(router)} title={t.modes.apps.realTitle} />
       <Text variant="label" tone="secondary">
         {t.modes.apps.realHint}
       </Text>

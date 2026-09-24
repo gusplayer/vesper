@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useEffect, useState } from 'react';
 
 import { useAppStore, useSettings } from '../../data';
@@ -90,7 +92,7 @@ export default function NotificationsScreen() {
         )
       }
     >
-      <PageHeader onBack={() => router.back()} title={page.title} />
+      <PageHeader onBack={() => goBack(router)} title={page.title} />
 
       {!capability.available ? (
         <Card>

@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useRef, useState } from 'react';
 
 import { useFocusStore, useRunningSession } from '../../data';
@@ -80,7 +82,7 @@ export default function ExitScreen() {
   const breath = breathState(heldMs, cycles);
   const served = durationText(elapsed(session, now));
 
-  const stay = () => router.back();
+  const stay = () => goBack(router);
   const leave = () => {
     if (leftRef.current) {
       return;

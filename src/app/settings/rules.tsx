@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { useAppStore, useSettings } from '../../data';
 import { PageHeader, Screen, Stack, Text } from '../../design/components';
 import { ToggleCard } from '../../features/settings/ToggleCard';
@@ -20,7 +22,7 @@ export default function RulesScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title={t.settings.rules.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.rules.title} />
 
       <Stack gap="md">
         <ToggleCard

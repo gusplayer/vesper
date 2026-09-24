@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -114,7 +116,7 @@ export default function ScheduleEditScreen() {
     if (kind === 'timed' && isAndroid) {
       void requestExactAlarms();
     }
-    router.back();
+    goBack(router);
   };
 
   const remove = () => {
@@ -128,7 +130,7 @@ export default function ScheduleEditScreen() {
         style: 'destructive',
         onPress: () => {
           deleteSchedule(existing.id);
-          router.back();
+          goBack(router);
         },
       },
     ]);
@@ -162,7 +164,7 @@ export default function ScheduleEditScreen() {
       }
     >
       <PageHeader
-        onClose={() => router.back()}
+        onClose={() => goBack(router)}
         title={existing === null ? t.routines.edit.newTitle : t.routines.edit.editTitle}
       />
 

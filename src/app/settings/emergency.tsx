@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { useSettings } from '../../data';
 import { Badge, Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { useStrings } from '../../i18n';
@@ -15,7 +17,7 @@ export default function EmergencyScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title={t.settings.emergency.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.emergency.title} />
 
       <Card>
         <Stack direction="row" align="flex-start" gap="md">

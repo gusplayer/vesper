@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { Alert } from 'react-native';
 
 import { useAppStore } from '../../data';
@@ -18,7 +20,7 @@ export default function EditHabitScreen() {
   if (habit === null) {
     return (
       <Screen>
-        <PageHeader title={t.habits.edit.title} onBack={() => router.back()} />
+        <PageHeader title={t.habits.edit.title} onBack={() => goBack(router)} />
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
@@ -41,7 +43,7 @@ export default function EditHabitScreen() {
         style: 'destructive',
         onPress: () => {
           archiveHabit(habit.id);
-          router.back();
+          goBack(router);
         },
       },
     ]);
@@ -55,7 +57,7 @@ export default function EditHabitScreen() {
       secondary={<Button variant="ghost" label={t.habits.edit.archiveHabit} onPress={confirmArchive} />}
       onSubmit={(values) => {
         upsertHabit({ ...values, id: habit.id });
-        router.back();
+        goBack(router);
       }}
     />
   );

@@ -105,10 +105,6 @@ export default function RootLayout() {
           <SessionGate />
           <StreakSettle />
           <Stack screenOptions={stackScreenOptions}>
-            {/* The usage-access disclosure belongs to no world: Play requires it right
-                before the system page, and that page is asked for from the onboarding
-                step and from a mode's real-app picker alike (ADR-0046). */}
-            <Stack.Screen name="usage-access" />
             <Stack.Protected guard={!onboardingDone}>
               <Stack.Screen name="onboarding" />
             </Stack.Protected>
@@ -143,6 +139,12 @@ export default function RootLayout() {
               <Stack.Screen name="circle/challenge" />
               <Stack.Screen name="circle/challenge-new" />
             </Stack.Protected>
+            {/* The usage-access disclosure belongs to no world: Play requires it right
+                before the system page, and that page is asked for from the onboarding
+                step and from a mode's real-app picker alike (ADR-0046). It is declared
+                last on purpose — the first screen of a Stack is its initial route, and
+                declaring this one first made every launch open on the disclosure. */}
+            <Stack.Screen name="usage-access" />
           </Stack>
         </ChromeProvider>
       ) : null}

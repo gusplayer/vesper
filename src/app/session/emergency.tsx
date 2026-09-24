@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useRef, useState } from 'react';
 
 import { useAppStore, useFocusStore, useRunningSession, useSettings } from '../../data';
@@ -67,7 +69,7 @@ export default function EmergencyScreen() {
     <Screen
       footer={
         <>
-          <Button label={strings.stayFocused} onPress={() => router.back()} />
+          <Button label={strings.stayFocused} onPress={() => goBack(router)} />
           {left > 0 ? <Button variant="ghost" label={t.use} onPress={use} disabled={!ready} /> : null}
         </>
       }

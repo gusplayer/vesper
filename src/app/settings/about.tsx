@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { Alert, Linking } from 'react-native';
 
 import { HeroObject, ListGroup, ListRow, PageHeader, Screen, Stack, Text } from '../../design/components';
@@ -31,7 +33,7 @@ export default function AboutScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title={t.settings.about.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.about.title} />
 
       <Stack align="center" gap="md">
         <HeroObject size="md" />

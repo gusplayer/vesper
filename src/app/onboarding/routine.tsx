@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useOnboardingDraft } from '../../data/onboardingDraft';
@@ -36,7 +38,7 @@ export default function RoutineScreen() {
         </>
       }
     >
-      <PageHeader onBack={() => router.back()} />
+      <PageHeader onBack={() => goBack(router)} />
       <Text variant="title">{copy.title(modeName || copy.yourMode)}</Text>
       <Text variant="label" tone="secondary">
         {copy.subtitle}

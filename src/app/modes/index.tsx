@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -43,7 +45,7 @@ export default function ModesScreen() {
   return (
     <Screen scroll>
       <PageHeader
-        onBack={() => router.back()}
+        onBack={() => goBack(router)}
         title={t.modes.list.title}
         right={
           running ? undefined : (

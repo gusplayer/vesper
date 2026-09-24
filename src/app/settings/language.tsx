@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { Check, ListGroup, ListRow, PageHeader, Screen } from '../../design/components';
 import { LANGUAGE_PREFERENCES, useLocaleStore, useStrings, type LanguagePreference } from '../../i18n';
 
@@ -24,7 +26,7 @@ export default function LanguageScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title={t.settings.language.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.language.title} />
 
       <ListGroup>
         {LANGUAGE_PREFERENCES.map((option) => (

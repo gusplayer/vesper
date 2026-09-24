@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useAppStore, useSettings } from '../../data';
@@ -93,7 +95,7 @@ export default function HealthScreen() {
         )
       }
     >
-      <PageHeader onBack={() => router.back()} title={t.settings.health.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.health.title} />
 
       {connected ? (
         <>

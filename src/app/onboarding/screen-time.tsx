@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useAppStore } from '../../data';
@@ -59,7 +61,7 @@ export default function ScreenTimeScreen() {
     <PermissionPage
       title={isAndroid ? copy.android.title : copy.title}
       blocks={blocks}
-      onBack={() => router.back()}
+      onBack={() => goBack(router)}
       footer={
         <>
           <Button

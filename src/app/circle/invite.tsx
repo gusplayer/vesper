@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useEffect, useState } from 'react';
 import { Alert, Share } from 'react-native';
 
@@ -204,7 +206,7 @@ export default function InviteScreen() {
         />
       }
     >
-      <PageHeader onBack={() => router.back()} title={copy.title} />
+      <PageHeader onBack={() => goBack(router)} title={copy.title} />
 
       <Card>
         <Stack gap="md" align="center">

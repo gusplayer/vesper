@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import {
   useChallenges,
   useCircleStore,
@@ -48,7 +50,7 @@ export default function CircleScreen() {
   if (profile === null) {
     return (
       <Screen footer={<Button label={t.list.createProfile} onPress={() => router.push('/settings/circle')} />}>
-        <PageHeader onBack={() => router.back()} title={t.list.title} />
+        <PageHeader onBack={() => goBack(router)} title={t.list.title} />
         <Stack gap="md">
           <Text variant="title">{t.list.noProfileTitle}</Text>
           <Text tone="secondary">{t.list.noProfileBody}</Text>
@@ -64,7 +66,7 @@ export default function CircleScreen() {
   return (
     <Screen scroll>
       <PageHeader
-        onBack={() => router.back()}
+        onBack={() => goBack(router)}
         title={t.list.title}
         right={
           <IconCircle

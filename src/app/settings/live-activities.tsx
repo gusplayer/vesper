@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { useActiveMode, useAppStore, useSettings } from '../../data';
 import { Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { MINUTE, SECOND } from '../../domain/time';
@@ -29,7 +31,7 @@ export default function LiveActivitiesScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => router.back()} title={t.settings.liveActivities.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.liveActivities.title} />
 
       <Stack gap="sm">
         <ToggleCard

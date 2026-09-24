@@ -1,4 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 
@@ -57,7 +59,7 @@ export default function ModeEditScreen() {
 
   const save = () => {
     upsertMode(draftToMode(draft));
-    router.back();
+    goBack(router);
   };
 
   const confirmDelete = () => {
@@ -72,7 +74,7 @@ export default function ModeEditScreen() {
         style: 'destructive',
         onPress: () => {
           deleteMode(modeId);
-          router.back();
+          goBack(router);
         },
       },
     ]);
@@ -87,7 +89,7 @@ export default function ModeEditScreen() {
 
   return (
     <Screen scroll footer={footer}>
-      <PageHeader onBack={() => router.back()} title={editing ? t.modes.edit.editTitle : t.modes.edit.newTitle} />
+      <PageHeader onBack={() => goBack(router)} title={editing ? t.modes.edit.editTitle : t.modes.edit.newTitle} />
 
       <FieldRow
         label={t.modes.edit.name}

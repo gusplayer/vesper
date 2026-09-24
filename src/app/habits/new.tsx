@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
 
+import { goBack } from '../../lib/goBack';
+
 import { useAppStore } from '../../data';
 import { Card, PageHeader, Screen, Stack, Text } from '../../design/components';
 import { MAX_HABITS } from '../../domain/types';
@@ -19,7 +21,7 @@ export default function NewHabitScreen() {
   if (left <= 0) {
     return (
       <Screen>
-        <PageHeader title={t.habits.new.title} onBack={() => router.back()} />
+        <PageHeader title={t.habits.new.title} onBack={() => goBack(router)} />
         <Card>
           <Stack gap="xs">
             <Text variant="body" weight="medium">
@@ -40,7 +42,7 @@ export default function NewHabitScreen() {
       caption={t.habits.new.left(left)}
       onSubmit={(values) => {
         upsertHabit(values);
-        router.back();
+        goBack(router);
       }}
     />
   );

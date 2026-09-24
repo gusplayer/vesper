@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useAppStore, useLife, useSettings } from '../../data';
@@ -82,12 +84,12 @@ export default function LifeScreen() {
       return;
     }
     updateSettings({ birthDate, country, sex, lifeExpectancyYears: years });
-    router.back();
+    goBack(router);
   };
 
   return (
     <Screen scroll footer={<Button label={t.common.save} onPress={save} disabled={!canSave} />}>
-      <PageHeader onBack={() => router.back()} title={t.settings.life.title} />
+      <PageHeader onBack={() => goBack(router)} title={t.settings.life.title} />
 
       <FieldRow
         label={t.settings.life.birth}

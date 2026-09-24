@@ -1,4 +1,6 @@
 import { router } from 'expo-router';
+
+import { goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { appsById, useApps } from '../../data';
@@ -64,7 +66,7 @@ export default function AppsScreen() {
         </>
       }
     >
-      <PageHeader onBack={() => router.back()} />
+      <PageHeader onBack={() => goBack(router)} />
       <Text variant="title">{t.onboarding.apps.title(modeName)}</Text>
       <Text variant="label" tone="secondary">
         {t.onboarding.apps.subtitle}
