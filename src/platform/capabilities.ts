@@ -32,5 +32,12 @@ export type CapabilityStatus = {
   detail?: {
     /** SCHEDULE_EXACT_ALARM is on, so routine windows open on the minute. Android only. */
     exactAlarm?: boolean;
+    /** Health Connect is missing or too old and Play can install it. Android only. */
+    installable?: boolean;
+    /**
+     * Health is read through Health Connect, which only has what the user linked to it
+     * (Samsung Health, Fit, a watch). Android only.
+     */
+    healthConnect?: boolean;
   };
 };

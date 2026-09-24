@@ -80,9 +80,10 @@ export const habits = {
     notYet: 'todavía no',
     readNow: 'Leer Salud ahora',
   },
-  /** Why Health is unavailable, as `status().reason` in src/platform/health.ts says it. */
+  /** Why Health is unavailable, as `status().reason` in src/platform/health.*.ts says it. */
   healthStatus: {
-    notIos: 'Salud solo existe en iPhone',
+    unsupported: 'Salud no existe en este teléfono',
+    installHealthConnect: 'Falta Health Connect o está desactualizado',
     notLinked: 'Esta versión de Vesper no puede leer Salud',
     notAvailable: 'Salud no está disponible en este dispositivo',
   },

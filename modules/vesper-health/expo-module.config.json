@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["com.gusplayer.vesper.health.VesperHealthModule"]
+  }
+}

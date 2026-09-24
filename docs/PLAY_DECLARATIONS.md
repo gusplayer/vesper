@@ -1,4 +1,4 @@
-# Declaraciones de Google Play — bloqueo en Android
+# Declaraciones de Google Play — bloqueo y Health Connect en Android
 
 Fase 3 de ADR-0019. Todo lo que hay que pegar en Play Console para publicar el módulo
 `vesper-blocking`. Los textos que Play exige en inglés van en inglés, con su traducción
@@ -17,6 +17,8 @@ Lo que el build declara hoy y viene de Vesper:
 | `RECEIVE_BOOT_COMPLETED` | `modules/vesper-blocking`, `expo-notifications` | Rearmar las ventanas de rutina y los recordatorios tras reiniciar |
 | `SCHEDULE_EXACT_ALARM` | `modules/vesper-blocking` | Abrir y cerrar las ventanas de rutina al minuto (fase 2) |
 | `<queries>` MAIN/LAUNCHER y MAIN/HOME | `modules/vesper-blocking` | Listar apps con lanzador; reconocer el launcher |
+| `health.READ_STEPS`, `health.READ_EXERCISE`, `health.READ_SLEEP` | `modules/vesper-health` | Leer de Health Connect la semana en curso para marcar solos los hábitos verificados (ADR-0043). Solo lectura; nada se escribe |
+| `<queries>` `com.google.android.apps.healthdata`, `PermissionsRationaleActivity` y su alias `VIEW_PERMISSION_USAGE` | `modules/vesper-health` | Saber si Health Connect está instalado; la pantalla que Health Connect abre para explicar por qué pedimos cada permiso |
 | `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `VIBRATE` | plantilla de Expo / RN | La app de producción no hace ninguna llamada de red |
 
 **No declarado, y no se declarará:** `QUERY_ALL_PACKAGES`, ningún `AccessibilityService`,
@@ -196,9 +198,14 @@ Lo que la app toca, para que el revisor no encuentre sorpresas:
 | Sesiones, modos, rutinas, hábitos, meta semanal, fecha de nacimiento (opcional) | SQLite local | No |
 | Diagnóstico / crashes | No se envía | No |
 
-Si en el futuro se agrega Health Connect (fase 1.5), este formulario cambia: hay que
-declarar "Health and fitness" aunque siga siendo local, y llenar la declaración de Health
-Connect aparte.
+Health Connect (ADR-0043) cambia este formulario: aunque nada salga del teléfono, hay que
+declarar **Health and fitness → Health info / Fitness info** como datos a los que la app
+accede, marcados "procesados solo en el dispositivo". Y se llena aparte la declaración de
+Health Connect (sección f).
+
+Cuando la app le hable al servidor del círculo, los días cumplidos de un reto de pasos sí
+salen del teléfono (ADR-0042 §5): ahí la respuesta a la primera pregunta pasa a **Sí** y
+hay que declararlo como compartido, con consentimiento del usuario.
 
 ---
 
@@ -207,9 +214,9 @@ Connect aparte.
 - [ ] **Familias / Diseñada para familias:** no. Público objetivo: 18 años o más en
   "Público objetivo y contenido". La app no está dirigida a niños y no es control
   parental: la persona que bloquea es la misma que puede quitar el bloqueo.
-- [ ] **Apps de salud:** no aplica en fase 1 (no hay Health Connect ni datos de salud).
-  Cuando llegue Health Connect, declaración específica y una semana más de revisión
-  (`docs/PLATFORM_ANDROID.md`).
+- [ ] **Apps de salud:** aplica desde ADR-0043. Declaración de Health Connect (sección f),
+  política de privacidad publicada que nombre los tres tipos leídos, y una semana más de
+  revisión.
 - [ ] **Abuso de dispositivos y redes:** la superposición solo aparece sobre apps que el
   usuario eligió, durante una sesión que el usuario inició; siempre tiene "Volver"; nunca
   cubre el launcher, Ajustes, el marcador ni SystemUI; no modifica ni interfiere con
@@ -261,9 +268,33 @@ ronda de respiración › "Terminar · llevas …". Sin AccessibilityService, si
 
 ---
 
+## f) Declaración de Health Connect
+
+Play Console › Política de la app › Permisos de Health Connect. Un texto por tipo, en
+inglés; Vesper solo lee.
+
+| Permiso | Justificación para pegar |
+|---|---|
+| `READ_STEPS` | Vesper marks a user's walking habit as done on the days Health Connect reports the step goal the user wrote in the habit's name (8,000 by default). Only the current week is read, on the device, when the app is open. |
+| `READ_EXERCISE` | Vesper marks a user's workout habit as done on the days Health Connect has an exercise session of 10 minutes or more. Only the current week is read, on the device, when the app is open. |
+| `READ_SLEEP` | Vesper marks a user's sleep habit as done on the mornings after a night with the hours the user asked for (7 by default). Only the current week is read, on the device, when the app is open. |
+
+*Vesper marca un hábito como cumplido los días en que Health Connect confirma pasos,
+entrenamiento o sueño. Lee solo la semana en curso, en el teléfono, con la app abierta.*
+
+- Sin lectura en segundo plano (`READ_HEALTH_DATA_IN_BACKGROUND`) ni de historial
+  (`READ_HEALTH_DATA_HISTORY`): la semana en curso entra en los 30 días que Health Connect
+  concede sin ellos.
+- La pantalla de justificación (`PermissionsRationaleActivity`) es un diálogo que dice qué
+  se lee, que nada se escribe, que nada sale del teléfono y cómo quitar el permiso. Play
+  exige además la URL de la política de privacidad en la ficha.
+
+---
+
 ## Pendientes antes de enviar
 
 - Pantalla de divulgación destacada antes de `requestAuthorization()` (b). Hoy no existe.
 - Subir el video y reemplazar `<<VIDEO_URL>>` (a.5).
+- Publicar la política de privacidad con los tres tipos de Health Connect (f).
 - Verificar en el manifiesto fusionado del build de release que la lista de permisos sea
   la de la tabla de arriba y nada más.

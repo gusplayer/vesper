@@ -8,7 +8,7 @@ const CONNECTED: HealthState = { available: true, reason: null, connected: true 
 const DISCONNECTED: HealthState = { available: true, reason: null, connected: false };
 const NO_HEALTH: HealthState = {
   available: false,
-  reason: es.habits.healthStatus.notIos,
+  reason: es.habits.healthStatus.unsupported,
   connected: false,
 };
 
@@ -83,7 +83,7 @@ describe('verifiedOption', () => {
 
   it('borrows the reason from the capability when Health cannot exist here', () => {
     expect(verifiedOption('gym', 'verified', NO_HEALTH, es.habits.form).note).toBe(
-      'Salud solo existe en iPhone, así que este hábito lo marcas tú.',
+      'Salud no existe en este teléfono, así que este hábito lo marcas tú.',
     );
   });
 
@@ -99,9 +99,9 @@ describe('verifiedOption', () => {
       'Health is connected: it can confirm this habit on its own.',
     );
     expect(
-      verifiedOption('walk', 'verified', { ...NO_HEALTH, reason: en.habits.healthStatus.notIos }, form)
+      verifiedOption('walk', 'verified', { ...NO_HEALTH, reason: en.habits.healthStatus.unsupported }, form)
         .note,
-    ).toBe('Health only exists on iPhone, so you mark this habit.');
+    ).toBe('Health does not exist on this phone, so you mark this habit.');
     expect(verifiedOption('meditate', 'verified', CONNECTED, form).description).toBe(
       'Only for habits Health can confirm: workouts, walking, sleep',
     );

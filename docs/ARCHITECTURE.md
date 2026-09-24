@@ -15,7 +15,7 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Estado | Zustand | Tres stores que cachean SQLite (`app`, `focus`, `circle`), el idioma, y borradores efímeros (modo, onboarding, duración) |
 | Texto | Dos diccionarios tipados (`src/i18n/es`, `en`) | Sin librería de i18n (ADR-0020) |
 | Notificaciones | expo-notifications | Plan determinista en `domain/reminders`, diff contra el SO |
-| Salud | react-native-health (solo iOS, con parche) | Lectura de entrenamientos, pasos y sueño. Sin Health Connect |
+| Salud | react-native-health en iOS (con parche); `modules/vesper-health` sobre Health Connect en Android (ADR-0043) | Lectura de entrenamientos, pasos y sueño de la semana en curso. Nada se escribe |
 | Live Activity | expo-widgets + @expo/ui | `src/widgets/FocusActivity.tsx`, relojes nativos (ADR-0023) |
 | Bloqueo iOS | react-native-device-activity | Sin verificar: falta el entitlement de Family Controls |
 | Bloqueo Android | módulo Expo local en Kotlin, `modules/vesper-blocking/` | Sin AccessibilityService (ADR-0019) |
@@ -93,7 +93,7 @@ src/
     store.ts, locale.ts, device.ts   preferencia, resolución pura, expo-localization
   platform/               una capa por capacidad; cada una expone status()
     capabilities.ts       isIos, isAndroid, isDevice, CapabilityStatus
-    notifications.ts, health.ts, liveActivity.ts (+ liveActivityProps.ts),
+    notifications.ts, health.ios.ts / health.android.ts (+ healthConnectReading.ts), liveActivity.ts (+ liveActivityProps.ts),
     blocking.ios.ts, blocking.android.ts (+ blockingTypes.ts, androidApps.ts,
     BlockingSelectionView.tsx, routineWindows.ts), usage.ts (+ usageReading.ts),
     orientation.ts, circle.ts

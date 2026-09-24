@@ -105,6 +105,10 @@ export const settings: typeof shape = {
     connecting: 'Connecting…',
     disconnect: 'Disconnect',
     syncNote: 'Health is read when the app opens and every 15 minutes. Nothing leaves the phone.',
+    install: 'Install Health Connect',
+    healthConnectNote:
+      'On Android, Health is read from Health Connect. If you do not see your steps, open Health Connect and link Samsung Health, Fit or your watch.',
+    openHealthConnect: 'Open Health Connect',
   },
   help: {
     title: 'Help center',

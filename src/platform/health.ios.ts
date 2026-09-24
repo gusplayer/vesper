@@ -11,7 +11,9 @@ import { getStrings } from '../i18n';
 import { isIos, type CapabilityStatus } from './capabilities';
 
 /**
- * Health: HealthKit through react-native-health, read-only. The module is iOS-only
+ * Health on iOS: HealthKit through react-native-health, read-only. Android reads
+ * Health Connect behind the same surface in health.android.ts (ADR-0043); the screens
+ * import `platform/health` and never learn which file answered. The module is iOS-only
  * and may not be linked at all (Android, a build without the pod), so it is required
  * lazily inside a try/catch and never imported at the top. Everything here returns
  * something usable when Health is missing: `status()` says why, `readWeek` gives an
@@ -132,7 +134,7 @@ export function checkAvailability(): Promise<boolean> {
 export function status(): CapabilityStatus {
   const reasons = getStrings().habits.healthStatus;
   if (!isIos) {
-    return { available: false, reason: reasons.notIos };
+    return { available: false, reason: reasons.unsupported };
   }
   if (loadModule() === null) {
     return { available: false, reason: reasons.notLinked };
@@ -251,4 +253,14 @@ export async function readWeek(now: Millis): Promise<HealthWeek> {
   } catch {
     return EMPTY_HEALTH_WEEK;
   }
+}
+
+/** Play's page for Health Connect. Android only: HealthKit ships with iOS. */
+export function openInstallPage(): boolean {
+  return false;
+}
+
+/** Health Connect's own screen. Android only: `status().detail.healthConnect` is never set here. */
+export function openHealthApp(): boolean {
+  return false;
 }

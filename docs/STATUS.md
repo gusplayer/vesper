@@ -1,4 +1,4 @@
-# Estado — 2026-09-23
+# Estado — 2026-09-24
 
 Qué existe, dónde se verificó y qué falta. Se actualiza al cerrar cada tanda de trabajo.
 El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, históricas, en
@@ -11,9 +11,9 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **853 tests en 62 archivos**, todos en verde, y también con
-`npm run test:dst` (la misma suite en una zona con horario de verano); el módulo Kotlin
-compila con Gradle. El servidor del círculo (`server/`) tiene sus propios **46** tests y
+avisos y `npx vitest run` con **881 tests en 64 archivos**, todos en verde, y también con
+`npm run test:dst` (la misma suite en una zona con horario de verano); los dos módulos Kotlin
+compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **46** tests y
 está desplegado; la app todavía no le habla (ADR-0033).
 
 ## Estado actual
@@ -30,7 +30,7 @@ está desplegado; la app todavía no le habla (ADR-0033).
 | Motor de rutinas: arranca la sesión de la ventana, espera si hay una, nunca dos veces; rutinas sin hora | real | real | Simulador: a las 16:16 de un miércoles "Trabajo" arrancó sola con "Trabajo profundo" |
 | Notificaciones locales (fin de sesión, fin de pausa, rutinas, cierre semanal; se replanifican al cambiar idioma) | real | real | Simulador iPhone 17: el aviso de rutina "Empieza Lectures · Modo Deep work. Toca para empezar la sesión." salió en la pantalla bloqueada y abrir la app cayó en la sesión. Sin verificar el fin de pausa en segundo plano ni nada en Android |
 | Live Activity: banner, isla (cinco regiones), relojes nativos, pausa en papel (ADR-0023) | real | no aplica | Simulador iPhone 17 Pro: banner contando con la app fuera, isla compacta y expandida en foco y pausa, tocar abre la sesión. Sin verificar sesión sin límite en la isla (solo tests) |
-| Salud: entrenamientos, pasos y sueño marcan hábitos verificados | real (`react-native-health`, con parche) | no existe (`status()` lo dice; sin Health Connect) | Simulador iPhone 17 Pro: "Conectar Salud" abre la hoja de permisos del sistema y queda "Salud conectada · última lectura"; sin datos que leer |
+| Salud: entrenamientos, pasos y sueño marcan hábitos verificados | real (`react-native-health`, con parche) | real (Health Connect vía `modules/vesper-health`, ADR-0043) | Simulador iPhone 17 Pro: "Conectar Salud" abre la hoja de permisos del sistema y queda "Salud conectada · última lectura"; sin datos que leer. Emulador Pixel 6 (API 34): la hoja de Health Connect con los tres tipos, la justificación, la semana leída sin errores y "Abrir Health Connect"; sin datos que leer ni el caso de Play (Android 9 a 13) |
 | Bloqueo durante la sesión | integrado (`react-native-device-activity`); **imposible sin el entitlement de Apple** | real (`modules/vesper-blocking`: servicio `specialUse`, escudo superpuesto) | iOS: solo compila; las tres extensiones se generan en `targets/`. Android: emulador Pixel 6 (API 34) por adb: escudo sobre Ajustes y Reloj, baja con "Volver" |
 | Ventanas de rutina con la app cerrada | `DeviceActivity` por día (sin verificar) | `AlarmManager` exactas o con 10 min de holgura, `BootReceiver` | Android: ventana abierta con el proceso muerto, cierre al minuto, alarmas de vuelta tras `adb reboot`, servicio revivido tras `kill -9`. iOS: aritmética con tests, nada en dispositivo |
 | Pausa con el bloqueo (`pausePlan`/`resumePlan`) | `release()` + `applyPlan()` (sin verificar) | del servicio, sin JS | Android: notificación en pausa, reanudación al segundo tras `kill -9`, escudo subiendo sobre Ajustes |
@@ -120,7 +120,12 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 - **Teléfonos reales**: notificaciones, Salud, Live Activity y el ritmo de las
   animaciones en iOS; bloqueo, alarmas inexactas y optimización de batería (Samsung,
   Xiaomi) en Android. Anotar aquí qué se vio.
-- **Play**: pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
+- **Health Connect con datos reales** (ADR-0043): un teléfono con Samsung Health, Fit o
+  un reloj escribiendo en Health Connect; ver que pasos, entrenamientos y sueño marquen
+  los hábitos. Y el caso de Android 9 a 13 sin Health Connect: "Instalar Health Connect"
+  abre Play y al volver la pantalla ofrece conectar.
+- **Play**: declaración de Health Connect y política de privacidad publicada
+  (`PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
   video y poner la URL en `PLAY_DECLARATIONS.md`; verificar el manifiesto fusionado del
   build de release.
 - **Android 16**: el emulador API 36 no promueve la notificación aunque la pide; verificar en un Pixel real con Android 16.
@@ -557,3 +562,35 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   con la razón nueva); el caso del `adb reboot` con una app al frente; las rutinas
   solapadas del ADR-0036 de punta a punta; el desfase de avisos en la bandeja real; y
   **nada en iOS ni en un teléfono físico**.
+
+## Salud en Android: Health Connect (2026-09-24, ADR-0043; ADR-0042 propuesto)
+
+- **ADR-0042 (propuesta, sin implementar)**: retos de pasos. La meta va en el nombre, al
+  unirse se pide Salud y eso cuenta como consentimiento, el círculo ve días y nunca
+  pasos, y cada marca dice su origen (migración 009). Se encontró que `linkHabit` crea
+  siempre un declarado, así que hoy un reto de pasos no se marca solo ni en iOS.
+- **ADR-0043 (aceptada, implementada)**: `modules/vesper-health/` en Kotlin sobre
+  `connect-client` 1.1.0; `platform/health.ts` partido en `.ios`/`.android` con la misma
+  superficie; traducción pura en `platform/healthConnectReading.ts` (7 tests: pasos por
+  día local, entrenamientos sin duración, la noche con etapas que cae entera en la mañana
+  en que te despiertas, sesiones sin etapas y todo despierto); `minSdkVersion` 26;
+  razones nuevas en los dos idiomas; Ajustes › Salud con "Instalar Health Connect" y
+  "Abrir Health Connect".
+- **Verificado en el emulador Pixel 6 (API 34)**, con `adb`: "Connect Health" en el
+  onboarding abre la hoja de Health Connect con Exercise, Sleep y Steps; "privacy policy"
+  abre el diálogo "What Vesper reads" encima de la hoja sin cerrarla; "Allow all" deja
+  los tres `granted=true` en `dumpsys package`; Ajustes › Salud queda conectada con
+  "Last read" y cero en todo, la nota de Health Connect y "Open Health Connect", que abre
+  "Data and access". Ninguna lectura falló en el log.
+- **Dos defectos encontrados y corregidos ahí mismo:**
+  - En Android 14+ la promesa de permisos no volvía nunca: el contrato de la librería
+    devuelve el intent genérico `REQUEST_PERMISSIONS`, que Expo resolvió como permiso de
+    runtime sin devolver el resultado; lanzado a mano falla con -91. Ahora se piden por
+    `appContext.permissions` en 14+ y por la actividad de Health Connect en 9 a 13.
+  - La justificación llevaba a `vesper://settings/health` y, como `MainActivity` es
+    `singleTask`, cerraba la hoja de permisos. Ahora es un diálogo en su propia tarea.
+- **No verificado**: datos reales (el emulador no tiene ninguna fuente que escriba en
+  Health Connect), el caso de Play en Android 9 a 13, y nada en un teléfono físico.
+- El emulador Pixel 7 (API 36) quedó con el build nuevo instalado encima y una sesión
+  abierta por la rutina de demostración; no se tocó.
+

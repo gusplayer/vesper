@@ -54,13 +54,26 @@ Permiso sensible con declaración en Play, pero defendible para una app de foco.
 
 ## Salud
 
-**No integrado todavía**: `src/platform/health.ts` responde `available: false` en
-Android y Ajustes › Salud lo dice. Cuando llegue: **Health Connect**, no Google Fit. Los
-APIs de Google Fit se soportan solo hasta finales de 2026 y Google recomienda migrar a
-Health Connect para apps móviles.
+**Health Connect, no Google Fit** (ADR-0043). Los APIs de Google Fit se soportan solo
+hasta finales de 2026. Módulo local `modules/vesper-health/` en Kotlin sobre
+`androidx.health.connect:connect-client:1.1.0`, detrás de `src/platform/health.android.ts`.
 
-Tipos relevantes: `StepsRecord`, `ExerciseSessionRecord`, `SleepSessionRecord`,
-`TotalCaloriesBurnedRecord`.
+- Lee `StepsRecord` (agregado por día con `aggregateGroupByPeriod`, que deduplica entre
+  fuentes), `ExerciseSessionRecord` y `SleepSessionRecord` con sus etapas. La traducción
+  a `HealthWeek` es `src/platform/healthConnectReading.ts`, con tests.
+- `sdkStatus()`: `available`, `updateRequired` (Android 9 a 13 sin Health Connect o con
+  uno viejo; Ajustes › Salud ofrece "Instalar Health Connect", que abre Play) o
+  `unsupported`.
+- `minSdkVersion` 26 porque `connect-client` lo exige.
+- En Android 14+ los permisos se piden como permisos de runtime (`appContext.permissions`);
+  en 9 a 13, con la actividad de la app Health Connect y `OnActivityResult`. El contrato de
+  la librería no sirve en 14+ fuera de un `ComponentActivity`: devuelve el intent genérico
+  `REQUEST_PERMISSIONS` y `startActivityForResult` falla con -91.
+- La hoja de permisos exige una actividad de justificación: `PermissionsRationaleActivity`
+  es un diálogo en su propia tarea (`taskAffinity=""`). Abrir la app desde ahí cerraba la
+  hoja, porque `MainActivity` es `singleTask`.
+- Para repetir la hoja en el emulador no basta `pm revoke`: Health Connect recuerda la
+  negativa. Hay que desinstalar la app.
 
 **Advertencia de producto:** los datos existentes de Google Fit no se transfieren
 automáticamente a Health Connect — los usuarios conectan cada fuente ellos mismos.

@@ -167,8 +167,8 @@ mismo; el vínculo ya se guarda, pero el libro mayor todavía no lo usa.
 El tipo verificado solo se desbloquea para hábitos mapeables a datos de salud:
 entrenamiento, caminata, sueño. Lo desbloquea el nombre (`healthTypeFor`), y
 **declarado sigue siendo el default**. En iOS, con Salud conectada, HealthKit marca
-solo los hábitos verificados (ADR-0017); en Android Salud no existe todavía y un hábito
-verificado no recibe marcas.
+solo los hábitos verificados (ADR-0017); en Android lo hace Health Connect (ADR-0043), y
+donde no está, un hábito verificado cae a declarado y la pantalla dice por qué (ADR-0041).
 
 Se editan y archivan desde Actividad › De por vida (mantener la fila) o desde
 `habits/edit`. Archivar no borra: las marcas son historia, y el hábito deja de contar y

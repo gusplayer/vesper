@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="vesper_health_rationale_title">Qué lee Vesper</string>
+  <string name="vesper_health_rationale_body">Vesper lee los pasos, entrenamientos y sueño de esta semana para marcar solos tus hábitos verificados. Solo lee, nunca escribe, y lo que lee se queda en este teléfono. Puedes quitar el permiso en Health Connect cuando quieras.</string>
+  <string name="vesper_health_rationale_ok">Entendido</string>
+</resources>

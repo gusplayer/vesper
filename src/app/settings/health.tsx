@@ -14,10 +14,10 @@ import {
 import { HealthWeekSummary } from '../../features/health/HealthWeekSummary';
 import { useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
-import { requestAuthorization, status } from '../../platform/health';
+import { openHealthApp, openInstallPage, requestAuthorization, status } from '../../platform/health';
 import { syncHealth } from '../../platform/hooks/useHealthSync';
 
-/** The week summary only needs to notice a new day. */
+/** The week summary only needs to notice a new day; coming back from Play re-renders too. */
 const CLOCK_MS = 60_000;
 
 /** Three blocks, like Brick's Screen Time page: what it does, what it keeps, why. */
@@ -29,8 +29,10 @@ const BLOCK_KEYS: readonly { key: 'how' | 'privacy' | 'why'; icon: IconName }[] 
 
 /**
  * Salud: the pitch and a connect button, or the week's summary and a way out.
- * Connecting asks HealthKit for real; when Health is not available here the button
- * is disabled and the line under it says why.
+ * Connecting asks HealthKit or Health Connect for real; when Health is not available
+ * here the button is disabled and the line under it says why. On Android 9 to 13
+ * without Health Connect the button installs it from Play instead (ADR-0043), and
+ * once connected the page points into Health Connect, where the user links sources.
  */
 export default function HealthScreen() {
   const router = useRouter();
@@ -71,13 +73,17 @@ export default function HealthScreen() {
       footer={
         connected ? undefined : (
           <>
-            <Button
-              label={t.settings.health.connect}
-              onPress={() => void connect()}
-              disabled={!health.available}
-              busy={busy}
-              busyLabel={t.settings.health.connecting}
-            />
+            {health.detail?.installable === true ? (
+              <Button label={t.settings.health.install} onPress={() => void openInstallPage()} />
+            ) : (
+              <Button
+                label={t.settings.health.connect}
+                onPress={() => void connect()}
+                disabled={!health.available}
+                busy={busy}
+                busyLabel={t.settings.health.connecting}
+              />
+            )}
             {caption === null ? null : (
               <Text variant="caption" tone="secondary" align="center">
                 {caption}
@@ -95,6 +101,14 @@ export default function HealthScreen() {
           <Text variant="caption" tone="tertiary" align="center">
             {t.settings.health.syncNote}
           </Text>
+          {health.detail?.healthConnect === true ? (
+            <>
+              <Text variant="caption" tone="tertiary" align="center">
+                {t.settings.health.healthConnectNote}
+              </Text>
+              <Button label={t.settings.health.openHealthConnect} variant="ghost" onPress={() => void openHealthApp()} />
+            </>
+          ) : null}
           <Button label={t.settings.health.disconnect} variant="ghost" onPress={disconnect} />
         </>
       ) : (

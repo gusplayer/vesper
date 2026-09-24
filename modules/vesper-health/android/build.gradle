@@ -1,0 +1,24 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+// A local Expo module: compileSdk, minSdk and the Kotlin version come from the
+// expo-module-gradle-plugin, so this file only names the library and its one
+// dependency, Google's Health Connect client (ADR-0043).
+group = 'com.gusplayer.vesper.health'
+version = '0.1.0'
+
+expoModule {
+  canBePublished false
+}
+
+android {
+  namespace "com.gusplayer.vesper.health"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+}
+
+dependencies {
+  implementation "androidx.health.connect:connect-client:1.1.0"
+}

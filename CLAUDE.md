@@ -72,13 +72,15 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   bloqueo, orientación, círculo). Cada módulo expone `status()` y degrada sin romper; se
   suscribe a los stores desde `src/platform/hooks/`, montados en `PlatformEffects`. Ver ADR-0017
 - `src/widgets/FocusActivity.tsx`: la Live Activity (expo-widgets). `modules/vesper-blocking/`:
-  módulo Expo local en Kotlin para el bloqueo en Android. `targets/`: las tres extensiones
+  módulo Expo local en Kotlin para el bloqueo en Android; `modules/vesper-health/`, el de
+  Health Connect. `targets/`: las tres extensiones
   de Screen Time en iOS. `patches/`: parche de `react-native-health`
 - vitest sobre `src/**/*.test.ts`: dominio, lib, db (con handle falso), data, i18n y las
   funciones puras de features y platform. Sin tests de UI: las pantallas se verifican
   corriendo la app
-- Salud: `react-native-health` solo en iOS. En Android `status()` dice que no existe;
-  Health Connect no está integrado
+- Salud: `react-native-health` en iOS; en Android, Health Connect a través del módulo
+  local `modules/vesper-health/` (ADR-0043). `platform/health.ios.ts` y
+  `health.android.ts` exponen la misma superficie
 
 ## Convenciones de código
 

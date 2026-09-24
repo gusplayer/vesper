@@ -135,6 +135,11 @@ export const settings = {
     connecting: 'Conectando…',
     disconnect: 'Desconectar',
     syncNote: 'Salud se lee al abrir la app y cada 15 minutos. Nada sale del teléfono.',
+    /** Android: Health Connect, not the app, holds what is read (ADR-0043). */
+    install: 'Instalar Health Connect',
+    healthConnectNote:
+      'En Android, Salud se lee de Health Connect. Si no ves tus pasos, abre Health Connect y conecta Samsung Health, Fit o tu reloj.',
+    openHealthConnect: 'Abrir Health Connect',
   },
   help: {
     title: 'Centro de ayuda',

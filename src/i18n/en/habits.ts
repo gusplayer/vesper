@@ -70,7 +70,8 @@ export const habits: typeof shape = {
     readNow: 'Read Health now',
   },
   healthStatus: {
-    notIos: 'Health only exists on iPhone',
+    unsupported: 'Health does not exist on this phone',
+    installHealthConnect: 'Health Connect is missing or out of date',
     notLinked: 'This version of Vesper cannot read Health',
     notAvailable: 'Health is not available on this device',
   },

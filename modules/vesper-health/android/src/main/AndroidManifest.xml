@@ -1,0 +1,43 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!-- Read only (ADR-0043): Vesper never writes to Health Connect. -->
+  <uses-permission android:name="android.permission.health.READ_STEPS" />
+  <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+  <uses-permission android:name="android.permission.health.READ_SLEEP" />
+
+  <!-- Package visibility: getSdkStatus has to see the Health Connect app on Android 9-13. -->
+  <queries>
+    <package android:name="com.google.android.apps.healthdata" />
+  </queries>
+
+  <application>
+    <!--
+      Health Connect refuses to show its permission sheet to an app that does not say
+      why it asks. Both filters land here: the first on Android 13 and earlier, the
+      alias on 14 and later. A dialog in its own task (empty affinity), so it never
+      brings MainActivity forward and closes the sheet under it.
+    -->
+    <activity
+      android:name="com.gusplayer.vesper.health.PermissionsRationaleActivity"
+      android:exported="true"
+      android:excludeFromRecents="true"
+      android:noHistory="true"
+      android:taskAffinity=""
+      android:theme="@android:style/Theme.DeviceDefault.Light.Panel">
+      <intent-filter>
+        <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+      </intent-filter>
+    </activity>
+
+    <activity-alias
+      android:name="com.gusplayer.vesper.health.ViewPermissionUsageActivity"
+      android:exported="true"
+      android:targetActivity="com.gusplayer.vesper.health.PermissionsRationaleActivity"
+      android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+        <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+      </intent-filter>
+    </activity-alias>
+  </application>
+</manifest>
