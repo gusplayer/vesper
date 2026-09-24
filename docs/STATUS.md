@@ -11,16 +11,16 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **881 tests en 64 archivos**, todos en verde, y también con
+avisos y `npx vitest run` con **898 tests en 65 archivos**, todos en verde, y también con
 `npm run test:dst` (la misma suite en una zona con horario de verano); los dos módulos Kotlin
-compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **46** tests y
+compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **55** tests y
 está desplegado; la app todavía no le habla (ADR-0033).
 
 ## Estado actual
 
 | Capacidad | iOS | Android | Verificado dónde |
 |---|---|---|---|
-| Persistencia (SQLite, migraciones 001–008, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
+| Persistencia (SQLite, migraciones 001–009, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
 | Sesión: reloj split-flap, modo horizontal, arte de foco (`?art=1`) | real | real | Simulador (capturas a mitad de giro, rotación por script, arte a 25/50/75/100 %). Sin medir el trazado de 6.000 puntos en un teléfono |
 | Botón de Focus: toque arranca, mantener solo en profundo, `InkFlood` (ADR-0022) | real | real | Simulador iPhone 17 con `idb`, capturas a mitad del gesto. Sin verificar "Reducir movimiento" ni el ritmo a ojo en teléfono |
 | Arranque: splash de tinta lisa y `BootReveal` que la disuelve hasta la marca (ADR-0028) | real | real | Simulador iPhone 17 Pro (dev client nuevo, video a 30 fps): splash negro liso, disolución de los bordes al centro, marca sola, fade a Focus; con "Reducir movimiento" la tinta salta a la marca y solo queda el fade. Emulador Pixel 7 API 36 con `-gpu host`, build de Release, tres arranques en frío iguales; el dev client de Android no sirve para juzgarlo (su lanzador oculta el splash). Sin teléfono físico |
@@ -124,8 +124,9 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
   un reloj escribiendo en Health Connect; ver que pasos, entrenamientos y sueño marquen
   los hábitos. Y el caso de Android 9 a 13 sin Health Connect: "Instalar Health Connect"
   abre Play y al volver la pantalla ofrece conectar.
-- **Play**: declaración de Health Connect y política de privacidad publicada
-  (`PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
+- **Play**: declaración de Health Connect y publicar la política de privacidad
+  (`web/privacy.html` es un borrador: falta el correo de contacto, la fecha y la
+  revisión; `PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
   video y poner la URL en `PLAY_DECLARATIONS.md`; verificar el manifiesto fusionado del
   build de release.
 - **Android 16**: el emulador API 36 no promueve la notificación aunque la pide; verificar en un Pixel real con Android 16.
@@ -565,10 +566,14 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
 
 ## Salud en Android: Health Connect (2026-09-24, ADR-0043; ADR-0042 propuesto)
 
-- **ADR-0042 (propuesta, sin implementar)**: retos de pasos. La meta va en el nombre, al
-  unirse se pide Salud y eso cuenta como consentimiento, el círculo ve días y nunca
-  pasos, y cada marca dice su origen (migración 009). Se encontró que `linkHabit` crea
-  siempre un declarado, así que hoy un reto de pasos no se marca solo ni en iOS.
+- **ADR-0042 (aceptada, implementada)**: retos de pasos. `stepGoalFor` lee la meta del
+  nombre ("10.000 pasos", "10k", "12 mil"; 8 tests); `linkHabit` crea el hábito verificado
+  cuando el nombre lo permite y Salud está conectada (antes era siempre declarado); unirse
+  o crear un reto así pide Salud y dice encima del botón qué se comparte; migración 009
+  (`challenge_marks.source`, los tres valores de `habit_marks.source`) y la misma columna
+  en el servidor; cada persona dice bajo su nombre cómo se contó su semana; un reto que
+  Salud marca no ofrece "Marcar hoy" (`isMarkedByHealth`, ahora compartido con Actividad);
+  el sugerido "Caminar" pasa a "Caminar 8.000 pasos"; borrador de `web/privacy.html`.
 - **ADR-0043 (aceptada, implementada)**: `modules/vesper-health/` en Kotlin sobre
   `connect-client` 1.1.0; `platform/health.ts` partido en `.ios`/`.android` con la misma
   superficie; traducción pura en `platform/healthConnectReading.ts` (7 tests: pasos por
@@ -593,4 +598,14 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   Health Connect), el caso de Play en Android 9 a 13, y nada en un teléfono físico.
 - El emulador Pixel 7 (API 36) quedó con el build nuevo instalado encima y una sesión
   abierta por la rutina de demostración; no se tocó.
+- **ADR-0042, verificado en el emulador Pixel 6 (API 34)**: "Nuevo reto" con "Walk 10,000
+  steps" dice "Counts the days with 10,000 steps or more" bajo el nombre y "Your circle will
+  see which days you reached 10,000 steps. Not how many." sobre el botón; al crearlo, la
+  base tiene el hábito `verified`/`steps` y la migración 9 aplicada; con Salud conectada el
+  reto dice "Health marks this challenge on its own" en vez de "Mark today"; el reto "Read"
+  muestra "marked by hand" bajo Ana y Luis (filas anteriores a la 009).
+- **Riesgo de desarrollo, no de producción**: Fast Refresh sobre un módulo del que depende
+  `stores/app.ts` crea un store nuevo con los ajustes por defecto, y la primera escritura
+  (`markOpened`) los guarda en la base: se vio volver `onboardingDone` y `healthConnected`
+  a `false`. Tras editar el dominio, relanzar la app en vez de fiarse del refresco.
 

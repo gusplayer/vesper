@@ -8,6 +8,7 @@ import {
   STEP_GOAL,
   marksFromHealth,
   sleepHoursFor,
+  stepGoalFor,
   type HealthWeek,
 } from './healthMarks';
 import { HOUR, MINUTE } from './time';
@@ -98,6 +99,45 @@ describe('marksFromHealth: steps', () => {
     expect(marks.map((m) => m.dayKey)).toEqual(['2026-08-17', '2026-08-19']);
     expect(marks[0]?.durationMs).toBeNull();
     expect(marks[0]?.sourceRef).toBe('hk-steps-2026-08-17');
+  });
+});
+
+describe('stepGoalFor', () => {
+  it('reads the goal from the name, with thousands written any way', () => {
+    expect(stepGoalFor('Caminar 10.000 pasos')).toBe(10_000);
+    expect(stepGoalFor('Walk 10,000 steps')).toBe(10_000);
+    expect(stepGoalFor('caminar 12000 pasos')).toBe(12_000);
+    expect(stepGoalFor('caminar 10 000 pasos')).toBe(10_000);
+  });
+
+  it('reads k and mil as thousands, decimals included', () => {
+    expect(stepGoalFor('10k pasos')).toBe(10_000);
+    expect(stepGoalFor('8.5k steps')).toBe(8_500);
+    expect(stepGoalFor('7,5k pasos')).toBe(7_500);
+    expect(stepGoalFor('12 mil pasos')).toBe(12_000);
+  });
+
+  it('needs the unit, so minutes and kilometres are not goals', () => {
+    expect(stepGoalFor('caminar')).toBe(STEP_GOAL);
+    expect(stepGoalFor('caminar 30 minutos')).toBe(STEP_GOAL);
+    expect(stepGoalFor('caminar 5 km')).toBe(STEP_GOAL);
+  });
+
+  it('falls back when the number is absurd', () => {
+    expect(stepGoalFor('caminar 50 pasos')).toBe(STEP_GOAL);
+    expect(stepGoalFor('caminar 100.000 pasos')).toBe(STEP_GOAL);
+  });
+});
+
+describe('marksFromHealth: a step goal in the name', () => {
+  it('counts a day against the goal the habit names, not the default', () => {
+    const walk10k = aHabit({ id: 'h-walk-10k', name: 'Caminar 10.000 pasos', countMode: 'verified', healthType: 'steps' });
+    const marks = marksFromHealth(
+      [walk10k],
+      week({ stepsByDay: { '2026-08-17': 9_000, '2026-08-18': 10_000 } }),
+      NOW,
+    );
+    expect(marks.map((m) => m.dayKey)).toEqual(['2026-08-18']);
   });
 });
 

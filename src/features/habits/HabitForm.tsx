@@ -17,8 +17,9 @@ import {
 } from '../../design/components';
 import { DEFAULT_HABIT_TARGET, HABIT_TARGET_OPTIONS } from '../../domain/habits';
 import type { CountMode, Habit, HealthType } from '../../domain/types';
-import { useStrings } from '../../i18n';
+import { useLocale, useStrings } from '../../i18n';
 import { status as healthStatus } from '../../platform/health';
+import { stepGoalText } from '../health/format';
 import { verifiedOption } from './verifiedOption';
 
 export type HabitFormValues = {
@@ -72,6 +73,10 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
     { ...health, connected: settings.healthConnected },
     t.habits.form,
   );
+
+  // Only a verified steps habit counts against a number; a declared one is a tap.
+  const { tag } = useLocale();
+  const goal = verified.countMode === 'verified' ? stepGoalText(trimmed, t.habits.form, tag) : null;
 
   const save = () => {
     onSubmit({
@@ -135,6 +140,11 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary }: Habi
         <Text variant="caption" tone="secondary">
           {verified.note}
         </Text>
+        {goal === null ? null : (
+          <Text variant="caption" tone="tertiary">
+            {goal}
+          </Text>
+        )}
       </Section>
     </Screen>
   );

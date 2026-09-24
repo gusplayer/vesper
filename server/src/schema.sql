@@ -114,6 +114,10 @@ create table if not exists challenge_marks (
   primary key (challenge_id, account_id, day_key)
 );
 
+-- How the mark was counted on its owner's phone (ADR-0042): 'health', 'session' or
+-- 'manual', the phone's own MarkSource. Shown next to the person, never summed.
+alter table challenge_marks add column if not exists source text not null default 'manual';
+
 create table if not exists kudos (
   id         text   primary key,
   from_id    text   not null references accounts (id) on delete cascade,

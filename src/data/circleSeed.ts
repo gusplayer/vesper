@@ -149,16 +149,16 @@ export function demoNudges(now: number): Nudge[] {
   ];
 }
 
-/** Ana on the first three days of the week, Luis on Monday, never past today. */
+/** Ana on the first three days of the week with focus sessions, Luis on Monday by hand, never past today. */
 export function demoChallengeMarks(now: number): ChallengeMark[] {
   const todayKey = dayKeyOf(now);
   const days = weekDayKeys(weekKeyOf(now)).filter((dayKey) => dayKey <= todayKey);
   const marks: ChallengeMark[] = [];
   for (const dayKey of days.slice(0, 3)) {
-    marks.push({ id: `cm-ana-${dayKey}`, challengeId: DEMO_CHALLENGE_ID, memberId: 'ana', dayKey, markedAt: now });
+    marks.push({ id: `cm-ana-${dayKey}`, challengeId: DEMO_CHALLENGE_ID, memberId: 'ana', dayKey, source: 'session', markedAt: now });
   }
   for (const dayKey of days.slice(0, 1)) {
-    marks.push({ id: `cm-luis-${dayKey}`, challengeId: DEMO_CHALLENGE_ID, memberId: 'luis', dayKey, markedAt: now });
+    marks.push({ id: `cm-luis-${dayKey}`, challengeId: DEMO_CHALLENGE_ID, memberId: 'luis', dayKey, source: 'manual', markedAt: now });
   }
   return marks;
 }

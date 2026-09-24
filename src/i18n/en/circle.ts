@@ -106,6 +106,14 @@ export const circle: typeof shape = {
     habitsFull: 'You already have 5 habits. Archive one to join.',
     countsAsHabit: 'Your marks are those of your habit with this name. The others’ arrive as challenge marks.',
     notJoined: 'You are not in this challenge yet.',
+    consentSteps: (steps, tag) => `Your circle will see which days you reached ${steps.toLocaleString(tag)} steps. Not how many.`,
+    consentHealth: 'Your circle will see which days you did it. Not your Health data.',
+    markedByHealth: 'Health marks this challenge on its own. You touch nothing.',
+    source: {
+      health: 'with Health',
+      session: 'with focus sessions',
+      manual: 'marked by hand',
+    },
     nudge: 'Nudge',
     nudged: 'Nudged',
     nudgeA11y: (name) => `Nudge ${name}`,
@@ -124,7 +132,7 @@ export const circle: typeof shape = {
     ideasHint: 'Tap one to start there. You can change the name and the times.',
     ideaName: {
       read: 'Read',
-      walk: 'Walk',
+      walk: 'Walk 8,000 steps',
       table: 'No phone at the table',
       sleep: 'Sleep without a screen',
       move: 'Move',

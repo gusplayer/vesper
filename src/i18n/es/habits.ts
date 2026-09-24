@@ -33,6 +33,8 @@ export const habits = {
     declaredDescription: 'Lo marcas tú',
     verified: 'Verificado',
     verifiedDescription: 'Salud lo confirma solo',
+    /** La meta leída del nombre (ADR-0042): 'Caminar 10.000 pasos' cuenta desde 10.000. */
+    stepGoal: (steps: number, tag: string) => `Cuenta los días con ${steps.toLocaleString(tag)} pasos o más`,
     verifiedUnavailable:
       'Solo para hábitos que Salud puede confirmar: entrenamiento, caminata, sueño',
     /**

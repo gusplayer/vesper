@@ -28,6 +28,7 @@ import {
   shiftDayKey,
   weekDayKeys,
   weekKeyOf,
+  weekSource,
 } from './circle';
 import { dayKeyOf } from './day';
 import { aMark } from './fixtures';
@@ -320,15 +321,24 @@ describe('challengeStatus / days', () => {
   });
 });
 
+describe('weekSource', () => {
+  it('lets the least verified mark of the week decide', () => {
+    expect(weekSource([])).toBeNull();
+    expect(weekSource(['health', 'health'])).toBe('health');
+    expect(weekSource(['health', 'session'])).toBe('session');
+    expect(weekSource(['health', 'session', 'manual'])).toBe('manual');
+  });
+});
+
 describe('challengeStandings', () => {
   const marks = [
-    { id: 'c1', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-17', markedAt: 0 },
-    { id: 'c2', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-18', markedAt: 0 },
-    { id: 'c3', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-19', markedAt: 0 },
-    { id: 'c4', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-20', markedAt: 0 },
-    { id: 'c5', challengeId: 'challenge-1', memberId: 'luis', dayKey: '2026-08-18', markedAt: 0 },
-    { id: 'c6', challengeId: 'other', memberId: 'luis', dayKey: '2026-08-19', markedAt: 0 },
-    { id: 'c7', challengeId: 'challenge-1', memberId: 'luis', dayKey: '2026-08-11', markedAt: 0 },
+    { id: 'c1', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-17', source: 'health' as const, markedAt: 0 },
+    { id: 'c2', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-18', source: 'health' as const, markedAt: 0 },
+    { id: 'c3', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-19', source: 'health' as const, markedAt: 0 },
+    { id: 'c4', challengeId: 'challenge-1', memberId: 'ana', dayKey: '2026-08-20', source: 'health' as const, markedAt: 0 },
+    { id: 'c5', challengeId: 'challenge-1', memberId: 'luis', dayKey: '2026-08-18', source: 'manual' as const, markedAt: 0 },
+    { id: 'c6', challengeId: 'other', memberId: 'luis', dayKey: '2026-08-19', source: 'manual' as const, markedAt: 0 },
+    { id: 'c7', challengeId: 'challenge-1', memberId: 'luis', dayKey: '2026-08-11', source: 'manual' as const, markedAt: 0 },
   ];
   const myMarks = [
     aMark({ habitId: 'habit-read', dayKey: '2026-08-17' }),
@@ -360,6 +370,14 @@ describe('challengeStandings', () => {
     expect(ana?.days).toEqual([true, true, true, true, false, false, false]);
     expect(luis).toMatchObject({ done: 1, met: false });
     expect(luis?.days).toEqual([false, true, false, false, false, false, false]);
+  });
+
+  it('says how each week was counted, mine from my habit marks', () => {
+    const standings = challengeStandings(challenge(), members, marks, myMarks, profile, WEEK);
+
+    expect(standings.find((s) => s.id === 'ana')?.source).toBe('health');
+    expect(standings.find((s) => s.id === 'luis')?.source).toBe('manual');
+    expect(standings.find((s) => s.isMe)?.source).toBe(aMark({}).source);
   });
 
   it('reads another week when asked', () => {

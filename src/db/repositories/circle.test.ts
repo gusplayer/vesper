@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Challenge, ChallengeMark, Kudos, Member, MemberWeek, Nudge } from '../../domain/types';
 import { CIRCLE_SQL } from '../migrations/004_circle';
 import { STREAK_NUDGES_SQL } from '../migrations/007_streak_nudges';
+import { CHALLENGE_MARK_SOURCE_SQL } from '../migrations/009_challenge_mark_source';
 import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as circle from './circle';
 import * as settings from './settings';
@@ -108,6 +109,7 @@ const mark: ChallengeMark = {
   challengeId: 'challenge-read',
   memberId: 'ana',
   dayKey: '2026-08-18',
+  source: 'health',
   markedAt: T0,
 };
 
@@ -295,7 +297,7 @@ describe('challenges', () => {
 
 describe('challenge marks', () => {
   it('lists rows mapped to camelCase', () => {
-    fake.whenSql('FROM challenge_marks', [{ id: 'cm-1', challenge_id: 'challenge-read', member_id: 'ana', day_key: '2026-08-18', marked_at: T0 }]);
+    fake.whenSql('FROM challenge_marks', [{ id: 'cm-1', challenge_id: 'challenge-read', member_id: 'ana', day_key: '2026-08-18', source: 'health', marked_at: T0 }]);
 
     expect(circle.listChallengeMarks()).toEqual([mark]);
   });
@@ -308,8 +310,17 @@ describe('challenge marks', () => {
       'challenge-read',
       'ana',
       '2026-08-18',
+      'health',
       T0,
     ]);
+  });
+
+  it('reads a source it does not know, or a row from before 009, as manual', () => {
+    fake.whenSql('FROM challenge_marks', [
+      { id: 'cm-2', challenge_id: 'challenge-read', member_id: 'luis', day_key: '2026-08-18', source: 'watch', marked_at: T0 },
+    ]);
+
+    expect(circle.listChallengeMarks()[0]?.source).toBe('manual');
   });
 
   it('deletes every mark of a member', () => {
@@ -408,7 +419,7 @@ describe('schema', () => {
     expect(inserts).toHaveLength(6);
     for (const call of inserts) {
       const { table, columns } = insertColumns(call.sql);
-      const declared = ddlColumns(`${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}`, table);
+      const declared = ddlColumns(`${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}\n${CHALLENGE_MARK_SOURCE_SQL}`, table);
       expect(declared).not.toContain('PRIMARY');
       for (const column of columns) {
         expect(declared).toContain(column);

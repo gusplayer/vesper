@@ -34,7 +34,7 @@ export type HealthWeek = {
 
 export const EMPTY_HEALTH_WEEK: HealthWeek = { workouts: [], stepsByDay: {}, sleepSessions: [] };
 
-/** Steps that make a day count. */
+/** Steps that make a day count when the habit name says nothing. */
 export const STEP_GOAL = 8000;
 
 /** A workout shorter than this is a false start, not a session. */
@@ -63,6 +63,37 @@ export function sleepHoursFor(name: string): number {
   return hours;
 }
 
+/**
+ * A step count written in the name, with its unit: '10.000 pasos', '10,000 steps',
+ * '10000 pasos', '10k pasos', '12 mil pasos', '8.5k steps'. The unit is required, so
+ * 'caminar 30 minutos' or 'caminar 5 km' never read as a goal.
+ */
+const STEP_GOAL_PATTERN = /(\d{1,3}(?:[.,\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(k|mil)?\s*(?:pasos|steps?)\b/i;
+const THOUSANDS_PATTERN = /^\d{1,3}(?:[.,\s]\d{3})+$/;
+const MIN_STEP_GOAL = 1000;
+const MAX_STEP_GOAL = 50000;
+
+/**
+ * 'caminar 10.000 pasos' → 10000, '10k steps' → 10000, '12 mil pasos' → 12000. The
+ * sibling of sleepHoursFor (ADR-0042): the goal lives in the name, so a challenge's
+ * name gives every participant the same one. Anything missing or absurd falls back to
+ * STEP_GOAL.
+ */
+export function stepGoalFor(name: string): number {
+  const match = STEP_GOAL_PATTERN.exec(name);
+  const digits = match?.[1];
+  if (digits === undefined) {
+    return STEP_GOAL;
+  }
+  // '10.000' and '10,000' are thousands; '8.5' and '8,5' are decimals of a 'k'.
+  const value = THOUSANDS_PATTERN.test(digits) ? Number(digits.replace(/[.,\s]/g, '')) : Number(digits.replace(',', '.'));
+  const steps = Math.round(match?.[2] === undefined ? value : value * 1000);
+  if (!Number.isFinite(steps) || steps < MIN_STEP_GOAL || steps > MAX_STEP_GOAL) {
+    return STEP_GOAL;
+  }
+  return steps;
+}
+
 type DayTotals = Map<DayKey, number>;
 
 /** Total workout ms per day, for days that had at least one real workout. */
@@ -89,10 +120,10 @@ function workoutDays(workouts: readonly HealthWorkout[]): DayTotals {
   return totals;
 }
 
-function stepDays(stepsByDay: Readonly<Record<DayKey, number>>): DayTotals {
+function stepDays(stepsByDay: Readonly<Record<DayKey, number>>, goal: number): DayTotals {
   const totals: DayTotals = new Map();
   for (const [dayKey, steps] of Object.entries(stepsByDay)) {
-    if (steps >= STEP_GOAL) {
+    if (steps >= goal) {
       totals.set(dayKey, steps);
     }
   }
@@ -126,7 +157,7 @@ function daysFor(habit: Habit, type: HealthType, week: HealthWeek): DayTotals {
     case 'workout':
       return workoutDays(week.workouts);
     case 'steps':
-      return stepDays(week.stepsByDay);
+      return stepDays(week.stepsByDay, stepGoalFor(habit.name));
     case 'sleep':
       return sleepNights(week.sleepSessions, sleepHoursFor(habit.name) * HOUR);
   }

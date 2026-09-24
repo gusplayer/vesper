@@ -22,7 +22,10 @@ import {
   DEFAULT_CHALLENGE_DAYS,
   type Habit,
 } from '../../domain/types';
-import { useStrings } from '../../i18n';
+import { challengeConsentText } from '../../features/circle/challengeText';
+import { useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
+import { stepGoalText } from '../../features/health/format';
+import { useLocale, useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 
 const CLOCK_MS = 60_000;
@@ -37,12 +40,18 @@ function targetOption(value: number): number {
  * Nuevo reto: a name (or one of the user's habits, which prefills it), how many times
  * a week, for how long (21 days by default, or no end at all, ADR-0027), and who is
  * in. Joining uses a habit slot: when the five are taken the store says 'habitsFull',
- * the line under the button says so, and nothing is created (rule 4, ADR-0021).
+ * the line under the button says so, and nothing is created (rule 4, ADR-0021). A
+ * steps name says the goal it reads under the field, and a challenge Health can
+ * confirm says what joining shares above the button and asks for Health (ADR-0042).
  */
 export default function NewChallengeScreen() {
   const router = useRouter();
-  const circle = useStrings().circle;
+  const strings = useStrings();
+  const circle = strings.circle;
   const t = circle.challengeNew;
+  const { tag } = useLocale();
+  const askHealth = useAskHealthToJoin();
+  const [creating, setCreating] = useState(false);
   const now = useNow(CLOCK_MS);
   const habits = useHabitsWeek(now);
   const members = useCircleMembers().filter((member) => member.status === 'member');
@@ -77,7 +86,15 @@ export default function NewChallengeScreen() {
     );
   };
 
-  const create = () => {
+  const goal = stepGoalText(trimmed, strings.habits.form, tag);
+  const consent = join ? challengeConsentText(trimmed, circle, tag) : null;
+
+  const create = async () => {
+    if (join) {
+      setCreating(true);
+      await askHealth(trimmed);
+      setCreating(false);
+    }
     const outcome = createChallenge(
       { name: trimmed, weeklyTarget, days, participantIds: [...participantIds], join },
       Date.now(),
@@ -94,7 +111,12 @@ export default function NewChallengeScreen() {
       scroll
       footer={
         <>
-          <Button label={t.create} onPress={create} disabled={trimmed === ''} />
+          {consent === null ? null : (
+            <Text variant="caption" tone="secondary" align="center">
+              {consent}
+            </Text>
+          )}
+          <Button label={t.create} onPress={() => void create()} disabled={trimmed === ''} busy={creating} />
           {habitsFull ? (
             <Text variant="label" tone="danger" align="center">
               {t.habitsFull}
@@ -115,6 +137,11 @@ export default function NewChallengeScreen() {
         placeholder={t.namePlaceholder}
         autoFocus
       />
+      {goal === null ? null : (
+        <Text variant="caption" tone="tertiary">
+          {goal}
+        </Text>
+      )}
 
       <Section title={t.ideas}>
         <Stack direction="row" gap="sm" wrap>

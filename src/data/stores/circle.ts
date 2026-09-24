@@ -13,7 +13,7 @@ import {
   type InviteCodeOutcome,
 } from '../../domain/circle';
 import { dayKeyOf } from '../../domain/day';
-import { canAddHabit } from '../../domain/habits';
+import { canAddHabit, healthTypeFor } from '../../domain/habits';
 import {
   ME,
   type Challenge,
@@ -114,7 +114,9 @@ function normalizeHandle(handle: string): string {
 
 /**
  * The user's habit a challenge counts against: an active one with the same name,
- * or a new declared one. Null when the fifth slot is taken — rule 4 applies to a
+ * kept as it is, or a new one. The new one is verified when Health can confirm the
+ * name and is connected (ADR-0042) — the screen asks for Health before joining — and
+ * declared otherwise. Null when the fifth slot is taken — rule 4 applies to a
  * challenge like to any habit, and nothing is created.
  */
 function linkHabit(name: string, weeklyTarget: number): string | null {
@@ -128,7 +130,9 @@ function linkHabit(name: string, weeklyTarget: number): string | null {
   if (!canAddHabit(active.length)) {
     return null;
   }
-  if (!app.upsertHabit({ name: name.trim(), activityId: null, weeklyTarget, countMode: 'declared', healthType: null })) {
+  const healthType = app.settings.healthConnected ? healthTypeFor(name.trim()) : null;
+  const countMode = healthType === null ? 'declared' : 'verified';
+  if (!app.upsertHabit({ name: name.trim(), activityId: null, weeklyTarget, countMode, healthType })) {
     return null;
   }
   const created = useAppStore

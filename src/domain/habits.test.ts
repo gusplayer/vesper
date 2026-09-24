@@ -9,6 +9,7 @@ import {
   healthTypeFor,
   isMarkedOn,
   weeklyProgress,
+  isMarkedByHealth,
 } from './habits';
 import { MAX_HABITS, type Habit, type HabitMark } from './types';
 
@@ -163,5 +164,20 @@ describe('the five-habit cap (rule 4)', () => {
 
     expect(activeHabitCount(habits)).toBe(2);
     expect(activeHabitCount([])).toBe(0);
+  });
+});
+
+describe('isMarkedByHealth', () => {
+  const walk = aHabit({ name: 'Caminar 10.000 pasos', countMode: 'verified', healthType: 'steps' });
+
+  it('is Health’s only when connected, verified and recognisable', () => {
+    expect(isMarkedByHealth(walk, true)).toBe(true);
+    expect(isMarkedByHealth(walk, false)).toBe(false);
+    expect(isMarkedByHealth({ ...walk, countMode: 'declared' }, true)).toBe(false);
+  });
+
+  it('leaves a verified habit nothing can recognise to a tap (ADR-0041)', () => {
+    expect(isMarkedByHealth(aHabit({ name: 'Meditar', countMode: 'verified', healthType: null }), true)).toBe(false);
+    expect(isMarkedByHealth(aHabit({ name: 'gym', countMode: 'verified', healthType: null }), true)).toBe(true);
   });
 });

@@ -1,3 +1,5 @@
+import { healthTypeFor } from '../../domain/habits';
+import { stepGoalFor } from '../../domain/healthMarks';
 import type { Strings } from '../../i18n/es';
 import { clockText } from '../../lib/format';
 
@@ -12,4 +14,13 @@ import { clockText } from '../../lib/format';
 /** 'sincronizado 14:30', or what to say before the first read. */
 export function syncedText(syncedAt: number | null, t: Strings['habits']): string {
   return syncedAt === null ? t.sync.never : t.sync.at(clockText(syncedAt));
+}
+
+/**
+ * The goal a steps habit counts against, read from its name (ADR-0042): 'Cuenta los
+ * días con 10.000 pasos o más'. Null for any other habit, so the line only shows where
+ * a number in the name means something.
+ */
+export function stepGoalText(name: string, t: Strings['habits']['form'], tag: string): string | null {
+  return healthTypeFor(name.trim()) === 'steps' ? t.stepGoal(stepGoalFor(name), tag) : null;
 }

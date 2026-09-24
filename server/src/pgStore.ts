@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
-import { ConflictError } from './store.ts';
+import { ConflictError, markSourceOf } from './store.ts';
 import type { Account, Challenge, Link, Store } from './store.ts';
 
 /**
@@ -317,10 +317,11 @@ export function createPgStore(connectionString: string): PgStore {
 
     async putMark(mark) {
       await query(
-        `insert into challenge_marks (challenge_id, account_id, day_key, updated_at)
-         values ($1,$2,$3,$4)
-         on conflict (challenge_id, account_id, day_key) do update set updated_at = excluded.updated_at`,
-        [mark.challengeId, mark.accountId, mark.dayKey, mark.updatedAt],
+        `insert into challenge_marks (challenge_id, account_id, day_key, source, updated_at)
+         values ($1,$2,$3,$4,$5)
+         on conflict (challenge_id, account_id, day_key)
+           do update set source = excluded.source, updated_at = excluded.updated_at`,
+        [mark.challengeId, mark.accountId, mark.dayKey, mark.source, mark.updatedAt],
       );
     },
     async deleteMark(mark) {
@@ -333,7 +334,7 @@ export function createPgStore(connectionString: string): PgStore {
       if (challengeIds.length === 0) {
         return [];
       }
-      const rows = await query<{ challenge_id: string; account_id: string; day_key: string; updated_at: string }>(
+      const rows = await query<{ challenge_id: string; account_id: string; day_key: string; source: string; updated_at: string }>(
         'select * from challenge_marks where challenge_id = any($1) and updated_at > $2',
         [[...challengeIds], since],
       );
@@ -341,6 +342,7 @@ export function createPgStore(connectionString: string): PgStore {
         challengeId: row.challenge_id,
         accountId: row.account_id,
         dayKey: row.day_key,
+        source: markSourceOf(row.source),
         updatedAt: ms(row.updated_at),
       }));
     },

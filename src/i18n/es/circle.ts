@@ -149,6 +149,21 @@ export const circle = {
     habitsFull: 'Ya tienes 5 hábitos. Archiva uno para unirte.',
     countsAsHabit: 'Tus marcas son las de tu hábito con este nombre. Las de los demás llegan como marcas del reto.',
     notJoined: 'Todavía no estás en este reto.',
+    /**
+     * Encima de "Unirme" en un reto que Salud puede confirmar (ADR-0042 §5): unirse es
+     * el consentimiento, así que se dice antes.
+     */
+    consentSteps: (steps: number, tag: string) =>
+      `Tu círculo verá qué días llegaste a ${steps.toLocaleString(tag)} pasos. No verá cuántos.`,
+    consentHealth: 'Tu círculo verá qué días cumpliste. No verá tus datos de Salud.',
+    /** En lugar de "Marcar hoy" cuando Salud marca el hábito del reto (ADR-0005). */
+    markedByHealth: 'Salud marca este reto sola. Tú no tocas nada.',
+    /** Cómo se contó la semana de cada persona, junto a su nombre. Nunca se suma. */
+    source: {
+      health: 'con Salud',
+      session: 'con sesiones de foco',
+      manual: 'marcado a mano',
+    },
     /** The chip next to someone who has not marked today (ADR-0027). */
     nudge: 'Empujar',
     nudged: 'Enviado',
@@ -174,7 +189,7 @@ export const circle = {
     /** The curated few (ADR-0031). Names only: the numbers live in data/challenges.ts. */
     ideaName: {
       read: 'Leer',
-      walk: 'Caminar',
+      walk: 'Caminar 8.000 pasos',
       table: 'Sin teléfono en la mesa',
       sleep: 'Dormir sin pantalla',
       move: 'Moverte',

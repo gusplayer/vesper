@@ -71,12 +71,20 @@ export type Challenge = {
   updatedAt: number;
 };
 
+/** The phone's MarkSource (ADR-0042). Anything else arrives as 'manual'. */
+export type MarkSource = 'health' | 'session' | 'manual';
+
 export type ChallengeMark = {
   challengeId: string;
   accountId: string;
   dayKey: string;
+  source: MarkSource;
   updatedAt: number;
 };
+
+export function markSourceOf(value: unknown): MarkSource {
+  return value === 'health' || value === 'session' ? value : 'manual';
+}
 
 export type Kudos = {
   id: string;

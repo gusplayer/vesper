@@ -336,6 +336,32 @@ describe('sync', () => {
     ]);
   });
 
+  it('carries where a mark came from, and reads anything unknown as manual', async () => {
+    const { call, gus, ana } = await circle();
+    await call('POST', '/sync', {
+      token: gus.token,
+      body: { since: 0, challenges: [{ id: CH1, name: 'Caminar 10.000 pasos', weeklyTarget: 4, startWeekKey: '2026-09-21', participantIds: [GUS, ANA] }] },
+    });
+    await call('POST', '/sync', {
+      token: ana.token,
+      body: {
+        since: 0,
+        marks: [
+          { challengeId: CH1, dayKey: '2026-09-22', source: 'health' },
+          { challengeId: CH1, dayKey: '2026-09-23', source: 'watch' },
+        ],
+      },
+    });
+
+    const mine = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    expect(mine.body.marks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ dayKey: '2026-09-22', source: 'health' }),
+        expect.objectContaining({ dayKey: '2026-09-23', source: 'manual' }),
+      ]),
+    );
+  });
+
   it('refuses a mark on a challenge you are not in, and unmarks with marked false', async () => {
     const { call, join, gus, ana } = await circle();
     const stranger = await join(SOF, 'Sofía', 'sofia');

@@ -1,6 +1,6 @@
 # ADR-0042 — Retos de pasos: la meta va en el nombre, el círculo ve días y no cifras, y cada línea dice cómo se contó
 
-**Estado:** propuesta · 2026-09-24
+**Estado:** aceptada · 2026-09-24 (el dueño del producto pidió implementarla)
 
 ## Contexto
 
@@ -67,12 +67,13 @@ otra es un ranking aunque no tenga posiciones (regla 11).
 
 ### 4. Cada marca dice cómo se contó
 
-Migración `009`: `challenge_marks.source TEXT NOT NULL DEFAULT 'declared'`
-(`'verified' | 'declared'`), y la misma columna en `server/src/schema.sql`. Las marcas
-propias salen de `habit_marks`, que ya distinguen su origen. En la pantalla del reto, la
-línea de cada persona dice cómo se contó su semana: "con Salud" cuando todas sus marcas
-de la semana son verificadas, "marcado a mano" en otro caso. No hay semanas "mezcladas"
-en pantalla: con que una marca sea declarada, la semana se dice declarada.
+Migración `009`: `challenge_marks.source TEXT NOT NULL DEFAULT 'manual'`, con los mismos
+tres valores que ya tiene `habit_marks.source` (`'health' | 'session' | 'manual'`), y la
+misma columna en `server/src/schema.sql`. Las marcas propias salen de `habit_marks`, así
+que los dos lados se leen igual. En la pantalla del reto, bajo el nombre de cada persona,
+una línea dice cómo se contó su semana: "con Salud", "con sesiones de foco" o "marcado a
+mano". Decide la marca menos verificada (`weekSource`): con que una sea a mano, la
+semana se dice a mano. No hay semanas "mezcladas" en pantalla.
 
 No se suma nada entre personas, así que la regla 9 no se rompe con una sola columna. Lo
 que se evita es que un día confirmado por el reloj y un día tecleado se vean iguales uno
@@ -116,7 +117,8 @@ formulario de Play), un participante en Android se une como declarado y su líne
   `stepDays` con la meta del hábito, y el origen de la semana por persona en
   `challengeStandings`. Con tests.
 - Datos: migración `009` (`challenge_marks.source`), la columna en el esquema del
-  servidor y en el `POST /sync`. Nunca se edita la `004`.
+  servidor y en el `POST /sync` (un valor desconocido llega como `manual`). Nunca se
+  edita la `004`.
 - Store: `linkHabit` decide el modo por `healthTypeFor` y `health.status()`; unirse a un
   reto de pasos puede abrir la hoja de Salud.
 - UI: la línea de meta leída en el editor de hábitos y en "Nuevo reto", la frase de

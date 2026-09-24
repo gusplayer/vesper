@@ -32,6 +32,19 @@ export function healthTypeFor(name: string): HealthType | null {
 }
 
 /**
+ * A habit is only Health's to mark when Health is connected and can actually
+ * recognise it; then a tap would put a declared mark where the verified one belongs
+ * (ADR-0005), so no screen offers one. Asking for the type too rescues the rows saved
+ * as verified before ADR-0041 for a name nothing maps to: those still take a tap.
+ */
+export function isMarkedByHealth(
+  habit: Pick<Habit, 'countMode' | 'healthType' | 'name'>,
+  healthConnected: boolean,
+): boolean {
+  return healthConnected && habit.countMode === 'verified' && (habit.healthType ?? healthTypeFor(habit.name)) !== null;
+}
+
+/**
  * Whether one more active habit fits under the cap (rule 4 in CLAUDE.md, invariant 3
  * in DATA_MODEL.md). The one place the comparison is written: the repository, the
  * stores and the screens all ask this instead of comparing against MAX_HABITS.

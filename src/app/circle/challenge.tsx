@@ -4,6 +4,7 @@ import { Alert } from 'react-native';
 
 import {
   useAppStore,
+  useSettings,
   useChallenge,
   useChallengeStandings,
   useChallengeWeeks,
@@ -24,12 +25,14 @@ import {
   Text,
 } from '../../design/components';
 import { challengeDays, challengeWeeksMet, weekdayIndex } from '../../domain/circle';
+import { isMarkedByHealth } from '../../domain/habits';
 import { ME } from '../../domain/types';
 import { challengeStatusText, challengeSummaryText } from '../../features/circle/ChallengeCard';
 import { ChallengeWeek } from '../../features/circle/ChallengeWeek';
-import { challengeOutlookText } from '../../features/circle/challengeText';
+import { challengeConsentText, challengeOutlookText } from '../../features/circle/challengeText';
 import { StandingsList } from '../../features/circle/StandingsList';
-import { useStrings } from '../../i18n';
+import { useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
+import { useLocale, useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 import { status as circleStatus } from '../../platform/circle';
 
@@ -42,7 +45,9 @@ const CLOCK_MS = 60_000;
  * recorded here and delivered once there is a server (ADR-0027).
  *
  * Joined and active, the one button marks today, which is the mark of the linked
- * habit. Not joined, it joins, which takes a habit slot or says there is none.
+ * habit. Not joined, it joins, which takes a habit slot or says there is none. When
+ * Health can confirm the challenge, the line above the button says what joining
+ * shares, and joining asks for Health first (ADR-0042).
  * Leaving keeps the habit. A challenge that ran out has no button: it has how it
  * went, and the offer to run it again.
  */
@@ -64,7 +69,12 @@ export default function ChallengeScreen() {
   const archiveChallenge = useCircleStore((state) => state.archiveChallenge);
   const nudge = useCircleStore((state) => state.nudge);
   const toggleHabitToday = useAppStore((state) => state.toggleHabitToday);
+  const habits = useAppStore((state) => state.habits);
+  const settings = useSettings();
   const [habitsFull, setHabitsFull] = useState(false);
+  const [joining, setJoining] = useState(false);
+  const askHealth = useAskHealthToJoin();
+  const { tag } = useLocale();
   const sync = circleStatus();
 
   if (view === null) {
@@ -94,14 +104,21 @@ export default function ChallengeScreen() {
   // week the challenge was not running in is worse than saying nothing.
   const mine = standings.find((standing) => standing.isMe) ?? null;
   const markedToday = myWeek?.markedToday ?? false;
-  const canMark = view.joined && challenge.habitId !== null && active;
+  const linked = habits.find((habit) => habit.id === challenge.habitId) ?? null;
+  // Health marks a verified habit on its own; a tap would be a declared mark in its place.
+  const byHealth = linked !== null && isMarkedByHealth(linked, settings.healthConnected);
+  const canMark = view.joined && challenge.habitId !== null && active && !byHealth;
   // A nudge is between people who share the challenge, while it runs.
   const canNudge = view.joined && active;
   const duration = t.challenge.duration(challengeDays(challenge));
 
-  const join = () => {
+  const join = async () => {
+    setJoining(true);
+    await askHealth(challenge.name);
+    setJoining(false);
     setHabitsFull(joinChallenge(challenge.id, Date.now()) === 'habitsFull');
   };
+  const consent = view.joined ? null : challengeConsentText(challenge.name, t, tag);
 
   const confirmLeave = () => {
     Alert.alert(t.challenge.leaveQuestion, t.challenge.leaveMessage, [
@@ -154,8 +171,19 @@ export default function ChallengeScreen() {
         }
       }}
     />
+  ) : view.joined && active && byHealth ? (
+    <Text variant="caption" tone="secondary" align="center">
+      {t.challenge.markedByHealth}
+    </Text>
   ) : !view.joined && view.status !== 'ended' ? (
-    <Button label={t.challenge.join} onPress={join} />
+    <>
+      {consent === null ? null : (
+        <Text variant="caption" tone="secondary" align="center">
+          {consent}
+        </Text>
+      )}
+      <Button label={t.challenge.join} onPress={() => void join()} busy={joining} />
+    </>
   ) : null;
 
   return (

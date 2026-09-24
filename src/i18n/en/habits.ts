@@ -29,6 +29,7 @@ export const habits: typeof shape = {
     declaredDescription: 'You mark it',
     verified: 'Verified',
     verifiedDescription: 'Health confirms it on its own',
+    stepGoal: (steps, tag) => `Counts the days with ${steps.toLocaleString(tag)} steps or more`,
     verifiedUnavailable: 'Only for habits Health can confirm: workouts, walking, sleep',
     note: {
       name: 'Health does not recognize this name, so the habit stays declared and you mark it.',

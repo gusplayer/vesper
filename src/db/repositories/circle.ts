@@ -5,6 +5,7 @@ import type {
   Kudos,
   Member,
   MemberStatus,
+  MarkSource,
   MemberWeek,
   Nudge,
 } from '../../domain/types';
@@ -326,8 +327,13 @@ type ChallengeMarkRow = {
   challenge_id: string;
   member_id: string;
   day_key: string;
+  source: string;
   marked_at: number;
 };
+
+function markSourceOf(value: string): MarkSource {
+  return value === 'health' || value === 'session' ? value : 'manual';
+}
 
 function toChallengeMark(row: ChallengeMarkRow): ChallengeMark {
   return {
@@ -335,6 +341,7 @@ function toChallengeMark(row: ChallengeMarkRow): ChallengeMark {
     challengeId: row.challenge_id,
     memberId: row.member_id,
     dayKey: row.day_key,
+    source: markSourceOf(row.source),
     markedAt: row.marked_at,
   };
 }
@@ -350,9 +357,9 @@ export function listChallengeMarks(): ChallengeMark[] {
 export function upsertChallengeMark(mark: ChallengeMark): void {
   getDb().executeSync(
     `INSERT OR IGNORE INTO challenge_marks
-       (id, challenge_id, member_id, day_key, marked_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [mark.id, mark.challengeId, mark.memberId, mark.dayKey, mark.markedAt],
+       (id, challenge_id, member_id, day_key, source, marked_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [mark.id, mark.challengeId, mark.memberId, mark.dayKey, mark.source, mark.markedAt],
   );
 }
 

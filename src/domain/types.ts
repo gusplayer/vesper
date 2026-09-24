@@ -263,5 +263,10 @@ export type ChallengeMark = {
   /** Never ME: the user's marks are habit marks. */
   memberId: string;
   dayKey: DayKey;
+  /**
+   * How the mark was counted on that person's phone, as their habit mark says it
+   * (migración 009, ADR-0042). Shown next to them, never summed across people.
+   */
+  source: MarkSource;
   markedAt: Millis;
 };

@@ -20,8 +20,9 @@ Hoy hay ocho: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
 `005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022),
 `006_schedule_stamps.ts` (`schedules.updated_at`: una ventana ya abierta al guardar o
 encender la rutina no arranca sesión, ADR-0026), `007_streak_nudges.ts` (racha, días de
-gracia y empujones, ADR-0027) y `008_routine_starts.ts` (la marca de rutina pasa de una
-sola a un mapa por rutina, ADR-0036). El índice está
+gracia y empujones, ADR-0027), `008_routine_starts.ts` (la marca de rutina pasa de una
+sola a un mapa por rutina, ADR-0036) y `009_challenge_mark_source.ts` (de dónde vino cada
+marca de reto, ADR-0042). El índice está
 en `src/db/migrations/index.ts`; se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
@@ -274,6 +275,13 @@ CREATE TABLE challenge_marks (
   UNIQUE(challenge_id, member_id, day_key)
 );
 CREATE INDEX idx_challenge_marks_challenge ON challenge_marks(challenge_id);
+
+-- 009_challenge_mark_source.ts (ADR-0042)
+
+-- Cómo se contó la marca en el teléfono de esa persona: 'health', 'session' o 'manual',
+-- los mismos valores de habit_marks.source. Se muestra junto a la persona y nunca se
+-- suma entre personas. Las filas anteriores son de la siembra y quedan 'manual'.
+ALTER TABLE challenge_marks ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
 
 -- 007_streak_nudges.ts (ADR-0027)
 

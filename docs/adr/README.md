@@ -50,5 +50,5 @@ e-ink; ADR-0026 cerró lo que 0016 había dejado "vigente en su fondo".
 | 0039 | La gracia sostiene la cadena, no suma un día (enmienda a 0027) | aceptada |
 | 0040 | Dos avisos son dos momentos, no un zumbido (enmienda a 0027) | aceptada |
 | 0041 | Un hábito verificado que nada puede verificar cae a declarado, y lo dice | aceptada |
-| 0042 | Retos de pasos: la meta va en el nombre (`stepGoalFor`, como el sueño), unirse pide Salud y es el consentimiento, el círculo ve días y nunca pasos, y cada marca dice si vino de Salud o de la mano (migración 009) | propuesta |
+| 0042 | Retos de pasos: la meta va en el nombre (`stepGoalFor`, como el sueño), unirse pide Salud y es el consentimiento, el círculo ve días y nunca pasos, y cada marca dice si vino de Salud, de una sesión o de la mano (migración 009) | aceptada |
 | 0043 | Salud en Android es Health Connect, leído por un módulo Kotlin propio (`modules/vesper-health`, solo `connect-client`); `health.ts` se parte en `.ios`/`.android` con la misma superficie; sin Health Connect en Android 9–13 el botón lo instala desde Play; `minSdk` 26 | aceptada |

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacidad · Vesper</title>
+    <meta name="description" content="Qué datos toca Vesper, dónde viven y cómo se borran." />
+    <!--
+      BORRADOR (2026-09-24). Escrito contra el código de este commit: ADR-0017, 0021, 0029,
+      0033, 0042 y 0043. Antes de publicarlo: poner el correo de contacto (marcado con
+      [CONTACTO]), la fecha de vigencia, y que lo revise quien firma por la app. Cada vez
+      que cambie qué sale del teléfono, esta página cambia en el mismo commit.
+    -->
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="preload" href="/fonts/Outfit_400Regular.ttf" as="font" type="font/ttf" crossorigin />
+  </head>
+  <body>
+    <main>
+      <h1>Privacidad</h1>
+      <p>
+        Vesper funciona entera en tu teléfono, sin cuenta y sin red. Esta página dice qué datos
+        toca, dónde viven y cómo se borran. Si algo de aquí deja de ser cierto, la página cambia
+        antes que la app.
+      </p>
+
+      <div class="card">
+        <h2>Lo que se queda en tu teléfono</h2>
+        <p>
+          Tus modos, rutinas, sesiones de foco, hábitos, meta semanal y, si la pones, tu fecha de
+          nacimiento. Viven en una base de datos local. No hay copia en ningún servidor.
+        </p>
+        <p>
+          <strong>Bloqueo de apps.</strong> En iPhone, Tiempo de uso te deja elegir apps y Vesper
+          recibe un identificador opaco que no dice cuáles son. En Android, Vesper guarda los
+          nombres de paquete de las apps que eliges y, durante una sesión, mira qué app está al
+          frente para cubrirla. El uso por app que ves en Actividad se lee cuando lo abres y no se
+          guarda.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Salud</h2>
+        <p>
+          Si la conectas, Vesper lee de Salud (iPhone) o Health Connect (Android) tres cosas de la
+          semana en curso: pasos, entrenamientos y sueño. Las usa solo para marcar tus hábitos
+          verificados. Nunca escribe en Salud, nunca lee otros tipos y no guarda las muestras: guarda
+          solo qué días quedó cumplido cada hábito.
+        </p>
+        <p>
+          Los datos de Salud no se usan para publicidad, no se venden y no se comparten con nadie,
+          con una sola excepción que tú eliges: un reto del círculo (abajo).
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>El círculo, si lo usas</h2>
+        <p>
+          El círculo es opcional. Hoy no sale nada del teléfono: lo que ves en él es de ejemplo.
+          Cuando la app se conecte con el servidor del círculo, esto es lo que viajará y nada más:
+        </p>
+        <ul>
+          <li>Una cuenta sin correo: un identificador y un secreto que genera tu teléfono. El
+            servidor guarda solo una huella del secreto.</li>
+          <li>Tu nombre y tu alias, para que te reconozcan las personas de tu círculo.</li>
+          <li>Tu semana, si eliges compartirla: horas de foco, hábitos cumplidos y, solo si lo
+            activas, el estimado de redes. Nunca tus sesiones, tus apps ni tus horas.</li>
+          <li>Los retos a los que te unes, y qué días cumpliste cada uno, con cómo se contó ese día
+            (con Salud, con una sesión o a mano). En un reto de pasos tu círculo ve qué días
+            llegaste a la meta, <strong>nunca cuántos pasos diste</strong>. Unirte a un reto es
+            elegir compartir eso, y la app lo dice antes del botón.</li>
+          <li>Ánimos y empujones que das, y un token de notificaciones para recibir los tuyos.</li>
+        </ul>
+        <p>
+          El servidor no tiene analítica, no guarda tu ubicación y no le pasa nada a terceros. Las
+          notificaciones viajan por el servicio de avisos de Expo, que solo ve el token y el aviso.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Cómo se borra</h2>
+        <p>
+          <strong>En el teléfono:</strong> Ajustes › Borrar todo y reiniciar vacía la base de datos.
+          Desinstalar la app también. Desconectar Salud en Ajustes › Salud borra las marcas que vinieron
+          de ahí, y puedes quitar el permiso en Salud o Health Connect cuando quieras.
+        </p>
+        <p>
+          <strong>En el servidor del círculo:</strong> cuando el círculo se conecte, salir de él
+          borrará tu cuenta y todas sus filas en el acto, sin copia. Hoy no hay nada que borrar ahí.
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>Lo que Vesper no hace</h2>
+        <p>
+          No tiene anuncios, no usa SDKs de terceros para analítica ni para anuncios, no vende datos y
+          no lee el contenido de tus apps. No está dirigida a menores de 18 años.
+        </p>
+      </div>
+
+      <p class="quiet">Preguntas o pedidos sobre tus datos: [CONTACTO].</p>
+
+      <hr class="rule" />
+
+      <section lang="en">
+        <h1>Privacy</h1>
+        <p>
+          Vesper runs entirely on your phone, with no account and no network. This page says what
+          data it touches, where it lives and how it is deleted.
+        </p>
+
+        <div class="card">
+          <h2>What stays on your phone</h2>
+          <p>
+            Your modes, routines, focus sessions, habits, weekly goal and, if you add it, your birth
+            date, in a local database with no copy on any server. On iPhone, Screen Time gives Vesper
+            an opaque token for the apps you pick. On Android, Vesper keeps the package names you pick
+            and, during a session, checks which app is in front to cover it. Per-app use in Activity is
+            read when you open it and never kept.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>Health</h2>
+          <p>
+            If you connect it, Vesper reads three things for the current week from Health (iPhone) or
+            Health Connect (Android): steps, workouts and sleep, only to mark your verified habits. It
+            never writes to Health, never reads other types and does not keep the samples, only which
+            days each habit was done. Health data is not used for ads, not sold and not shared, except
+            for the one case you choose: a circle challenge.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>The circle, if you use it</h2>
+          <p>
+            The circle is optional. Today nothing leaves the phone; what you see there is sample data.
+            Once the app talks to the circle server, this is all that travels: an account with no email
+            (an id and a secret your phone makes; the server keeps only a hash), your name and handle,
+            your week if you share it (focus hours, habits done and, only if you turn it on, the social
+            estimate), the challenges you join with which days you did each and how that day was
+            counted, and cheers and nudges with a notification token. In a steps challenge your circle
+            sees which days you reached the goal, <strong>never how many steps</strong>. Joining is
+            choosing to share that, and the app says so before the button. Notifications go through
+            Expo's push service, which sees only the token and the notice.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>How it is deleted</h2>
+          <p>
+            On the phone: Settings › Delete everything and start over, or uninstall. Disconnecting Health
+            in Settings › Health deletes the marks that came from it. On the circle server: once the
+            circle is connected, leaving it will delete your account and every row it owns, at once.
+            Today there is nothing there to delete.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>What Vesper does not do</h2>
+          <p>
+            No ads, no third-party analytics or ad SDKs, no selling data, no reading what is inside your
+            apps. Not directed at anyone under 18.
+          </p>
+        </div>
+
+        <p class="quiet">Questions or requests about your data: [CONTACTO].</p>
+      </section>
+    </main>
+  </body>
+</html>

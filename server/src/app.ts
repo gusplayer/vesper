@@ -13,7 +13,7 @@ import { derivesFrom, normalizeInviteCode } from './invite.ts';
 import type { Push } from './push.ts';
 import { createRateLimiter } from './rateLimit.ts';
 import { ConflictError } from './store.ts';
-import type { Account, Challenge, ChallengeMark, Kudos, Nudge, Store, Week } from './store.ts';
+import { markSourceOf, type Account, type Challenge, type ChallengeMark, type Kudos, type Nudge, type Store, type Week } from './store.ts';
 
 /**
  * The circle's API (ADR-0033). Five verbs and one sync, over rows that each have an
@@ -548,7 +548,7 @@ export function createApp(deps: Deps) {
         rejected.push(`${challengeId}/${dayKey}`);
         continue;
       }
-      const mark: ChallengeMark = { challengeId, accountId: me.id, dayKey, updatedAt: at };
+      const mark: ChallengeMark = { challengeId, accountId: me.id, dayKey, source: markSourceOf(row.source), updatedAt: at };
       if (row.marked === false) {
         await store.deleteMark(mark);
       } else {

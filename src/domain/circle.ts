@@ -8,6 +8,7 @@ import {
   type DayKey,
   type HabitMark,
   type Kudos,
+  type MarkSource,
   type Member,
   type MemberWeek,
   type Nudge,
@@ -250,7 +251,24 @@ export type Standing = {
   met: boolean;
   /** One flag per day, Monday first. A mark and a dash, not points — ADR-0021. */
   days: boolean[];
+  /**
+   * How this person's week was counted (ADR-0042): 'health' only when Health confirmed
+   * every mark, 'manual' as soon as one was tapped, 'session' otherwise. Null with no
+   * marks. Said next to the person, never used to rank or to add anything up.
+   */
+  source: MarkSource | null;
 };
+
+/** The one word for a week of marks: the least verified of them decides. */
+export function weekSource(sources: readonly MarkSource[]): MarkSource | null {
+  if (sources.length === 0) {
+    return null;
+  }
+  if (sources.includes('manual')) {
+    return 'manual';
+  }
+  return sources.includes('session') ? 'session' : 'health';
+}
 
 /**
  * Where every participant stands in the week starting at `weekKey`. The user's marks
@@ -269,10 +287,21 @@ export function challengeStandings(
   const dayKeys = weekDayKeys(weekKey);
   const standings: Standing[] = [];
 
-  const standing = (id: string, name: string, isMe: boolean, isMarked: (dayKey: DayKey) => boolean): Standing => {
-    const days = dayKeys.map(isMarked);
+  /** `sourceOn` is the source of the day's mark, or null when the day has none. */
+  const standing = (id: string, name: string, isMe: boolean, sourceOn: (dayKey: DayKey) => MarkSource | null): Standing => {
+    const sources = dayKeys.map(sourceOn);
+    const days = sources.map((source) => source !== null);
     const done = days.filter(Boolean).length;
-    return { id, name, isMe, done, target: challenge.weeklyTarget, met: done >= challenge.weeklyTarget, days };
+    return {
+      id,
+      name,
+      isMe,
+      done,
+      target: challenge.weeklyTarget,
+      met: done >= challenge.weeklyTarget,
+      days,
+      source: weekSource(sources.filter((source): source is MarkSource => source !== null)),
+    };
   };
 
   for (const id of challenge.participantIds) {
@@ -280,7 +309,7 @@ export function challengeStandings(
       const habitId = challenge.habitId;
       standings.unshift(
         standing(ME, profile?.name ?? '', true, (dayKey) =>
-          habitId !== null && myMarks.some((m) => m.habitId === habitId && m.dayKey === dayKey),
+          habitId === null ? null : (myMarks.find((m) => m.habitId === habitId && m.dayKey === dayKey)?.source ?? null),
         ),
       );
       continue;
@@ -290,8 +319,13 @@ export function challengeStandings(
       continue;
     }
     standings.push(
-      standing(member.id, member.name, false, (dayKey) =>
-        marks.some((m) => m.challengeId === challenge.id && m.memberId === member.id && m.dayKey === dayKey),
+      standing(
+        member.id,
+        member.name,
+        false,
+        (dayKey) =>
+          marks.find((m) => m.challengeId === challenge.id && m.memberId === member.id && m.dayKey === dayKey)
+            ?.source ?? null,
       ),
     );
   }

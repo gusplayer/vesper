@@ -33,3 +33,13 @@ alguna vez la página carga algo de afuera, el navegador lo bloquea y la consola
 Pendiente: `/.well-known/apple-app-site-association` y `/.well-known/assetlinks.json`
 para que el link abra la app sin pasar por aquí. Necesitan el Team ID de Apple y la
 huella SHA-256 del certificado de firma de Android, que todavía no existen.
+
+## La política de privacidad (borrador)
+
+`privacy.html` (`/privacy` una vez desplegada) es un **borrador sin publicar**. Dice lo
+que hace el código de hoy: todo local; Salud y Health Connect solo en lectura, tres tipos,
+sin guardar muestras (ADR-0043); y lo que viajará cuando el círculo se conecte al servidor
+(ADR-0033, ADR-0042: en un reto de pasos, los días y nunca la cifra). Antes de desplegarla
+hace falta el correo de contacto (`[CONTACTO]`), la fecha de vigencia y la revisión de
+quien firma por la app. Play la exige en la ficha y en la declaración de Health Connect
+(`docs/PLAY_DECLARATIONS.md` §f), y Health Connect muestra su link en la hoja de permisos.
