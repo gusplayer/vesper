@@ -8,6 +8,7 @@ import {
   NOTICE_ID_PREFIX,
   parsePushNotice,
   type NoticeMessage,
+  type PushKind,
   type PushNotice,
 } from '../domain/nudgeNotice';
 import type { NotificationSpec } from '../domain/reminders';
@@ -129,6 +130,31 @@ export async function hasPermission(): Promise<boolean> {
   } catch (error) {
     report('getPermissionsAsync', error);
     return false;
+  }
+}
+
+/**
+ * Where the permission stands, without asking for it:
+ * - `granted`: notices can be shown.
+ * - `askable`: not granted, and the system prompt can still appear.
+ * - `blocked`: not granted, and the system will not ask again (iOS after the first
+ *   no, Android after the second): only the system settings can turn it on.
+ */
+export type PermissionState = 'granted' | 'askable' | 'blocked';
+
+export async function permissionState(): Promise<PermissionState> {
+  if (!available) {
+    return 'blocked';
+  }
+  try {
+    const response = await Notifications.getPermissionsAsync();
+    if (response.granted) {
+      return 'granted';
+    }
+    return response.canAskAgain ? 'askable' : 'blocked';
+  } catch (error) {
+    report('getPermissionsAsync', error);
+    return 'askable';
   }
 }
 
@@ -471,12 +497,15 @@ export function addPushListener(): { remove: () => void } {
   return { remove: () => received.remove() };
 }
 
+/** A tapped circle notice: what it was about, and the challenge when it is a nudge. */
+export type CircleNoticeTap = { kind: PushKind; challengeId: string | null };
+
 /**
- * Listens for taps. A nudge is the only notice that leads anywhere — to the challenge
- * it is about (ADR-0027 §5) — so the handler is given that id and nothing else; every
- * other notification answers null and routes nowhere.
+ * Listens for taps on circle notices. Each kind leads where it is about: a nudge to its
+ * challenge (ADR-0027 §5), an invite request to Invitar, an accepted request to the
+ * circle. Any other notification (a routine, the streak, a test) is not reported.
  */
-export function addNoticeTapListener(handler: (challengeId: string | null) => void): {
+export function addNoticeTapListener(handler: (tap: CircleNoticeTap) => void): {
   remove: () => void;
 } {
   if (!available) {
@@ -484,7 +513,10 @@ export function addNoticeTapListener(handler: (challengeId: string | null) => vo
   }
   const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
     const data = response.notification.request.content.data;
-    handler(readString(data, DATA_KIND) === 'nudge' ? readString(data, DATA_CHALLENGE) : null);
+    const kind = readString(data, DATA_KIND);
+    if (kind === 'nudge' || kind === 'invite' || kind === 'accepted') {
+      handler({ kind, challengeId: kind === 'nudge' ? readString(data, DATA_CHALLENGE) : null });
+    }
   });
   return { remove: () => subscription.remove() };
 }

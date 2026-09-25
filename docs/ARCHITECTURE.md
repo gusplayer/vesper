@@ -21,13 +21,22 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Bloqueo Android | módulo Expo local en Kotlin, `modules/vesper-blocking/` | Sin AccessibilityService (ADR-0019) |
 | Gráficos | `View` y `react-native-svg` | Barras, grillas, QR y arte de foco a mano |
 
-**Local-first, y el círculo es la única excepción.** Foco, modos, rutinas, hábitos y
-vida funcionan enteros sin red y sin cuenta. El círculo tiene servidor desde ADR-0033 y
-cliente desde ADR-0044: una cuenta por dispositivo, sin correo, cuyo secreto vive en el
-llavero y **que nace solo cuando invitas a alguien o usas un código**. Quien nunca invite
-a nadie no tiene cuenta en ningún servidor. Lo que sube va métrica por métrica, según los
-tres interruptores de Ajustes › Círculo, y lo que no se comparte viaja como `null`, nunca
-como cero (ADR-0033, ADR-0035).
+**Local-first, sin login.** Foco, modos, rutinas, hábitos y vida funcionan enteros sin
+red y sin registro. Desde ADR-0048 cada instalación tiene una **identidad anónima**: un id
+(UUID v7) que se reserva en el primer arranque y un secreto que el servidor entrega una
+sola vez al registrarla. El secreto vive en `platform/identity`: una copia local
+(`expo-secure-store`) y una que viaja sola al teléfono nuevo (`modules/vesper-identity`:
+llavero de iCloud en iOS, Block Store en Android, solo con bloqueo de pantalla). La misma
+identidad es la cuenta del círculo (ADR-0044) y la llave del **respaldo cifrado**:
+`db/backup.ts` exporta las tablas a JSON, `platform/backupCrypto.ts` lo cifra con AES-GCM
+con una llave derivada del secreto y el servidor guarda bytes que no puede leer. Lo que el
+círculo ve sigue yendo métrica por métrica, según los tres interruptores de Ajustes ›
+Círculo, y lo que no se comparte viaja como `null`, nunca como cero (ADR-0033, ADR-0035).
+
+Restaurar (`features/restore/runRestore.ts`) va en un orden que no pierde nada: probar la
+clave (`GET /account`), bajar y abrir el respaldo con el secreto viejo, rotarlo
+(`POST /account/secret`, el teléfono perdido queda fuera), rehacer el círculo con
+`/sync` `restore: true` y volver a subir el respaldo con la llave nueva.
 
 ## Estructura
 
@@ -101,13 +110,18 @@ src/
     notifications.ts, health.ios.ts / health.android.ts (+ healthConnectReading.ts), liveActivity.ts (+ liveActivityProps.ts),
     blocking.ios.ts, blocking.android.ts (+ blockingTypes.ts, androidApps.ts,
     BlockingSelectionView.tsx, routineWindows.ts), usage.ts (+ usageReading.ts),
-    orientation.ts, circle.ts
-    hooks/                useNotificationSync, useHealthSync, useLiveActivitySync,
-                          useBlockingSync, useRoutineSync, useRoutineWindowsSync, useUsageSync
-    PlatformEffects.tsx   monta los nueve hooks una vez, bajo el layout raíz
+    orientation.ts, circle.ts (+ circleApi.ts), identity.ts,
+    backup.ts (+ backupApi.ts, backupCrypto.ts, backupPolicy.ts)
+    hooks/                useIdentitySync, useNotificationSync, usePushSync, useHealthSync,
+                          useLiveActivitySync, useBlockingSync, useRoutineSync,
+                          useRoutineWindowsSync, useUsageSync, useCircleSync, useBackupSync
+    PlatformEffects.tsx   monta los once hooks una vez, bajo el layout raíz; la identidad primero
   widgets/FocusActivity.tsx   la Live Activity; no importa nada de la app
   dev/                    route.ts (banderas) y DevJump.tsx. Solo en __DEV__
 modules/vesper-blocking/  módulo Expo local (Kotlin): servicio, vigilante, escudo, alarmas
+modules/vesper-health/    módulo Expo local (Kotlin): Health Connect (ADR-0043)
+modules/vesper-identity/  módulo Expo local (Swift y Kotlin): el secreto que viaja (ADR-0048)
+plugins/withAndroidBackup.js  qué entra al backup de Android: la base sí, el secreto no
 targets/                  ActivityMonitorExtension, ShieldAction, ShieldConfiguration (iOS)
 patches/                  react-native-health+1.19.0.patch
 scripts/artPreview.ts     visor de las obras de arte de foco
@@ -320,7 +334,8 @@ la usan el libro mayor y la meta semanal.
 
 ## Qué no está en la arquitectura y es a propósito
 
-- No hay capa de API. No hay red.
+- No hay capa de API genérica: dos clientes HTTP a mano (`platform/circleApi.ts` y
+  `platform/backupApi.ts`) contra un solo servidor, y nada de la app espera su respuesta.
 - No hay sistema de eventos ni event bus: la plataforma se suscribe a los stores.
 - No hay inyección de dependencias. Los repositorios se importan directo.
 - No hay librería de i18n, de gráficos, de QR ni de animación.

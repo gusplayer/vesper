@@ -2,9 +2,12 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useChrome } from '../chrome';
 import { useTheme } from '../theme';
-import { radius, space } from '../tokens';
+import { layout, radius, space } from '../tokens';
 import { Icon } from './Icon';
 import { Text } from './Text';
+
+/** The x is a 16 pt glyph; its touch area is 44. */
+const DISMISS_SLOP = (layout.touchTarget - layout.icon.sm) / 2;
 
 type BannerProps = {
   title: string;
@@ -26,7 +29,7 @@ export function Banner({ title, message, onDismiss }: BannerProps) {
           {message}
         </Text>
       </View>
-      <Pressable onPress={onDismiss} hitSlop={space.sm} accessibilityRole="button" accessibilityLabel={dismiss}>
+      <Pressable onPress={onDismiss} hitSlop={DISMISS_SLOP} accessibilityRole="button" accessibilityLabel={dismiss}>
         <Icon name="x" size="sm" tone="onInk" />
       </Pressable>
     </View>

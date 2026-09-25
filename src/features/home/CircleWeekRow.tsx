@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 
-import { useMyChallengeWeeks } from '../../data';
 import { Stack } from '../../design/components';
 import { useStrings } from '../../i18n';
 import { ChallengeWeek } from '../circle/ChallengeWeek';
+import { useLinkedChallengeWeeks } from '../circle/useChallengeLink';
 import { pickHomeChallenge } from './homeChallenge';
 
 type CircleWeekRowProps = {
@@ -20,7 +20,7 @@ type CircleWeekRowProps = {
 export function CircleWeekRow({ now, todayIndex }: CircleWeekRowProps) {
   const t = useStrings().circle;
   const router = useRouter();
-  const challenge = pickHomeChallenge(useMyChallengeWeeks(now));
+  const challenge = pickHomeChallenge(useLinkedChallengeWeeks(now));
 
   if (challenge === null) {
     return null;
@@ -31,7 +31,6 @@ export function CircleWeekRow({ now, todayIndex }: CircleWeekRowProps) {
         days={challenge.days}
         todayIndex={todayIndex}
         pitch="md"
-
         onPress={() => router.push({ pathname: '/circle/challenge', params: { id: challenge.id } })}
         accessibilityLabel={t.challenge.openA11y(challenge.name)}
       />

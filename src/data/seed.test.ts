@@ -216,14 +216,27 @@ describe('the routine every mode idea proposes', () => {
   });
 });
 
-describe('the demo routines after onboarding', () => {
+describe('the demo routines', () => {
   // Tuesday 2026-09-15, 10:00: inside the demo "Work" window (9:00 – 18:00, weekdays).
   const TUESDAY_10 = new Date(2026, 8, 15, 10).getTime();
   const WEDNESDAY_9 = new Date(2026, 8, 16, 9).getTime();
 
-  it('do not start a session the user never asked for when the onboarding ends inside a window', () => {
-    // What the store does when onboardingDone flips: every schedule is stamped with that moment.
-    const stamped = demoSchedules(es.demo).map((schedule) => ({ ...schedule, updatedAt: TUESDAY_10 }));
+  it('are seeded off, so none of them ever starts a session on its own (ADR-0047 §1)', () => {
+    const seeded = demoSchedules(es.demo);
+
+    expect(seeded.map((schedule) => schedule.enabled)).toEqual([false, false, false]);
+    expect(demoSchedules(en.demo).every((schedule) => !schedule.enabled)).toBe(true);
+    expect(routineDecision(seeded, false, null, TUESDAY_10).action).toBe('none');
+    expect(routineDecision(seeded, false, null, WEDNESDAY_9 + MINUTE).action).toBe('none');
+  });
+
+  // Turning a routine on stamps it with that moment (toggleSchedule), like the end of
+  // the onboarding stamps every schedule: a window already open then does not start.
+  const turnedOnAt = (at: number) =>
+    demoSchedules(es.demo).map((schedule) => ({ ...schedule, enabled: true, updatedAt: at }));
+
+  it('once turned on inside a window, do not start a session the user never asked for', () => {
+    const stamped = turnedOnAt(TUESDAY_10);
 
     expect(routineDecision(stamped, false, null, TUESDAY_10).action).toBe('none');
     expect(routineDecision(stamped, false, null, TUESDAY_10 + 3 * HOUR).action).toBe('none');
@@ -235,10 +248,8 @@ describe('the demo routines after onboarding', () => {
     }
   });
 
-  it('start the next morning, at the window the user has seen coming', () => {
-    const stamped = demoSchedules(es.demo).map((schedule) => ({ ...schedule, updatedAt: TUESDAY_10 }));
-
-    const decision = routineDecision(stamped, false, null, WEDNESDAY_9 + MINUTE);
+  it('once turned on, start the next morning, at the window the user has seen coming', () => {
+    const decision = routineDecision(turnedOnAt(TUESDAY_10), false, null, WEDNESDAY_9 + MINUTE);
     expect(decision.action).toBe('start');
     if (decision.action === 'start') {
       expect(decision.routine.id).toBe('schedule-work');
@@ -246,8 +257,8 @@ describe('the demo routines after onboarding', () => {
     }
   });
 
-  it('would have started right away without the stamp: the defect this guards against', () => {
-    const unstamped = demoSchedules(es.demo).map(({ updatedAt: _stamp, ...schedule }) => schedule);
+  it('would start right away when on and unstamped: the defect the stamp guards against', () => {
+    const unstamped = demoSchedules(es.demo).map(({ updatedAt: _stamp, ...schedule }) => ({ ...schedule, enabled: true }));
     expect(routineDecision(unstamped, false, null, TUESDAY_10).action).toBe('start');
   });
 });

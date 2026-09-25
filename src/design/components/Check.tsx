@@ -23,7 +23,7 @@ export function Check({ checked, shape = 'radio', tone = 'ink' }: CheckProps) {
         shape === 'radio' ? styles.radio : styles.box,
         checked
           ? { backgroundColor: fill, borderColor: fill }
-          : { backgroundColor: 'transparent', borderColor: colors.inkTertiary },
+          : { backgroundColor: 'transparent', borderColor: colors.inkSecondary },
       ]}
     >
       {checked ? <Icon name="check" size="sm" tone="onInk" /> : null}

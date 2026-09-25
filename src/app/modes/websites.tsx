@@ -11,7 +11,13 @@ import { useStrings } from '../../i18n';
 const ITEMS: readonly PickerItem[] = WEBSITES.map((site) => ({ id: site.id, label: site.host }));
 const POPULAR = ITEMS.filter((item) => WEBSITES.find((site) => site.id === item.id)?.popular);
 
-/** Picks the websites of the mode draft. Hosts only; the popular ones are listed first. */
+/**
+ * Picks the websites of the mode draft. Hosts only; the popular ones are listed first.
+ *
+ * Only reachable where no real picker exists (ADR-0047 §2): Android blocks no sites,
+ * and an iPhone that can block picks them in Screen Time with the apps. Here the list is
+ * an example, like the app catalogue, and it says so (rule 8).
+ */
 export default function ModeWebsitesScreen() {
   const router = useRouter();
   const t = useStrings();
@@ -21,6 +27,7 @@ export default function ModeWebsitesScreen() {
 
   return (
     <SelectionPicker
+      notice={t.modes.websites.example}
       title={behavior === 'allow' ? t.modes.websites.allowed : t.modes.websites.blocked}
       searchPlaceholder={t.modes.websites.search}
       items={ITEMS}
@@ -31,6 +38,7 @@ export default function ModeWebsitesScreen() {
       onToggle={toggleWebsite}
       onBack={() => goBack(router)}
       onDone={() => goBack(router)}
+      fullTip={t.modes.websites.fullTip}
     />
   );
 }

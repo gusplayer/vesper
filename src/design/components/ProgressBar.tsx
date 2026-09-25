@@ -8,14 +8,26 @@ type ProgressBarProps = {
   progress: number;
   /** Several segments, e.g. sessions of a day: [0.2, 0.5] as fractions of the track. */
   segments?: readonly { start: number; end: number }[];
+  /**
+   * What VoiceOver reads before the percentage: 'Sesión', 'Espera'. A bar of
+   * segments is decoration unless it is given one.
+   */
+  accessibilityLabel?: string;
 };
 
 /** A thin rounded track with an ink fill, or a few ink segments on it. */
-export function ProgressBar({ progress, segments }: ProgressBarProps) {
+export function ProgressBar({ progress, segments, accessibilityLabel }: ProgressBarProps) {
   const { colors } = useTheme();
   const clamped = Math.min(1, Math.max(0, progress));
+  const spoken = segments === undefined || accessibilityLabel !== undefined;
   return (
-    <View style={[styles.track, { backgroundColor: colors.cardMuted }]}>
+    <View
+      style={[styles.track, { backgroundColor: colors.cardMuted }]}
+      accessible={spoken}
+      accessibilityRole={spoken ? 'progressbar' : undefined}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityValue={spoken && segments === undefined ? { min: 0, max: 100, now: Math.round(clamped * 100) } : undefined}
+    >
       {segments === undefined ? (
         <View style={[styles.fill, { width: `${clamped * 100}%`, backgroundColor: colors.ink }]} />
       ) : (

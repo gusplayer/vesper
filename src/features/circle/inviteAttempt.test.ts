@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { inviteCodeFor, inviteLinkFor } from '../../domain/circle';
 import { MAX_CIRCLE, type Member, type Profile } from '../../domain/types';
-import { accountProblem, attemptFailed, checkInviteCode } from './inviteAttempt';
+import {
+  accountProblem,
+  attemptFailed,
+  attemptNeedsHandle,
+  attemptRetryable,
+  checkInviteCode,
+} from './inviteAttempt';
 
 const profile: Profile = {
   id: '0199a1b2-c3d4-7e5f-8a9b-000000000001',
@@ -124,5 +130,31 @@ describe('accountProblem', () => {
     expect(accountProblem({ kind: 'failed', failure: { kind: 'forbidden' } })).toBe('server');
     expect(accountProblem({ kind: 'failed', failure: { kind: 'conflict', message: 'x' } })).toBe('server');
     expect(accountProblem({ kind: 'failed', failure: { kind: 'serverError', status: 503 } })).toBe('server');
+  });
+});
+
+describe('attemptRetryable', () => {
+  it('only lets the user ask again when asking again can answer differently', () => {
+    expect(attemptRetryable('offline')).toBe(true);
+    expect(attemptRetryable('tooMany')).toBe(true);
+    expect(attemptRetryable('server')).toBe(true);
+    for (const outcome of ['unknownCode', 'ownCode', 'self', 'full', 'handleTaken', 'noKeychain', 'lostKey'] as const) {
+      expect(attemptRetryable(outcome)).toBe(false);
+    }
+  });
+});
+
+describe('attemptNeedsHandle', () => {
+  it('points to Ajustes › Círculo only when the handle is what has to change', () => {
+    expect(attemptNeedsHandle('handleTaken')).toBe(true);
+    expect(attemptNeedsHandle('handleInvalid')).toBe(true);
+    expect(attemptNeedsHandle('offline')).toBe(false);
+    expect(attemptNeedsHandle(null)).toBe(false);
+  });
+});
+
+describe('accountProblem, for a handle the server would refuse', () => {
+  it('is its own line, known before any request', () => {
+    expect(accountProblem({ kind: 'handleInvalid' })).toBe('handleInvalid');
   });
 });

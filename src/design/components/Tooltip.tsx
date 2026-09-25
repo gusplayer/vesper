@@ -6,18 +6,25 @@ import { Text } from './Text';
 
 type TooltipProps = {
   message: string;
+  /**
+   * Float over what is under it instead of taking a row of the layout, so the list
+   * below does not jump when it appears. The parent is the anchor: the bubble hangs
+   * from its top edge, centred.
+   */
+  overlay?: boolean;
 };
 
 /**
- * A small speech bubble that explains why a control did nothing. It appears without
- * anything else moving, so it announces itself: a live region on Android, an alert
- * with the message as its label on iOS, where VoiceOver reads the bubble as one piece.
+ * A small speech bubble that explains why a control did nothing. It is a live region
+ * on Android; iOS has none, so show it through `useTooltip`, which announces the
+ * message and takes it down again.
  */
-export function Tooltip({ message }: TooltipProps) {
+export function Tooltip({ message, overlay = false }: TooltipProps) {
   const { colors } = useTheme();
   return (
     <View
-      style={styles.wrap}
+      pointerEvents={overlay ? 'none' : undefined}
+      style={[styles.wrap, overlay ? styles.overlay : null]}
       accessible
       accessibilityRole="alert"
       accessibilityLabel={message}
@@ -36,6 +43,14 @@ export function Tooltip({ message }: TooltipProps) {
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    elevation: 4,
   },
   bubble: {
     borderRadius: radius.md,

@@ -51,10 +51,40 @@ export function durationText(ms: number): string {
   return `${hours}h ${minutes}m`;
 }
 
-/** '9:05', '14:30'. Local time, twenty-four hours, no leading zero on the hour. */
-export function clockText(at: number): string {
-  const date = new Date(at);
+/**
+ * The Intl tag `clockText` formats with when the caller passes none. Set once by the
+ * locale store whenever the language resolves (`setClockLocale`), so every existing
+ * `clockText(at)` follows Ajustes › Idioma without taking a parameter. Null until then:
+ * the twenty-four-hour form, which is also what the tests without a locale see.
+ */
+let clockLocale: string | null = null;
+
+/** Called by the locale store with the resolved Intl tag ('es-CO', 'en-US'). */
+export function setClockLocale(tag: string | null): void {
+  clockLocale = tag;
+}
+
+/** '9:05', '14:30': local time, twenty-four hours, no leading zero on the hour. */
+function twentyFour(date: Date): string {
   return `${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * A time of day in the language's own clock: '6:05 PM' in English, '18:05' in Spanish
+ * (twenty-four hours whatever the region, like the rest of the app's Spanish; Intl's
+ * es-MX would say '06:05 p.m.'). `tag` defaults to the current language
+ * (`setClockLocale`), so `clockText(at)` keeps working everywhere.
+ */
+export function clockText(at: number, tag: string | null = clockLocale): string {
+  const date = new Date(at);
+  if (tag === null || !tag.toLowerCase().startsWith('en')) {
+    return twentyFour(date);
+  }
+  try {
+    return new Intl.DateTimeFormat(tag, { hour: 'numeric', minute: '2-digit', hourCycle: 'h12' }).format(date);
+  } catch {
+    return twentyFour(date);
+  }
 }
 
 /** Whole minutes, for the duration chips. */

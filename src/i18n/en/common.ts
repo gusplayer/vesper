@@ -17,5 +17,6 @@ export const common: typeof shape = {
   edit: 'Edit',
   continue: 'Continue',
   none: 'None',
+  brand: 'VESPER',
   empty: '—',
 };

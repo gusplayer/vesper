@@ -4,17 +4,19 @@ import { layout, space } from '../tokens';
 import { Text } from './Text';
 
 type PeriodStripProps = {
-  /** In display order: ['SEMANA PASADA', 'ESTA SEMANA']. */
+  /** In display order, in any case: the strip sets them in capitals itself. */
   options: readonly { key: string; label: string }[];
   selectedKey: string;
   onSelect: (key: string) => void;
+  /** The Intl tag the capitals follow (`useLocale().tag`). */
+  locale?: string;
 };
 
 /**
  * A row of small text options under a title, the selected one in ink and the rest
  * faint. Brick's 'LAST WEEK · THIS WEEK' strip on the activity page.
  */
-export function PeriodStrip({ options, selectedKey, onSelect }: PeriodStripProps) {
+export function PeriodStrip({ options, selectedKey, onSelect, locale }: PeriodStripProps) {
   return (
     <View style={styles.row}>
       {options.map((option) => {
@@ -35,7 +37,7 @@ export function PeriodStrip({ options, selectedKey, onSelect }: PeriodStripProps
               tone={selected ? 'primary' : 'secondary'}
               align="center"
             >
-              {option.label}
+              {option.label.toLocaleUpperCase(locale)}
             </Text>
           </Pressable>
         );

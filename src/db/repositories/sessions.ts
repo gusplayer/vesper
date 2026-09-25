@@ -108,8 +108,14 @@ export function findRunning(): Session | null {
 }
 
 /** How many sessions ever ran their timer out. The first one gets its own closing. */
+/**
+ * The user's own completed sessions. The seeded history (`demo-` ids) is left out, so the
+ * first real session still reads "Primera sesión completa." on a seeded install.
+ */
 export function countCompleted(): number {
-  const result = getDb().executeSync("SELECT COUNT(*) AS n FROM sessions WHERE outcome = 'completed'");
+  const result = getDb().executeSync(
+    "SELECT COUNT(*) AS n FROM sessions WHERE outcome = 'completed' AND id NOT LIKE 'demo-%'",
+  );
   const n = result.rows[0]?.n;
   return typeof n === 'number' ? n : 0;
 }
@@ -142,6 +148,19 @@ export function listBetween(from: number, to: number): Session[] {
  *
  * Returns how many were closed, so the caller can log it during development.
  */
+/**
+ * The last session boot closed because its time ran out ('completed', or 'expired' at
+ * the cap), held once for the focus store: it owes the user its closing screen
+ * (ADR-0047 §9). Read with `takeRecoveredClosing`, which clears it.
+ */
+let recoveredClosing: Session | null = null;
+
+export function takeRecoveredClosing(): Session | null {
+  const session = recoveredClosing;
+  recoveredClosing = null;
+  return session;
+}
+
 export function recoverOrphans(now: number): number {
   const running = rowsAs<SessionRow>(
     getDb().executeSync("SELECT * FROM sessions WHERE outcome = 'running'"),
@@ -157,6 +176,9 @@ export function recoverOrphans(now: number): number {
     update(settled);
     if (settled.outcome !== 'running') {
       closed += 1;
+    }
+    if (settled.outcome === 'completed' || settled.outcome === 'expired') {
+      recoveredClosing = settled;
     }
   }
 

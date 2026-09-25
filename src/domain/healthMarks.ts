@@ -169,6 +169,16 @@ function durationFor(type: HealthType, total: number): number | null {
 }
 
 /**
+ * The days one read of Health speaks for: the week of `now`, up to today. The marks it
+ * yields replace the health marks of these days and no others — a verified mark from
+ * an earlier week is history Health is no longer asked about, and one restored from a
+ * backup (ADR-0048) must survive the first read on the new phone.
+ */
+export function healthWindow(now: Millis): { fromKey: DayKey; toKey: DayKey } {
+  return { fromKey: dayKeyOf(weekStart(now)), toKey: dayKeyOf(now) };
+}
+
+/**
  * One mark per verified habit per day Health confirms it, within the week of `now`
  * and never in the future. Archived habits and declared habits are ignored.
  */
@@ -177,8 +187,7 @@ export function marksFromHealth(
   week: HealthWeek,
   now: Millis,
 ): HabitMark[] {
-  const fromKey = dayKeyOf(weekStart(now));
-  const toKey = dayKeyOf(now);
+  const { fromKey, toKey } = healthWindow(now);
   const marks: HabitMark[] = [];
 
   for (const habit of habits) {

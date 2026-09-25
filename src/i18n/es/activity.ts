@@ -39,6 +39,14 @@ export const activity = {
     chooseView: 'Elegir qué actividad ver',
     sheetTitle: 'Ver',
   },
+  /**
+   * The line under the title while any seeded row is left (ADR-0047 §1), the same
+   * words Focus uses. It opens Ajustes, where the sample data is removed.
+   */
+  demo: {
+    line: 'Incluye datos de ejemplo. Quítalos en Ajustes.',
+    hint: 'Abre Ajustes',
+  },
   dates: {
     /**
      * Short month names, January first, for the period strip and the month captions.
@@ -69,23 +77,46 @@ export const activity = {
     /** A bar with nothing in it, as VoiceOver reads it. */
     noFocus: 'sin foco',
     today: 'Hoy',
+    /**
+     * What VoiceOver reads for the month chart: 'Septiembre: 46h 20m en 18 días.
+     * Tu mejor día: 5h 10m.' `days` arrives already spelled ('18 días').
+     */
+    month: (month: string, total: string, days: string, best: string) =>
+      `${month}: ${total} en ${days}. Tu mejor día: ${best}.`,
+    /** The month chart of a month with no focus at all. */
+    monthEmpty: (month: string) => `${month}: sin foco.`,
+    /** A month grid of the lifetime card: 'Sep 2026: 12 días con foco'. `days` is spelled. */
+    monthGrid: (month: string, days: string) => `${month}: ${days} con foco`,
   },
   weekly: {
-    lastWeek: 'SEMANA PASADA',
-    thisWeek: 'ESTA SEMANA',
+    /** Sentence case: the strip sets its own capitals (PeriodStrip). */
+    lastWeek: 'Semana pasada',
+    thisWeek: 'Esta semana',
     averagePerDay: 'Promedio por día',
+    /** Only while the very first week of all is still empty. */
     firstWeek: 'Tu primera semana está en marcha. Vuelve por tu promedio.',
+    /** This week, with history behind it, before its first session. */
+    noFocusYet: 'Todavía no hay foco esta semana.',
+    /** A past week that had none. */
+    noFocusThatWeek: 'Sin foco esa semana.',
     today: 'Hoy',
   },
   monthly: {
     totalFocused: 'Tiempo enfocado total',
-    noFocusedDays: (current: boolean) =>
-      `Todavía no hay días enfocados ${current ? 'este mes' : 'ese mes'}.`,
+    /** A month still running can get days; a closed one cannot. */
+    noFocusedDays: (current: boolean): string =>
+      current ? 'Todavía no hay días enfocados este mes.' : 'No hubo días enfocados ese mes.',
+    /**
+     * Over the days that have happened, a day off counting as zero, like the week's
+     * (ADR-0047 §4). A month still running "va en"; a closed one "fue".
+     */
     dailyAverage: (current: boolean, duration: string) =>
-      `Tu promedio diario ${current ? 'este mes' : 'ese mes'} fue ${duration}`,
+      current ? `Tu promedio diario este mes va en ${duration}.` : `Tu promedio diario ese mes fue ${duration}.`,
     patterns: 'Patrones',
     rhythmTitle: 'Tu ritmo semanal',
-    rhythmDescription: 'Así se ve tu tiempo enfocado promedio por día de la semana.',
+    /** It folds the whole history, not the month above it. */
+    rhythmDescription: 'Tu tiempo enfocado promedio por día de la semana, desde tu primera sesión.',
+    rhythmEmpty: 'Aparece con tu primera semana de foco.',
   },
   lifetime: {
     totalFocused: 'ENFOCADO EN TOTAL',
@@ -107,32 +138,51 @@ export const activity = {
     /** 'al menos 2h 10m': the social figure is a floor (ADR-0004, ADR-0029). */
     atLeast: (duration: string) => `al menos ${duration}`,
     unregistered: 'Sin registrar',
-    footer: 'Tres monedas separadas. Nunca se suman.',
+    /** Under 'Enfocado' when the declared day passed the 6 h cap (ADR-0010). */
+    capped: 'tope de 6h declarables alcanzado',
+    footer: 'Foco, redes y lo que confirma Salud se cuentan aparte. Nunca se suman.',
     /** The per-app breakdown under the social row (ADR-0029). */
     usage: {
       /** VoiceOver: 'Instagram, al menos 34 min'. */
       appLabel: (name: string, duration: string) => `${name}, al menos ${duration}`,
-      demo: 'Desglose con datos de ejemplo.',
-      /** When the phone read the figures: 'Leído a las 10:42.' */
-      readAt: (time: string) => `Leído a las ${time}.`,
+      /** The demo stands in for the total too, not only for the apps under it. */
+      demo: 'La cifra de redes y su desglose son datos de ejemplo.',
+      /** When the phone read the figures: 'Leído: 10:42.' ('a las' breaks at 1:05). */
+      readAt: (time: string) => `Leído: ${time}.`,
       /** Why the phone gives nothing, one sentence each (rule 8). */
       ios: 'iOS solo muestra el uso por app dentro de Tiempo de uso.',
       noModule: 'Esta versión de Vesper no puede leer el uso por app.',
       noUsageAccess:
         'Falta el acceso a datos de uso. Actívalo en Ajustes del sistema › Apps › Acceso especial › Acceso a datos de uso.',
-      noApps: 'Elige apps reales en un modo que bloquee para medir su uso.',
+      /** A fact, not an order: a mode that blocks nothing is a valid choice (ADR-0047 §1). */
+      noApps: 'Ningún modo bloquea apps de este teléfono, así que no hay uso que medir.',
       /** The read itself failed: never a zero passed off as measured (rule 8). */
       readFailed: 'El teléfono no pudo dar el uso de hoy.',
+      /** The row under `noApps`: the modes, for whoever wants to add apps to one. */
+      pickApps: 'Ver modos',
+      /** The row that fixes `noUsageAccess`: it opens the disclosure Play requires first. */
+      grantAccess: 'Dar el acceso a datos de uso',
     },
+  },
+  /** The Life card's last line (ADR-0029). `settings.lifeSection` holds the rest. */
+  life: {
+    /** Followed by the reason from `platform/usage`, as Hoy does. */
+    demoNote: 'Estimación con datos de ejemplo.',
+    /** What VoiceOver reads for the weeks-of-life grid. */
+    gridA11y: (lived: number, total: number, tag: string) =>
+      `${lived.toLocaleString(tag)} semanas vividas de ${total.toLocaleString(tag)}`,
   },
   weeklyGoal: {
     title: 'Meta semanal',
-    change: 'Cambiar la meta semanal',
+    /** The card's hint: what a tap does. */
+    change: 'Cambia la meta semanal',
+    /** The card to VoiceOver: '7h 20m de 15h, 3 días para el cierre'. */
+    cardA11y: (progress: string, status: string) => `${progress}, ${status}`,
     noGoal: 'Sin meta. Toca para elegir una.',
     met: 'Meta cumplida',
     /** '3 días para el cierre'. */
     untilClose: (days: string) => `${days} para el cierre`,
-    footer: 'Se reinicia el lunes. Una meta por semana.',
+    footer: 'Toca la tarjeta para cambiarla. Se reinicia cada lunes.',
     sheetTitle: 'Horas por semana',
     /** Feminine, for "meta": not `common.none`. */
     none: 'Ninguna',
@@ -152,7 +202,9 @@ export const activity = {
             ? 'Te queda 1 día de gracia este mes.'
             : `Te quedan ${graceLeft} días de gracia este mes.`
       }`,
-    footer: 'Los días de gracia se aplican solos al primer día que falla. Tres por mes.',
+    /** Grace bridges every day that falls short while the month has some (domain/streak). */
+    footer: (minutes: number, perMonth: number) =>
+      `Si un día no llega a ${minutes} minutos, un día de gracia lo cubre solo. Tienes ${perMonth} por mes.`,
   },
   ledger,
 };

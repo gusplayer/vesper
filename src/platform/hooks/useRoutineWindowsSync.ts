@@ -73,8 +73,11 @@ async function reconcile(applied: Map<string, string>): Promise<void> {
   if (!status().available) {
     return;
   }
-  const { schedules, modes } = useAppStore.getState();
-  const plans = routineWindowPlans(schedules, modes, getStrings().session.shield);
+  const { schedules, modes, settings } = useAppStore.getState();
+  // Before the onboarding is done no routine is the user's yet: none may raise the
+  // shield over the welcome screen. Finishing it rewrites every routine's stamp, which
+  // is a schedules change, so the first pass after it hands the windows over.
+  const plans = settings.onboardingDone ? routineWindowPlans(schedules, modes, getStrings().session.shield) : [];
   // iOS holds ~20 DeviceActivity names; past the budget startMonitoring fails in
   // silence, so the routines that do not fit are left out on purpose (and, being
   // absent from `wanted`, cancelled below if they were registered). Android has no cap.

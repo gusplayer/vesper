@@ -32,6 +32,20 @@ describe('healthTypeFor', () => {
     expect(healthTypeFor('sueno')).toBe('sleep');
   });
 
+  it('knows the Spanish names the English list already had', () => {
+    expect(healthTypeFor('Gimnasio')).toBe('workout');
+    expect(healthTypeFor('gimnasia')).toBe('workout');
+    expect(healthTypeFor('Nadar')).toBe('workout');
+    expect(healthTypeFor('natación')).toBe('workout');
+    expect(healthTypeFor('trotar')).toBe('workout');
+    expect(healthTypeFor('senderismo')).toBe('steps');
+  });
+
+  it('does not read "nada" as swimming', () => {
+    expect(healthTypeFor('no hacer nada')).toBeNull();
+    expect(healthTypeFor('nada de azúcar')).toBeNull();
+  });
+
   it('recognizes the English words too, whatever the app language', () => {
     expect(healthTypeFor('Workout')).toBe('workout');
     expect(healthTypeFor('lift weights')).toBe('workout');

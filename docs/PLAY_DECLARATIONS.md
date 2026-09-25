@@ -110,12 +110,12 @@ enlace y pegar la URL. Los fotogramas clave están en `docs/media/android-*.png`
   política de permisos y de datos del usuario.
 - **Cómo se pide:** no hay diálogo. `requestAuthorization()` abre
   `Settings.ACTION_USAGE_ACCESS_SETTINGS` y comprueba al volver. Solo se pide cuando el
-  usuario entra a "Apps reales (Tiempo de uso)" dentro de un modo; nunca en el arranque.
+  usuario entra a "Apps" dentro de un modo; nunca en el arranque.
 - **Divulgación destacada (obligatoria antes de mandar a Ajustes, política de datos del
   usuario):** **existe desde ADR-0046**, como la ruta `/usage-access` (`src/app/usage-access.tsx`):
   una pantalla propia, no un `Alert`, con tres bloques —los dos propósitos por separado y
   la privacidad—, un botón que abre Ajustes y una salida. Se antepone en los dos sitios
-  que piden el permiso: el paso de onboarding y "Apps reales" dentro de un modo. En iOS no
+  que piden el permiso: el paso de onboarding y "Apps" dentro de un modo. En iOS no
   se muestra.
 
   > **Vesper needs Usage access.** Vesper uses it for two things: during a focus session it checks which app is on screen, so it can show the reminder when you open one of the apps you chose; and in the Activity tab it shows how long each of those apps was in front today and this week. Both are processed on your phone and never leave it. Vesper stores no history of the apps you use: it asks the system each time and shows the answer.
@@ -131,7 +131,7 @@ enlace y pegar la URL. Los fotogramas clave están en `docs/media/android-*.png`
 
 - **Formulario en Play:** ninguno.
 - **Cómo se pide:** `Settings.ACTION_MANAGE_OVERLAY_PERMISSION`, desde la misma pantalla
-  de "Apps reales", después del acceso de uso. La divulgación en pantalla:
+  de "Apps", después del acceso de uso. La divulgación en pantalla:
 
   > **Display over other apps.** This is how Vesper shows the full-screen reminder on top of an app you chose to pause during a session. It is never shown at any other time.
 
@@ -228,7 +228,7 @@ hay que declararlo como compartido, con consentimiento del usuario.
   el límite con honestidad: la app bloqueada abre y el escudo la cubre en menos de un
   segundo; no la impide.
 - [ ] **Permisos:** cada permiso corresponde a una función visible, se pide en contexto
-  (al entrar a "Apps reales"), y la app funciona si se niega. Sin `QUERY_ALL_PACKAGES`,
+  (al entrar a "Apps"), y la app funciona si se niega. Sin `QUERY_ALL_PACKAGES`,
   sin accesibilidad. Divulgación destacada antes de mandar a Ajustes (ver b).
 - [ ] **Servicios en primer plano:** declaración `specialUse` con texto y video (ver a).
 - [ ] **Datos del usuario / Seguridad de datos:** "No recopila ni comparte" (ver c).
@@ -251,8 +251,8 @@ hay que declararlo como compartido, con consentimiento del usuario.
 Pegar en "App access › Instructions" y en el campo de notas de la declaración del servicio.
 
 > **All functionality is available without an account. How to test the foreground service in 60 seconds:**
-> 1. Open Vesper. Grant "Usage access" and "Display over other apps" when the app sends you to Settings (both are asked from a mode's "Apps reales (Tiempo de uso)" screen), or grant them in advance in Settings › Apps › Vesper.
-> 2. Focus tab › tap the mode name › "Gestionar modos" › "Editar" › "Apps reales (Tiempo de uso)" › tick any app, for example Clock › "Listo" › "Guardar modo".
+> 1. Open Vesper. Grant "Usage access" and "Display over other apps" when the app sends you to Settings (both are asked from a mode's "Apps" screen), or grant them in advance in Settings › Apps › Vesper.
+> 2. Focus tab › tap the mode name › "Gestionar modos" › "Editar" › "Apps" › tick any app, for example Clock › "Listo" › "Guardar modo".
 > 3. Back on Focus, tap "Enfocarme 25 min" (a deep mode asks you to hold the button instead). A session starts and a persistent notification "Sesión de foco" with a countdown appears: that is the foreground service.
 > 4. Go Home and open the app you ticked. Within a second a dark full-screen reminder "Vesper · <mode>" covers it, with the time it lifts and one button "Volver" that returns to Home.
 > 5. Open Vesper › "Terminar" › after one breathing round tap "Terminar · llevas …". The session ends, the notification disappears and the app you ticked opens normally again.
@@ -260,9 +260,9 @@ Pegar en "App access › Instructions" y en el campo de notas de la declaración
 > The app never uses AccessibilityService or QUERY_ALL_PACKAGES. Focus, habits, modes and routines work fully offline with no account. The only network feature is the optional circle (ADR-0033): a device account with no email, which syncs only what the user turns on, per metric, to people they invited. Deleting everything: Ajustes › "Borrar todo y reiniciar", and the circle account has its own delete.
 
 *Traducción para uso interno: 1) abrir Vesper y conceder "Acceso de uso" y "Mostrar sobre
-otras apps" cuando la app mande a Ajustes (se piden desde "Apps reales" de un modo) o
+otras apps" cuando la app mande a Ajustes (se piden desde "Apps" de un modo) o
 concederlos antes en Ajustes › Apps › Vesper. 2) Focus › nombre del modo › "Gestionar
-modos" › "Editar" › "Apps reales (Tiempo de uso)" › marcar Reloj › "Listo" › "Guardar
+modos" › "Editar" › "Apps" › marcar Reloj › "Listo" › "Guardar
 modo". 3) Tocar "Enfocarme 25 min" (un modo profundo pide mantener): arranca la sesión y
 aparece la notificación "Sesión de foco" con cuenta regresiva. 4) Ir al inicio y abrir
 Reloj: en menos de un segundo el escudo "Vesper · Sin redes" lo cubre, con la hora a la
@@ -299,7 +299,7 @@ entrenamiento o sueño. Lee solo la semana en curso, en el teléfono, con la app
 
 - ~~Pantalla de divulgación destacada antes de `requestAuthorization()` (b).~~ Hecha
   (ADR-0046, ruta `/usage-access`). **Sin caminar en un teléfono**: falta verla una vez en
-  Android desde el onboarding y desde Apps reales.
+  Android desde el onboarding y desde "Apps" de un modo.
 - `SYSTEM_ALERT_WINDOW` tiene su divulgación escrita en este documento y **sin pantalla
   propia**. No la exige la política de datos del usuario (no lee datos), así que se deja
   fuera a propósito: un cuarto bloque diluiría la que Play sí lee.

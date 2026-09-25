@@ -22,6 +22,9 @@ const ANA: Account = {
   pushToken: 'ExponentPushToken[ana]',
   timeZone: 'America/Bogota',
   nudgesOn: true,
+  platform: 'android',
+  appVersion: '1.0.0',
+  lastSeenAt: 1,
   createdAt: 1,
   updatedAt: 1,
 };

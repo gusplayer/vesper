@@ -74,14 +74,17 @@ meta semanal y el libro mayor viven en Actividad.
 
 Toda la configuración se abría desde donde se leía (ADR-0007, superado por ADR-0016).
 Hoy: el modo se elige en una hoja desde su nombre y se edita en `modes/*`; la duración en
-la fila "25 min ⌄"; la meta semanal tocando su tarjeta en Actividad › De por vida; los
-hábitos ahí mismo (tocar marca hoy, mantener edita, "Agregar hábito" crea).
+la fila "25 min ⌄", en cuya hoja también se escribe la intención (opcional, ADR-0047
+§10); la meta semanal tocando su tarjeta en Actividad › De por vida; los hábitos en
+Actividad › Semanal, "Hábitos esta semana" (tocar marca hoy, mantener edita, "Agregar
+hábito" crea; ADR-0047 §7).
 
 ### 2. Sesión activa
 
 - Encabezado: actividad, `sesión N de hoy`
 - Timer grande, centrado, serif
-- Intención escrita por el usuario, en la misma pantalla
+- Intención escrita por el usuario antes de empezar, en la hoja de duración de Focus
+  (opcional, hasta 120 caracteres; ADR-0047 §10), y mostrada entre comillas en la sesión
 - Barra de progreso fina
 - Si hubo interrupciones, una línea que las cuenta. Se anotan, no se castigan
 - Al vencer el timer la ruta no se va: muestra la duración servida, la intención tal como

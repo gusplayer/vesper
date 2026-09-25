@@ -1,4 +1,4 @@
-# Estado — 2026-09-24
+# Estado — 2026-09-25
 
 Qué existe, dónde se verificó y qué falta. Se actualiza al cerrar cada tanda de trabajo.
 El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, históricas, en
@@ -11,9 +11,9 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **1000 tests en 69 archivos**, todos en verde, y también con
+avisos y `npx vitest run` con **1227 tests en 87 archivos**, todos en verde, y también con
 `npm run test:dst` (la misma suite en una zona con horario de verano); los dos módulos Kotlin
-compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **55** tests, está
+compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **90** tests, está
 desplegado, y **la app por fin le habla** desde ADR-0044: cuenta por dispositivo que nace al
 invitar, secreto en el llavero y sincronía. Lo que no se ha ejecutado nunca es el ciclo
 completo entre dos teléfonos.
@@ -22,7 +22,7 @@ completo entre dos teléfonos.
 
 | Capacidad | iOS | Android | Verificado dónde |
 |---|---|---|---|
-| Persistencia (SQLite, migraciones 001–009, demo sembrado una vez, "Borrar todo y reiniciar") | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva |
+| Persistencia (SQLite, migraciones 001–009, demo sembrado una vez con las rutinas apagadas, "Quitar los datos de ejemplo", "Borrar todo y reiniciar" que termina vacío; ADR-0047 §1) | real | real | Simulador y emulador: relanzar con sesión viva la rehidrata; reset deja la base como nueva. Emulador Pixel 6 (API 34), 2026-09-25: quitar los datos de ejemplo deja Focus en "Sin modos" y la fila desaparece |
 | Sesión: reloj split-flap, modo horizontal, arte de foco (`?art=1`) | real | real | Simulador (capturas a mitad de giro, rotación por script, arte a 25/50/75/100 %). Sin medir el trazado de 6.000 puntos en un teléfono |
 | Botón de Focus: toque arranca, mantener solo en profundo, `InkFlood` (ADR-0022) | real | real | Simulador iPhone 17 con `idb`, capturas a mitad del gesto. Sin verificar "Reducir movimiento" ni el ritmo a ojo en teléfono |
 | Arranque: splash de tinta lisa y `BootReveal` que la disuelve hasta la marca (ADR-0028) | real | real | Simulador iPhone 17 Pro (dev client nuevo, video a 30 fps): splash negro liso, disolución de los bordes al centro, marca sola, fade a Focus; con "Reducir movimiento" la tinta salta a la marca y solo queda el fade. Emulador Pixel 7 API 36 con `-gpu host`, build de Release, tres arranques en frío iguales; el dev client de Android no sirve para juzgarlo (su lanzador oculta el splash). Sin teléfono físico |
@@ -38,7 +38,7 @@ completo entre dos teléfonos.
 | Pausa con el bloqueo (`pausePlan`/`resumePlan`) | `release()` + `applyPlan()` (sin verificar) | del servicio, sin JS | Android: notificación en pausa, reanudación al segundo tras `kill -9`, escudo subiendo sobre Ajustes |
 | Escudo | tinta de la sesión, botón "Cerrar" (`openApp` no funciona desde la extensión) | superposición oscura, "Volver", "Se libera a las 11:26" | iOS: solo compila. Android: capturas en el emulador |
 | Notificación de Android como pantalla bloqueada: cronómetro nativo, canal `vesper_session`, pública, abre `vesper://session/active` | no aplica | real | Emulador: panel, pantalla bloqueada con PIN, pausa contando. Emulador Pixel 7 API 36: cuenta regresiva y hacia arriba, `requestPromotedOngoing=true` en `dumpsys`, pero el sistema no promovió la notificación (sin chip) |
-| Reglas "modo estricto", "bloquear instalaciones", "bloquear compras" | solo UI (la librería no expone esas claves) | solo UI (sin equivalente) | El pie de "Mis reglas" lo dice. Solo el filtro de contenido adulto llega al sistema, y solo en iOS |
+| Reglas "bloquear instalaciones", "bloquear compras" (el modo estricto se quitó, ADR-0047 §6) | solo UI (la librería no expone esas claves) | solo UI (sin equivalente) | Cada tarjeta de "Mis reglas" lo dice. Solo el filtro de contenido adulto llega al sistema, y solo en iOS |
 | Idioma español e inglés, override en Ajustes (ADR-0020) | real | real | `tsc` (una clave que falte no compila) y tests en los dos idiomas; cambio en caliente verificado en las pantallas del círculo |
 | Círculo: personas, semana sin posiciones, ánimo, retos, invitación por código, link y QR (ADR-0021) | UI y base local; **sin backend** (`platform/circle.status()` lo dice) | igual | Simulador con `idb`: flujo completo; QR leído por Vision desde la captura; `vesper://circle/join?code=…` con `simctl openurl`. Sin verificar: "Salir del círculo", "Quitar", los topes de 12 y 5 desde la UI, la línea de ánimo en el cierre, la cámara de un iPhone real |
 | Declaraciones de Play y ficha (`PLAY_DECLARATIONS.md`, `STORE_LISTING.md`, `docs/media/`) | — | escritas | Falta la pantalla de divulgación destacada y subir el video |
@@ -101,6 +101,11 @@ cancelan las alarmas**: no sirven para probar ventanas.
 **Un solo agente por dispositivo a la vez.** Dos sesiones sobre el mismo simulador o
 emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 
+**No arranques Metro con `CI=1`.** En modo CI no mira los archivos ("reloads are
+disabled"): la app sigue mostrando el código de cuando arrancó, y un cambio parece no
+funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `adb root`,
+`settings put global auto_time 0` y `date @<epoch>`; `auto_time 1` devuelve la hora.
+
 ### En tu iPhone
 
 1. Pide a Apple el entitlement de Family Controls (Distribution) para
@@ -135,7 +140,7 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 - **Toque en la notificación de Android** y en el aviso de rutina de iOS: no se pueden
   entregar desde adb/idb; confirmar en teléfono.
 - Persistir la duración elegida en la hoja de sesión (`usePlannedStore` vive en memoria).
-- La intención de la sesión persiste, pero solo se lee en el cierre.
+- La intención se escribe en la hoja de duración (ADR-0047 §10) y se lee en la sesión y en el cierre, pero no se guarda para la próxima: cada sesión empieza sin ella.
 - **Las muestras de Salud no se guardan en ninguna parte**, así que el libro mayor de
   hoy no tiene filas verificadas y ocho horas de sueño confirmado siguen cayendo en "Sin
   registrar". `platform/health.readWeek` lee la semana a demanda y `useHealthSync` la
@@ -165,7 +170,6 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
 - El SIGSEGV de op-sqlite al recargar el JS (`ResultPropNames`) era su issue #446,
   resuelto en 18.2.0; el proyecto usa 18.2.3 y sobrevive a la recarga. Un dev client
   compilado antes del 2026-09-17 sigue cayendo: hay que recompilarlo.
-- `t.depth.label` está en minúscula; `DepthCards` capitaliza localmente.
 - `ios/` y `android/` no se versionan; se regeneran con `npx expo prebuild --clean` tras
   cambiar plugins o el widget. `targets/`, `modules/` y `patches/` sí se versionan. Un
   `ios/` viejo puede no traer `ExpoWidgetsTarget`: `--clean` lo arregla.
@@ -173,7 +177,9 @@ emulador se pisan las banderas, las capturas y, en Android, las alarmas.
   claves viejas de `settings`) se borraron en la revisión del 2026-09-17 (ADR-0026).
 - Círculo sin servidor: escribir un código ajeno responde "todavía no hay servidor"; solo
   la invitación sembrada (Mateo) se puede aceptar. Es lo honesto hasta el backend (ADR-0021).
-- Sin textos legales: Acerca de no tiene Términos ni Privacidad hasta que existan.
+- Términos y Privacidad están enlazados (Acerca de y la bienvenida) pero `web/` no está desplegado: `/terms` y `/privacy` dan 404. Desde ADR-0047 §13 los dos llevan el correo de contacto (gusmoreno.dev@gmail.com); siguen en borrador: falta la fecha, el titular (`[TITULAR]` en `web/terms.html`) y la revisión del dueño.
+- En español la hora va en frases "a las ${hora}", que entre la 1:00 y la 1:59 dicen "a las 1:05" en vez de "a la 1:05". Falta un ayudante de frase de hora en `lib/format`.
+- Riesgo de desarrollo: Fast Refresh sobre un módulo del que depende `stores/app.ts` crea un store con los ajustes por defecto y la primera escritura los guarda. Tras editar el dominio, relanzar la app. Visto otra vez el 2026-09-25 con otra sesión editando `src/platform/`: Focus decía "Sin modos" con las filas en la base; relanzar en frío las trajo de vuelta.
 - **La base de producción del círculo está llena de datos de prueba**: al 2026-09-23,
   32 cuentas, 30 vínculos, 15 semanas, 2 retos, 1 marca y 1 empujón, todos de las
   verificaciones contra el despliegue (las `nc-*` son de la tanda del ADR-0033). Ninguno
@@ -648,3 +654,161 @@ racha, recordatorios y retos con avisos. Queda hecho en local; lo social espera 
   aparato, que un push silencioso despierte la app (necesita build de iOS con
   `enableBackgroundRemoteNotifications`), la pantalla de clave de respaldo, borrar la
   cuenta, ni **nada en iOS ni en un teléfono físico**.
+
+## Pasada de UI/UX por las 45 rutas (2026-09-24; ADR-0047 aceptado el 2026-09-25)
+
+- **Cómo se hizo:** siete revisiones en paralelo (Focus y sesión, rutinas y modos,
+  actividad y hábitos, ajustes, onboarding, círculo, y una transversal de consistencia),
+  cada una con la mirada de diseño, UX, producto, contenido y accesibilidad, y cada hallazgo
+  citado en el código. Después las mismas siete implementaron en su área, con los archivos
+  repartidos, y la transversal hizo primero los componentes compartidos. Lo que pedía una
+  decisión de producto quedó en ADR-0047 (propuesta), punto por punto.
+- **Sistema de diseño:** 59 componentes más `useTooltip`. Nuevos `NoticeCard`,
+  `StatusNote`, `ChoiceCard`, `ChipGroup`, `SectionTitle`, `Dot`; `Button tone="danger"` y
+  `size="sm"`; `ListRow` con selección, expandido, deshabilitado y mantener; `Card actions`;
+  `PageHeader progress`; `Tappable` de 44 pt; `Screen avoidKeyboard`; `Sheet` con scroll;
+  chips visibles dentro de tarjetas; `clockText` en 12 h en inglés; `+not-found`. Las reglas
+  de uso están en `DESIGN_SYSTEM.md` y en la regla 11 de `PROTOTYPE_GUIDE.md`.
+- **Flujos rotos que se cerraron:** el primer modo del onboarding guarda la selección real
+  (o dice que el catálogo es de ejemplo), el orden vuelve al de ADR-0016, "Ahora no" en
+  todos los permisos y la flecha de `usage-access` vuelve en vez de avanzar; el motor de
+  rutinas y `SessionGate` no actúan antes de terminar el onboarding; un link de invitación
+  sobrevive al onboarding; las rutas de sesión sin sesión vuelven a Focus; los desbloqueos
+  de emergencia se renuevan cada mes; la fecha de nacimiento se puede escribir y borrar;
+  Salud › Desconectar pide confirmación; los avisos denegados llevan a Ajustes del sistema;
+  en Android se puede dar el acceso de uso desde el modo; una rutina con el modo borrado ya
+  no arranca una sesión vacía; 18:00–18:00 ya no se guarda como ventana de 24 h; "Aceptar"
+  del círculo llega al servidor y un reto al que te sumaron se puede usar; los totales de
+  por vida cuentan todas las sesiones (`db/queries/lifetime.ts`); la primera sesión real
+  vuelve a decir "Primera sesión completa." con historia sembrada.
+- **Honestidad (regla 8):** Focus, Modos, Rutinas y el cierre dicen qué bloquea de verdad
+  un modo; los sitios dicen que no se bloquean; Mis reglas dice por tarjeta qué no llega al
+  sistema; Live Activities dice "No disponible" en Android; los textos de privacidad nombran
+  el reto de pasos y el círculo; se quitó "Novedades importantes", que no controlaba nada.
+- **Verificado en el emulador Pixel 6 (API 34), en español:** el onboarding completo con
+  toques reales (progreso "Paso N de 7", la nota de modo profundo, la divulgación de cuatro
+  bloques y su flecha que vuelve, Salud, apps con el aviso de ejemplo, la rutina con el
+  aviso de choque, la vista previa real, el aviso de muestra con el presupuesto, el tour con
+  el texto de profundo); Focus (línea de qué bloquea, "Mantén presionado para empezar" tras
+  un toque corto, la sesión profunda al mantener); emergencia → cerrada ("1m de 25m", "Te
+  quedan 4 este mes"); Rutinas, editar rutina, Modos, editar modo, Apps reales sin acceso,
+  Ideas, Actividad semanal, editar hábito de reto, Ajustes, Notificaciones sin permiso,
+  Salud, Emergencia, Vida, el círculo sin perfil, Invitar con "Crear tu perfil", el reto con
+  el origen de cada semana y "Nuevo reto" con el teclado. `tsc`, lint y 1096 tests en verde.
+- **No verificado:** nada en iOS ni en un teléfono físico; el círculo entre dos teléfonos;
+  VoiceOver/TalkBack (las etiquetas y estados se escribieron, no se escucharon); inglés en
+  pantalla (sí en tests); la hoja de apps reales con el acceso concedido.
+
+
+## Las decisiones de la pasada de UI (2026-09-25, ADR-0047 aceptado, ADR-0049)
+
+El dueño aceptó las trece recomendaciones del ADR-0047, con una precisión: no todo modo,
+rutina ni reto tiene que bloquear apps (una rutina de gym con las redes abiertas es una
+elección). Las mismas siete áreas lo implementaron.
+
+- **Datos de ejemplo (§1).** Las tres rutinas de ejemplo se siembran apagadas. Focus y
+  Actividad dicen "Incluye datos de ejemplo. Quítalos en Ajustes." mientras quede algo
+  sembrado (`useHasDemoData`, `db/repositories/demo.ts`, `data/seededIds.ts`). Ajustes
+  gana "Quitar los datos de ejemplo", con confirmación, que borra solo lo sembrado; "Borrar
+  todo y reiniciar" termina vacío (sella `demoSeededAt`, siembra solo las actividades). Un
+  modo sin apps dice "No bloquea apps", en tono secundario; solo "este teléfono no puede
+  bloquear" lleva su razón, una vez por página.
+- **Una lista de apps por modo (§2).** `features/modes/realBlocking.ts` decide: donde el
+  teléfono bloquea o se le puede dar el acceso, la fila "Apps" es el selector real; el
+  catálogo queda solo donde no hay selector (con la etiqueta de ejemplo). "Sitios"
+  desaparece en Android y en iOS con el selector real. Los resúmenes cuentan lo que se
+  bloquea de verdad. El onboarding tiene tres estados: `real`, `notGranted` (no elige
+  nada) y `example`.
+- **Profundo sin atajos (§3).** El play de una rutina con modo profundo lleva a Focus con el
+  modo y la duración listos ("Rutina Gym lista para empezar.") y ahí se mantiene el botón.
+  Una sesión que terminas por decisión (salida o emergencia) marca como empezadas las
+  ventanas abiertas en ese momento (`markOpenWindows`). Una ventana sin hora de fin arranca
+  como sesión abierta, y profundo corre como firme.
+- **Un promedio (§4)**, sobre los días transcurridos con ceros, en Semanal y Mensual.
+  **Hábitos esta semana (§7)** en la vista Semanal; De por vida guarda el resumen.
+- **Terminar un vínculo (§5, ADR-0049).** `POST /link/end` y `POST /challenge/leave` en el
+  servidor, con la tabla `ended_links` y `ended` en `/sync`. Rechazar, Quitar, Salir del
+  círculo y Salir del reto los usan; la app guarda la cola y, mientras el servidor
+  desplegado responda 404, dice que solo cambió este teléfono. **Sin desplegar.**
+- **Lo demás.** Sin modo estricto (§6). El salvavidas se queda (§8). `session/complete` se
+  muestra una vez tras una sesión que venció con la app cerrada (§9,
+  `sessionsRepo.takeRecoveredClosing`). Intención opcional en la hoja de duración (§10).
+  El indicador de la barra de pestañas se funde (§11; se quitó `motion.slideMs`). Una
+  sesión sin límite dibuja su arte al ritmo de 2 h (§12). Ayuda › "Escríbenos" abre
+  `mailto:gusmoreno.dev@gmail.com`, y `web/privacy.html` y `web/terms.html` llevan el mismo
+  correo (§13).
+- **Lo que arregló la verificación:** Focus ya no apila "No bloquea apps" y "Este teléfono
+  no bloquea apps"; la etiqueta "2h" de la gráfica se escondía detrás de la pastilla
+  "PROM" (ahora se omite la que queda debajo, `layout.chart.pillClearance`); la hoja de
+  duración quedaba detrás del teclado en Android (el modal de borde a borde no se
+  redimensiona: `Sheet` usa `padding` en las dos plataformas); la nota de "Sin límite" se
+  leía como si hablara de la duración elegida.
+- **Verificado en el emulador Pixel 6 (API 34), en español:** la línea de ejemplo en Focus
+  y en Actividad; Rutinas con las tres de ejemplo apagadas y "No bloquea apps"; "Hábitos
+  esta semana" en Semanal; Ajustes sin modo estricto; quitar los datos de ejemplo (la
+  confirmación, Focus en "Sin modos", la fila que desaparece); crear un modo con una sola
+  fila "Apps" ("Sin acceso", sin "Sitios"); crear una rutina "Cuando quieras" con ese modo
+  profundo, su play que lleva a Focus con la línea y el botón de mantener; escribir la
+  intención con el teclado arriba y verla en Focus, en la sesión y en el cierre; una sesión
+  de 25 min que venció con la app detenida (reloj del emulador adelantado 30 min) abrió
+  "Primera sesión completa." una sola vez; Ayuda con "Escríbenos". `tsc`, lint y 1227
+  tests en 87 archivos en verde; el servidor, 90 tests.
+- **No verificado:** nada en iOS (el selector real con sitios, el teclado en la hoja); el
+  fundido de la barra de pestañas a ojo; una rutina que espera al terminar con emergencia;
+  una ventana sin hora de fin; el onboarding con los tres estados de apps; los vínculos del
+  círculo contra un servidor con `/link/end`; inglés en pantalla.
+
+- **2026-09-25 · Sin login: una identidad anónima y un respaldo cifrado devuelven todo en
+  un teléfono nuevo (ADR-0048, fases A a C).** Cuatro equipos: servidor, módulo nativo,
+  identidad y círculo, respaldo.
+  - **Identidad:** nace en el primer arranque (id reservado sin red, registrado con
+    `POST /account {id}`), vive en `platform/identity` con una copia local y otra que viaja
+    (`modules/vesper-identity`: llavero de iCloud; Block Store solo con bloqueo de
+    pantalla). El círculo se monta encima: su perfil toma el id de la identidad.
+  - **Restaurar:** la bienvenida encuentra un Vesper anterior ("Restaurar", "Empezar de
+    cero", "Tengo una clave"); `restore/key` y `restore/restoring`. Prueba la clave, baja y
+    abre el respaldo, rota el secreto, rehace el círculo con `/sync` `restore: true` (las
+    marcas propias vuelven a su hábito) y resube con la llave nueva.
+  - **Respaldo:** JSON cifrado con AES-GCM de `expo-crypto`, llave derivada del secreto;
+    sube al cerrar una sesión y como mucho una vez al día; encendido por defecto; apagarlo
+    borra la copia (`DELETE /backup`). Ajustes › Respaldo con la clave y "Tengo una clave".
+  - **Servidor:** identidades sin alias (nada social hasta reclamar el perfil),
+    `last_seen_at`, plataforma y versión, `PUT/GET/DELETE /backup` y `/backup/meta`.
+  - **Android respalda la base** (`plugins/withAndroidBackup.js`).
+  - **Bug de antes arreglado:** una lectura de Salud borraba todas las marcas de Salud, no
+    solo las de la semana leída; un hábito verificado conservaba solo la semana en curso.
+  - Textos: permiso de Salud (iOS y Health Connect), privacidad web, Ajustes, onboarding,
+    círculo y modos dicen que lo personal sale solo cifrado. Regla 7 de `CLAUDE.md`
+    reescrita; `ARCHITECTURE.md` y `DATA_MODEL.md` al día.
+- **Verificado en el simulador iPhone 17 Pro (iOS 26), contra un servidor local en memoria
+  (nunca producción), desde un clon del árbol:** el dev client compila con el pod
+  `VesperIdentity`; primer arranque → `POST /account` 201 y primer respaldo; Ajustes ›
+  Respaldo con la última copia y la clave; desinstalar y reinstalar con el llavero intacto
+  → la bienvenida dice "We found your previous Vesper, with a backup from September 25,
+  2026" → Restaurar → `GET /account`, `GET /backup`, `POST /account/secret`, `PUT /backup`
+  → la app abre en Focus sin onboarding; con el llavero borrado nace otra identidad, y
+  pegar la clave restaura y además borra esa identidad temporal (`DELETE /account` 204);
+  la clave vieja responde 401 tras la rotación; apagar el respaldo → `DELETE /backup` 204
+  y la pantalla lo dice. `tsc`, lint, 1227 tests de la app y 90 del servidor en verde.
+- **No verificado:** nada en un teléfono físico; la sincronía real del llavero de iCloud (dos iPhone, una cuenta de Apple) y de
+  Block Store; el círculo restaurado con alias, reto y marcas propias en un dispositivo
+  (sí en tests); el interruptor de Respaldo tocado con el dedo: en iOS 26 el `UISwitch` no
+  responde a los toques de `idb` ni de maestro (tampoco el de Live Activities, que ya
+  existía), así que se probó llamando a `setBackupEnabled(false)`. **El servidor no está
+  desplegado**: hacer push a `main` lo despliega.
+- **Verificado en Android, emulador Pixel 7 (API 36), aparte del que usaba otra sesión,
+  contra el servidor local:** el dev client compila con `vesper-identity` (Kotlin, Block
+  Store 16.4.0) y el manifiesto apunta a `vesper_*_rules`; primer arranque → identidad y
+  respaldo; Ajustes › Respaldo dice que sin bloqueo de pantalla la clave no viaja sola;
+  **backup del sistema con `bmgr` (transporte local):** respaldar, `pm clear`, restaurar →
+  vuelven `vesper.db`, `-wal` y `-shm`, y `SecureStore.xml` no. Eso destapó un limbo —
+  identidad registrada sin su clave, que no respaldaba y decía "aparece en cuanto se
+  registre"—; ahora la pantalla lo dice y "Empezar una identidad nueva" registra otra y
+  respalda en el acto (`POST /account` 201, `PUT /backup` 200), verificado dos veces.
+- **El esquema, contra un Postgres 17 local:** el de HEAD (producción) y encima el nuevo
+  dos veces, sin errores; las filas viejas intactas; `name` y `handle` anulables, `backups`
+  y `ended_links` creadas. El servidor sobre esa base: identidad, 200 KB de respaldo que
+  vuelven idénticos, y al borrar la cuenta no queda nada.
+- **Punto 9 cerrado después:** la tarjeta de cada modo cuya selección quedó en otro
+  teléfono dice "Vuelve a elegir las apps" (`modes_repick`), en tests; en pantalla no, porque
+  el simulador no tiene selector real de Screen Time.

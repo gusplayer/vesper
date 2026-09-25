@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { layout, radius, space } from '../tokens';
+import { layout, opacity, radius, space } from '../tokens';
 import { Text } from './Text';
 
 export type Bar = {
@@ -41,22 +41,33 @@ export function BarChart({ bars, guides = [], average, averageLabel, accessibili
     average ?? 0,
   );
   const scale = (value: number) => (value / max) * HEIGHT;
+  // A guide's label under the average pill would be half hidden ('2h' behind 'PROM'):
+  // the line stays, the words go.
+  const underPill = (value: number) =>
+    average !== undefined && averageLabel !== undefined && Math.abs(scale(value) - scale(average)) < layout.chart.pillClearance;
 
   return (
-    <View style={styles.chart} accessible={accessibilityLabel !== undefined} accessibilityLabel={accessibilityLabel}>
+    <View
+      style={styles.chart}
+      accessible={accessibilityLabel !== undefined}
+      accessibilityRole={accessibilityLabel === undefined ? undefined : 'image'}
+      accessibilityLabel={accessibilityLabel}
+    >
       <View style={[styles.plot, { height: HEIGHT + TOP_ROOM }]}>
         {guides.map((guide) => (
           <View key={guide.label} style={[styles.guide, { bottom: scale(guide.value) }]}>
             <View style={[styles.guideLine, { borderColor: colors.inkTertiary }]} />
             <View style={styles.gutter}>
-              <Text variant="caption" tone="secondary">
-                {guide.label}
-              </Text>
+              {underPill(guide.value) ? null : (
+                <Text variant="caption" tone="secondary">
+                  {guide.label}
+                </Text>
+              )}
             </View>
           </View>
         ))}
         {average === undefined ? null : (
-          <View style={[styles.average, { bottom: scale(average) - 9 }]}>
+          <View style={[styles.average, { bottom: Math.max(0, scale(average) - layout.chart.pillHalf) }]}>
             <View style={[styles.guideLine, { borderColor: colors.inkSecondary }]} />
             <View style={styles.gutter}>
               {averageLabel === undefined ? null : (
@@ -76,7 +87,7 @@ export function BarChart({ bars, guides = [], average, averageLabel, accessibili
                 style={[
                   styles.bar,
                   {
-                    height: Math.max(bar.value > 0 ? 3 : 0, scale(bar.value)),
+                    height: Math.max(bar.value > 0 ? layout.chart.minBar : 0, scale(bar.value)),
                     backgroundColor: bar.highlight ? colors.inkSecondary : colors.ink,
                   },
                 ]}
@@ -95,7 +106,7 @@ export function BarChart({ bars, guides = [], average, averageLabel, accessibili
                 {bar.label}
               </Text>
               {bar.sublabel === undefined ? null : (
-                <Text variant="caption" tone="tertiary" align="center" numberOfLines={1}>
+                <Text variant="caption" tone="secondary" align="center" numberOfLines={1}>
                   {bar.sublabel}
                 </Text>
               )}
@@ -108,13 +119,13 @@ export function BarChart({ bars, guides = [], average, averageLabel, accessibili
 }
 
 /** The plot's height; the tallest of bars, guides and average reaches it. */
-const HEIGHT = 160;
+const HEIGHT = layout.chart.height;
 /** Room above the tallest bar so the top guide label is not clipped. */
-const TOP_ROOM = 16;
+const TOP_ROOM = layout.chart.topRoom;
 /** The right column shared by bars, labels, guide text and the average pill. */
-const GUTTER = 52;
+const GUTTER = layout.chart.gutter;
 /** Room for a label like 'mié' or '30', whatever the column under it measures. */
-const LABEL_WIDTH = 36;
+const LABEL_WIDTH = layout.chart.labelWidth;
 
 const styles = StyleSheet.create({
   chart: {
@@ -153,9 +164,9 @@ const styles = StyleSheet.create({
   },
   guideLine: {
     flex: 1,
-    borderTopWidth: 1,
+    borderTopWidth: layout.chart.guide,
     borderStyle: 'dashed',
-    opacity: 0.6,
+    opacity: opacity.guide,
   },
   average: {
     position: 'absolute',

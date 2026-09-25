@@ -6,9 +6,19 @@ import { DAY, HOUR, MINUTE } from '../../domain/time';
 import { en } from '../../i18n/en';
 import { es } from '../../i18n/es';
 import { DEFAULT_TAG } from '../../i18n/locale';
-import { dayLabel, monthLabel } from './dates';
-import { deltaVsPrevious, weekAverage, weekBars, weekDayCards, weekFocusedDays, weekdayRhythm } from './selectors';
-import { chartSummary, dayCardSummary, deltaText, hoursText } from './text';
+import { dayLabel, monthLabel, monthStart } from './dates';
+import {
+  deltaVsPrevious,
+  emptyWeekLine,
+  monthBars,
+  monthTotals,
+  weekAverage,
+  weekBars,
+  weekDayCards,
+  weekFocusedDays,
+  weekdayRhythm,
+} from './selectors';
+import { chartSummary, dayCardSummary, deltaText, hoursText, monthChartSummary } from './text';
 
 // 2026-09-16 is a Wednesday; the week started Monday the 14th.
 const NOW = new Date(2026, 8, 16, 12).getTime();
@@ -136,5 +146,76 @@ describe('labels', () => {
     expect(hoursText(1234 * HOUR, ES.t, ES.tag)).toBe('1.234 horas');
     expect(hoursText(1234 * HOUR, EN.t, EN.tag)).toBe('1,234 hours');
     expect(hoursText(HOUR, EN.t, EN.tag)).toBe('1 hour');
+  });
+
+  it('spell a total under an hour as the duration, never "0 horas"', () => {
+    expect(hoursText(25 * MINUTE, ES.t, ES.tag)).toBe('25m');
+    expect(hoursText(25 * MINUTE, EN.t, EN.tag)).toBe('25m');
+    expect(hoursText(0, ES.t, ES.tag)).toBe('0 horas');
+  });
+});
+
+describe('monthTotals', () => {
+  it('averages over the days of the month that have happened, days off as zero (ADR-0047 §4)', () => {
+    // The 16th: sixteen days have happened. 4h on two of them is 15m a day, not 2h.
+    const stats = [day(MONDAY, 2 * HOUR), day(NOW, 2 * HOUR)];
+    const totals = monthTotals(stats, NOW, 0);
+    expect(totals.totalMs).toBe(4 * HOUR);
+    expect(totals.averageMs).toBe((4 * HOUR) / 16);
+  });
+
+  it('divides a past month by all its days', () => {
+    // August has 31 days.
+    const stats = [day(new Date(2026, 7, 10, 12).getTime(), 31 * MINUTE)];
+    expect(monthTotals(stats, NOW, 1).averageMs).toBe(MINUTE);
+  });
+
+  it('agrees with the week over the same days', () => {
+    // June 2026 starts on a Monday: on Sunday the 7th, the week and the month so far
+    // are the same seven days, and so is their average.
+    const sunday = new Date(2026, 5, 7, 12).getTime();
+    const stats = [day(new Date(2026, 5, 2, 12).getTime(), 3 * HOUR)];
+    expect(monthTotals(stats, sunday, 0).averageMs).toBe(weekAverage(stats, sunday, 0));
+    expect(weekAverage(stats, sunday, 0)).toBe((3 * HOUR) / 7);
+  });
+
+  it('is null for a month with no focus', () => {
+    expect(monthTotals([], NOW, 0).averageMs).toBeNull();
+  });
+});
+
+describe('emptyWeekLine', () => {
+  it('is null for a week with focus', () => {
+    expect(emptyWeekLine([day(MONDAY, HOUR)], NOW, 0)).toBeNull();
+  });
+
+  it('calls it the first week only when nothing has ever been focused', () => {
+    expect(emptyWeekLine([], NOW, 0)).toBe('firstWeek');
+  });
+
+  it('does not tell a user with history that this is their first week', () => {
+    const lastWeek = day(MONDAY - 7 * DAY, 2 * HOUR);
+    expect(emptyWeekLine([lastWeek], NOW, 0)).toBe('noFocusYet');
+  });
+
+  it('says a past week had no focus', () => {
+    expect(emptyWeekLine([day(NOW, HOUR)], NOW, 1)).toBe('noFocusThatWeek');
+  });
+});
+
+describe('monthChartSummary', () => {
+  it('reads a month as its total, its focused days and its best one', () => {
+    const stats = [day(MONDAY, 2 * HOUR), day(NOW, 3 * HOUR + 10 * MINUTE)];
+    const bars = monthBars(stats, NOW, 0);
+    expect(monthChartSummary(bars, monthStart(NOW), ES.t, ES.tag)).toBe(
+      'Septiembre: 5h 10m en 2 días. Tu mejor día: 3h 10m.',
+    );
+    expect(monthChartSummary(bars, monthStart(NOW), EN.t, EN.tag)).toBe(
+      'September: 5h 10m over 2 days. Your best day: 3h 10m.',
+    );
+  });
+
+  it('says a month with no focus in one line', () => {
+    expect(monthChartSummary(monthBars([], NOW, 0), monthStart(NOW), ES.t, ES.tag)).toBe('Septiembre: sin foco.');
   });
 });

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { useAppStore, useWeekProgress } from '../../data';
-import { Card, Chip, ProgressBar, Section, Sheet, Stack, Text } from '../../design/components';
+import { Card, ChipGroup, ProgressBar, Section, Sheet, Stack, StatusNote, Text } from '../../design/components';
 import { HOUR } from '../../domain/time';
 import { hasTarget, WEEKLY_TARGET_HOURS } from '../../domain/week';
 import { useLocale, useStrings } from '../../i18n';
@@ -12,7 +12,10 @@ type WeeklyGoalSectionProps = {
   now: number;
 };
 
-/** The weekly focus goal: progress against it, and a sheet to change it. ADR-0013. */
+/**
+ * The weekly focus goal: progress against it, and a sheet to change it. ADR-0013. The
+ * card carries a chevron and says its progress to VoiceOver; the tap is the hint.
+ */
 export function WeeklyGoalSection({ now }: WeeklyGoalSectionProps) {
   const t = useStrings();
   const { tag } = useLocale();
@@ -32,33 +35,40 @@ export function WeeklyGoalSection({ now }: WeeklyGoalSectionProps) {
     updateSettings({ weeklyTargetMs: ms });
     setOpen(false);
   };
+  const progress = focusOfTargetText(week, t.format);
+  const options = [
+    ...WEEKLY_TARGET_HOURS.map((hours) => ({
+      value: hours * HOUR,
+      label: durationText(hours * HOUR),
+      accessibilityLabel: t.activity.units.hours(hours, tag),
+    })),
+    { value: null, label: t.activity.weeklyGoal.none },
+  ];
 
   return (
     <Section title={t.activity.weeklyGoal.title}>
-      <Card onPress={() => setOpen(true)} accessibilityLabel={t.activity.weeklyGoal.change}>
+      <Card
+        onPress={() => setOpen(true)}
+        chevron
+        accessibilityLabel={t.activity.weeklyGoal.cardA11y(progress, status)}
+        accessibilityHint={t.activity.weeklyGoal.change}
+      >
         <Stack gap="sm">
-          <Text variant="heading">{focusOfTargetText(week, t.format)}</Text>
+          <Text variant="heading">{progress}</Text>
           <Text variant="label" tone="secondary">
             {status}
           </Text>
           <ProgressBar progress={hasTarget(targetMs) ? week.focusMs / targetMs : 0} />
         </Stack>
       </Card>
-      <Text variant="caption" tone="tertiary">
-        {t.activity.weeklyGoal.footer}
-      </Text>
+      <StatusNote text={t.activity.weeklyGoal.footer} />
       <Sheet visible={open} title={t.activity.weeklyGoal.sheetTitle} onClose={() => setOpen(false)}>
-        <Stack direction="row" gap="sm" wrap>
-          {WEEKLY_TARGET_HOURS.map((hours) => (
-            <Chip
-              key={hours}
-              label={durationText(hours * HOUR)}
-              selected={targetMs === hours * HOUR}
-              onPress={() => choose(hours * HOUR)}
-            />
-          ))}
-          <Chip label={t.activity.weeklyGoal.none} selected={!hasGoal} onPress={() => choose(null)} />
-        </Stack>
+        <ChipGroup
+          options={options}
+          value={hasGoal ? targetMs : null}
+          onChange={choose}
+          accessibilityLabel={t.activity.weeklyGoal.sheetTitle}
+        />
       </Sheet>
     </Section>
   );

@@ -143,8 +143,11 @@ const TABLES_IN_DELETE_ORDER = [
 
 /**
  * "Borrar todo y reiniciar": empties every table (the schema stays) and puts the
- * database back the way a first launch finds it, demo data included. The caller
- * rehydrates the stores afterwards; this function knows nothing about them.
+ * database back the way a first launch finds it, **without** the demo data
+ * (ADR-0047 §1): the examples are seeded once per install, on the first launch, and
+ * never after a reset. The essentials still go in (the default activities), and the
+ * demo stamp is written again so no later launch seeds the examples either. The
+ * caller rehydrates the stores afterwards; this function knows nothing about them.
  */
 export function resetDatabase(now: number, demo: DemoStrings): BootResult {
   const db = getDb();
@@ -152,6 +155,7 @@ export function resetDatabase(now: number, demo: DemoStrings): BootResult {
     for (const table of TABLES_IN_DELETE_ORDER) {
       db.executeSync(`DELETE FROM ${table}`);
     }
+    settings.setNumber(settings.SETTING_KEYS.demoSeededAt, now, now);
   });
   return bootDatabase(now, demo);
 }

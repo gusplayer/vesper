@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Check, ListGroup, ListRow, Sheet , DropdownTitle } from '../../design/components';
+import { DropdownTitle, ListGroup, ListRow, Sheet } from '../../design/components';
 import { useStrings } from '../../i18n';
 
 export type ActivityView = 'week' | 'month' | 'lifetime';
@@ -30,7 +30,8 @@ export function ActivityHeader({ view, onChangeView }: ActivityHeaderProps) {
             <ListRow
               key={option}
               label={t.activity.header.option[option]}
-              right={<Check checked={option === view} />}
+              selection="radio"
+              selected={option === view}
               onPress={() => {
                 onChangeView(option);
                 setOpen(false);

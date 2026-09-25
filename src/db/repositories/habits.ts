@@ -187,15 +187,28 @@ export function unmarkManual(habitId: string, dayKey: DayKey): void {
 }
 
 /**
- * Replaces every Health-sourced mark with what Health says now. Manual marks stay.
+ * Replaces the Health-sourced marks of `window` with what Health says now; without a
+ * window, every one of them (disconnecting Health). Manual marks stay, and so do the
+ * health marks of days the read did not cover: it used to delete them all, so a
+ * verified habit kept only the current week, and a backup's could not survive a read.
  * The ids come from the caller so a re-sync writes the same rows; INSERT OR IGNORE
  * keeps the (habit, day, sample) uniqueness of invariant 6. One transaction: a
  * failure halfway must not leave the verified marks deleted until the next sync.
  */
-export function replaceHealthMarks(marks: readonly HabitMark[]): void {
+export function replaceHealthMarks(
+  marks: readonly HabitMark[],
+  window?: { fromKey: DayKey; toKey: DayKey },
+): void {
   transaction(() => {
     const db = getDb();
-    db.executeSync("DELETE FROM habit_marks WHERE source = 'health'");
+    if (window === undefined) {
+      db.executeSync("DELETE FROM habit_marks WHERE source = 'health'");
+    } else {
+      db.executeSync("DELETE FROM habit_marks WHERE source = 'health' AND day_key >= ? AND day_key <= ?", [
+        window.fromKey,
+        window.toKey,
+      ]);
+    }
     for (const item of marks) {
       db.executeSync(
         `INSERT OR IGNORE INTO habit_marks

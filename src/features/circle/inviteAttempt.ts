@@ -61,6 +61,21 @@ export function attemptFailed(outcome: InviteAttempt): boolean {
 }
 
 /**
+ * Whether asking again can answer differently. Only a request that never arrived, or a
+ * wait the server asked for, can: everything else — an unknown code, the user's own, a
+ * handle to change, a phone without the key — answers the same way every time, and each
+ * try spends one of the ten redemptions the server allows in an hour.
+ */
+export function attemptRetryable(outcome: InviteAttempt): boolean {
+  return outcome === 'offline' || outcome === 'tooMany' || outcome === 'server';
+}
+
+/** Whether the way out of this line is Ajustes › Círculo, to change the handle. */
+export function attemptNeedsHandle(outcome: InviteAttempt | AccountProblem | null): boolean {
+  return outcome === 'handleTaken' || outcome === 'handleInvalid';
+}
+
+/**
  * Why the account could not be born (ADR-0044 §2). Null when it was.
  *
  * `lostKey` is the one that reads like a bug and is not: the server already holds an
@@ -71,6 +86,7 @@ export function attemptFailed(outcome: InviteAttempt): boolean {
  */
 export type AccountProblem =
   | 'handleTaken'
+  | 'handleInvalid'
   | 'noKeychain'
   | 'noProfile'
   | 'offline'
@@ -85,6 +101,8 @@ export function accountProblem(outcome: AccountOutcome): AccountProblem | null {
       return null;
     case 'handleTaken':
       return 'handleTaken';
+    case 'handleInvalid':
+      return 'handleInvalid';
     case 'noKeychain':
       return 'noKeychain';
     case 'noProfile':

@@ -1,4 +1,5 @@
 import type { BlockPlan } from '../domain/blocking';
+import type { CapabilityStatus } from './capabilities';
 
 /**
  * A break inside a session (ADR-0022) as both backends see it (ADR-0023, decision
@@ -49,4 +50,23 @@ export type RoutineWindowSpec = {
   shieldTitle: string;
   shieldSubtitle: string;
   shieldButton: string;
+};
+
+/**
+ * The Settings toggle that is missing on Android, when that is the only reason
+ * blocking is off: something a screen can send the user to fix, unlike a missing
+ * module, a simulator or Apple's entitlement, which are facts (rule 8).
+ */
+export type GrantableToggle = 'usageAccess' | 'overlay';
+
+/**
+ * `status()` of the blocking module. On top of the shared shape (`detail.grantable`),
+ * Android says which toggle is missing (`detail.missing`), so no screen compares
+ * reason strings to decide which way in to offer. iOS never sets either.
+ */
+export type BlockingStatus = CapabilityStatus & {
+  detail?: NonNullable<CapabilityStatus['detail']> & {
+    /** Set only while blocking is off because of this toggle. */
+    missing?: GrantableToggle;
+  };
 };

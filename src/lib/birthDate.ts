@@ -29,6 +29,24 @@ export function parseBirthDate(text: string, now: number): number | null {
   return parsed.getTime();
 }
 
+/**
+ * What the birth date field holds after a keystroke. The field uses the number pad,
+ * which has no '-', so the hyphens are put in for the user: only digits are kept, at
+ * most eight, with '-' after the year and the month. '19920414' reads '1992-04-14';
+ * a pasted '1992/04/14' too. A hyphen is never left dangling at the end, so the
+ * delete key always takes a digit away.
+ */
+export function typeBirthDate(text: string): string {
+  const digits = text.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 4) {
+    return digits;
+  }
+  if (digits.length <= 6) {
+    return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  }
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
 /** The inverse of parseBirthDate: local 'yyyy-mm-dd', the same in every language. */
 export function formatBirthDate(birthDate: number): string {
   return dayKeyOf(birthDate);

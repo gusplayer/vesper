@@ -17,3 +17,10 @@ export const DEV_WINDOW_TEST: string | null = null;
 export const DEV_SKIP_ONBOARDING = false;
 /** Creates a circle profile on launch when there is none, for reviewing circle/ screens. */
 export const DEV_CIRCLE_PROFILE = false;
+/**
+ * The circle server this dev build talks to instead of production, e.g.
+ * 'http://10.0.2.2:8787' from the Android emulator or 'http://localhost:8787' from the
+ * iOS simulator, with `npm run dev` in server/ (memory, nothing kept). So a run of the
+ * identity and the backup (ADR-0048) never writes to the production database.
+ */
+export const DEV_CIRCLE_API_URL: string | null = null;

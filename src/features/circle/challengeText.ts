@@ -30,11 +30,23 @@ export function challengeOutlookText(outlook: ChallengeOutlook, t: CircleStrings
  * What joining shares, said above the button of a challenge Health can confirm
  * (ADR-0042 §5): the days, never the numbers. Null for a challenge nothing verifies,
  * where the marks are taps and there is no Health data to speak of.
+ *
+ * `noHealthReason` is `health.status().reason` on a phone where Health does not exist:
+ * there the habit is born declared, so the line says the user marks it, and why (rule 8),
+ * instead of promising a count Health will never make.
  */
-export function challengeConsentText(name: string, t: CircleStrings, tag: string): string | null {
+export function challengeConsentText(
+  name: string,
+  t: CircleStrings,
+  tag: string,
+  noHealthReason: string | null = null,
+): string | null {
   const type = healthTypeFor(name.trim());
   if (type === null) {
     return null;
+  }
+  if (noHealthReason !== null) {
+    return t.challenge.consentNoHealth(noHealthReason);
   }
   return type === 'steps' ? t.challenge.consentSteps(stepGoalFor(name), tag) : t.challenge.consentHealth;
 }

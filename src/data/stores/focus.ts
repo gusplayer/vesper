@@ -36,17 +36,31 @@ function schemeFor(session: Session | null): 'light' | 'dark' {
 
 type FocusState = {
   session: Session | null;
-  /** The mode the session runs, for the session screen. */
+  /**
+   * The mode the running session runs, for the session screen. The closing screens read
+   * `lastClosed.blockProfile` instead: a routine that was waiting starts its session the
+   * moment this one closes, and overwrites this.
+   */
   modeId: string | null;
   /** The last closed session, for the completion screen. Not persisted. */
   lastClosed: Session | null;
   /** How many sessions have ever completed — the first one gets a different closing. */
   completedCount: number;
   /**
-   * Picks up a session still running from a previous launch and puts the theme back
-   * in dark for it. Orphans whose time already ran out were expired by boot.
+   * True when `lastClosed` is a session that ran out while the app was dead, so nobody
+   * saw it close (ADR-0047 §9). SessionGate shows `session/complete` for it once, on
+   * this open, and calls `closingSeen`.
    */
-  hydrate: () => void;
+  unseenClosing: boolean;
+  /**
+   * Picks up a session still running from a previous launch and puts the theme back
+   * in dark for it. Orphans whose time already ran out were closed by boot
+   * (sessionsRepo.recoverOrphans); the last one it closed comes in as `recovered`, and
+   * its closing is owed to the user once.
+   */
+  hydrate: (recovered?: Session | null) => void;
+  /** The owed closing was shown: it is not shown again. */
+  closingSeen: () => void;
   /** `plannedMs` null starts an open session ("sin límite"). */
   start: (modeId: string, plannedMs: number | null, now: number) => void;
   finish: (outcome: CloseOutcome, now: number, exitReason?: string | null) => Session | null;
@@ -70,16 +84,27 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   modeId: null,
   lastClosed: null,
   completedCount: 0,
+  unseenClosing: false,
 
-  hydrate: () => {
+  hydrate: (recovered = null) => {
     const session = sessionsRepo.findRunning();
-    set({
+    // Only a session that ran its time out gets a closing: 'completed', or 'expired' at
+    // the cap. A running one continues; a cancelled one was closed on screen.
+    const owed =
+      session === null && recovered !== null && (recovered.outcome === 'completed' || recovered.outcome === 'expired')
+        ? recovered
+        : null;
+    set((state) => ({
       session,
       modeId: session?.blockProfile ?? null,
       completedCount: sessionsRepo.countCompleted(),
-    });
+      lastClosed: owed ?? state.lastClosed,
+      unseenClosing: owed !== null,
+    }));
     useSchemeStore.getState().setScheme(schemeFor(session));
   },
+
+  closingSeen: () => set({ unseenClosing: false }),
 
   start: (modeId, plannedMs, now) => {
     if (get().session !== null) {
@@ -99,7 +124,8 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       now,
     );
     sessionsRepo.insert(session);
-    set({ session, modeId });
+    // A new session makes an owed closing old news: it is not shown after this one.
+    set({ session, modeId, unseenClosing: false });
     useSchemeStore.getState().setScheme('dark');
   },
 
@@ -111,12 +137,17 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     const closed = closeSession(current, now, outcome, { exitReason: exitReason ?? null });
     sessionsRepo.update(closed);
     useAppStore.getState().recordFocus(now);
+    // The scheme goes first. `set` notifies subscribers synchronously, and the routine
+    // engine is one of them: a routine that was waiting starts its session inside this
+    // `set` and turns the scheme dark. Setting light afterwards would paint that new
+    // session in the app's colors.
+    useSchemeStore.getState().setScheme('light');
     set((state) => ({
       session: null,
       lastClosed: closed,
+      unseenClosing: false,
       completedCount: state.completedCount + (outcome === 'completed' ? 1 : 0),
     }));
-    useSchemeStore.getState().setScheme('light');
     return closed;
   },
 
@@ -160,6 +191,9 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       return null;
     }
     sessionsRepo.update(settled);
+    // Before `set`, for the reason `finish` gives: a waiting routine may start its
+    // session from inside it, and its dark scheme must be the last word.
+    useSchemeStore.getState().setScheme(schemeFor(settled.outcome === 'running' ? settled : null));
     if (settled.outcome === 'running') {
       set({ session: settled });
     } else {
@@ -167,10 +201,10 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       set((state) => ({
         session: null,
         lastClosed: settled,
+        unseenClosing: false,
         completedCount: state.completedCount + (settled.outcome === 'completed' ? 1 : 0),
       }));
     }
-    useSchemeStore.getState().setScheme(schemeFor(settled.outcome === 'running' ? settled : null));
     return settled;
   },
 

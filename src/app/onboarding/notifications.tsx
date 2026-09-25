@@ -2,18 +2,13 @@ import { router } from 'expo-router';
 
 import { goBack } from '../../lib/goBack';
 import { useEffect, useState } from 'react';
+import { Linking } from 'react-native';
 
 import { useAppStore } from '../../data';
-import {
-  Button,
-  Card,
-  IconCircle,
-  PageHeader,
-  Screen,
-  Stack,
-  Text,
-} from '../../design/components';
+import { useOnboardingDraft } from '../../data/onboardingDraft';
+import { Button, Card, IconCircle, NoticeCard, PageHeader, Screen, Stack, StatusNote, Text } from '../../design/components';
 import { commitOnboarding } from '../../features/onboarding/commit';
+import { stepProgress } from '../../features/onboarding/steps';
 import { useStrings } from '../../i18n';
 import { requestPermission, status } from '../../platform/notifications';
 
@@ -26,10 +21,16 @@ import { requestPermission, status } from '../../platform/notifications';
  * nothing blocks the flow. Where the capability is missing, or the OS has already
  * refused and will not ask again, the page says why in a card and the only button is
  * "Continuar" — there is no second prompt to offer.
+ *
+ * The sample on the page is a notification Vesper really sends: the routine's
+ * reminder when one was saved, the day-without-focus one otherwise. Under it, the
+ * budget of ADR-0027, so the user knows how little they are allowing.
  */
 export default function NotificationsScreen() {
   const t = useStrings();
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const modeName = useOnboardingDraft((state) => state.modeName);
+  const hasRoutine = useOnboardingDraft((state) => state.scheduleId !== null);
   const [asking, setAsking] = useState(false);
   /** The OS said no. iOS will not ask again; only the system settings can flip it. */
   const [denied, setDenied] = useState(false);
@@ -41,6 +42,10 @@ export default function NotificationsScreen() {
 
   const copy = t.onboarding.notifications;
   const next = () => router.push('/onboarding/tour');
+  // The schedule is named after the mode (commit.ts), so its reminder reads the same.
+  const sample = hasRoutine
+    ? { title: t.notifications.schedule.title(modeName), body: t.notifications.schedule.body(modeName) }
+    : { title: t.notifications.noFocus.title, body: t.notifications.noFocus.body };
 
   const allow = async () => {
     setAsking(true);
@@ -62,7 +67,8 @@ export default function NotificationsScreen() {
         // Once there is no prompt left to show — the capability is missing, or the OS
         // already said no — asking again does nothing, so moving on becomes the primary
         // button instead of a dead one, the same swap Salud makes (rule 2). The why is
-        // on the page above, in its own card.
+        // on the page above, in its own card, which after a no also carries the way to
+        // the system's Settings.
         explained ? (
           <Button label={t.common.continue} onPress={next} />
         ) : (
@@ -73,58 +79,42 @@ export default function NotificationsScreen() {
         )
       }
     >
-      <PageHeader onBack={() => goBack(router)} />
-      <Text variant="caption" tone="tertiary" align="center">
-        {copy.kicker}
-      </Text>
-      <Text variant="title" align="center">
-        {copy.title}
-      </Text>
-      <Text variant="label" tone="secondary" align="center">
+      <PageHeader onBack={() => goBack(router)} progress={stepProgress('notifications', t.onboarding.progress)} />
+      <Text variant="title">{copy.title}</Text>
+      <Text variant="label" tone="secondary">
         {copy.subtitle}
       </Text>
 
       {!capability.available ? (
-        <Card>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {t.settings.notifications.unavailableTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {capability.reason}
-            </Text>
-          </Stack>
-        </Card>
+        <NoticeCard icon="bell-off" title={t.settings.notifications.unavailableTitle} body={capability.reason ?? undefined} />
       ) : denied ? (
-        <Card>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {t.settings.notifications.deniedTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {t.settings.notifications.deniedBody}
-            </Text>
-          </Stack>
-        </Card>
+        <NoticeCard
+          icon="bell-off"
+          title={t.settings.notifications.deniedTitle}
+          body={t.settings.notifications.deniedBody}
+          actionLabel={copy.openSettings}
+          onAction={() => void Linking.openSettings()}
+        />
       ) : null}
 
-      {/* A fake notification, the way one would land on the lock screen. */}
+      {/* A real notification, the way one would land on the lock screen. */}
       <Card>
         <Stack direction="row" align="flex-start" gap="md">
           <IconCircle name="clock" />
           <Stack grow gap="xs">
             <Text variant="body" weight="medium">
-              {copy.preview.title}
+              {sample.title}
             </Text>
             <Text variant="label" tone="secondary">
-              {copy.preview.body}
+              {sample.body}
             </Text>
           </Stack>
-          <Text variant="caption" tone="tertiary">
+          <Text variant="caption" tone="secondary">
             {copy.preview.when}
           </Text>
         </Stack>
       </Card>
+      <StatusNote text={copy.budget} />
     </Screen>
   );
 }

@@ -1,17 +1,18 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import {
+  AppRow,
   Button,
-  Check,
   ListGroup,
   ListRow,
   PageHeader,
   Screen,
   SearchField,
   Section,
+  StatusNote,
   Text,
-  Tooltip,
- AppRow } from '../../design/components';
+  useTooltip,
+} from '../../design/components';
 import { MAX_SELECTION } from '../../data/modeDraft';
 import { useStrings } from '../../i18n';
 
@@ -20,8 +21,11 @@ export type PickerItem = {
   label: string;
   /** The category under an app's name. Websites have none. */
   description?: string;
-  /** An app tile on the left; without it the row is plain text. */
-  tile?: { initial: string; color: string };
+  /**
+   * An app tile on the left; without it the row is plain text. A catalogue app has a
+   * letter on its color; a real Android app has its own icon and no color.
+   */
+  tile?: { initial: string; color?: string | null; icon?: string | null };
 };
 
 type SelectionPickerProps = {
@@ -43,10 +47,11 @@ type SelectionPickerProps = {
   doneLabel?: string;
   /** A line under the search, for what this list cannot do here: real blocking is off. */
   notice?: string;
+  /** Why a tap at the cap does nothing, in the gender of what is listed. */
+  fullTip: string;
+  /** The list is still being read (the phone's apps): the sections say so. */
+  loading?: boolean;
 };
-
-/** How long the "already picked 50" bubble stays, like the habits one. */
-const TOOLTIP_MS = 2500;
 
 function matches(item: PickerItem, query: string): boolean {
   const needle = query.trim().toLowerCase();
@@ -73,51 +78,40 @@ export function SelectionPicker({
   onDone,
   doneLabel,
   notice,
+  fullTip,
+  loading = false,
 }: SelectionPickerProps) {
   const t = useStrings();
   const [query, setQuery] = useState('');
-  const [tipVisible, setTipVisible] = useState(false);
-  const tipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tooltip = useTooltip();
   const searching = query.trim() !== '';
   const selected = items.filter((item) => selectedIds.includes(item.id));
   const results = items.filter((item) => matches(item, query));
 
-  useEffect(
-    () => () => {
-      if (tipTimer.current !== null) {
-        clearTimeout(tipTimer.current);
-      }
-    },
-    [],
-  );
-
   const row = (item: PickerItem) => {
     const checked = selectedIds.includes(item.id);
-    const check = <Check checked={checked} shape="box" />;
     // Removing is always allowed; only adding past the cap has to explain itself,
     // because until now the tap simply did nothing and said nothing.
     const toggle = () => {
       if (!checked && selectedIds.length >= MAX_SELECTION) {
-        setTipVisible(true);
-        if (tipTimer.current !== null) {
-          clearTimeout(tipTimer.current);
-        }
-        tipTimer.current = setTimeout(() => setTipVisible(false), TOOLTIP_MS);
+        tooltip.show(fullTip);
         return;
       }
       onToggle(item.id);
     };
     if (item.tile === undefined) {
-      return <ListRow key={item.id} label={item.label} right={check} onPress={toggle} />;
+      return <ListRow key={item.id} label={item.label} selection="checkbox" selected={checked} onPress={toggle} />;
     }
     return (
       <AppRow
         key={item.id}
+        icon={item.tile.icon ?? null}
         initial={item.tile.initial}
-        color={item.tile.color}
+        color={item.tile.color ?? null}
         name={item.label}
         description={item.description}
-        right={check}
+        selection="checkbox"
+        selected={checked}
         onPress={toggle}
       />
     );
@@ -127,18 +121,14 @@ export function SelectionPicker({
     <Screen scroll footer={<Button label={doneLabel ?? t.common.done} onPress={onDone} />}>
       <PageHeader onBack={onBack} title={title} />
       <SearchField value={query} onChangeText={setQuery} placeholder={searchPlaceholder} />
-      {notice === undefined ? null : (
-        <Text variant="caption" tone="secondary">
-          {notice}
-        </Text>
-      )}
-      {tipVisible ? <Tooltip message={t.modes.picker.fullTip} /> : null}
-      {searching ? (
+      {notice === undefined ? null : <StatusNote text={notice} />}
+      {tooltip.element}
+      {loading ? (
+        <StatusNote text={t.modes.picker.loading} kind="empty" align="center" live />
+      ) : searching ? (
         <Section title={t.modes.picker.results}>
           {results.length === 0 ? (
-            <Text variant="label" tone="secondary">
-              {t.modes.picker.noResults}
-            </Text>
+            <StatusNote text={t.modes.picker.noResults} kind="empty" />
           ) : (
             <ListGroup>{results.map(row)}</ListGroup>
           )}
@@ -154,15 +144,17 @@ export function SelectionPicker({
             }
           >
             {selected.length === 0 ? (
-              <Text variant="label" tone="secondary">
-                {t.modes.picker.nothingYet}
-              </Text>
+              <StatusNote text={t.modes.picker.nothingYet} kind="empty" />
             ) : (
               <ListGroup>{selected.map(row)}</ListGroup>
             )}
           </Section>
           <Section title={listTitle}>
-            <ListGroup>{(featured ?? items).map(row)}</ListGroup>
+            {(featured ?? items).length === 0 ? (
+              <StatusNote text={t.modes.picker.noResults} kind="empty" />
+            ) : (
+              <ListGroup>{(featured ?? items).map(row)}</ListGroup>
+            )}
           </Section>
         </>
       )}

@@ -9,9 +9,10 @@ encienden, sesiones con profundidad, hábitos, meta semanal, conciencia del tiem
 y un círculo pequeño. Desde ADR-0016 la UI sigue de cerca a Brick (iOS). Desde ADR-0017
 la app es real por dentro: SQLite, notificaciones, Salud, Live Activity y bloqueo detrás
 de `src/platform/`; los datos de demostración se siembran una vez y se borran desde
-Ajustes. Siguen siendo de demostración el círculo (su servidor existe y está desplegado,
-pero la app aún no le habla: ADR-0021, ADR-0033) y, solo en iOS, el uso por app de
-Actividad › Hoy (ADR-0029). Las dos cosas lo dicen en pantalla.
+Ajustes. El círculo le habla a su servidor desde ADR-0044, y desde ADR-0048 no hay login:
+una identidad anónima y un respaldo cifrado devuelven todo en un teléfono nuevo. Sigue
+siendo de demostración, solo en iOS, el uso por app de Actividad › Hoy (ADR-0029), y lo
+dice en pantalla.
 
 Lee `docs/STATUS.md` para saber qué existe, qué está verificado y dónde, antes de empezar.
 Lee `docs/PRD.md` antes de tomar cualquier decisión de producto.
@@ -34,9 +35,14 @@ sigue vigente y cuál fue superado.
    vuelve a claro. Nunca `#000` ni `#fff`.
 6. **Sin animaciones de spring, escala o parallax.** Fade de 160 ms entre rutas, sin rebote
    de scroll. Lo único que se anima es opacidad (disoluciones, grilla, respiración).
-7. **Local-first.** Todo funciona sin red y sin cuenta, salvo el círculo, que desde
-   ADR-0044 tiene cuenta por dispositivo —sin correo, secreto en el llavero— que **nace
-   solo al invitar a alguien o usar un código**. Nada más viaja. No agregues backend sin ADR.
+7. **Local-first, sin login.** Todo funciona sin red y sin registro. Desde ADR-0048 cada
+   persona tiene una identidad anónima —un id y un secreto, sin correo— que **nace en el
+   primer arranque**, se registra cuando hay red y viaja sola al teléfono nuevo (llavero de
+   iCloud, Block Store) o con la clave de respaldo. Salen del teléfono solo tres cosas: lo
+   que el usuario comparte con su círculo, un **respaldo cifrado que el servidor no puede
+   leer** (encendido por defecto, se apaga y se borra en Ajustes › Respaldo) y, de la
+   identidad, cuándo nació, cuándo se vio, plataforma y versión. Nada viaja en claro. No
+   agregues backend sin ADR.
 8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un
    permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué
    no (ADR-0017). El onboarding puede pedirlos, pero nunca los exige (ADR-0026).
@@ -71,11 +77,13 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   día salen de `sessions`, no se guardan)
 - `src/domain/`: puro. Sesión, rutinas, bloqueo, ritual de salida, círculo, arte de foco
 - `src/platform/`: una capa por capacidad nativa (notificaciones, Salud, Live Activity,
-  bloqueo, orientación, círculo). Cada módulo expone `status()` y degrada sin romper; se
+  bloqueo, orientación, identidad, respaldo, círculo). Cada módulo expone `status()` y degrada sin romper; se
   suscribe a los stores desde `src/platform/hooks/`, montados en `PlatformEffects`. Ver ADR-0017
 - `src/widgets/FocusActivity.tsx`: la Live Activity (expo-widgets). `modules/vesper-blocking/`:
   módulo Expo local en Kotlin para el bloqueo en Android; `modules/vesper-health/`, el de
-  Health Connect. `targets/`: las tres extensiones
+  Health Connect; `modules/vesper-identity/`, el secreto de la identidad en el llavero de
+  iCloud (Swift) y en Block Store (Kotlin) (ADR-0048). `plugins/withAndroidBackup.js`: qué
+  entra al backup de Android. `targets/`: las tres extensiones
   de Screen Time en iOS. `patches/`: parche de `react-native-health`
 - vitest sobre `src/**/*.test.ts`: dominio, lib, db (con handle falso), data, i18n y las
   funciones puras de features y platform. Sin tests de UI: las pantallas se verifican
@@ -134,7 +142,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 ## Qué NO hacer
 
 - No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
-  `src/design/components/index.ts`, hoy 53) se escriben a mano; las barras, grillas y el QR se
+  `src/design/components/index.ts`, hoy 59 más el hook `useTooltip`) se escriben a mano; las barras, grillas y el QR se
   dibujan con `View` y `react-native-svg`.
 - No agregues badges, medallas, puntos ni ranking. La única racha es la diaria del
   ADR-0027 (10 minutos de foco, tres días de gracia al mes), un número sin fuego ni

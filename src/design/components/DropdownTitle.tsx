@@ -1,34 +1,54 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { layout, space } from '../tokens';
+import { layout, opacity, space } from '../tokens';
 import { Icon } from './Icon';
 import { Text } from './Text';
 
 type DropdownTitleProps = {
   label: string;
   onPress: () => void;
+  /** What a tap does, read after the label: 'Elegir qué actividad ver'. */
   accessibilityLabel?: string;
+  /**
+   * 'body' is a page title (Actividad). 'heading' is the mode name on Focus, 'label'
+   * the duration row above the focus button.
+   */
+  size?: 'label' | 'body' | 'heading';
+  /** 'secondary' for a quiet picker (the duration row). */
+  tone?: 'primary' | 'secondary';
+  /** Off during a session: the words stay, the chevron goes, taps do nothing. */
+  disabled?: boolean;
 };
 
 /**
- * A centered page title with a chevron-down: tapping it opens a picker for what the
- * page shows ('Actividad semanal ⌄'). Sits where a PageHeader title would.
+ * A centered title with a chevron-down: tapping it opens a picker for what the page
+ * shows ('Actividad semanal ⌄'), which mode is active, how long the next session is.
+ * The target is always at least 44 pt tall.
  */
-export function DropdownTitle({ label, onPress, accessibilityLabel }: DropdownTitleProps) {
+export function DropdownTitle({
+  label,
+  onPress,
+  accessibilityLabel,
+  size = 'body',
+  tone = 'primary',
+  disabled = false,
+}: DropdownTitleProps) {
   return (
     <View style={styles.row}>
       <Pressable
         onPress={onPress}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityHint={accessibilityLabel}
+        accessibilityState={{ disabled }}
         hitSlop={space.sm}
-        style={({ pressed }) => [styles.button, { opacity: pressed ? 0.7 : 1 }]}
+        style={({ pressed }) => [styles.button, { opacity: pressed && !disabled ? opacity.pressed : 1 }]}
       >
-        <Text variant="body" weight="medium">
+        <Text variant={size} weight={size === 'label' ? 'regular' : 'medium'} tone={tone}>
           {label}
         </Text>
-        <Icon name="chevron-down" size="sm" tone="secondary" />
+        {disabled ? null : <Icon name="chevron-down" size="sm" tone="secondary" />}
       </Pressable>
     </View>
   );

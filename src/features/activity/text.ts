@@ -4,6 +4,7 @@ import {
   capitalize,
   dayLongLabel,
   midnightOf,
+  monthLong,
   weekdayIndex,
   weekdayLong,
   type ActivityStrings,
@@ -20,8 +21,15 @@ export function sessionsText(count: number, t: ActivityStrings): string {
   return t.units.sessions(count);
 }
 
-/** '42 horas', '1 hora'. Whole hours: the lifetime figure is a headline, not a ledger. */
+/**
+ * '42 horas', '1 hora'. Whole hours: the lifetime figure is a headline, not a ledger.
+ * Under an hour it is the duration itself ('25m'): a first short session would
+ * otherwise read '0 horas' over 'Tu mejor día: 25m'.
+ */
 export function hoursText(ms: number, t: ActivityStrings, tag: string): string {
+  if (ms > 0 && ms < HOUR) {
+    return durationText(ms);
+  }
   return t.units.hours(Math.round(ms / HOUR), tag);
 }
 
@@ -60,4 +68,25 @@ export function chartSummary(bars: readonly ChartBar[], t: ActivityStrings, tag:
 export function dayCardSummary(day: CalendarDay, t: ActivityStrings, tag: string): string {
   const when = day.isToday ? t.spoken.today : capitalize(dayLongLabel(day.at, t, tag));
   return `${when}, ${durationText(day.stat.focusMs)}, ${sessionsText(day.stat.sessions, t)}`;
+}
+
+/**
+ * What VoiceOver reads for the month chart: 'Septiembre: 46h 20m en 18 días.
+ * Tu mejor día: 5h 10m.' A month has too many bars to read one by one, so it is read
+ * as its total, its focused days and its best one.
+ */
+export function monthChartSummary(
+  bars: readonly ChartBar[],
+  monthStartMs: number,
+  t: ActivityStrings,
+  tag: string,
+): string {
+  const month = capitalize(monthLong(monthStartMs, tag));
+  const focused = bars.filter((bar) => bar.value > 0);
+  if (focused.length === 0) {
+    return t.spoken.monthEmpty(month);
+  }
+  const total = focused.reduce((sum, bar) => sum + bar.value, 0);
+  const best = Math.max(...focused.map((bar) => bar.value));
+  return t.spoken.month(month, durationText(total), t.units.days(focused.length, tag), durationText(best));
 }

@@ -1,3 +1,4 @@
+import { DEV_CIRCLE_API_URL } from '../dev/route';
 import { inviteCodeFor } from '../domain/circle';
 import { SECOND } from '../domain/time';
 import {
@@ -33,8 +34,14 @@ import {
  * is "not shared", never zero** — zero would say the person did nothing that week.
  */
 
-/** Railway, service `circle-api`, environment `production` (server/README.md). */
-export const CIRCLE_API_URL = 'https://circle-api-production.up.railway.app';
+/**
+ * Railway, service `circle-api`, environment `production` (server/README.md), unless a
+ * dev build points at a local server with DEV_CIRCLE_API_URL (src/dev/route.ts).
+ */
+export const CIRCLE_API_URL =
+  typeof __DEV__ !== 'undefined' && __DEV__ && DEV_CIRCLE_API_URL !== null
+    ? DEV_CIRCLE_API_URL
+    : 'https://circle-api-production.up.railway.app';
 
 /**
  * A request that hangs is a sync that never releases its slot. Ten seconds is the same
@@ -49,7 +56,26 @@ export const MAX_ROWS = 500;
 export const MAX_NAME = 40;
 export const MAX_CHALLENGE_NAME = 60;
 
-/** `Authorization: Bearer <id>.<secret>`. The id is the circle profile's id. */
+/**
+ * The handle rule the server applies (`normalizeHandle` in server/src/auth.ts), checked
+ * on the phone first: a handle the server would refuse is a thing the user can fix
+ * before saving, not a vague "try later" when the account is claimed.
+ */
+const HANDLE_PATTERN = /^[a-z0-9_]{3,20}$/;
+
+/** What a typed handle becomes: trimmed, lowercased, with no spaces inside. */
+export function cleanHandle(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, '');
+}
+
+export function isValidHandle(handle: string): boolean {
+  return HANDLE_PATTERN.test(cleanHandle(handle));
+}
+
+/**
+ * `Authorization: Bearer <id>.<secret>`. The id is the identity's (ADR-0048), which is
+ * also the circle profile's: the server derives the invite code from it.
+ */
 export type Credentials = { id: string; secret: string };
 
 // --- The backup key (ADR-0044 §3) ------------------------------------------------------
@@ -85,6 +111,33 @@ export function backupKeyGroups(key: string): string[] {
   return groups;
 }
 
+/**
+ * The secret's shape: the server hands out 32 random bytes in base64url, 43 symbols.
+ * The range is wider than that on purpose, so a longer secret some day is not refused
+ * here; what it keeps out is a key cut short or pasted with something else inside.
+ */
+const SECRET_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
+
+/**
+ * A backup key as a person pastes or types it (ADR-0048 §4): with the spaces and line
+ * breaks of the groups the screen shows, or as the one string a password manager
+ * keeps. Null for anything that is not the shape of a key, so a typo is said on the
+ * screen before any request goes out. The id is lowercased (it is hex); the secret is
+ * left exactly as it came, because base64url tells capitals apart.
+ */
+export function credentialsFromPastedKey(text: string): Credentials | null {
+  const compact = text.replace(/\s+/g, '');
+  const credentials = credentialsFrom(compact);
+  if (credentials === null) {
+    return null;
+  }
+  const id = credentials.id.toLowerCase();
+  if (!isUuidV7(id) || !SECRET_PATTERN.test(credentials.secret)) {
+    return null;
+  }
+  return { id, secret: credentials.secret };
+}
+
 // --- Results ------------------------------------------------------------------------
 
 /**
@@ -96,6 +149,8 @@ export function backupKeyGroups(key: string): string[] {
  * - `unauthorized`: the secret is not this account's. A reinstall without the backup
  *   key looks like this.
  * - `handleTaken` / `inviteCodeTaken`: the two 409s of `POST /account`.
+ * - `handleRequired`: the 409 of a social call from an identity that has not claimed a
+ *   handle yet (ADR-0048 §2). The phone claims its profile and asks again.
  * - `rateLimited`: a 429, with the seconds the server asked us to wait.
  * - `rejected`: a 400 — a body the server will never accept, so retrying is pointless.
  * - `notFound` / `forbidden`: an unknown code or challenge, someone else's circle.
@@ -105,6 +160,7 @@ export type ApiFailure =
   | { kind: 'offline' }
   | { kind: 'unauthorized' }
   | { kind: 'handleTaken' }
+  | { kind: 'handleRequired' }
   | { kind: 'inviteCodeTaken' }
   | { kind: 'rateLimited'; retryAfterMs: number }
   | { kind: 'rejected'; message: string }
@@ -137,13 +193,31 @@ export type AccountInput = {
 /** What `POST /account` gives back. `secret` only ever on the first call (201). */
 export type AccountCreated = { id: string; handle: string; secret: string | null };
 
+/**
+ * `POST /device`. Every field but the zone may be left out, and the server keeps what it
+ * had for a field that is absent: the identity's daily ping (ADR-0048 §3) says the
+ * platform and the version without touching the push token the push sync registered.
+ */
 export type DeviceInput = {
-  /** The Expo push token, or null to say this phone has none. */
-  pushToken: string | null;
+  /** The Expo push token, or null to say this phone has none. Absent leaves it alone. */
+  pushToken?: string | null;
   /** An IANA name: 'America/Bogota'. */
   timeZone: string;
-  /** Ajustes › Notificaciones › empujones (ADR-0027 §5). */
-  nudgesOn: boolean;
+  /** Ajustes › Notificaciones › empujones (ADR-0027 §5). Absent leaves it alone. */
+  nudgesOn?: boolean;
+  platform?: 'ios' | 'android';
+  /** At most 32 printable characters (server/README.md). */
+  appVersion?: string;
+};
+
+/** What `GET /account` says about the caller (ADR-0048 §6). Null fields were never set. */
+export type RemoteAccount = {
+  id: string;
+  /** Null for an identity that never claimed a circle profile. */
+  name: string | null;
+  handle: string | null;
+  inviteCode: string | null;
+  createdAt: number | null;
 };
 
 /**
@@ -264,6 +338,16 @@ export type SyncDownload = {
   nudges: RemoteNudge[];
   /** Ids (and `challengeId/dayKey` keys) the server refused to write. */
   rejected: string[];
+  /**
+   * The people whose link with this account ended after the cursor (ADR-0049): they
+   * declined, removed, or left. Empty from a server deployed before that call existed.
+   */
+  ended: string[];
+  /**
+   * The caller's own marks in every challenge of theirs, whatever the cursor says. Only
+   * a sync sent with `restore: true` carries them (ADR-0048 §6); empty otherwise.
+   */
+  ownMarks: RemoteMark[];
 };
 
 // --- Reading an answer ----------------------------------------------------------------
@@ -329,6 +413,11 @@ function failureFor(status: number, body: unknown, header: string | null): ApiFa
     return { kind: 'notFound' };
   }
   if (status === 409) {
+    // 'handle required' before 'handle taken': both say "handle", and they ask the phone
+    // for opposite things — claim one, or pick another.
+    if (message.includes('handle required')) {
+      return { kind: 'handleRequired' };
+    }
     if (message.includes('handle')) {
       return { kind: 'handleTaken' };
     }
@@ -348,7 +437,7 @@ function failureFor(status: number, body: unknown, header: string | null): ApiFa
 
 // --- The transport ---------------------------------------------------------------------
 
-type Method = 'POST' | 'DELETE';
+type Method = 'GET' | 'POST' | 'DELETE';
 
 /**
  * One request. `credentials` null means the call goes out unauthenticated, which only
@@ -441,23 +530,82 @@ export async function deleteAccount(credentials: Credentials): Promise<ApiResult
 }
 
 /**
- * `POST /device`: where a push goes, in which zone, and whether nudges may wake this
- * phone (ADR-0037 §1). **Nothing calls this yet**: registering the Expo token and
- * receiving in the background is the other half of ADR-0037 and belongs to the push
- * round. The endpoint is here so that round only has to supply the token.
+ * `POST /account` with the id alone: the identity, born without a name or a handle
+ * (ADR-0048 §2). The secret comes back once, on the 201. A 401 means the id is already
+ * somebody's — or this phone's, from a first call whose answer never arrived — and
+ * either way there is no secret to be had for it: the caller picks another id.
+ */
+export async function createIdentity(id: string): Promise<ApiResult<Credentials>> {
+  const result = await request('/account', 'POST', null, { id });
+  if (!result.ok) {
+    return result;
+  }
+  const secret = isObject(result.value) ? str(result.value.secret) : null;
+  // A 200 without a secret is an account that already existed: the same fact as a 401.
+  return secret === null ? { ok: false, failure: { kind: 'unauthorized' } } : { ok: true, value: { id, secret } };
+}
+
+/** `GET /account`: the caller's own profile, for a phone that just proved it has the key. */
+export async function getAccount(credentials: Credentials): Promise<ApiResult<RemoteAccount>> {
+  return map(await request('/account', 'GET', credentials, undefined), (value) => readAccount(value, credentials.id));
+}
+
+/** What `GET /account` answers, field by field. A missing field is one never set. */
+export function readAccount(value: unknown, id: string): RemoteAccount {
+  const body = isObject(value) ? value : {};
+  return {
+    id: str(body.id) ?? id,
+    name: str(body.name),
+    handle: str(body.handle),
+    inviteCode: str(body.inviteCode),
+    createdAt: num(body.createdAt),
+  };
+}
+
+/**
+ * `POST /account/secret` (ADR-0048 §5): a new secret, handed back once, and the old one
+ * stops working — along with the push token, which pointed at the old phone. An answer
+ * without a secret is treated as a server error: the old secret may already be dead,
+ * and the caller must not pretend it has a new one.
+ */
+export async function rotateSecret(credentials: Credentials): Promise<ApiResult<Credentials>> {
+  const result = await request('/account/secret', 'POST', credentials, {});
+  if (!result.ok) {
+    return result;
+  }
+  const secret = isObject(result.value) ? str(result.value.secret) : null;
+  return secret === null
+    ? { ok: false, failure: { kind: 'serverError', status: 200 } }
+    : { ok: true, value: { id: credentials.id, secret } };
+}
+
+/** The body of `POST /device`, with every absent field left out so the server keeps it. */
+export function deviceBody(input: DeviceInput): Record<string, unknown> {
+  const body: Record<string, unknown> = { timeZone: input.timeZone };
+  if (input.pushToken !== undefined) {
+    body.pushToken = input.pushToken;
+  }
+  if (input.nudgesOn !== undefined) {
+    body.nudgesOn = input.nudgesOn;
+  }
+  if (input.platform !== undefined) {
+    body.platform = input.platform;
+  }
+  if (input.appVersion !== undefined && input.appVersion.length > 0) {
+    body.appVersion = input.appVersion.slice(0, 32);
+  }
+  return body;
+}
+
+/**
+ * `POST /device`: where a push goes, in which zone, whether nudges may wake this phone
+ * (ADR-0037 §1), and which platform and version the identity runs (ADR-0048 §3).
  */
 export async function putDevice(
   credentials: Credentials,
   input: DeviceInput,
 ): Promise<ApiResult<void>> {
-  return map(
-    await request('/device', 'POST', credentials, {
-      pushToken: input.pushToken,
-      timeZone: input.timeZone,
-      nudgesOn: input.nudgesOn,
-    }),
-    () => undefined,
-  );
+  return map(await request('/device', 'POST', credentials, deviceBody(input)), () => undefined);
 }
 
 /**
@@ -492,12 +640,36 @@ export async function joinChallenge(
   );
 }
 
-/** `POST /sync`: one trip. Mine up, theirs down, `now` back as the next cursor. */
+/**
+ * `POST /link/end` (ADR-0049): the link with one person, in both directions and whatever
+ * its status — Rechazar, Quitar — or with everyone, for Salir del círculo. The server
+ * answers 200 to any well-formed body, so a 404 (`notFound`) means only one thing: the
+ * deployed server predates the call.
+ */
+export async function endLink(
+  credentials: Credentials,
+  target: { memberId: string } | { everyone: true },
+): Promise<ApiResult<void>> {
+  return map(await request('/link/end', 'POST', credentials, target), () => undefined);
+}
+
+/** `POST /challenge/leave` (ADR-0049): Salir del reto. A 404 means the same as above. */
+export async function leaveChallenge(credentials: Credentials, challengeId: string): Promise<ApiResult<void>> {
+  return map(await request('/challenge/leave', 'POST', credentials, { challengeId }), () => undefined);
+}
+
+/**
+ * `POST /sync`: one trip. Mine up, theirs down, `now` back as the next cursor. With
+ * `restore`, the answer also carries the caller's own marks (`ownMarks`), which a phone
+ * that just restored with the backup key no longer has (ADR-0048 §6).
+ */
 export async function sync(
   credentials: Credentials,
   upload: SyncUpload,
+  options: { restore?: boolean } = {},
 ): Promise<ApiResult<SyncDownload>> {
-  return map(await request('/sync', 'POST', credentials, trimUpload(upload)), readDownload);
+  const body = options.restore === true ? { ...trimUpload(upload), restore: true } : trimUpload(upload);
+  return map(await request('/sync', 'POST', credentials, body), readDownload);
 }
 
 /**
@@ -582,6 +754,8 @@ export function readDownload(value: unknown): SyncDownload {
     kudos: list(body.kudos).flatMap(readKudos),
     nudges: list(body.nudges).flatMap(readNudge),
     rejected: stringList(body.rejected),
+    ended: stringList(body.ended),
+    ownMarks: isObject(body.own) ? list(body.own.marks).flatMap(readMark) : [],
   };
 }
 
@@ -729,6 +903,8 @@ export type FoldedRows = {
   accepts: string[];
   /** Challenge ids to join: the user is in them here and not yet on the server. */
   joins: string[];
+  /** People whose link ended, as the server says (ADR-0049). The store lets them go. */
+  ended: string[];
 };
 
 /** What the fold needs to know about the rows already on this phone. */
@@ -737,6 +913,13 @@ export type LocalRows = {
   challenges: readonly Challenge[];
   /** Nudge ids already stored: the nudges table has no "or ignore" on a repeat. */
   nudgeIds: ReadonlySet<string>;
+  /**
+   * What this phone ended and the server has not confirmed yet (ADR-0049): people
+   * declined or removed here, `everyone` after "Salir del círculo", and challenges left
+   * here. Until the server has it, what it still sends about them is not let back in —
+   * otherwise a person removed offline would reappear with the next download.
+   */
+  endedHere?: { people: ReadonlySet<string>; everyone: boolean; challenges: ReadonlySet<string> };
 };
 
 /** The user is ME in every local row; on the wire they are their account id. */
@@ -762,6 +945,10 @@ export function markIdOf(challengeId: string, memberId: string, dayKey: string):
  *   kept as null all the way down: migration 010 made those columns nullable, because
  *   zero would say "did nothing that week" about someone who only kept the number to
  *   themselves. `metricState` in domain/circle.ts is what decides which is which.
+ * - **Ended links** (ADR-0049). A person the server says is gone, or one this phone
+ *   ended and the server has not heard of yet, leaves every row: no member, no week, no
+ *   mark, no cheer, no nudge, and out of every challenge's participants. A challenge
+ *   left here loses ME until the server confirms it.
  */
 export function foldDownload(
   download: SyncDownload,
@@ -769,7 +956,15 @@ export function foldDownload(
   local: LocalRows,
   now: number,
 ): FoldedRows {
-  const members: Member[] = download.members.map((row) => {
+  const endedByServer = new Set(download.ended);
+  const endedHere = local.endedHere;
+  const gone = (id: string): boolean =>
+    id !== ME &&
+    id !== accountId &&
+    (endedByServer.has(id) || endedHere?.everyone === true || (endedHere?.people.has(id) ?? false));
+  const leftHere = (challengeId: string): boolean => endedHere?.challenges.has(challengeId) ?? false;
+
+  const members: Member[] = download.members.filter((row) => !gone(row.id)).map((row) => {
     const existing = local.members.find((member) => member.id === row.id);
     return {
       id: row.id,
@@ -787,11 +982,12 @@ export function foldDownload(
     .filter(
       (row) =>
         row.status === 'pending' &&
+        !gone(row.id) &&
         local.members.some((member) => member.id === row.id && member.status === 'member'),
     )
     .map((row) => row.id);
 
-  const weeks: MemberWeek[] = download.weeks.map((row) => ({
+  const weeks: MemberWeek[] = download.weeks.filter((row) => !gone(row.accountId)).map((row) => ({
     memberId: localId(row.accountId, accountId),
     weekKey: row.weekKey,
     // Null is "not shared", never zero: zero would say that person did nothing that
@@ -807,9 +1003,13 @@ export function foldDownload(
   const joins: string[] = [];
   const challenges: Challenge[] = download.challenges.map((row) => {
     const existing = local.challenges.find((challenge) => challenge.id === row.id);
-    const participantIds = row.participantIds.map((id) => localId(id, accountId));
-    // `habitId` is what says the user joined: it is set the moment they do, locally.
-    const joinedHere = existing?.habitId != null;
+    const left = leftHere(row.id);
+    const participantIds = row.participantIds
+      .map((id) => localId(id, accountId))
+      .filter((id) => !gone(id) && !(left && id === ME));
+    // `habitId` is what says the user joined: it is set the moment they do, locally. A
+    // challenge whose maker is gone is not one to join again: the store archives it.
+    const joinedHere = existing?.habitId != null && !left && !gone(row.createdBy);
     if (joinedHere && !participantIds.includes(ME)) {
       participantIds.unshift(ME);
       joins.push(row.id);
@@ -831,7 +1031,7 @@ export function foldDownload(
   // The server already leaves the caller's own marks out: the user's marks are their
   // habit marks, and challenge_marks is only ever other people's (migration 004).
   const marks: ChallengeMark[] = download.marks
-    .filter((row) => row.accountId !== accountId)
+    .filter((row) => row.accountId !== accountId && !gone(row.accountId))
     .map((row) => ({
       id: markIdOf(row.challengeId, row.accountId, row.dayKey),
       challengeId: row.challengeId,
@@ -841,7 +1041,7 @@ export function foldDownload(
       markedAt: row.updatedAt,
     }));
 
-  const kudos: Kudos[] = download.kudos.map((row) => ({
+  const kudos: Kudos[] = download.kudos.filter((row) => !gone(row.fromId) && !gone(row.toId)).map((row) => ({
     id: row.id,
     fromId: localId(row.fromId, accountId),
     toId: localId(row.toId, accountId),
@@ -850,7 +1050,7 @@ export function foldDownload(
   }));
 
   const nudges: Nudge[] = download.nudges
-    .filter((row) => !local.nudgeIds.has(row.id))
+    .filter((row) => !local.nudgeIds.has(row.id) && !gone(row.fromId) && !gone(row.toId))
     .map((row) => ({
       id: row.id,
       fromId: localId(row.fromId, accountId),
@@ -860,7 +1060,7 @@ export function foldDownload(
       createdAt: row.createdAt,
     }));
 
-  return { members, weeks, challenges, marks, kudos, nudges, accepts, joins };
+  return { members, weeks, challenges, marks, kudos, nudges, accepts, joins, ended: [...endedByServer] };
 }
 
 // --- Building what goes up ----------------------------------------------------------------

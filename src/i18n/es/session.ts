@@ -10,22 +10,31 @@ export const session = {
   /** The big button on every screen of the ritual and on the emergency sheet. */
   stayFocused: 'Seguir enfocando',
   active: {
-    elapsedLabel: 'Llevas enfocando',
+    elapsedLabel: 'Tiempo en foco',
     /** Under the clock of an open session, instead of the progress bar. */
     openSince: (time: string) => `Sin límite · desde las ${time}`,
     /** The break button, when a break is available. */
     takeBreak: 'Pausa de 15 min',
-    /** The same button while the next break is still locked. 'Pausa en 12m'. */
-    breakIn: (remaining: string) => `Pausa en ${remaining}`,
+    /** A caption, not a button, while the next break is still locked. 'Pausa disponible en 12m'. */
+    breakIn: (remaining: string) => `Pausa disponible en ${remaining}`,
     /** Under the clock when the mode is gone. */
     focused: 'En foco',
     /** The heading when the mode is gone. */
     fallbackName: 'Sesión',
-    modeLabel: (name: string) => `${name}. Ver qué hace este modo`,
-    art: 'Arte',
+    /** What VoiceOver adds after the mode's name, which opens its details. */
+    modeHint: 'Muestra qué hace este modo',
+    /** What VoiceOver calls the thin bar under the clock. */
+    progressLabel: 'Avance de la sesión',
+    /** The ghost that opens the drawing, and the one that goes back to the clock. */
+    art: 'Ver el dibujo',
+    clock: 'Ver el reloj',
     end: 'Terminar',
     /** A caption under the bar in deep: the pill is gone, only the timer ends it. */
-    deepOnlyTimer: 'Profundo · solo el timer termina',
+    deepOnlyTimer: 'Profundo · solo el reloj termina',
+    /** Under the mode when a routine started this session: 'Rutina Trabajo · termina a las 18:00'. */
+    routine: (name: string, time: string) => `Rutina ${name} · termina a las ${time}`,
+    /** The intention written before starting, under the mode: '“Terminar el esquema”'. */
+    intention: (text: string) => `“${text}”`,
     /** What VoiceOver reads on the life-buoy icon, top right. */
     emergencyLabel: (left: number) =>
       left === 0
@@ -40,7 +49,8 @@ export const session = {
     /** '25 min', the chips. */
     minutes: (minutes: string) => `${minutes} min`,
     open: 'Sin límite',
-    openHint: 'Termina cuando tú digas, o a las 12 horas. Un modo profundo corre como firme.',
+    /** The hours come from the session's cap (domain/session). */
+    openHint: (hours: number) => `Sin límite termina cuando tú digas, o a las ${hours} horas. Con un modo profundo corre como firme.`,
   },
   break: {
     title: 'Pausa',
@@ -56,8 +66,18 @@ export const session = {
         ? 'Te queda 1 este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.'
         : `Te quedan ${left} este mes. Termina la sesión ahora mismo, sin el ritual, y cuenta como cancelada.`,
     ready: 'Si de verdad es una emergencia, adelante.',
+    /**
+     * Soft and firm have a free way out; said before the unlock is spent. Deep has none,
+     * so it gets no line.
+     */
+    freeWay: {
+      soft: 'Este modo se termina sin gastar uno: vuelve, toca Terminar y respira una ronda.',
+      firm: 'Este modo se termina sin gastar uno: vuelve, toca Terminar, respira dos rondas y escribe la frase.',
+    },
     wait: (seconds: number) => `Puedes confirmar en ${seconds} s.`,
     use: 'Usar un desbloqueo',
+    /** What VoiceOver calls the ten-second bar. */
+    waitLabel: 'Espera',
     /** The route with none left: only "Seguir enfocando" remains. */
     none: 'No te quedan desbloqueos este mes.',
     noneHint: 'Vuelven con el mes que viene.',
@@ -76,6 +96,10 @@ export const session = {
           ? 'Usaste un desbloqueo. Te queda 1 este mes.'
           : `Usaste un desbloqueo. Te quedan ${left} este mes.`,
     reason: 'Motivo',
+    /** The duration row: what was served against the plan. '12m de 50m'. */
+    servedOf: (served: string, planned: string) => `${served} de ${planned}`,
+    /** The same for a session with no limit. */
+    servedOpen: (served: string) => `${served} · sin límite`,
   },
   art: {
     /** What VoiceOver reads on the drawing: the work, how far along, what a tap does. */
@@ -105,8 +129,12 @@ export const session = {
     /** Under the breathing once it is done: what leaving now would mean. */
     counted: 'Lo hecho queda contado; lo que falta, no.',
     oneRound: 'Una ronda.',
+    /** What VoiceOver calls the bar under the object. */
+    progressLabel: 'Respiración',
     round: (cycle: number, cycles: number) => `Ronda ${cycle} de ${cycles}`,
     wantToEnd: 'Quiero terminar',
+    /** The primary when the ritual was opened from a break: going back lands on the break. */
+    backToBreak: 'Volver a la pausa',
     /** 'Terminar · llevas 12m'. */
     endWithServed: (served: string) => `Terminar · llevas ${served}`,
     typeSentence: 'Escribe la frase.',
@@ -125,11 +153,19 @@ export const session = {
     title: 'Sesión completa.',
     subtitle: 'Recuperaste tu tiempo.',
     /** An open session that hit its cap: closed by the app, not by the user. */
-    cappedTitle: 'La sesión llegó a las 12 horas.',
+    cappedTitle: (hours: number) => `La sesión llegó a las ${hours} horas.`,
     cappedSubtitle: 'Se cerró sola. Lo hecho queda contado.',
     mode: 'Modo',
     duration: 'Duración',
     intention: 'Intención',
+    /**
+     * The blocking row when nothing was really blocked (rule 8). With a real selection
+     * the row is the mode's own 'Apps bloqueadas' and the count instead.
+     */
+    blocking: 'Bloqueo',
+    blockingNone: 'Ninguno',
+    notBlocked: (reason: string) => `Este teléfono no bloquea apps: ${reason}.`,
+    notBlockedHere: 'Este teléfono no bloquea apps.',
   },
   liveActivity: {
     /**
@@ -143,7 +179,8 @@ export const session = {
     statusBreak: 'Pausa',
     /** A session whose mode was deleted meanwhile still needs a name. */
     fallbackModeName: 'Foco',
-    notIos: 'Las Live Activities solo existen en iPhone.',
+    notIos:
+      'Las Actividades en tiempo real solo existen en iPhone. En Android la sesión se ve en una notificación fija, también con el teléfono bloqueado.',
     oldIos: 'Las Live Activities necesitan iOS 16.2 o más nuevo.',
     noModule: 'Esta versión de Vesper no puede mostrar Live Activities.',
   },

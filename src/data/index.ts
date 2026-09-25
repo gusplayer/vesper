@@ -26,10 +26,11 @@ import { computeStreak, type StreakState } from '../domain/streak';
 import { ME, type Challenge, type Ledger, type Member, type Profile, type SharePrefs } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
+import * as sessionsRepo from '../db/repositories/sessions';
 import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
 import { freshInstallLocale, useLocaleStore } from '../i18n/store';
-import { clearCredentials } from '../platform/circle';
-import { deleteCircleAccount, forgetCircleSync } from '../platform/hooks/useCircleSync';
+import { forgetCircleSync } from '../platform/hooks/useCircleSync';
+import { deleteIdentityForReset, forgetIdentitySync, settleIdentity } from '../platform/hooks/useIdentitySync';
 import { myChallengeWeeks, type MyChallengeWeek } from './challenges';
 import { useOnboardingDraft } from './onboardingDraft';
 import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
@@ -38,6 +39,7 @@ import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
 import { sharedWeekUsageMs, useUsageStore, type UsageSource } from './stores/usage';
+import type { LifetimeTotals } from '../db/queries/lifetime';
 import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
 
 /**
@@ -49,7 +51,7 @@ import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, We
 export { useAppStore, useFocusStore, useCircleStore, useUsageStore };
 export { WEBSITES, HEALTH };
 export { readStreak };
-export type { ChallengeStatus, ChallengeWeek, CircleWeekRow, MyChallengeWeek, Standing, UsageSource };
+export type { ChallengeStatus, ChallengeWeek, CircleWeekRow, LifetimeTotals, MyChallengeWeek, Standing, UsageSource };
 
 /**
  * The catalogues with words in them (apps, activities, mode ideas) follow the current
@@ -77,8 +79,18 @@ const modeIdeasFor = perLanguage(demoModeIdeas);
 function hydrateStores(now: number): void {
   useLocaleStore.getState().hydrate();
   useAppStore.getState().hydrate(now);
-  useFocusStore.getState().hydrate();
+  // A session that ran out while the app was dead gets its closing once (ADR-0047 §9).
+  useFocusStore.getState().hydrate(sessionsRepo.takeRecoveredClosing());
   useCircleStore.getState().hydrate(now);
+}
+
+/**
+ * The stores read the database again after a backup replaced it (ADR-0048 §7,
+ * src/platform/backup.ts). Nothing is seeded and nothing is reset: the rows are the
+ * person's, and the language they chose comes back with them.
+ */
+export function rehydrateStores(now: number): void {
+  hydrateStores(now);
 }
 
 /**
@@ -95,27 +107,31 @@ export function bootAndHydrate(now: number): BootResult {
 export type ResetOutcome = {
   result: BootResult;
   /**
-   * True when there was a circle account and the server could not be reached to
-   * delete it. The database is empty either way and the key is out of the keychain;
-   * what is left is a row on a server nobody can claim any more, and the screen says
-   * so out loud rather than pretending the reset was total.
+   * True when there was an account (the identity, ADR-0048, with its backup and its
+   * circle) and the server could not be reached to delete it, or this phone had lost its
+   * key. The database is empty either way and the key is out of the keychain; what is
+   * left is a row on a server nobody can claim any more, and the screen says so out
+   * loud rather than pretending the reset was total.
    */
   accountLeft: boolean;
 };
 
 /**
- * "Borrar todo y reiniciar": empties every table, reseeds the demo data and refills
- * the stores. With `onboardingDone` back to false the root layout's guard sends the
+ * "Borrar todo y reiniciar": empties every table and refills the stores. The database
+ * ends empty: the sample data is seeded only on a first install, never after a reset
+ * (ADR-0047 §1); the default activities still go in. With `onboardingDone` back to false the root layout's guard sends the
  * user through onboarding again, so its draft is cleared too.
  *
- * **The circle account goes first** (ADR-0044 §7). Emptying the database alone would
- * leave the account alive on the server and its secret orphaned in the keychain — a
- * secret belonging to a profile this phone no longer has, which nothing would ever
- * use and nothing would ever delete. So: delete the account, then wipe.
+ * **The account goes first** (ADR-0044 §7). Since ADR-0048 it is the identity, so its
+ * encrypted backup and its circle go with it. Emptying the database alone would leave
+ * the account alive on the server and its secret orphaned in the keychain — a secret
+ * belonging to an identity this phone no longer has, which nothing would ever use and
+ * nothing would ever delete. So: delete the account, clear the key, then wipe. A new
+ * identity is born for the empty phone right after, as on a first launch.
  *
  * Without network the delete cannot happen and the reset still does: a phone that is
  * offline must not be stuck with its data. The keychain is cleared anyway, because
- * the entry is useless the moment the profile it names is gone, and the caller is
+ * the entry is useless the moment the identity it names is gone, and the caller is
  * told the server's copy outlived it.
  *
  * This is the one place `src/data/` reaches into `src/platform/` (the arrow normally
@@ -124,13 +140,12 @@ export type ResetOutcome = {
  * from the right screen.
  */
 export async function resetAndRehydrate(now: number): Promise<ResetOutcome> {
-  const hadAccount = useCircleStore.getState().account !== null;
-  const deleted = hadAccount ? await deleteCircleAccount(now) : true;
-  if (!deleted) {
-    await clearCredentials();
-    forgetCircleSync();
-  }
-  return { result: wipeAndRehydrate(now), accountLeft: hadAccount && !deleted };
+  const deleted = await deleteIdentityForReset();
+  forgetCircleSync();
+  forgetIdentitySync();
+  const result = wipeAndRehydrate(now);
+  void settleIdentity(Date.now());
+  return { result, accountLeft: deleted !== 'done' };
 }
 
 /** The local half of the reset, once the account has been dealt with. */
@@ -219,6 +234,16 @@ export function useTodayFocusMs(now: number): number {
 
 export function useDayStats(): DayStat[] {
   return useAppStore((state) => state.dayStats);
+}
+
+/** Sample data is still on the phone: the line on Focus and Actividad, and the Ajustes row (ADR-0047 §1). */
+export function useHasDemoData(): boolean {
+  return useAppStore((state) => state.hasDemoData);
+}
+
+/** Actividad › De por vida: totals over every closed session, not the cached window. */
+export function useLifetimeTotals(): LifetimeTotals {
+  return useAppStore((state) => state.lifetime);
 }
 
 /**

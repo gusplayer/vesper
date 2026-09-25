@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
-import { ConflictError, markSourceOf } from './store.ts';
-import type { Account, Challenge, Link, Store } from './store.ts';
+import { ConflictError, isPlatform, markSourceOf } from './store.ts';
+import type { Account, BackupMeta, Challenge, EndedLink, Link, Store } from './store.ts';
 
 /**
  * Postgres behind the same contract as the memory store (ADR-0033). Plain SQL on a
@@ -89,6 +89,11 @@ function asConflict(error: unknown): ConflictError | null {
   return null;
 }
 
+/** The pair of an ended link in the fixed order `ended_links` keys on (a_id < b_id). */
+export function pairOf(x: string, y: string): [string, string] {
+  return x < y ? [x, y] : [y, x];
+}
+
 function ms(value: unknown): number {
   return typeof value === 'string' ? Number(value) : Number(value ?? 0);
 }
@@ -100,12 +105,15 @@ function msOrNull(value: unknown): number | null {
 type AccountRow = {
   id: string;
   secret_hash: string;
-  name: string;
-  handle: string;
+  name: string | null;
+  handle: string | null;
   invite_code: string | null;
   push_token: string | null;
   time_zone: string | null;
   nudges_on: boolean;
+  platform: string | null;
+  app_version: string | null;
+  last_seen_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -120,7 +128,31 @@ function toAccount(row: AccountRow): Account {
     pushToken: row.push_token,
     timeZone: row.time_zone,
     nudgesOn: row.nudges_on,
+    platform: isPlatform(row.platform) ? row.platform : null,
+    appVersion: row.app_version,
+    lastSeenAt: msOrNull(row.last_seen_at),
     createdAt: ms(row.created_at),
+    updatedAt: ms(row.updated_at),
+  };
+}
+
+type BackupMetaRow = {
+  account_id: string;
+  format: number;
+  schema: number;
+  platform: string;
+  size: number;
+  updated_at: string;
+};
+
+function toBackupMeta(row: BackupMetaRow): BackupMeta {
+  return {
+    accountId: row.account_id,
+    format: row.format,
+    schema: row.schema,
+    // Only the API writes this column, and it writes one of the two.
+    platform: row.platform === 'android' ? 'android' : 'ios',
+    size: row.size,
     updatedAt: ms(row.updated_at),
   };
 }
@@ -167,13 +199,18 @@ export function createPgStore(connectionString: string): PgStore {
     },
     async putAccount(account) {
       try {
+        // `last_seen_at` goes in on the insert and never in the update: `touchAccount` is
+        // its only writer afterwards, so a write that began from an older read of the
+        // row cannot move it back.
         await query(
-          `insert into accounts (id, secret_hash, name, handle, invite_code, push_token, time_zone, nudges_on, created_at, updated_at)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+          `insert into accounts (id, secret_hash, name, handle, invite_code, push_token, time_zone, nudges_on, platform, app_version, last_seen_at, created_at, updated_at)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
            on conflict (id) do update set
              secret_hash = excluded.secret_hash, name = excluded.name, handle = excluded.handle,
              invite_code = excluded.invite_code, push_token = excluded.push_token,
-             time_zone = excluded.time_zone, nudges_on = excluded.nudges_on, updated_at = excluded.updated_at`,
+             time_zone = excluded.time_zone, nudges_on = excluded.nudges_on,
+             platform = excluded.platform, app_version = excluded.app_version,
+             updated_at = excluded.updated_at`,
           [
             account.id,
             account.secretHash,
@@ -183,6 +220,9 @@ export function createPgStore(connectionString: string): PgStore {
             account.pushToken,
             account.timeZone,
             account.nudgesOn,
+            account.platform,
+            account.appVersion,
+            account.lastSeenAt,
             account.createdAt,
             account.updatedAt,
           ],
@@ -198,9 +238,15 @@ export function createPgStore(connectionString: string): PgStore {
         throw error;
       }
     },
+    async touchAccount(id, at) {
+      await query(
+        'update accounts set last_seen_at = $2 where id = $1 and (last_seen_at is null or last_seen_at < $2)',
+        [id, at],
+      );
+    },
     async deleteAccount(id) {
-      // The cascades take the links, weeks, marks, cheers and nudges with it; a
-      // challenge someone else made keeps running without this participant.
+      // The cascades take the links, weeks, marks, cheers, nudges and the backup with it;
+      // a challenge someone else made keeps running without this participant.
       await query(
         `update challenges set participant_ids = (
            select coalesce(jsonb_agg(value), '[]'::jsonb) from jsonb_array_elements(participant_ids)
@@ -234,6 +280,8 @@ export function createPgStore(connectionString: string): PgStore {
          on conflict (owner_id, member_id) do update set status = excluded.status, updated_at = excluded.updated_at`,
         [link.ownerId, link.memberId, link.status, link.createdAt, link.updatedAt],
       );
+      // A new link between the two supersedes an end (ADR-0049).
+      await query('delete from ended_links where a_id = $1 and b_id = $2', pairOf(link.ownerId, link.memberId));
     },
     async linksOf(id) {
       const rows = await query<{ owner_id: string; member_id: string; status: Link['status']; created_at: string; updated_at: string }>(
@@ -247,6 +295,27 @@ export function createPgStore(connectionString: string): PgStore {
         createdAt: ms(row.created_at),
         updatedAt: ms(row.updated_at),
       }));
+    },
+
+    async endLink(a, b, at) {
+      await query(
+        'delete from links where (owner_id = $1 and member_id = $2) or (owner_id = $2 and member_id = $1)',
+        [a, b],
+      );
+      await query(
+        `insert into ended_links (a_id, b_id, ended_at) values ($1,$2,$3)
+         on conflict (a_id, b_id) do update set ended_at = excluded.ended_at`,
+        [...pairOf(a, b), at],
+      );
+    },
+    async endedLinksOf(id, since) {
+      const rows = await query<{ a_id: string; b_id: string; ended_at: string }>(
+        'select * from ended_links where ended_at > $2 and (a_id = $1 or b_id = $1)',
+        [id, since],
+      );
+      return rows.map(
+        (row): EndedLink => ({ otherId: row.a_id === id ? row.b_id : row.a_id, endedAt: ms(row.ended_at) }),
+      );
     },
 
     async putWeek(week) {
@@ -392,6 +461,46 @@ export function createPgStore(connectionString: string): PgStore {
         createdAt: ms(row.created_at),
         updatedAt: ms(row.updated_at),
       }));
+    },
+
+    async putBackup(backup) {
+      // A Buffer, because that is what node-postgres sends as bytea without asking:
+      // a bare Uint8Array would depend on the driver's version to be read as bytes.
+      await query(
+        `insert into backups (account_id, data, format, schema, platform, size, updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7)
+         on conflict (account_id) do update set
+           data = excluded.data, format = excluded.format, schema = excluded.schema,
+           platform = excluded.platform, size = excluded.size, updated_at = excluded.updated_at`,
+        [
+          backup.accountId,
+          Buffer.from(backup.data.buffer, backup.data.byteOffset, backup.data.byteLength),
+          backup.format,
+          backup.schema,
+          backup.platform,
+          backup.size,
+          backup.updatedAt,
+        ],
+      );
+    },
+    async getBackup(accountId) {
+      const rows = await query<BackupMetaRow & { data: Buffer }>(
+        'select * from backups where account_id = $1',
+        [accountId],
+      );
+      const row = rows[0];
+      // bytea comes back as a Buffer, which is already a Uint8Array.
+      return row === undefined ? null : { ...toBackupMeta(row), data: row.data };
+    },
+    async getBackupMeta(accountId) {
+      const rows = await query<BackupMetaRow>(
+        'select account_id, format, schema, platform, size, updated_at from backups where account_id = $1',
+        [accountId],
+      );
+      return rows[0] === undefined ? null : toBackupMeta(rows[0]);
+    },
+    async deleteBackup(accountId) {
+      await query('delete from backups where account_id = $1', [accountId]);
     },
   };
 }

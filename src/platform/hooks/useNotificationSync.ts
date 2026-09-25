@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 
 import { challengeReminders } from '../../data/challenges';
 import { readStreak } from '../../data/streak';
@@ -7,7 +8,7 @@ import { useCircleStore } from '../../data/stores/circle';
 import { useFocusStore } from '../../data/stores/focus';
 import { plannedNotifications } from '../../domain/reminders';
 import { getStrings, useLocaleStore } from '../../i18n';
-import { hasPermission, status, syncScheduled } from '../notifications';
+import { hasPermission, permissionState, status, syncScheduled, type PermissionState } from '../notifications';
 
 /**
  * Keeps the OS's scheduled notifications equal to what the stores imply. Subscribes
@@ -52,6 +53,29 @@ async function syncNow(): Promise<void> {
   await syncScheduled(specs);
 }
 
+/**
+ * Makes `notificationsAllowed` say what the system says. The permission lives in the
+ * system settings, where the user can turn it on or off behind the app's back; without
+ * this, Ajustes would keep saying "Activadas" after a revoke, or keep asking after a
+ * grant. Runs at boot, on every return to the foreground, and when Notificaciones opens.
+ * Resolves to the state it read, for the page to decide what its button does.
+ */
+export async function reconcileNotificationPermission(): Promise<PermissionState> {
+  if (!status().available) {
+    return 'blocked';
+  }
+  const state = await permissionState();
+  const granted = state === 'granted';
+  const app = useAppStore.getState();
+  // During the onboarding its own step owns the flag: on Android 12 and older the
+  // permission is granted from install, and flipping the flag here would start
+  // scheduling before the user has said anything.
+  if (app.settings.onboardingDone && app.settings.notificationsAllowed !== granted) {
+    app.updateSettings({ notificationsAllowed: granted });
+  }
+  return state;
+}
+
 export function useNotificationSync(): void {
   useEffect(() => {
     if (!status().available) {
@@ -70,6 +94,12 @@ export function useNotificationSync(): void {
     };
 
     void syncNow();
+    void reconcileNotificationPermission();
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void reconcileNotificationPermission();
+      }
+    });
 
     const unsubscribeApp = useAppStore.subscribe((state, previous) => {
       if (
@@ -115,6 +145,7 @@ export function useNotificationSync(): void {
     });
 
     return () => {
+      appState.remove();
       unsubscribeApp();
       unsubscribeLocale();
       unsubscribeFocus();

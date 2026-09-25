@@ -4,7 +4,7 @@ import { SHIELD_ICON, shieldPalette } from '../design/shieldPalette';
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { ACTIVITY_PREFIX, routineIdFromActivityName, routineIdsFromActivityNames, windowIntervals } from '../domain/routineWindows';
 import { getStrings } from '../i18n';
-import type { PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
+import type { BlockingStatus, PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, isDevice, type CapabilityStatus } from './capabilities';
 import { skippedWindow } from './routineWindows';
 
@@ -67,7 +67,7 @@ export function nativeModule(): Module | null {
   return cached;
 }
 
-export function status(): CapabilityStatus {
+export function status(): BlockingStatus {
   const t = getStrings().modes.blocking;
   if (isAndroid) {
     return unavailable(t.iosOnly);
@@ -83,9 +83,10 @@ export function status(): CapabilityStatus {
     return unavailable(t.noEntitlement);
   }
   if (authorizationStatus(mod) === mod.AuthorizationStatus.denied) {
-    return unavailable(t.denied);
+    return { ...unavailable(t.denied), detail: { denied: true } };
   }
-  return { available: true, reason: null };
+  // Of Mis reglas only the adult-content filter reaches ManagedSettings (applyPlan).
+  return { available: true, reason: null, detail: { appliedRules: ['blockMature'] } };
 }
 
 /** True once the user said yes. `status().available` also covers "not asked yet". */

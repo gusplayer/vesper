@@ -91,6 +91,7 @@ const DEFAULTS: Settings = {
   liveActivities: true,
   emergencyLeft: 5,
   emergencyTotal: 5,
+  emergencyMonthKey: null,
   rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
   notifications: {
     coaching: true,
@@ -109,7 +110,6 @@ const DEFAULTS: Settings = {
   sex: null,
   lifeExpectancyYears: 77.6,
   weeklyTargetMs: 54_000_000,
-  pendingBanner: null,
   healthSyncedAt: null,
   routineStarts: {},
   lastOpenedAt: null,
@@ -127,11 +127,11 @@ describe('parseSettings', () => {
       ...DEFAULTS,
       onboardingDone: true,
       emergencyLeft: 2,
+      emergencyMonthKey: '2026-09',
       rules: { ...DEFAULTS.rules, strictMode: true },
       notifications: { ...DEFAULTS.notifications, coaching: false },
       birthDate: null,
       weeklyTargetMs: null,
-      pendingBanner: { title: 'Listo', message: 'Tu rutina arrancó' },
       healthSyncedAt: T0,
     };
 
@@ -143,11 +143,13 @@ describe('parseSettings', () => {
       {
         onboardingDone: 'yes',
         emergencyLeft: 'many',
+        emergencyMonthKey: 9,
         lifeExpectancyYears: Number.NaN,
         rules: { strictMode: true, blockInstalls: 'no' },
         notifications: 'all',
         birthDate: 'ayer',
-        pendingBanner: { title: 'sin mensaje' },
+        // A field of an older build (the home banner, gone): read and dropped.
+        pendingBanner: { title: 'Listo', message: 'Tu rutina arrancó' },
         healthSyncedAt: T0,
         healthConnected: true,
       },
@@ -273,5 +275,43 @@ describe('schema', () => {
     for (const column of columns) {
       expect(declared).toContain(column);
     }
+  });
+});
+
+describe('the identity record (ADR-0048)', () => {
+  const ID = '0199a1b2-c3d4-7e5f-8a9b-000000000001';
+
+  it('is nothing without an id', () => {
+    expect(settings.parseIdentity(null)).toBeNull();
+    expect(settings.parseIdentity({ registeredAt: 5 })).toBeNull();
+    expect(settings.parseIdentity({ id: '' })).toBeNull();
+  });
+
+  it('reads an unregistered identity, and a record from before the later fields', () => {
+    expect(settings.parseIdentity({ id: ID, registeredAt: null })).toEqual({
+      id: ID,
+      registeredAt: null,
+      supersedes: null,
+      rotatePending: false,
+    });
+  });
+
+  it('keeps each field on its own: a corrupt one never takes the id with it', () => {
+    expect(settings.parseIdentity({ id: ID, registeredAt: 'soon', supersedes: 7, rotatePending: 'yes' })).toEqual({
+      id: ID,
+      registeredAt: null,
+      supersedes: null,
+      rotatePending: false,
+    });
+    expect(
+      settings.parseIdentity({ id: ID, registeredAt: T0, supersedes: 'old-id', rotatePending: true }),
+    ).toEqual({ id: ID, registeredAt: T0, supersedes: 'old-id', rotatePending: true });
+  });
+
+  it('deletes the record and the last ping together', () => {
+    settings.deleteIdentity();
+
+    const deletes = fake.calls.filter((call) => call.sql.startsWith('DELETE FROM settings'));
+    expect(deletes.map((call) => call.params)).toEqual([['identity'], ['identity_ping_at']]);
   });
 });

@@ -20,8 +20,8 @@ type ModeShape = Pick<Mode, 'behavior' | 'appIds' | 'websiteIds'>;
 
 /**
  * The mode that already carries `name`, ignoring case and surrounding spaces, or
- * undefined. The onboarding uses it to point at the demo mode instead of creating a
- * twin; the first match wins, so the oldest mode with that name is the one reused.
+ * undefined. Modos › Ideas uses it to mark an idea that is already one of the modes
+ * instead of adding a twin; the first match wins, so the oldest mode is the one found.
  */
 export function findModeByName<T extends Pick<Mode, 'name'>>(modes: readonly T[], name: string): T | undefined {
   const wanted = name.trim().toLowerCase();
@@ -31,24 +31,62 @@ export function findModeByName<T extends Pick<Mode, 'name'>>(modes: readonly T[]
   return modes.find((mode) => mode.name.trim().toLowerCase() === wanted);
 }
 
-/** 'Bloquea 4 apps · 3 sitios' or 'Permite solo 3 apps' — the line under a mode name. */
-export function modeSummaryText(mode: ModeShape, t: ModesStrings): string {
-  const apps = t.summary.apps(mode.appIds.length);
-  const sites = mode.websiteIds.length;
-  if (mode.behavior === 'allow') {
-    return t.summary.allowsOnly(apps);
+/**
+ * The name of a duplicate: 'Sin redes (1)', then '(2)' when that one exists. A copy of
+ * a copy counts from the same base ('Sin redes (1)' → 'Sin redes (2)'), never
+ * 'Sin redes (1) (1)'. Names compare as the user reads them (trimmed, any case).
+ */
+export function duplicateName(name: string, existing: readonly string[]): string {
+  const base = name.trim().replace(/\s\(\d+\)$/, '');
+  const taken = new Set(existing.map((other) => other.trim().toLowerCase()));
+  let n = 1;
+  while (taken.has(`${base} (${n})`.toLowerCase())) {
+    n += 1;
   }
-  const parts = [t.summary.blocks(apps)];
-  if (sites > 0) {
-    parts.push(t.summary.sites(sites));
-  }
-  return parts.join(' · ');
+  return `${base} (${n})`;
 }
 
-/** 'Bloqueando 4 apps' / 'Permitiendo solo 3 apps' — the line under the mode name during a session. */
-export function modeRunningText(mode: ModeShape, t: ModesStrings): string {
-  const apps = t.summary.apps(mode.appIds.length);
-  return mode.behavior === 'allow' ? t.summary.allowingOnly(apps) : t.summary.blocking(apps);
+/**
+ * Where a mode's apps come from on this phone (ADR-0047 §2): one list per mode.
+ *
+ * - `real`: the phone can block, or the access can be given from the app. "Apps" is
+ *   the real picker and the mode's real selection (`selectionToken`) is its list; the
+ *   catalogue does not show. `selection` is what the token holds ('3 apps · 1 sitio'),
+ *   or null when it holds nothing.
+ * - `example`: there is no real picker here (simulator, iPhone without the
+ *   entitlement, a build without the module). The catalogue stands in, as an example:
+ *   nothing on this phone blocks it.
+ *
+ * Built by the caller from the blocking `status()` (features/modes/realBlocking), so
+ * this file stays free of the platform.
+ */
+/**
+ * Where a mode's apps come from on this phone. `repick`: a real picker, nothing picked
+ * here, and apps that were picked on another phone before a restore (ADR-0048 §9).
+ */
+export type AppsSource = { kind: 'real'; selection: string | null; repick?: boolean } | { kind: 'example' };
+
+/**
+ * The line under a mode name, counting what really blocks: 'Bloquea 3 apps', 'Permite
+ * solo 2 apps', or 'No bloquea apps' — a neutral fact, since a mode with nothing blocked
+ * is a valid choice (ADR-0047 §1). Where the catalogue stands in, it says the list is
+ * an example ('4 apps · 3 sitios de ejemplo') and claims no blocking.
+ */
+export function modeSummaryText(mode: ModeShape, t: ModesStrings, source: AppsSource): string {
+  if (source.kind === 'real') {
+    if (source.selection === null) {
+      return source.repick === true ? t.summary.repick : t.summary.none;
+    }
+    return mode.behavior === 'allow' ? t.summary.allowsOnly(source.selection) : t.summary.blocks(source.selection);
+  }
+  const parts: string[] = [];
+  if (mode.appIds.length > 0) {
+    parts.push(t.summary.apps(mode.appIds.length));
+  }
+  if (mode.websiteIds.length > 0) {
+    parts.push(t.summary.sites(mode.websiteIds.length));
+  }
+  return parts.length === 0 ? t.summary.none : t.summary.example(parts.join(' · '));
 }
 
 /** What the apps row is called for each behavior: what the list means changes. */

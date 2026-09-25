@@ -29,7 +29,11 @@ export type RoutineLike = {
   updatedAt?: Millis;
 };
 
-/** An open-ended window ("hasta que lo termines") still ends on its own, eventually. */
+/**
+ * An open-ended window ("hasta que lo termines") stays open this long for the engine
+ * and the OS, so the routine can start inside it. Its session is open (ADR-0047 §3c):
+ * it ends when the user ends it, or at the open-session cap of domain/session.
+ */
 export const OPEN_END_CAP_MS = 8 * HOUR;
 
 export const MANUAL_DEFAULT_MS = 25 * MINUTE;
@@ -38,6 +42,31 @@ export type RoutineWindow = {
   start: Millis;
   end: Millis;
 };
+
+const MINUTES_PER_DAY = 24 * 60;
+
+/**
+ * A timed routine's window in wall-clock minutes from the midnight of the day it
+ * starts, with the same rules as `windowOnDay`: a null end runs its duration (or the
+ * open-end cap), an end after the start is the same day, and an end at or before the
+ * start is the next day (`end` past 1440). Null for a routine you start by hand. The
+ * screens use it to say what the engine will do: "(día siguiente)", overlaps.
+ */
+export function windowMinutes(
+  routine: Pick<RoutineLike, 'startMinutes' | 'endMinutes' | 'durationMs'>,
+): { start: number; end: number } | null {
+  if (routine.startMinutes === null) {
+    return null;
+  }
+  const start = routine.startMinutes;
+  if (routine.endMinutes === null) {
+    return { start, end: start + Math.round((routine.durationMs ?? OPEN_END_CAP_MS) / MINUTE) };
+  }
+  if (routine.endMinutes > start) {
+    return { start, end: routine.endMinutes };
+  }
+  return { start, end: routine.endMinutes + MINUTES_PER_DAY };
+}
 
 /** Monday-first weekday index of an instant. */
 function weekdayOf(at: Millis): number {
@@ -214,7 +243,11 @@ export function dueRoutine<T extends RoutineLike>(
 }
 
 export type RoutineDecision =
-  | { action: 'start'; routine: RoutineLike; window: RoutineWindow; plannedMs: number }
+  /**
+   * `plannedMs` is null for a window with no end time: the session starts open, and a
+   * deep mode runs as firm, like "Sin límite" (ADR-0047 §3c, ADR-0022).
+   */
+  | { action: 'start'; routine: RoutineLike; window: RoutineWindow; plannedMs: number | null }
   | { action: 'wait'; routine: RoutineLike; window: RoutineWindow }
   | { action: 'none' };
 
@@ -229,6 +262,8 @@ export type RoutineDecision =
  *   so an overlapping routine starting does not revive the one that already ran.
  * - A window that was already open when the routine was saved is not due at all
  *   (activeWindow): saving a routine is not asking for a session right now.
+ * - A window with no end time starts an open session (plannedMs null): it ends when
+ *   the user ends it, not at an hour they never chose (ADR-0047 §3c).
  */
 export function routineDecision(
   routines: readonly RoutineLike[],
@@ -250,8 +285,35 @@ export function routineDecision(
     action: 'start',
     routine: due.routine,
     window: due.window,
-    plannedMs: Math.max(MINUTE, due.window.end - now),
+    plannedMs:
+      due.routine.startMinutes !== null && due.routine.endMinutes === null ? null : Math.max(MINUTE, due.window.end - now),
   };
+}
+
+/**
+ * The marks after a session the user ended by choice — the exit ritual or an
+ * emergency unlock — at `now`: every routine window open at that moment reads as
+ * started, so no waiting routine starts the instant the user chose to stop and locks
+ * them in again (ADR-0047 §3b). Ending a routine's own session early was already a
+ * decision (ADR-0019); ending any session is the same decision for every window open
+ * then. Windows that open later start as usual. Returns `starts` itself when nothing
+ * changes.
+ */
+export function markOpenWindows(
+  routines: readonly RoutineLike[],
+  starts: RoutineStarts | null,
+  now: Millis,
+): RoutineStarts {
+  const next: Record<string, Millis> = { ...(starts ?? {}) };
+  let changed = false;
+  for (const routine of routines) {
+    const window = activeWindow(routine, now);
+    if (window !== null && next[routine.id] !== window.start) {
+      next[routine.id] = window.start;
+      changed = true;
+    }
+  }
+  return changed ? next : (starts ?? {});
 }
 
 /** How long a hand-started routine runs. */

@@ -20,10 +20,13 @@ export const DEFAULT_HABIT_TARGET = 4;
  */
 export const HEALTH_HINTS: readonly { pattern: RegExp; type: HealthType }[] = [
   {
-    pattern: /gym|entrena|pesas|ejercicio|correr|bici|workout|exercise|\btrain|weights|\blift|\brun|\bjog|bike|cycl|swim/i,
+    // 'nadar' and 'trot' carry a boundary: 'nada' alone is "nothing", and a name like
+    // "no hacer nada" must not turn into a workout.
+    pattern:
+      /gym|gimnas|entrena|pesas|ejercicio|correr|\bnadar|nataci|\btrot|bici|workout|exercise|\btrain|weights|\blift|\brun|\bjog|bike|cycl|swim/i,
     type: 'workout',
   },
-  { pattern: /camin|pasos|andar|walk|step|hike/i, type: 'steps' },
+  { pattern: /camin|pasos|andar|senderis|walk|step|hike/i, type: 'steps' },
   { pattern: /dormir|sueño|sueno|sleep/i, type: 'sleep' },
 ];
 

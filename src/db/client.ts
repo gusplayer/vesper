@@ -1,4 +1,4 @@
-import { open, type DB } from '@op-engineering/op-sqlite';
+import { open, type DB, type Scalar } from '@op-engineering/op-sqlite';
 
 import { migrations } from './migrations';
 import { pendingMigrations, splitStatements } from './sql';
@@ -25,10 +25,33 @@ export function getDb(): DB {
 }
 
 /**
- * Applies pending migrations in id order, each one inside its own transaction so a
- * failure halfway through leaves the database on the last good version.
+ * What running a migration needs of a handle: op-sqlite's `DB`, or the fake of
+ * src/db/testing in a test.
  */
-function runMigrations(db: DB): void {
+export type SqlHandle = {
+  executeSync: (sql: string, params?: Scalar[]) => { rows: Record<string, unknown>[] };
+};
+
+export type MigrateOptions = {
+  /**
+   * The last migration id to apply. Omitted, every migration. Restoring a backup stops
+   * at the backup's own schema, puts its rows in, and only then runs the rest, so an
+   * old backup is upgraded exactly the way an old phone is (ADR-0048 §7).
+   */
+  upTo?: number;
+  /**
+   * `'each'` (boot): every migration commits on its own, so a failure halfway leaves
+   * the database on the last good version. `'caller'`: the caller already holds one
+   * transaction and wants all of it or nothing, which SQLite cannot nest.
+   */
+  transaction?: 'each' | 'caller';
+};
+
+/**
+ * Applies pending migrations in id order, up to `upTo`, and returns the ids it applied.
+ */
+export function runMigrations(db: SqlHandle, options: MigrateOptions = {}): number[] {
+  const { upTo = Number.POSITIVE_INFINITY, transaction: mode = 'each' } = options;
   db.executeSync(`
     CREATE TABLE IF NOT EXISTS _migrations (
       id          INTEGER PRIMARY KEY,
@@ -44,8 +67,14 @@ function runMigrations(db: DB): void {
     }
   }
 
+  const done: number[] = [];
   for (const migration of pendingMigrations(migrations, applied)) {
-    db.executeSync('BEGIN');
+    if (migration.id > upTo) {
+      break;
+    }
+    if (mode === 'each') {
+      db.executeSync('BEGIN');
+    }
     try {
       // A migration holds several statements, which executeSync does not split.
       for (const statement of splitStatements(migration.sql)) {
@@ -56,12 +85,19 @@ function runMigrations(db: DB): void {
         migration.name,
         Date.now(),
       ]);
-      db.executeSync('COMMIT');
+      if (mode === 'each') {
+        db.executeSync('COMMIT');
+      }
     } catch (error) {
-      db.executeSync('ROLLBACK');
+      // The caller's transaction is the caller's to roll back.
+      if (mode === 'each') {
+        db.executeSync('ROLLBACK');
+      }
       throw new Error(`migration ${migration.id} (${migration.name}) failed: ${String(error)}`);
     }
+    done.push(migration.id);
   }
+  return done;
 }
 
 /**

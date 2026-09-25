@@ -57,14 +57,27 @@ describe('useOnboardingDraft', () => {
     expect(work.appIds.length).toBeGreaterThan(1);
   });
 
+  it('keeps the real selection when the goal changes: it is the phone, not the idea', () => {
+    useOnboardingDraft.getState().setGoal(idea('idea-work'));
+    useOnboardingDraft.getState().setSelectionToken('token-1');
+    useOnboardingDraft.getState().setGoal(idea('idea-sleep'));
+
+    expect(useOnboardingDraft.getState().selectionToken).toBe('token-1');
+  });
+
   it('reset clears the goal and goes back to the neutral routine', () => {
     useOnboardingDraft.getState().setGoal(idea('idea-sleep'));
+    useOnboardingDraft.getState().setSelectionToken('token-1');
+    useOnboardingDraft.getState().markCommitted('mode-1', 'schedule-1');
     useOnboardingDraft.getState().reset();
 
     const draft = useOnboardingDraft.getState();
     expect(draft.goalId).toBeNull();
     expect(draft.modeName).toBe('');
     expect(draft.appIds).toEqual([]);
+    expect(draft.selectionToken).toBeNull();
+    expect(draft.modeId).toBeNull();
+    expect(draft.scheduleId).toBeNull();
     expect(draft.schedule.startMinutes).toBe(21 * 60);
     expect(draft.schedule.days).toEqual([true, true, true, true, true, false, false]);
   });

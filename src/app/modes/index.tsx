@@ -1,25 +1,25 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { goBack } from '../../lib/goBack';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert } from 'react-native';
 
 import {
-  Card,
-  Icon,
   IconCircle,
   ListGroup,
   ListRow,
+  NoticeCard,
   PageHeader,
   Screen,
   Sheet,
-  Stack,
-  Text,
+  StatusNote,
 } from '../../design/components';
-import { useAppStore, useModes, useRunningSession } from '../../data';
+import { useAppStore, useModes, useRunningSession, useSchedules } from '../../data';
 import type { Mode } from '../../data/types';
 import { ModeCard } from '../../features/modes/ModeCard';
+import { appsSource } from '../../features/modes/realBlocking';
 import { useStrings } from '../../i18n';
+import { status as blockingStatus } from '../../platform/blocking';
 
 /** The list of modes. Tapping a card activates it; '…' duplicates or deletes. */
 export default function ModesScreen() {
@@ -27,6 +27,7 @@ export default function ModesScreen() {
   const t = useStrings();
   const running = useRunningSession() !== null;
   const modes = useModes();
+  const schedules = useSchedules();
   const activeModeId = useAppStore((state) => state.activeModeId);
   const setActiveMode = useAppStore((state) => state.setActiveMode);
   const duplicateMode = useAppStore((state) => state.duplicateMode);
@@ -34,9 +35,19 @@ export default function ModesScreen() {
   /** The mode whose options sheet is open. */
   const [menuFor, setMenuFor] = useState<Mode | null>(null);
 
+  // What this phone can block, read again whenever the list comes back into view: the
+  // user may have just granted the access, or picked real apps in the editor.
+  const [blocking, setBlocking] = useState(() => blockingStatus());
+  useFocusEffect(
+    useCallback(() => {
+      setBlocking(blockingStatus());
+    }, []),
+  );
+
   const confirmDelete = (mode: Mode) => {
     setMenuFor(null);
-    Alert.alert(t.modes.deleteAlert.title(mode.name), t.modes.deleteAlert.message, [
+    const routines = schedules.filter((schedule) => schedule.modeId === mode.id).map((schedule) => schedule.name);
+    Alert.alert(t.modes.deleteAlert.title(mode.name), t.modes.deleteAlert.message(routines), [
       { text: t.common.cancel, style: 'cancel' },
       { text: t.modes.deleteAlert.confirm, style: 'destructive', onPress: () => deleteMode(mode.id) },
     ]);
@@ -58,23 +69,20 @@ export default function ModesScreen() {
         }
       />
 
-      {running ? (
-        <Text variant="label" tone="secondary" align="center">
-          {t.modes.list.readOnlyNotice}
-        </Text>
-      ) : null}
+      {running ? <StatusNote text={t.modes.list.readOnlyNotice} align="center" /> : null}
 
-      {modes.length === 0 ? (
-        <Text variant="label" tone="secondary" align="center">
-          {t.modes.list.empty}
-        </Text>
-      ) : null}
+      {blocking.available || blocking.reason === null ? null : (
+        <StatusNote text={t.modes.list.cannotBlock(blocking.reason)} icon="info" />
+      )}
+
+      {modes.length === 0 ? <NoticeCard tone="muted" body={t.modes.list.empty} /> : null}
 
       {modes.map((mode) => (
         <ModeCard
           key={mode.id}
           mode={mode}
           active={mode.id === activeModeId}
+          source={appsSource(mode, blocking)}
           readOnly={running}
           onSelect={() => setActiveMode(mode.id)}
           onEdit={() => router.push({ pathname: '/modes/edit', params: { id: mode.id } })}
@@ -83,17 +91,13 @@ export default function ModesScreen() {
       ))}
 
       {running ? null : (
-      <Card tone="muted" onPress={() => router.push('/modes/ideas')} accessibilityLabel={t.modes.list.ideasA11y}>
-        <Stack direction="row" align="center" gap="md">
-          <Stack gap="xs" grow>
-            <Text weight="medium">{t.modes.list.ideasTitle}</Text>
-            <Text variant="label" tone="secondary">
-              {t.modes.list.ideasSubtitle}
-            </Text>
-          </Stack>
-          <Icon name="chevron-right" size="sm" tone="secondary" />
-        </Stack>
-      </Card>
+        <NoticeCard
+          tone="muted"
+          title={t.modes.list.ideasTitle}
+          body={t.modes.list.ideasSubtitle}
+          trailing="chevron"
+          onPress={() => router.push('/modes/ideas')}
+        />
       )}
 
       <Sheet visible={menuFor !== null} title={t.modes.list.options} onClose={() => setMenuFor(null)}>

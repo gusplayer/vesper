@@ -1,7 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { layout, radius, shadow, space } from '../tokens';
+import { layout, radius, shadow, space, font } from '../tokens';
 import { Text } from './Text';
 
 type HeroObjectProps = {
@@ -66,6 +66,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm / 4,
   },
   word: {
-    letterSpacing: 2,
+    letterSpacing: font.tracking.mark,
   },
 });

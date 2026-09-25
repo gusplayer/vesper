@@ -39,5 +39,21 @@ export type CapabilityStatus = {
      * (Samsung Health, Fit, a watch). Android only.
      */
     healthConnect?: boolean;
+    /**
+     * Blocking is not available yet, but the user can grant what is missing from inside
+     * the app (Android usage access or display over other apps). Android only.
+     */
+    grantable?: boolean;
+    /**
+     * The rules of Mis reglas this platform really applies during a session. A rule not
+     * listed is kept as a preference and the screen says it does not reach the system.
+     */
+    appliedRules?: readonly ('strictMode' | 'blockInstalls' | 'blockPurchases' | 'blockMature')[];
+    /**
+     * The user refused the permission in the system's own dialog (iOS Screen Time).
+     * Unlike a missing module or entitlement it is their answer, and only Settings can
+     * change it. iOS only.
+     */
+    denied?: boolean;
   };
 };

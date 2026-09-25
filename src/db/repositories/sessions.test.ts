@@ -139,6 +139,8 @@ describe('countCompleted', () => {
   it('reads the COUNT and defaults to zero', () => {
     expect(sessions.countCompleted()).toBe(0);
     expect(fake.callMatching(/COUNT\(\*\)/).sql).toContain("outcome = 'completed'");
+    // The seeded history is not the user's: the first real session is still the first.
+    expect(fake.callMatching(/COUNT\(\*\)/).sql).toContain("id NOT LIKE 'demo-%'");
 
     fake = createFakeDb();
     fake.whenSql("outcome = 'completed'", [{ n: 4 }]);
@@ -211,6 +213,24 @@ describe('recoverOrphans', () => {
     expect(sessions.recoverOrphans(T0 + 20 * HOUR)).toBe(1);
     expect(fake.callMatching(/UPDATE sessions/).params?.slice(0, 2)).toEqual([12 * HOUR, 'expired']);
     expect(fake.callMatching(/UPDATE sessions/).params?.[4]).toBe(T0 + 12 * HOUR);
+  });
+
+  it('holds the last session it closed by time for its closing screen, once', () => {
+    fake.whenSql("outcome = 'running'", [runningRow('s-1', T0, HOUR), runningRow('s-2', T0 + HOUR, HOUR)]);
+
+    sessions.recoverOrphans(T0 + 10 * HOUR);
+
+    expect(sessions.takeRecoveredClosing()?.id).toBe('s-2');
+    expect(sessions.takeRecoveredClosing()).toBeNull();
+  });
+
+  it('holds nothing when every orphan is still inside its window', () => {
+    sessions.takeRecoveredClosing();
+    fake.whenSql("outcome = 'running'", [runningRow('s-1', T0, HOUR)]);
+
+    sessions.recoverOrphans(T0 + 10 * MINUTE);
+
+    expect(sessions.takeRecoveredClosing()).toBeNull();
   });
 
   it('leaves a session still inside its window alone', () => {

@@ -228,3 +228,160 @@ describe('the cursor', () => {
     expect(useCircleStore.getState().syncFailed).toBe(false);
   });
 });
+
+describe('an acceptance the server has not heard yet', () => {
+  const PENDING: Member = { ...ANA_MEMBER, status: 'pending', joinedAt: null };
+
+  function settingsWrites(key: string): unknown[] {
+    return fake.calls
+      .filter((call) => /INSERT INTO settings/.test(call.sql) && call.params?.[0] === key)
+      .map((call) => JSON.parse(String(call.params?.[1])) as unknown);
+  }
+
+  it('is queued and stored when there is an account, because /sync cannot carry it', () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [PENDING] });
+
+    expect(useCircleStore.getState().acceptInvite(ANA, 60)).toBe('ok');
+
+    expect(useCircleStore.getState().pendingAccepts).toEqual([ANA]);
+    expect(settingsWrites('circle_pending_accepts').at(-1)).toEqual([ANA]);
+  });
+
+  it('is not queued for the demo circle, where nobody waits for an answer', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [PENDING] });
+
+    useCircleStore.getState().acceptInvite(ANA, 60);
+
+    expect(useCircleStore.getState().pendingAccepts).toEqual([]);
+  });
+
+  it('leaves the queue once settled, and when the person is removed first', () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [PENDING] });
+    useCircleStore.getState().acceptInvite(ANA, 60);
+
+    useCircleStore.getState().removeMember(ANA);
+
+    expect(useCircleStore.getState().pendingAccepts).toEqual([]);
+    expect(settingsWrites('circle_pending_accepts').at(-1)).toEqual([]);
+  });
+
+  it('is forgotten with the account', () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [PENDING] });
+    useCircleStore.getState().acceptInvite(ANA, 60);
+    useCircleStore.getState().markCodeConfirmed(2, 60);
+    useCircleStore.getState().setProfileDirty(true, 60);
+
+    useCircleStore.getState().clearAccount(90);
+
+    const state = useCircleStore.getState();
+    expect(state.pendingAccepts).toEqual([]);
+    expect(state.confirmedGeneration).toBeNull();
+    expect(state.profileDirty).toBe(false);
+  });
+});
+
+describe('the code generation the server confirmed', () => {
+  it('is null on a fresh install and stored once confirmed', () => {
+    expect(useCircleStore.getState().confirmedGeneration).toBeNull();
+
+    useCircleStore.getState().markCodeConfirmed(1, 70);
+
+    expect(useCircleStore.getState().confirmedGeneration).toBe(1);
+    expect(
+      fake.calls.some((c) => /INSERT INTO settings/.test(c.sql) && c.params?.[0] === 'circle_code_confirmed'),
+    ).toBe(true);
+  });
+
+  it('is read back at boot', () => {
+    fake.whenSql(/SELECT value FROM settings/, [{ value: '3' }]);
+    useCircleStore.getState().hydrate(1);
+    expect(useCircleStore.getState().confirmedGeneration).toBe(3);
+  });
+
+  it('reads anything unreadable as unconfirmed', () => {
+    fake.whenSql(/SELECT value FROM settings/, [{ value: '"x"' }]);
+    useCircleStore.getState().hydrate(1);
+    expect(useCircleStore.getState().confirmedGeneration).toBeNull();
+  });
+});
+
+describe('ending a link here (ADR-0049)', () => {
+  const PENDING: Member = { ...ANA_MEMBER, status: 'pending', joinedAt: null };
+  const ANA_CHALLENGE: Challenge = { ...REMOTE_CHALLENGE, participantIds: [ANA, ME], habitId: 'habit-walk' };
+
+  function withAccount(): void {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+  }
+
+  it('queues Rechazar for the server, and not for the demo circle', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [PENDING] });
+    useCircleStore.getState().declineInvite(ANA, 60);
+    expect(useCircleStore.getState().pendingEnds).toEqual([]);
+
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [PENDING] });
+    useCircleStore.getState().declineInvite(ANA, 61);
+
+    expect(useCircleStore.getState().pendingEnds).toEqual([ANA]);
+    expect(useCircleStore.getState().members).toEqual([]);
+  });
+
+  it('queues Quitar and archives the challenges that person made here', () => {
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER], challenges: [ANA_CHALLENGE] });
+
+    useCircleStore.getState().removeFromCircle(ANA, 70);
+
+    const state = useCircleStore.getState();
+    expect(state.pendingEnds).toEqual([ANA]);
+    expect(state.members).toEqual([]);
+    expect(state.challenges.find((challenge) => challenge.id === CHALLENGE)?.archivedAt).toBe(70);
+  });
+
+  it('turns every queued end into one for everyone when leaving the circle', () => {
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+    useCircleStore.getState().removeFromCircle(ANA, 70);
+
+    useCircleStore.getState().leaveCircle(80);
+
+    expect(useCircleStore.getState().pendingEnds).toEqual(['*']);
+  });
+
+  it('queues Salir del reto', () => {
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER], challenges: [ANA_CHALLENGE] });
+
+    useCircleStore.getState().leaveChallenge(CHALLENGE, 90);
+
+    expect(useCircleStore.getState().pendingLeaves).toEqual([CHALLENGE]);
+  });
+
+  it('lets a person the server says is gone go, with the challenges they made', () => {
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER], weeks: [ANA_WEEK], challenges: [ANA_CHALLENGE] });
+
+    useCircleStore.getState().applyRemote({ ...EMPTY, ended: [ANA] });
+
+    const state = useCircleStore.getState();
+    expect(state.members).toEqual([]);
+    expect(state.memberWeeks).toEqual([]);
+    expect(state.challenges.find((challenge) => challenge.id === CHALLENGE)?.archivedAt).not.toBeNull();
+  });
+
+  it('remembers whether the server has the call, and forgets the queues with the account', () => {
+    withAccount();
+    useCircleStore.getState().setLinkEndSupport('no', 95);
+    useCircleStore.getState().leaveCircle(96);
+
+    useCircleStore.getState().clearAccount(99);
+
+    const state = useCircleStore.getState();
+    expect(state.pendingEnds).toEqual([]);
+    expect(state.pendingLeaves).toEqual([]);
+    expect(state.linkEndSupport).toBe('no');
+  });
+});

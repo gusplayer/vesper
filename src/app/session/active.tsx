@@ -1,4 +1,4 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AppState } from 'react-native';
 
@@ -13,20 +13,23 @@ import {
   Screen,
   Spacer,
   Stack,
+  StatusNote,
   Tappable,
   Text,
 } from '../../design/components';
-import { useFocusStore, useMode, useRunningSession, useSettings } from '../../data';
+import { useFocusStore, useMode, useRunningSession, useSchedules, useSettings } from '../../data';
 import {
   breakAvailableIn,
   breakEndsAt,
   breakReachable,
   canTakeBreak,
   elapsed,
+  plannedEndAt,
   sessionProgress,
 } from '../../domain/session';
 import { ModeDetailsSheet } from '../../features/modes/ModeDetailsSheet';
 import { FocusArt } from '../../features/session/FocusArt';
+import { sessionRoutine } from '../../features/session/sessionRoutine';
 import { useStrings } from '../../i18n';
 import { clockText, durationText, timerText } from '../../lib/format';
 import { useNow } from '../../lib/useNow';
@@ -51,17 +54,26 @@ type FloodTone = 'ink' | 'paper';
  * light, the clock counts the break down, and the one button brings the session back.
  * Both ways are dissolves from the button that was tapped: paper over the session
  * into the break, ink over the break into the session, so the scheme change hides
- * under the flood. A break that runs out on its own (SessionGate) comes back with the
- * plain route fade: nobody tapped, so there is nowhere for the ink to start.
+ * under the flood. A break that runs out on its own (SessionGate) swaps in place:
+ * nobody tapped, so there is nowhere for the ink to start. ADR-0025 §3 asks for the
+ * route fade there, which an in-place scheme change cannot give; that is open.
+ *
+ * Opened with no session running — a Live Activity that outlived its session, a stale
+ * link — the route has nothing to show and no way back, so it sends the user to Focus.
+ * A session that ends while the screen is open is not that case: whoever ended it
+ * (SessionGate, the exit ritual, the emergency) is already navigating.
  */
 export default function ActiveSessionScreen() {
   const router = useRouter();
   const strings = useStrings().session;
   const t = strings.active;
   const session = useRunningSession();
+  const [arrivedWithSession] = useState(session !== null);
   const modeId = useFocusStore((state) => state.modeId);
   const mode = useMode(modeId ?? undefined);
-  const emergencyLeft = useSettings().emergencyLeft;
+  const settings = useSettings();
+  const emergencyLeft = settings.emergencyLeft;
+  const schedules = useSchedules();
   const takeBreak = useFocusStore((state) => state.takeBreak);
   const resume = useFocusStore((state) => state.resume);
   const registerInterruption = useFocusStore((state) => state.registerInterruption);
@@ -97,7 +109,7 @@ export default function ActiveSessionScreen() {
   }, [registerInterruption]);
 
   if (session === null) {
-    return null;
+    return arrivedWithSession ? null : <Redirect href="/" />;
   }
 
   const startFlood = (tone: FloodTone) => {
@@ -153,15 +165,25 @@ export default function ActiveSessionScreen() {
   const deep = session.depth === 'deep';
 
   // A break only exists if the next one unlocks before the plan runs out: a 5 min
-  // session never reaches its first break, so it never announces one.
-  const breakButton = breakReachable(session, now) ? (
-    <Button
-      variant="ghost"
-      label={canTakeBreak(session, now) ? t.takeBreak : t.breakIn(durationText(breakAvailableIn(session, now)))}
-      disabled={!canTakeBreak(session, now)}
-      onPress={() => startFlood('paper')}
-    />
+  // session never reaches its first break, so it never announces one. Until it
+  // unlocks, when it will is a line under the bar, not a disabled button: faded text
+  // would say it at tertiary contrast.
+  const breakReady = canTakeBreak(session, now);
+  const breakSoon = breakReachable(session, now) && !breakReady;
+  const breakButton = breakReady ? (
+    <Button variant="ghost" label={t.takeBreak} onPress={() => startFlood('paper')} />
   ) : null;
+  const breakLine = breakSoon ? (
+    <StatusNote align="center" text={t.breakIn(durationText(breakAvailableIn(session, now)))} />
+  ) : null;
+
+  // A routine that started this session says so, and when the session ends.
+  const routine = sessionRoutine(session, schedules, settings.routineStarts);
+  const routineEnd = plannedEndAt(session);
+  const routineLine =
+    routine === null || routineEnd === null ? null : (
+      <StatusNote align="center" text={t.routine(routine.routine.name, clockText(routineEnd))} />
+    );
 
   // Deep has no way out by hand, so it has no footer; the caption under the bar says so.
   const footer = deep ? undefined : (
@@ -186,11 +208,9 @@ export default function ActiveSessionScreen() {
 
   // An open session has no end to draw: the bar gives way to a line.
   const progress = session.open ? (
-    <Text variant="caption" tone="secondary" align="center">
-      {t.openSince(clockText(session.startedAt))}
-    </Text>
+    <StatusNote align="center" text={t.openSince(clockText(session.startedAt))} />
   ) : (
-    <ProgressBar progress={sessionProgress(session, now)} />
+    <ProgressBar progress={sessionProgress(session, now)} accessibilityLabel={t.progressLabel} />
   );
 
   // Sideways, the session is a clock on a table: the time, the mode, the bar. No buttons;
@@ -206,6 +226,7 @@ export default function ActiveSessionScreen() {
               <Text variant="caption" tone="secondary" align="center">
                 {mode === null ? t.focused : mode.name}
               </Text>
+              <Button variant="ghost" label={t.clock} onPress={() => setShowingArt(false)} />
             </Stack>
             <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} layout="landscape" />
           </Stack>
@@ -239,9 +260,15 @@ export default function ActiveSessionScreen() {
           <FlipClock value={timerText(elapsed(session, now))} scale={0.7} />
         </Stack>
         <Spacer />
-        <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} />
+        <Stack align="center" gap="sm">
+          <FocusArt session={session} now={now} onPress={() => setShowingArt(false)} />
+          <Button variant="ghost" label={t.clock} onPress={() => setShowingArt(false)} />
+        </Stack>
         <Spacer />
-        {progress}
+        <Stack gap="sm">
+          {progress}
+          {breakLine}
+        </Stack>
       </Screen>,
     );
   }
@@ -267,27 +294,37 @@ export default function ActiveSessionScreen() {
         <Tappable
           onPress={() => setShowingMode(true)}
           disabled={mode === null}
-          accessibilityLabel={t.modeLabel(mode?.name ?? t.fallbackName)}
+          accessibilityLabel={mode?.name ?? t.fallbackName}
+          accessibilityHint={mode === null ? undefined : t.modeHint}
         >
           <Stack direction="row" align="center" gap="sm">
             <Text variant="heading">{mode?.name ?? t.fallbackName}</Text>
             {mode === null ? null : <Icon name="info" size="sm" tone="tertiary" />}
           </Stack>
         </Tappable>
+        {/* What the user said this session is for, in their words (PRD §2, ADR-0047 §10). */}
+        {session.intention === null ? null : (
+          <Text variant="body" tone="secondary" align="center" numberOfLines={3}>
+            {t.intention(session.intention)}
+          </Text>
+        )}
+        {routineLine}
       </Stack>
       {mode === null ? null : (
-        <ModeDetailsSheet mode={mode} visible={showingMode} onClose={() => setShowingMode(false)} />
+        <ModeDetailsSheet
+          mode={mode}
+          depth={session.depth}
+          visible={showingMode}
+          onClose={() => setShowingMode(false)}
+        />
       )}
 
       <Stack gap="sm">
         {progress}
-        {deep ? (
-          <Text variant="caption" tone="secondary" align="center">
-            {t.deepOnlyTimer}
-          </Text>
-        ) : null}
+        {deep ? <StatusNote align="center" text={t.deepOnlyTimer} /> : null}
+        {breakLine}
         {session.interruptions > 0 ? (
-          <Text variant="caption" tone="secondary" align="right">
+          <Text variant="caption" tone="secondary" align="center">
             {t.interruptions(session.interruptions)}
           </Text>
         ) : null}

@@ -1,5 +1,6 @@
 import type { Strings } from '../es';
 import { activity } from './activity';
+import { backup } from './backup';
 import { circle } from './circle';
 import { common } from './common';
 import { demo } from './demo';
@@ -7,6 +8,7 @@ import { depth } from './depth';
 import { focus } from './focus';
 import { format } from './format';
 import { habits } from './habits';
+import { identity } from './identity';
 import { modes } from './modes';
 import { notifications } from './notifications';
 import { onboarding } from './onboarding';
@@ -27,6 +29,8 @@ export const en: Strings = {
   habits,
   circle,
   settings,
+  identity,
+  backup,
   notifications,
   demo,
   format,

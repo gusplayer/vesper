@@ -24,10 +24,25 @@ describe('statusText', () => {
     expect(statusText({ kind: 'active', until: WED_18 }, WED_10, es.routines, { running: true })).toBe(
       'En curso · hasta las 18:00',
     );
+    expect(statusText({ kind: 'active', until: WED_18 }, WED_10, es.routines, { waiting: true })).toBe(
+      'Espera a que termine tu sesión · hasta las 18:00',
+    );
+    expect(statusText({ kind: 'active', until: WED_18 }, WED_10, en.routines, { waiting: true })).toBe(
+      'Waiting for your session to end · until 18:00',
+    );
     expect(statusText({ kind: 'active', until: WED_18 }, WED_10, en.routines)).toBe('Active · until 18:00');
     expect(statusText({ kind: 'active', until: WED_18 }, WED_10, en.routines, { running: true })).toBe(
       'Running · until 18:00',
     );
+  });
+
+  it('names no hour for a window with no end time: its session ends when you end it', () => {
+    const active = { kind: 'active' as const, until: WED_18 };
+    expect(statusText(active, WED_10, es.routines, { open: true })).toBe('Activa · hasta que la termines');
+    expect(statusText(active, WED_10, es.routines, { open: true, running: true })).toBe('En curso · hasta que la termines');
+    expect(statusText(active, WED_10, en.routines, { open: true, waiting: true })).toBe('Waiting for your session to end');
+    const started = { kind: 'started' as const, until: WED_18, next: THU_9 };
+    expect(statusText(started, WED_10, en.routines, { open: true, running: true })).toBe('Running · until you end it');
   });
 
   it('says a started window is in progress while its session runs, and done for today after', () => {
@@ -75,3 +90,4 @@ describe('statusText', () => {
     expect(statusText({ kind: 'never' }, WED_10, en.routines)).toBe('No days chosen');
   });
 });
+

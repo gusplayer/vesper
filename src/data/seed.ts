@@ -197,7 +197,11 @@ export function demoModeIdeas(t: DemoStrings): ModeIdea[] {
   ];
 }
 
-/** `updatedAt` is 0 here: the seeder's write stamps the real instant. */
+/**
+ * `updatedAt` is 0 here: the seeder's write stamps the real instant. Every routine is
+ * seeded **off** (ADR-0047 §1): an example must never start a session, let alone a deep
+ * one, that the user did not ask for. They are there to be looked at and turned on.
+ */
 export function demoSchedules(t: DemoStrings): Schedule[] {
   return [
     {
@@ -208,7 +212,7 @@ export function demoSchedules(t: DemoStrings): Schedule[] {
       endMinutes: 18 * 60,
       durationMs: null,
       days: [true, true, true, true, true, false, false],
-      enabled: true,
+      enabled: false,
       updatedAt: 0,
     },
     {
@@ -219,7 +223,7 @@ export function demoSchedules(t: DemoStrings): Schedule[] {
       endMinutes: null,
       durationMs: null,
       days: [true, true, true, true, false, false, true],
-      enabled: true,
+      enabled: false,
       updatedAt: 0,
     },
     {
@@ -230,7 +234,7 @@ export function demoSchedules(t: DemoStrings): Schedule[] {
       endMinutes: null,
       durationMs: 20 * MINUTE,
       days: [false, false, false, false, false, false, false],
-      enabled: true,
+      enabled: false,
       updatedAt: 0,
     },
   ];
@@ -244,6 +248,7 @@ export const SETTINGS: Settings = {
   liveActivities: true,
   emergencyLeft: 5,
   emergencyTotal: 5,
+  emergencyMonthKey: null,
   rules: { strictMode: false, blockInstalls: false, blockPurchases: false, blockMature: false },
   notifications: {
     coaching: true,
@@ -257,12 +262,12 @@ export const SETTINGS: Settings = {
     nudges: true,
     reminderMinutes: 20 * 60,
   },
-  birthDate: new Date(1992, 3, 14).getTime(),
+  // Vida is opt-in (docs/PRD.md §3): no date until the user writes their own.
+  birthDate: null,
   country: null,
   sex: null,
   lifeExpectancyYears: 77.6,
   weeklyTargetMs: 15 * HOUR,
-  pendingBanner: null,
   healthSyncedAt: null,
   routineStarts: {},
   lastOpenedAt: null,

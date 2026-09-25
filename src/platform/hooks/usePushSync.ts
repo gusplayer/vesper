@@ -245,12 +245,16 @@ export function usePushSync(): void {
 
     const listener = addPushListener();
 
-    // Tapping a nudge opens the challenge it is about; that is the only thing a
-    // circle notice routes to, and an unknown one routes nowhere.
-    const taps = addNoticeTapListener((challengeId) => {
-      if (challengeId !== null) {
-        router.push({ pathname: '/circle/challenge', params: { id: challengeId } });
+    // A circle notice opens what it is about: the challenge of a nudge, Invitar for a
+    // request to answer, the circle once someone accepted.
+    const taps = addNoticeTapListener((tap) => {
+      if (tap.kind === 'nudge') {
+        if (tap.challengeId !== null) {
+          router.push({ pathname: '/circle/challenge', params: { id: tap.challengeId } });
+        }
+        return;
       }
+      router.push(tap.kind === 'invite' ? '/circle/invite' : '/circle');
     });
 
     const appState = AppState.addEventListener('change', (next) => {

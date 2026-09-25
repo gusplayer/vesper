@@ -1,6 +1,8 @@
+import { useBackupSync } from './hooks/useBackupSync';
 import { useBlockingSync } from './hooks/useBlockingSync';
 import { useCircleSync } from './hooks/useCircleSync';
 import { useHealthSync } from './hooks/useHealthSync';
+import { useIdentitySync } from './hooks/useIdentitySync';
 import { useLiveActivitySync } from './hooks/useLiveActivitySync';
 import { useNotificationSync } from './hooks/useNotificationSync';
 import { usePushSync } from './hooks/usePushSync';
@@ -13,6 +15,8 @@ import { useUsageSync } from './hooks/useUsageSync';
  * store and talks to one native capability; none of them renders anything.
  */
 export function PlatformEffects() {
+  // First: the circle and the backup both sign with the identity it registers.
+  useIdentitySync();
   useNotificationSync();
   usePushSync();
   useHealthSync();
@@ -22,5 +26,6 @@ export function PlatformEffects() {
   useRoutineWindowsSync();
   useUsageSync();
   useCircleSync();
+  useBackupSync();
   return null;
 }

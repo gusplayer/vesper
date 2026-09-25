@@ -6,11 +6,13 @@ import { es } from '../i18n/es';
 import { HOUR, MINUTE } from '../domain/time';
 import type { WeekProgress } from '../domain/week';
 import {
+  clockText,
   dayText,
   durationText,
   focusOfTargetText,
   habitProgressText,
   minutesText,
+  setClockLocale,
   timerText,
 } from './format';
 
@@ -129,5 +131,33 @@ describe('habitProgressText', () => {
     expect(
       habitProgressText({ habit: aHabit(), markedDays: 2, met: false, markedToday: false }, es.format),
     ).toBe('2 de 4');
+  });
+});
+
+describe('clockText', () => {
+  const at = (hours: number, minutes: number) => new Date(2026, 8, 24, hours, minutes).getTime();
+  // Intl may put a narrow no-break space before AM/PM; the words are what matter.
+  const plain = (text: string) => text.replace(/\s/g, ' ');
+
+  it('reads twenty-four hours in Spanish, with no leading zero', () => {
+    expect(clockText(at(9, 5), 'es-CO')).toBe('9:05');
+    expect(clockText(at(18, 30), 'es-MX')).toBe('18:30');
+    expect(clockText(at(0, 5), 'es-ES')).toBe('0:05');
+  });
+
+  it('reads twelve hours in English', () => {
+    expect(plain(clockText(at(18, 5), 'en-US'))).toBe('6:05 PM');
+    expect(plain(clockText(at(9, 0), 'en-US'))).toBe('9:00 AM');
+    expect(plain(clockText(at(0, 5), 'en-US'))).toBe('12:05 AM');
+  });
+
+  it('follows the language the store set, and stays twenty-four hours before it does', () => {
+    setClockLocale(null);
+    expect(clockText(at(18, 5))).toBe('18:05');
+    setClockLocale('en-US');
+    expect(plain(clockText(at(18, 5)))).toBe('6:05 PM');
+    setClockLocale('es-CO');
+    expect(clockText(at(18, 5))).toBe('18:05');
+    setClockLocale(null);
   });
 });

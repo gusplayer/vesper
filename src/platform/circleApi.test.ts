@@ -9,15 +9,23 @@ import {
   buildUpload,
   CIRCLE_API_URL,
   claimAccount,
+  cleanHandle,
+  createIdentity,
   credentialsFrom,
+  credentialsFromPastedKey,
   deleteAccount,
+  deviceBody,
   foldDownload,
+  getAccount,
+  isValidHandle,
   markIdOf,
   putAccount,
   putDevice,
+  readAccount,
   readDownload,
   redeemInvite,
   retryAfterMs,
+  rotateSecret,
   sync,
   type Credentials,
   type SyncDownload,
@@ -284,7 +292,33 @@ describe('reading the answer to /sync', () => {
       kudos: [],
       nudges: [],
       rejected: [],
+      ended: [],
+      ownMarks: [],
     });
+  });
+
+  it('reads who ended a link, and nothing from a server that predates the call', () => {
+    expect(readDownload({ ended: [ANA, 5] }).ended).toEqual([ANA]);
+    expect(readDownload({ now: 1 }).ended).toEqual([]);
+  });
+
+  it("reads the caller's own marks only from a restore's answer (ADR-0048 §6)", () => {
+    const download = readDownload({
+      now: 1,
+      own: {
+        marks: [
+          { challengeId: CHALLENGE, accountId: ID, dayKey: '2026-09-22', source: 'health', updatedAt: 9 },
+          { challengeId: CHALLENGE, dayKey: '2026-09-23' },
+        ],
+      },
+    });
+    expect(download.ownMarks).toEqual([
+      { challengeId: CHALLENGE, accountId: ID, dayKey: '2026-09-22', source: 'health', updatedAt: 9 },
+    ]);
+    // The own marks never leak into `marks`, which are other people's.
+    expect(download.marks).toEqual([]);
+    expect(readDownload({ own: null }).ownMarks).toEqual([]);
+    expect(readDownload({ own: { marks: 'no' } }).ownMarks).toEqual([]);
   });
 });
 
@@ -299,6 +333,8 @@ const EMPTY: SyncDownload = {
   kudos: [],
   nudges: [],
   rejected: [],
+  ended: [],
+  ownMarks: [],
 };
 
 const NO_LOCAL = { members: [], challenges: [], nudgeIds: new Set<string>() };
@@ -714,5 +750,231 @@ describe('the backup key', () => {
 
     expect(groups.every((group) => group.length <= BACKUP_GROUP_SIZE)).toBe(true);
     expect(groups.join('')).toBe(key);
+  });
+});
+
+describe('the handle rule', () => {
+  it('is the server one: 3 to 20 of a-z, 0-9 and _', () => {
+    expect(isValidHandle('gus')).toBe(true);
+    expect(isValidHandle('ana_luz_2')).toBe(true);
+    expect(isValidHandle('yo')).toBe(false);
+    expect(isValidHandle('josé')).toBe(false);
+    expect(isValidHandle('ana-maría')).toBe(false);
+    expect(isValidHandle('a'.repeat(21))).toBe(false);
+  });
+
+  it('reads a typed handle the way it is saved: trimmed, lowercased, without spaces', () => {
+    expect(cleanHandle('  Gus Moreno ')).toBe('gusmoreno');
+    expect(isValidHandle(' Gus ')).toBe(true);
+  });
+});
+
+describe('an ended link in the fold (ADR-0049)', () => {
+  const SOF = '0199a1b2-c3d4-7e5f-8a9b-000000000003';
+  const everything: SyncDownload = {
+    ...EMPTY,
+    members: [
+      { id: ANA, name: 'Ana', handle: 'ana', status: 'member', joinedAt: 4, updatedAt: 9 },
+      { id: SOF, name: 'Sofía', handle: 'sofia', status: 'member', joinedAt: 4, updatedAt: 9 },
+    ],
+    weeks: [
+      { accountId: ANA, weekKey: '2026-09-21', focusMs: 1, socialMs: null, habitsDone: 1, habitsTarget: 2, updatedAt: 9 },
+      { accountId: SOF, weekKey: '2026-09-21', focusMs: 2, socialMs: null, habitsDone: 1, habitsTarget: 2, updatedAt: 9 },
+    ],
+    challenges: [
+      {
+        id: CHALLENGE,
+        createdBy: SOF,
+        name: 'Leer',
+        weeklyTarget: 4,
+        startWeekKey: '2026-09-21',
+        endDayKey: null,
+        participantIds: [SOF, ANA, ID],
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 9,
+      },
+    ],
+    marks: [{ challengeId: CHALLENGE, accountId: ANA, dayKey: '2026-09-22', source: 'manual', updatedAt: 9 }],
+    kudos: [{ id: KUDOS, fromId: ANA, toId: ID, dayKey: '2026-09-22', createdAt: 5, updatedAt: 5 }],
+  };
+
+  it('lets nothing of a person the server says is gone back in', () => {
+    const folded = foldDownload({ ...everything, ended: [ANA] }, ID, NO_LOCAL, 999);
+
+    expect(folded.ended).toEqual([ANA]);
+    expect(folded.members.map((member) => member.id)).toEqual([SOF]);
+    expect(folded.weeks.map((week) => week.memberId)).toEqual([SOF]);
+    expect(folded.marks).toEqual([]);
+    expect(folded.kudos).toEqual([]);
+    expect(folded.challenges[0]?.participantIds).toEqual([SOF, ME]);
+  });
+
+  it('holds off what the server still sends about a person removed here, offline', () => {
+    const folded = foldDownload(everything, ID, {
+      ...NO_LOCAL,
+      endedHere: { people: new Set([ANA]), everyone: false, challenges: new Set() },
+    }, 999);
+
+    expect(folded.members.map((member) => member.id)).toEqual([SOF]);
+    expect(folded.kudos).toEqual([]);
+  });
+
+  it('holds off everyone after "Salir del círculo", and ME from a challenge left here', () => {
+    const folded = foldDownload(everything, ID, {
+      ...NO_LOCAL,
+      endedHere: { people: new Set(), everyone: true, challenges: new Set([CHALLENGE]) },
+    }, 999);
+
+    expect(folded.members).toEqual([]);
+    expect(folded.weeks).toEqual([]);
+    expect(folded.challenges[0]?.participantIds).toEqual([]);
+  });
+
+  it('does not join again a challenge whose maker is gone', () => {
+    const local: Challenge = {
+      id: CHALLENGE,
+      name: 'Leer',
+      weeklyTarget: 4,
+      startWeekKey: '2026-09-21',
+      endDayKey: null,
+      createdBy: SOF,
+      participantIds: [ME, SOF],
+      habitId: 'habit-read',
+      createdAt: 1,
+      archivedAt: null,
+    };
+    const removed: SyncDownload = {
+      ...everything,
+      ended: [SOF],
+      challenges: everything.challenges.map((row) => ({ ...row, participantIds: [SOF] })),
+    };
+
+    const folded = foldDownload(removed, ID, { ...NO_LOCAL, challenges: [local] }, 999);
+
+    expect(folded.joins).toEqual([]);
+    expect(folded.challenges[0]?.participantIds).toEqual([]);
+  });
+});
+
+// --- The identity (ADR-0048) -----------------------------------------------------------
+
+describe('the identity calls (ADR-0048)', () => {
+  it('registers an identity with the id alone, unsigned, and keeps the secret it gets once', async () => {
+    const calls = fakeFetch([{ status: 201, body: { id: ID, secret: 's3cret', handle: null } }]);
+
+    const result = await createIdentity(ID);
+
+    const call = only(calls);
+    expect(call.url).toBe(`${CIRCLE_API_URL}/account`);
+    expect(call.method).toBe('POST');
+    expect(call.headers.Authorization).toBeUndefined();
+    expect(call.body).toEqual({ id: ID });
+    expect(result).toEqual({ ok: true, value: { id: ID, secret: 's3cret' } });
+  });
+
+  it('reads an id that is already taken as no secret to be had, whatever the status', async () => {
+    fakeFetch([{ status: 401, body: { error: 'unauthorized' } }]);
+    expect(await createIdentity(ID)).toEqual({ ok: false, failure: { kind: 'unauthorized' } });
+
+    fakeFetch([{ status: 200, body: { id: ID, handle: null } }]);
+    expect(await createIdentity(ID)).toEqual({ ok: false, failure: { kind: 'unauthorized' } });
+  });
+
+  it('reads the own profile with GET /account, nulls where nothing was ever set', async () => {
+    const calls = fakeFetch([
+      { status: 200, body: { id: ID, name: null, handle: null, inviteCode: null, createdAt: 7, nudgesOn: true } },
+    ]);
+
+    const result = await getAccount(CREDENTIALS);
+
+    const call = only(calls);
+    expect(call.method).toBe('GET');
+    expect(call.body).toBeUndefined();
+    expect(call.headers.Authorization).toBe(`Bearer ${ID}.a-secret`);
+    expect(result).toEqual({
+      ok: true,
+      value: { id: ID, name: null, handle: null, inviteCode: null, createdAt: 7 },
+    });
+    expect(readAccount({ name: 'Gus', handle: 'gus', inviteCode: 'ABC234' }, ID)).toEqual({
+      id: ID,
+      name: 'Gus',
+      handle: 'gus',
+      inviteCode: 'ABC234',
+      createdAt: null,
+    });
+  });
+
+  it('rotates the secret and hands back the new credentials, never an empty one', async () => {
+    const calls = fakeFetch([{ status: 200, body: { id: ID, secret: 'n3w' } }]);
+    expect(await rotateSecret(CREDENTIALS)).toEqual({ ok: true, value: { id: ID, secret: 'n3w' } });
+    expect(only(calls).url).toBe(`${CIRCLE_API_URL}/account/secret`);
+
+    fakeFetch([{ status: 200, body: {} }]);
+    expect(await rotateSecret(CREDENTIALS)).toEqual({ ok: false, failure: { kind: 'serverError', status: 200 } });
+  });
+
+  it('pings /device with platform and version, and leaves out the push token it does not own', async () => {
+    const calls = fakeFetch([{ status: 200, body: { ok: true } }]);
+
+    await putDevice(CREDENTIALS, { timeZone: 'America/Bogota', platform: 'ios', appVersion: '1.0.0' });
+
+    expect(only(calls).body).toEqual({ timeZone: 'America/Bogota', platform: 'ios', appVersion: '1.0.0' });
+    expect(deviceBody({ timeZone: 'UTC', appVersion: 'x'.repeat(40) }).appVersion).toHaveLength(32);
+    expect(deviceBody({ timeZone: 'UTC', pushToken: null })).toEqual({ timeZone: 'UTC', pushToken: null });
+  });
+
+  it('asks for the own marks only when restoring', async () => {
+    const calls = fakeFetch([
+      { status: 200, body: { now: 5 } },
+      { status: 200, body: { now: 6 } },
+    ]);
+    const upload = { since: 0, weeks: [], challenges: [], marks: [], kudos: [], nudges: [] };
+
+    await sync(CREDENTIALS, upload, { restore: true });
+    await sync(CREDENTIALS, upload);
+
+    expect(calls[0]?.body).toMatchObject({ since: 0, restore: true });
+    expect(calls[1]?.body).not.toHaveProperty('restore');
+  });
+
+  it("tells 'handle required' apart from 'handle taken'", async () => {
+    fakeFetch([{ status: 409, body: { error: 'handle required' } }]);
+    expect(await redeemInvite(CREDENTIALS, 'ABC234')).toEqual({ ok: false, failure: { kind: 'handleRequired' } });
+
+    fakeFetch([{ status: 409, body: { error: 'handle taken' } }]);
+    expect(await putAccount({ id: ID, name: 'Gus', handle: 'gus' }, CREDENTIALS)).toEqual({
+      ok: false,
+      failure: { kind: 'handleTaken' },
+    });
+  });
+});
+
+describe('a pasted backup key', () => {
+  const SECRET = 'AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCdE';
+  const KEY = `${ID}.${SECRET}`;
+
+  it('reads the one string a password manager keeps', () => {
+    expect(credentialsFromPastedKey(KEY)).toEqual({ id: ID, secret: SECRET });
+  });
+
+  it('reads it back from the groups the screen shows, spaces and line breaks and all', () => {
+    const grouped = backupKeyGroups(KEY).join(' ');
+    expect(credentialsFromPastedKey(grouped)).toEqual({ id: ID, secret: SECRET });
+    expect(credentialsFromPastedKey(`\n  ${backupKeyGroups(KEY).join('\n')}  `)).toEqual({ id: ID, secret: SECRET });
+  });
+
+  it('lowercases the id, which is hex, and never the secret, which is not', () => {
+    expect(credentialsFromPastedKey(`${ID.toUpperCase()}.${SECRET}`)).toEqual({ id: ID, secret: SECRET });
+  });
+
+  it('refuses anything that is not the shape of a key, before any request', () => {
+    expect(credentialsFromPastedKey('')).toBeNull();
+    expect(credentialsFromPastedKey(SECRET)).toBeNull();
+    expect(credentialsFromPastedKey(`${ID}.short`)).toBeNull();
+    expect(credentialsFromPastedKey(`not-a-uuid.${SECRET}`)).toBeNull();
+    expect(credentialsFromPastedKey(`${ID}.${SECRET}!`)).toBeNull();
+    // A UUID that is not v7 is not an id this app ever made.
+    expect(credentialsFromPastedKey(`0199a1b2-c3d4-4e5f-8a9b-000000000001.${SECRET}`)).toBeNull();
   });
 });

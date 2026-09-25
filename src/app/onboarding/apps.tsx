@@ -1,112 +1,84 @@
 import { router } from 'expo-router';
 
-import { goBack } from '../../lib/goBack';
-import { useState } from 'react';
-
-import { appsById, useApps } from '../../data';
 import { useOnboardingDraft } from '../../data/onboardingDraft';
-import {
-  AppTile,
-  Button,
-  Check,
-  ListGroup,
-  PageHeader,
-  Screen,
-  SearchField,
-  Section,
-  Stack,
-  Text,
- AppRow } from '../../design/components';
+import { Button, Card, NativeHost, NoticeCard, PageHeader, Screen, StatusNote, Text } from '../../design/components';
+import { CatalogueApps } from '../../features/onboarding/CatalogueApps';
+import { readAppsStepKind } from '../../features/onboarding/readAppsStepKind';
+import { stepProgress } from '../../features/onboarding/steps';
 import { useStrings } from '../../i18n';
+import { goBack } from '../../lib/goBack';
+import { SelectionPicker as NativeSelectionPicker } from '../../platform/BlockingSelectionView';
+import { selectionSummary, selectionSummaryText } from '../../platform/blocking';
+import { isAndroid } from '../../platform/capabilities';
 
-/** How many apps a mode can block. A product number, same as modes/apps. */
-const MAX_APPS = 50;
+const NEXT = '/onboarding/routine';
 
 /**
- * The apps the first mode blocks. Starts with the idea's suggestion and shows three
- * of them large; "Pick apps" opens the full picker in place.
+ * The apps the first mode blocks: one list, the same one the mode editor shows
+ * (ADR-0047 §2). It comes after the permission step (ADR-0016), so it knows which:
+ *
+ * - Blocking granted: the real picker — Screen Time's own on iOS, the phone's apps on
+ *   Android. Its token is the mode's list, and the only thing the shield reads.
+ * - Access skipped or refused: the step says so as a plain fact and picks nothing.
+ *   The mode blocks no apps until the access exists; that is a valid mode, not an
+ *   error (ADR-0047 §1).
+ * - No real picker on this phone (simulator, iOS without the entitlement): the
+ *   example catalogue, with the reason once at the top.
+ *
+ * Choosing nothing is always allowed: "Continuar" is never off here.
  */
 export default function AppsScreen() {
   const t = useStrings();
   const modeName = useOnboardingDraft((state) => state.modeName);
-  const appIds = useOnboardingDraft((state) => state.appIds);
-  const setAppIds = useOnboardingDraft((state) => state.setAppIds);
-  const [picking, setPicking] = useState(false);
-  const [query, setQuery] = useState('');
+  const selectionToken = useOnboardingDraft((state) => state.selectionToken);
+  const setSelectionToken = useOnboardingDraft((state) => state.setSelectionToken);
 
-  const featured = appsById(appIds).slice(0, 3);
-  const needle = query.trim().toLowerCase();
-  const apps = useApps();
-  const visible = needle === '' ? apps : apps.filter((app) => app.name.toLowerCase().includes(needle));
+  const copy = t.onboarding.apps;
+  const next = () => router.push(NEXT);
+  const kind = readAppsStepKind();
 
-  const toggle = (id: string) => {
-    if (appIds.includes(id)) {
-      setAppIds(appIds.filter((appId) => appId !== id));
-      return;
-    }
-    if (appIds.length >= MAX_APPS) {
-      return;
-    }
-    setAppIds([...appIds, id]);
-  };
+  if (kind === 'example') {
+    return <CatalogueApps onContinue={next} />;
+  }
 
+  const header = (
+    <>
+      <PageHeader onBack={() => goBack(router)} progress={stepProgress('apps', t.onboarding.progress)} />
+      <Text variant="title">{copy.title(modeName)}</Text>
+    </>
+  );
+
+  if (kind === 'notGranted') {
+    return (
+      <Screen scroll footer={<Button label={t.common.continue} onPress={next} />}>
+        {header}
+        <NoticeCard
+          icon="info"
+          title={copy.blocksNone}
+          body={isAndroid ? copy.notGrantedBodyAndroid : copy.notGrantedBody}
+        />
+      </Screen>
+    );
+  }
+
+  const summary = selectionSummary(selectionToken);
+  const picked = summary.apps + summary.categories + summary.websites > 0;
   return (
-    <Screen
-      scroll
-      footer={
-        <>
-          <Button
-            label={t.common.continue}
-            onPress={() => router.push('/onboarding/screen-time')}
-            disabled={appIds.length === 0}
-          />
-          <Text variant="caption" tone="tertiary" align="center">
-            {t.onboarding.apps.limit(MAX_APPS)}
-          </Text>
-        </>
-      }
-    >
-      <PageHeader onBack={() => goBack(router)} />
-      <Text variant="title">{t.onboarding.apps.title(modeName)}</Text>
+    <Screen scroll footer={<Button label={t.common.continue} onPress={next} />}>
+      {header}
       <Text variant="label" tone="secondary">
-        {t.onboarding.apps.subtitle}
+        {isAndroid ? copy.androidSubtitle : copy.realSubtitle}
       </Text>
-
-      <Stack direction="row" justify="center" gap="lg">
-        {featured.map((app) => (
-          <AppTile key={app.id} initial={app.initial} color={app.color} size="lg" />
-        ))}
-      </Stack>
-
-      {picking ? (
-        <>
-          <SearchField value={query} onChangeText={setQuery} placeholder={t.onboarding.apps.search} />
-          <Section
-            title={t.onboarding.apps.selected}
-            right={
-              <Text variant="label" tone="secondary">
-                {t.modes.picker.count(appIds.length, MAX_APPS)}
-              </Text>
-            }
-          >
-            <ListGroup>
-              {visible.map((app) => (
-                <AppRow
-                  key={app.id}
-                  initial={app.initial}
-                  color={app.color}
-                  name={app.name}
-                  description={app.category}
-                  right={<Check checked={appIds.includes(app.id)} shape="box" />}
-                  onPress={() => toggle(app.id)}
-                />
-              ))}
-            </ListGroup>
-          </Section>
-        </>
-      ) : (
-        <Button label={t.onboarding.apps.pickApps} variant="secondary" onPress={() => setPicking(true)} />
-      )}
+      <Card padded={false}>
+        <NativeHost>
+          <NativeSelectionPicker token={selectionToken} onChange={setSelectionToken} />
+        </NativeHost>
+      </Card>
+      <StatusNote
+        text={picked ? copy.blocks(selectionSummaryText(selectionToken)) : copy.blocksNone}
+        align="center"
+        live
+      />
     </Screen>
   );
 }

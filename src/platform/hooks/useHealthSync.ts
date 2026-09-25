@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { useAppStore } from '../../data/stores/app';
-import { marksFromHealth, type HealthWeek } from '../../domain/healthMarks';
+import { healthWindow, marksFromHealth, type HealthWeek } from '../../domain/healthMarks';
 import { MINUTE } from '../../domain/time';
 import { readWeek, status } from '../health';
 
@@ -11,7 +11,7 @@ import { readWeek, status } from '../health';
  * the store never imports the platform, so the app builds where HealthKit is missing.
  *
  * A sync reads the week from HealthKit, turns it into marks (domain/healthMarks.ts)
- * and replaces every health-sourced mark in the store. It runs on mount, whenever the
+ * and replaces the health-sourced marks of that week in the store. It runs on mount, whenever the
  * app comes back to the foreground, when Health is connected, and at most once every
  * SYNC_INTERVAL_MS unless forced. Editing a habit recomputes the marks from the last
  * read without touching HealthKit again.
@@ -31,7 +31,7 @@ function canSync(): boolean {
 function applyWeek(week: HealthWeek, now: number, syncedAt: number): void {
   const store = useAppStore.getState();
   const marks = marksFromHealth(store.habits, week, now);
-  store.setHealthMarks(marks, syncedAt);
+  store.setHealthMarks(marks, syncedAt, healthWindow(now));
 }
 
 /**

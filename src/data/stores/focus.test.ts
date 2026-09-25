@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeDb, type FakeRows } from '../../db/testing/fakeDb';
 import { useSchemeStore } from '../../design/theme';
-import { T0 } from '../../domain/fixtures';
+import { aDoneSession, T0 } from '../../domain/fixtures';
 import { BREAK_EVERY_MS, OPEN_SESSION_CAP_MS } from '../../domain/session';
 import { HOUR, MINUTE } from '../../domain/time';
 import { useAppStore } from './app';
@@ -180,6 +180,24 @@ describe('finish', () => {
     expect(useFocusStore.getState().finish('completed', T0)).toBeNull();
     expect(updates()).toHaveLength(0);
   });
+
+  it('leaves the theme dark when a waiting routine starts its session inside the close', () => {
+    // The routine engine subscribes to this store and starts a waiting routine the
+    // moment a session ends, from inside `set`. The new session must stay dark.
+    useFocusStore.getState().start('mode-x', 25 * MINUTE, T0);
+    const unsubscribe = useFocusStore.subscribe((state, previous) => {
+      if (previous.session !== null && state.session === null) {
+        useFocusStore.getState().start('mode-routine', HOUR, T0 + 10 * MINUTE);
+      }
+    });
+
+    useFocusStore.getState().finish('cancelled', T0 + 10 * MINUTE);
+    unsubscribe();
+
+    expect(useFocusStore.getState().session?.id).toBe(`id-${T0 + 10 * MINUTE}`);
+    expect(useFocusStore.getState().lastClosed?.blockProfile).toBe('mode-x');
+    expect(useSchemeStore.getState().scheme).toBe('dark');
+  });
 });
 
 describe('hydrate', () => {
@@ -203,6 +221,35 @@ describe('hydrate', () => {
 
     expect(useFocusStore.getState().session?.breakStartedAt).toBe(T0 + 25 * MINUTE);
     expect(useSchemeStore.getState().scheme).toBe('light');
+  });
+
+  it('owes the closing of a session that ran out while the app was dead, once', () => {
+    const recovered = aDoneSession(25 * MINUTE, T0, { id: 'row-dead', outcome: 'completed' });
+
+    useFocusStore.getState().hydrate(recovered);
+
+    expect(useFocusStore.getState().session).toBeNull();
+    expect(useFocusStore.getState().lastClosed?.id).toBe('row-dead');
+    expect(useFocusStore.getState().unseenClosing).toBe(true);
+
+    useFocusStore.getState().closingSeen();
+    expect(useFocusStore.getState().unseenClosing).toBe(false);
+  });
+
+  it('owes nothing for a cancelled session, or when a session is still running', () => {
+    useFocusStore.getState().hydrate(aDoneSession(10 * MINUTE, T0, { outcome: 'cancelled' }));
+    expect(useFocusStore.getState().unseenClosing).toBe(false);
+
+    fake.whenSql(/outcome = 'running'/, [runningRow(T0 + HOUR, HOUR)]);
+    useFocusStore.getState().hydrate(aDoneSession(25 * MINUTE, T0, { outcome: 'completed' }));
+    expect(useFocusStore.getState().unseenClosing).toBe(false);
+  });
+
+  it('drops an owed closing when a new session starts first', () => {
+    useFocusStore.getState().hydrate(aDoneSession(25 * MINUTE, T0, { outcome: 'expired' }));
+    useFocusStore.getState().start('mode-x', 25 * MINUTE, T0 + HOUR);
+
+    expect(useFocusStore.getState().unseenClosing).toBe(false);
   });
 
   it('clears a stale cache when the database holds no running session', () => {

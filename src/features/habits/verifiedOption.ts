@@ -15,6 +15,11 @@ import type { Strings } from '../../i18n/es';
  * Only the second one takes the option away. The name is free text (ADR-0008), so
  * falling is the whole answer: the user keeps the name and keeps a habit that works.
  *
+ * Where Health exists but is not connected, choosing verified is the moment to ask
+ * for it (ADR-0005): the form asks on save, and the card and the line say so instead
+ * of sending the user to Ajustes. The card never claims Health confirms a habit on a
+ * phone where it cannot.
+ *
  * Pure: the name, what the user chose, what src/platform/health.ts says and the
  * `habits.form` slice of the dictionary in; what to save and what to show out.
  */
@@ -38,7 +43,7 @@ export type VerifiedOption = {
   countMode: CountMode;
   /** The type that gets saved: null unless the habit really ends up verified. */
   healthType: HealthType | null;
-  /** The verified card's second line. */
+  /** The verified card's second line: what Health will do here, not what it does in general. */
   description: string;
   /** One line under the cards. Always there, so typing never moves the layout. */
   note: string;
@@ -51,6 +56,7 @@ export type VerifiedOption = {
 function noteFor(
   verifiable: boolean,
   named: boolean,
+  countMode: CountMode,
   health: HealthState,
   t: HabitFormStrings,
 ): string {
@@ -60,7 +66,20 @@ function noteFor(
   if (!health.available && health.reason !== null) {
     return t.note.unavailable(health.reason);
   }
-  return health.connected ? t.note.connected : t.note.disconnected;
+  if (health.connected) {
+    return t.note.connected;
+  }
+  return countMode === 'verified' ? t.note.askOnSave : t.note.disconnected;
+}
+
+function descriptionFor(verifiable: boolean, health: HealthState, t: HabitFormStrings): string {
+  if (!verifiable) {
+    return t.verifiedUnavailable;
+  }
+  if (!health.available) {
+    return t.verifiedManual;
+  }
+  return health.connected ? t.verifiedDescription : t.verifiedPending;
 }
 
 export function verifiedOption(
@@ -77,7 +96,7 @@ export function verifiedOption(
     verifiable,
     countMode,
     healthType: countMode === 'verified' ? healthType : null,
-    description: verifiable ? t.verifiedDescription : t.verifiedUnavailable,
-    note: noteFor(verifiable, trimmed !== '', health, t),
+    description: descriptionFor(verifiable, health, t),
+    note: noteFor(verifiable, trimmed !== '', countMode, health, t),
   };
 }

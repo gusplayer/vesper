@@ -56,7 +56,7 @@ describe('verifiedOption', () => {
     const option = verifiedOption('   ', 'declared', DISCONNECTED, es.habits.form);
     expect(option.verifiable).toBe(false);
     expect(option.note).toBe(
-      'Salud no está conectada. Conéctala en Ajustes para que confirme este hábito sola.',
+      'Salud no está conectada. Si eliges verificado, Vesper te pide permiso al guardar.',
     );
   });
 
@@ -66,9 +66,7 @@ describe('verifiedOption', () => {
     expect(name.note).toBe(
       'Salud no reconoce este nombre, así que el hábito queda declarado y lo marcas tú.',
     );
-    expect(connection.note).toBe(
-      'Salud no está conectada. Conéctala en Ajustes para que confirme este hábito sola.',
-    );
+    expect(connection.note).toBe('Al guardar, Vesper te pide permiso para que Salud lo confirme sola.');
     // Only the name takes the option away; without Health the habit still takes a tap.
     expect(name.verifiable).toBe(false);
     expect(connection.verifiable).toBe(true);
@@ -87,13 +85,37 @@ describe('verifiedOption', () => {
     );
   });
 
+  it('never has the card promise what Health cannot do here (ADR-0005, rule 8)', () => {
+    expect(verifiedOption('gym', 'declared', DISCONNECTED, es.habits.form).description).toBe(
+      'Salud lo confirmará cuando la conectes',
+    );
+    expect(verifiedOption('gym', 'verified', NO_HEALTH, es.habits.form).description).toBe(
+      'Salud lo confirmaría; aquí lo marcas tú',
+    );
+  });
+
+  it('says saving asks for Health only when verified is the choice', () => {
+    expect(verifiedOption('gym', 'declared', DISCONNECTED, es.habits.form).note).toBe(
+      'Salud no está conectada. Si eliges verificado, Vesper te pide permiso al guardar.',
+    );
+    expect(verifiedOption('gym', 'verified', DISCONNECTED, es.habits.form).note).toBe(
+      'Al guardar, Vesper te pide permiso para que Salud lo confirme sola.',
+    );
+  });
+
   it('speaks English too', () => {
     const form = en.habits.form;
     expect(verifiedOption('meditate', 'verified', CONNECTED, form).note).toBe(
       'Health does not recognize this name, so the habit stays declared and you mark it.',
     );
     expect(verifiedOption('walk', 'verified', DISCONNECTED, form).note).toBe(
-      'Health is not connected. Connect it in Settings so it confirms this habit on its own.',
+      'When you save, Vesper asks for permission so Health confirms it on its own.',
+    );
+    expect(verifiedOption('walk', 'declared', DISCONNECTED, form).note).toBe(
+      'Health is not connected. If you pick verified, Vesper asks for permission when you save.',
+    );
+    expect(verifiedOption('walk', 'verified', DISCONNECTED, form).description).toBe(
+      'Health will confirm it once you connect it',
     );
     expect(verifiedOption('walk', 'verified', CONNECTED, form).note).toBe(
       'Health is connected: it can confirm this habit on its own.',

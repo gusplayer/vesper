@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { goBack } from '../../lib/goBack';
-import { useEffect, useState } from 'react';
+import { BACK_FALLBACK, goBack } from '../../lib/goBack';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Share } from 'react-native';
 
 import {
@@ -15,7 +15,6 @@ import {
 import {
   Button,
   Card,
-  Chip,
   FieldRow,
   ListGroup,
   ListRow,
@@ -24,24 +23,33 @@ import {
   Screen,
   Section,
   Stack,
+  StatusNote,
   Text,
 } from '../../design/components';
-import { CODE_LENGTH, inviteLinkFor } from '../../domain/circle';
 import { MAX_CIRCLE, type Member } from '../../domain/types';
 import {
   accountProblem,
   attemptFailed,
+  attemptNeedsHandle,
   checkInviteCode,
   type AccountProblem,
   type InviteAttempt,
 } from '../../features/circle/inviteAttempt';
+import { codeFieldText, invitePageLinkFor } from '../../features/circle/inviteLink';
+import { useIsDemoCircle } from '../../features/circle/useCircleSyncStatus';
 import { useStrings } from '../../i18n';
 import {
+  acceptCircleInvite,
   claimInviteCode,
-  ensureCircleAccount,
+  endCircleLink,
+  ensureInviteCode,
+  inviteCodeConfirmed,
   redeemCircleCode,
   type AccountOutcome,
 } from '../../platform/hooks/useCircleSync';
+
+/** What the line under the requests says after "Aceptar", when there is something to say. */
+type AcceptLine = 'full' | 'queued' | 'gone';
 
 /**
  * Invitar. Two directions, kept apart on purpose: your code (with its QR and a share
@@ -54,11 +62,16 @@ import {
  * somebody else has to be able to find the user. The claim runs on mount rather than
  * on the share tap: the QR is live the instant the screen paints, and there is no
  * "share the QR" gesture to hang the claim on. The two ways in are both an explicit
- * "Invitar", so nobody lands here by accident.
+ * "Invitar", so nobody lands here by accident. When the account is born over the demo
+ * circle, the samples go, and the card says so.
  *
- * Until the server has said the code is this account's, **the QR is not drawn**: a
- * code nobody can redeem must not be shown as if it worked. Everything else on the
- * screen keeps working, because a network failure never blocks a screen (ADR-0044 §5).
+ * Until the server has said **this very code** is this account's, the code and its QR
+ * are not drawn and nothing shares it: a code generated offline, or one whose claim
+ * failed, is nobody's (`inviteCodeConfirmed`). Everything else on the screen keeps
+ * working, because a network failure never blocks a screen (ADR-0044 §5).
+ *
+ * What goes out is the invitation page (ADR-0034), not the app's own scheme: it opens
+ * on a phone without Vesper, and a messenger makes it tappable.
  */
 export default function InviteScreen() {
   const router = useRouter();
@@ -69,79 +82,100 @@ export default function InviteScreen() {
   const pending = usePendingInvites();
   const profile = useCircleStore((state) => state.profile);
   const account = useCircleStore((state) => state.account);
+  const confirmedGeneration = useCircleStore((state) => state.confirmedGeneration);
   const acceptInvite = useCircleStore((state) => state.acceptInvite);
   const declineInvite = useCircleStore((state) => state.declineInvite);
-  const removeMember = useCircleStore((state) => state.removeMember);
+  const removeFromCircle = useCircleStore((state) => state.removeFromCircle);
+  const linkEndSupport = useCircleStore((state) => state.linkEndSupport);
   const regenerateInviteCode = useCircleStore((state) => state.regenerateInviteCode);
+  const demo = useIsDemoCircle();
 
   const [codeText, setCodeText] = useState('');
   const [result, setResult] = useState<InviteAttempt | null>(null);
   const [sending, setSending] = useState(false);
-  const [acceptFull, setAcceptFull] = useState(false);
+  const [acceptLine, setAcceptLine] = useState<AcceptLine | null>(null);
+  // What Rechazar or Quitar could not finish on the server (ADR-0049), said once.
+  const [endLine, setEndLine] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
-  const [problem, setProblem] = useState<AccountProblem | null>(null);
+  // The last claim's answer, keyed on the handle it was made with: after "Cambiar tu
+  // alias" the old refusal is about a handle that no longer exists, and is not shown.
+  const [claimed, setClaimed] = useState<{ handle: string; problem: AccountProblem | null } | null>(null);
+  // Whether the samples were on screen when the screen opened: if the account is born
+  // here, they are gone a second later, and the card says where they went.
+  const [openedOnDemo] = useState(demo);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const inCircle = members.filter((member) => member.status === 'member' || member.status === 'invited');
   const seatsTaken = useSeatsTaken();
-  const ready = account !== null;
+  const ready = inviteCodeConfirmed({ account, profile, confirmedGeneration });
+  const problem = claimed !== null && claimed.handle === profile?.handle ? claimed.problem : null;
   // Without a profile there is nothing to claim and nothing to show: say which,
   // rather than leaving "Preparando…" on screen forever.
   const shown: AccountProblem | null = profile === null ? 'noProfile' : problem;
-  const link = ready && code !== null ? inviteLinkFor(code) : null;
+  // Not ready and nothing refused: the claim on mount is still out. The buttons wait.
+  const preparing = profile !== null && !ready && problem === null;
+  const busy = claiming || preparing;
+  const link = ready && code !== null ? invitePageLinkFor(code) : null;
 
   /**
-   * The account, claimed. Answers whether the invitation can go out; the caller
-   * decides what to do next. `ensureCircleAccount` is safe to call again — with a key
-   * in the keychain it is one read and no request — and `claimInviteCode` is the one
-   * that always asks, which is what a freshly generated code needs.
+   * The code, claimed, from a tap. Answers whether the invitation can go out; the
+   * caller decides what to do next. The buttons are busy while it runs, and
+   * `ensureCircleAccount` is single-flight, so no second claim starts while one is out.
    */
   const claim = async (register: (at: number) => Promise<AccountOutcome>): Promise<boolean> => {
-    setProblem(null);
     setClaiming(true);
     const outcome = await register(Date.now());
     const failure = accountProblem(outcome);
-    setClaiming(false);
-    setProblem(failure);
+    if (mounted.current) {
+      setClaiming(false);
+      setClaimed({ handle: useCircleStore.getState().profile?.handle ?? '', problem: failure });
+    }
     return failure === null;
   };
 
   // The code is the invitation: it is reserved the moment the screen shows it, not
-  // when a share sheet happens to open. Nothing is set before the answer comes back —
-  // the "preparing" line is what `account === null` already means.
+  // when a share sheet happens to open — and claimed again when the one on screen is
+  // not the one the server holds (a new code generated offline).
   //
-  // It runs again when the handle changes, which is the way out of `handleTaken`:
-  // pick another one in Ajustes › Círculo, come back, and the code is claimed with
-  // it. Not on `profile` itself, because "Generar código nuevo" also writes the
-  // profile and already claims on its own — two claims at once would be two accounts.
+  // It runs again when the handle changes, which is the way out of `handleTaken` and
+  // `handleInvalid`: pick another one in Ajustes › Círculo, come back, and the code is
+  // claimed with it. Not on `profile` itself, because "Generar código nuevo" also
+  // writes the profile and already claims on its own.
   const profileId = profile?.id ?? null;
   const handle = profile?.handle ?? null;
   useEffect(() => {
-    if (profileId === null || handle === null || account !== null) {
+    if (profileId === null || handle === null || inviteCodeConfirmed(useCircleStore.getState())) {
       return;
     }
     let live = true;
-    void ensureCircleAccount(Date.now()).then((outcome) => {
+    void ensureInviteCode(Date.now()).then((outcome) => {
       if (live) {
-        setProblem(accountProblem(outcome));
+        setClaimed({ handle, problem: accountProblem(outcome) });
       }
     });
     return () => {
       live = false;
     };
-  }, [profileId, handle, account]);
+  }, [profileId, handle]);
 
   const share = () => {
     void (async () => {
-      if (!(await claim(ensureCircleAccount))) {
+      if (!(await claim(ensureInviteCode))) {
         return;
       }
       // The claim may have bumped the generation past a collision, so the code that
       // goes out is read again rather than closed over.
-      const claimed = getInviteCode();
-      if (claimed === null) {
+      const current = getInviteCode();
+      if (current === null) {
         return;
       }
-      await Share.share({ message: copy.shareMessage(claimed, inviteLinkFor(claimed)) });
+      await Share.share({ message: copy.shareMessage(current, invitePageLinkFor(current)) });
     })();
   };
 
@@ -152,17 +186,21 @@ export default function InviteScreen() {
         text: copy.newCodeConfirm,
         onPress: () => {
           regenerateInviteCode(Date.now());
-          // A new generation is only a new code once the server has it: until then
-          // the old six symbols are the ones that work and these are nobody's.
+          // A new generation is only a new code once the server has it: until then the
+          // card draws no code, and opening this screen again claims it again.
           void claim(claimInviteCode);
         },
       },
     ]);
   };
 
-  // A pasted link works as well as a typed code. What this phone can answer on its
-  // own it answers here; everything else is one request, and its line says which.
+  // A pasted link works as well as a typed code: the field keeps the code inside it.
+  // What this phone can answer on its own it answers here; everything else is one
+  // request, and its line says which.
   const send = () => {
+    if (sending) {
+      return;
+    }
     const checked = checkInviteCode(profile, members, codeText);
     if (checked.kind === 'stop') {
       setResult(checked.outcome);
@@ -172,6 +210,9 @@ export default function InviteScreen() {
       setResult(null);
       setSending(true);
       const outcome = await redeemCircleCode(checked.code, Date.now());
+      if (!mounted.current) {
+        return;
+      }
       setSending(false);
       setResult(outcome);
       if (!attemptFailed(outcome)) {
@@ -181,32 +222,65 @@ export default function InviteScreen() {
   };
 
   // The tap's moment comes in as a parameter, the way the store takes `now`: the row's
-  // handler reads the clock, not a helper the list closes over while rendering.
+  // handler reads the clock, not a helper the list closes over while rendering. The
+  // "yes" is written here first, then sent on its own (the sync cannot carry it).
   const accept = (member: Member, tappedAt: number) => {
-    setAcceptFull(acceptInvite(member.id, tappedAt) === 'full');
+    if (acceptInvite(member.id, tappedAt) === 'full') {
+      setAcceptLine('full');
+      return;
+    }
+    setAcceptLine(null);
+    void acceptCircleInvite(member.id).then((sent) => {
+      if (mounted.current && (sent === 'queued' || sent === 'gone')) {
+        setAcceptLine(sent);
+      }
+    });
+  };
+
+  /** The end goes to the server after the local write; the line says what did not arrive. */
+  const endOnServer = (memberId: string, unsupported: string) => {
+    setEndLine(null);
+    void endCircleLink(memberId).then((outcome) => {
+      if (!mounted.current) {
+        return;
+      }
+      setEndLine(outcome === 'unsupported' ? unsupported : outcome === 'queued' ? copy.endQueued : null);
+    });
+  };
+
+  const decline = (member: Member, tappedAt: number) => {
+    declineInvite(member.id, tappedAt);
+    endOnServer(member.id, copy.declineUnsupported);
   };
 
   const confirmRemove = (member: Member) => {
-    Alert.alert(copy.removeQuestion(member.name), copy.removeMessage, [
+    // A server that predates ADR-0049 cannot end a link: once it has said so, the alert
+    // says what "Quitar" really does before anything happens.
+    const message = account !== null && linkEndSupport === 'no' ? copy.removeMessageAccount : copy.removeMessage;
+    Alert.alert(copy.removeQuestion(member.name), message, [
       { text: t.common.cancel, style: 'cancel' },
-      { text: copy.removeConfirm, style: 'destructive', onPress: () => removeMember(member.id) },
+      {
+        text: copy.removeConfirm,
+        style: 'destructive',
+        onPress: () => {
+          removeFromCircle(member.id, Date.now());
+          endOnServer(member.id, copy.removeUnsupported);
+        },
+      },
     ]);
   };
+
+  const changeHandle = () => router.push('/settings/circle');
 
   return (
     <Screen
       scroll
+      avoidKeyboard
       footer={
-        <Button
-          label={copy.share}
-          busyLabel={copy.sharing}
-          busy={claiming}
-          onPress={share}
-          disabled={code === null}
-        />
+        <Button label={copy.share} busyLabel={copy.sharing} busy={busy} onPress={share} disabled={code === null} />
       }
     >
-      <PageHeader onBack={() => goBack(router)} title={copy.title} />
+      <PageHeader onBack={() => goBack(router, BACK_FALLBACK.circle)} title={copy.title} />
 
       <Card>
         <Stack gap="md" align="center">
@@ -214,7 +288,7 @@ export default function InviteScreen() {
             <Text variant="caption" tone="secondary">
               {copy.yourCode}
             </Text>
-            <Text variant="title">{code ?? t.common.empty}</Text>
+            <Text variant="title">{ready && code !== null ? code : t.common.empty}</Text>
           </Stack>
           {link === null || code === null ? null : <QrCode value={link} accessibilityLabel={copy.qrA11y(code)} />}
           {shown === null ? (
@@ -222,23 +296,27 @@ export default function InviteScreen() {
               <Text variant="label" tone="secondary" align="center">
                 {ready ? copy.yourCodeHint : copy.preparing}
               </Text>
-              {ready ? (
-                <Text variant="caption" tone="tertiary" align="center">
-                  {copy.qrHint}
-                </Text>
-              ) : null}
+              {ready ? <StatusNote text={copy.qrHint} align="center" /> : null}
+            </>
+          ) : shown === 'noProfile' ? (
+            // Not an error: the first step. Said plainly, with the way to take it.
+            <>
+              <StatusNote text={copy.problem.noProfile} align="center" />
+              <Button
+                label={t.circle.list.createProfile}
+                variant="secondary"
+                size="sm"
+                onPress={() => router.push('/settings/circle')}
+              />
             </>
           ) : (
-            <Text variant="label" tone="danger" align="center">
-              {copy.problem[shown]}
-            </Text>
+            <StatusNote text={copy.problem[shown]} tone="danger" align="center" live />
           )}
+          {openedOnDemo && account !== null ? <StatusNote text={copy.demoGone} align="center" live /> : null}
         </Stack>
       </Card>
-      {shown === 'handleTaken' ? (
-        <Button label={copy.changeHandle} variant="ghost" onPress={() => router.push('/settings/circle')} />
-      ) : null}
-      <Button label={copy.newCode} variant="ghost" onPress={confirmNewCode} disabled={code === null} />
+      {attemptNeedsHandle(shown) ? <Button label={copy.changeHandle} variant="ghost" onPress={changeHandle} /> : null}
+      <Button label={copy.newCode} variant="ghost" onPress={confirmNewCode} disabled={code === null || busy} />
 
       {pending.length === 0 ? null : (
         <Section title={copy.pending}>
@@ -250,19 +328,34 @@ export default function InviteScreen() {
                 description={`${t.circle.member.handle(member.handle)} · ${copy.invitedYou}`}
                 right={
                   <Stack direction="row" gap="sm">
-                    <Chip label={copy.accept} selected onPress={() => accept(member, Date.now())} />
-                    <Chip label={copy.decline} selected={false} onPress={() => declineInvite(member.id)} />
+                    <Button
+                      size="sm"
+                      label={copy.accept}
+                      onPress={() => accept(member, Date.now())}
+                      accessibilityLabel={copy.acceptA11y(member.name)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      tone="danger"
+                      label={copy.decline}
+                      onPress={() => decline(member, Date.now())}
+                      accessibilityLabel={copy.declineA11y(member.name)}
+                    />
                   </Stack>
                 }
               />
             ))}
           </ListGroup>
-          {acceptFull ? (
-            <Text variant="label" tone="danger">
-              {copy.acceptFull}
-            </Text>
-          ) : null}
         </Section>
+      )}
+      {endLine === null ? null : <StatusNote text={endLine} live />}
+      {acceptLine === null ? null : (
+        <StatusNote
+          text={acceptLine === 'full' ? copy.acceptFull : acceptLine === 'queued' ? copy.acceptQueued : copy.acceptGone}
+          tone={acceptLine === 'full' ? 'danger' : 'secondary'}
+          live
+        />
       )}
 
       <Section title={copy.enterTitle}>
@@ -270,27 +363,33 @@ export default function InviteScreen() {
           label={copy.codeField}
           value={codeText}
           onChangeText={(text) => {
-            setCodeText(text);
+            setCodeText(codeFieldText(text));
             setResult(null);
           }}
           placeholder={copy.codePlaceholder}
-          autoCapitalize="none"
-          maxLength={CODE_LENGTH}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          spellCheck={false}
+          returnKeyType="send"
+          onSubmitEditing={send}
         />
         <Button
           label={copy.send}
           variant="secondary"
-          busyLabel={copy.preparing}
+          size="sm"
+          busyLabel={copy.sending}
           busy={sending}
           onPress={send}
           disabled={codeText.trim() === ''}
         />
-        <Text
-          variant="label"
-          tone={result === null ? 'tertiary' : attemptFailed(result) ? 'danger' : 'secondary'}
-        >
-          {result === null ? copy.enterHint : copy.result[result]}
-        </Text>
+        {result === null ? (
+          <StatusNote text={copy.enterHint} />
+        ) : (
+          <StatusNote text={copy.result[result]} tone={attemptFailed(result) ? 'danger' : 'secondary'} live />
+        )}
+        {result !== null && attemptNeedsHandle(result) ? (
+          <Button label={copy.changeHandle} variant="ghost" onPress={changeHandle} />
+        ) : null}
       </Section>
 
       <Section
@@ -302,9 +401,7 @@ export default function InviteScreen() {
         }
       >
         {inCircle.length === 0 ? (
-          <Text variant="label" tone="secondary">
-            {t.circle.list.noMembers}
-          </Text>
+          <StatusNote kind="empty" text={t.circle.list.noMembers} />
         ) : (
           <ListGroup>
             {inCircle.map((member) => (
@@ -316,14 +413,21 @@ export default function InviteScreen() {
                     ? `${t.circle.member.handle(member.handle)} · ${copy.waiting}`
                     : t.circle.member.handle(member.handle)
                 }
-                right={<Chip label={copy.remove} selected={false} onPress={() => confirmRemove(member)} />}
+                right={
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    tone="danger"
+                    label={copy.remove}
+                    onPress={() => confirmRemove(member)}
+                    accessibilityLabel={copy.removeA11y(member.name)}
+                  />
+                }
               />
             ))}
           </ListGroup>
         )}
-        <Text variant="caption" tone="secondary">
-          {copy.prototypeNote}
-        </Text>
+        <StatusNote text={copy.deliveryNote} />
       </Section>
     </Screen>
   );

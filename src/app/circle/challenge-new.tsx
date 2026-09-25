@@ -1,13 +1,12 @@
 import { useRouter } from 'expo-router';
 
-import { goBack } from '../../lib/goBack';
+import { BACK_FALLBACK, goBack } from '../../lib/goBack';
 import { useState } from 'react';
 
 import { useCircleMembers, useCircleStore, useHabitsWeek } from '../../data';
 import { challengeIdeas, type ChallengeIdea } from '../../data/challenges';
 import {
   Button,
-  Check,
   Chip,
   FieldRow,
   ListGroup,
@@ -16,7 +15,8 @@ import {
   Screen,
   Section,
   Stack,
-  Text,
+  StatusNote,
+  Toggle,
 } from '../../design/components';
 import {
   CHALLENGE_DURATION_OPTIONS,
@@ -25,7 +25,8 @@ import {
   type Habit,
 } from '../../domain/types';
 import { challengeConsentText } from '../../features/circle/challengeText';
-import { useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
+import { healthMissingReason, useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
+import { MAX_CHALLENGE_NAME } from '../../platform/circleApi';
 import { stepGoalText } from '../../features/health/format';
 import { useLocale, useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
@@ -45,6 +46,11 @@ function targetOption(value: number): number {
  * the line under the button says so, and nothing is created (rule 4, ADR-0021). A
  * steps name says the goal it reads under the field, and a challenge Health can
  * confirm says what joining shares above the button and asks for Health (ADR-0042).
+ *
+ * Nobody is enrolled behind their back: each person checked here gets the challenge and
+ * joins it themselves (`challengeLink`, 'invited'), and the line under the list says so.
+ * A challenge with nobody in it cannot be made, and with nobody in the circle the list
+ * is the way to invite someone.
  */
 export default function NewChallengeScreen() {
   const router = useRouter();
@@ -69,6 +75,11 @@ export default function NewChallengeScreen() {
 
   const trimmed = name.trim();
   const fromHabit = habits.find((progress) => progress.habit.name.toLowerCase() === trimmed.toLowerCase());
+  // Joining reuses a habit with the same name as it is, target included (the store never
+  // rewrites it), so the challenge takes that target instead of disagreeing with it.
+  const lockedTarget = join && fromHabit !== undefined ? fromHabit.habit.weeklyTarget : null;
+  const target = lockedTarget ?? weeklyTarget;
+  const nobody = !join && participantIds.length === 0;
 
   const prefillFromHabit = (habit: Habit) => {
     setName(habit.name);
@@ -89,7 +100,7 @@ export default function NewChallengeScreen() {
   };
 
   const goal = stepGoalText(trimmed, strings.habits.form, tag);
-  const consent = join ? challengeConsentText(trimmed, circle, tag) : null;
+  const consent = join ? challengeConsentText(trimmed, circle, tag, healthMissingReason()) : null;
 
   const create = async () => {
     if (join) {
@@ -98,7 +109,7 @@ export default function NewChallengeScreen() {
       setCreating(false);
     }
     const outcome = createChallenge(
-      { name: trimmed, weeklyTarget, days, participantIds: [...participantIds], join },
+      { name: trimmed, weeklyTarget: target, days, participantIds: [...participantIds], join },
       Date.now(),
     );
     if (outcome === 'habitsFull') {
@@ -111,23 +122,25 @@ export default function NewChallengeScreen() {
   return (
     <Screen
       scroll
+      avoidKeyboard
       footer={
         <>
-          {consent === null ? null : (
-            <Text variant="caption" tone="secondary" align="center">
-              {consent}
-            </Text>
-          )}
-          <Button label={t.create} onPress={() => void create()} disabled={trimmed === ''} busy={creating} />
+          {consent === null ? null : <StatusNote text={consent} align="center" />}
+          <Button label={t.create} onPress={() => void create()} disabled={trimmed === '' || nobody} busy={creating} />
           {habitsFull ? (
-            <Text variant="label" tone="danger" align="center">
-              {t.habitsFull}
-            </Text>
+            <>
+              <StatusNote text={t.habitsFull} tone="danger" align="center" live />
+              <Button
+                label={circle.challenge.seeHabits}
+                variant="ghost"
+                onPress={() => router.push({ pathname: '/activity', params: { view: 'lifetime' } })}
+              />
+            </>
           ) : null}
         </>
       }
     >
-      <PageHeader onBack={() => goBack(router)} title={t.title} />
+      <PageHeader onBack={() => goBack(router, BACK_FALLBACK.circle)} title={t.title} />
 
       <FieldRow
         label={t.name}
@@ -138,12 +151,9 @@ export default function NewChallengeScreen() {
         }}
         placeholder={t.namePlaceholder}
         autoFocus
+        maxLength={MAX_CHALLENGE_NAME}
       />
-      {goal === null ? null : (
-        <Text variant="caption" tone="tertiary">
-          {goal}
-        </Text>
-      )}
+      {goal === null ? null : <StatusNote text={goal} />}
 
       <Section title={t.ideas}>
         <Stack direction="row" gap="sm" wrap>
@@ -156,9 +166,7 @@ export default function NewChallengeScreen() {
             />
           ))}
         </Stack>
-        <Text variant="caption" tone="tertiary">
-          {t.ideasHint}
-        </Text>
+        <StatusNote text={t.ideasHint} />
       </Section>
 
       {habits.length === 0 ? null : (
@@ -173,9 +181,7 @@ export default function NewChallengeScreen() {
               />
             ))}
           </Stack>
-          <Text variant="caption" tone="tertiary">
-            {t.fromHabitHint}
-          </Text>
+          <StatusNote text={t.fromHabitHint} />
         </Section>
       )}
 
@@ -185,11 +191,14 @@ export default function NewChallengeScreen() {
             <Chip
               key={times}
               label={String(times)}
-              selected={weeklyTarget === times}
+              selected={target === times}
+              accessibilityRole="radio"
+              disabled={lockedTarget !== null && lockedTarget !== times}
               onPress={() => setWeeklyTarget(times)}
             />
           ))}
         </Stack>
+        {lockedTarget === null ? null : <StatusNote text={t.targetFromHabit} />}
       </Section>
 
       <Section title={t.duration}>
@@ -199,6 +208,7 @@ export default function NewChallengeScreen() {
               key={option ?? 'none'}
               label={t.durationOption(option)}
               selected={days === option}
+              accessibilityRole="radio"
               onPress={() => setDays(option)}
             />
           ))}
@@ -207,36 +217,42 @@ export default function NewChallengeScreen() {
 
       <Section title={t.withWhom}>
         {members.length === 0 ? (
-          <Text variant="label" tone="secondary">
-            {t.noMembers}
-          </Text>
+          <>
+            <StatusNote kind="empty" text={t.noMembers} />
+            <ListGroup>
+              <ListRow icon="user-plus" label={circle.list.invite} onPress={() => router.push('/circle/invite')} />
+            </ListGroup>
+          </>
         ) : (
-          <ListGroup>
+          <ListGroup footer={t.withWhomHint}>
             {members.map((member) => (
               <ListRow
                 key={member.id}
                 label={member.name}
                 description={circle.member.handle(member.handle)}
-                right={<Check checked={participantIds.includes(member.id)} shape="box" />}
-                kind="action"
+                selection="checkbox"
+                selected={participantIds.includes(member.id)}
                 onPress={() => toggleParticipant(member.id)}
               />
             ))}
           </ListGroup>
         )}
-        <Stack direction="row" gap="sm">
-          <Chip
+        <ListGroup>
+          <ListRow
             label={t.meToo}
-            selected={join}
-            onPress={() => {
-              setJoin(!join);
-              setHabitsFull(false);
-            }}
+            description={t.meTooHint}
+            right={
+              <Toggle
+                value={join}
+                onValueChange={(value) => {
+                  setJoin(value);
+                  setHabitsFull(false);
+                }}
+                accessibilityLabel={t.meToo}
+              />
+            }
           />
-        </Stack>
-        <Text variant="caption" tone="tertiary">
-          {t.meTooHint}
-        </Text>
+        </ListGroup>
       </Section>
     </Screen>
   );

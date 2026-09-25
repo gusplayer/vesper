@@ -138,6 +138,14 @@ describe('replaceHealthMarks', () => {
 
     expect(fake.calls.map((call) => call.sql.split(' ')[0])).toEqual(['BEGIN', 'DELETE', 'COMMIT']);
   });
+
+  it('with a window, deletes only the health marks of the days that read covered', () => {
+    habits.replaceHealthMarks([], { fromKey: '2026-09-21', toKey: '2026-09-25' });
+
+    const [, remove] = fake.calls;
+    expect(remove?.sql).toMatch(/source = 'health' AND day_key >= \? AND day_key <= \?/);
+    expect(remove?.params).toEqual(['2026-09-21', '2026-09-25']);
+  });
 });
 
 describe('rename', () => {

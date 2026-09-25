@@ -1,0 +1,3 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- Block Store asks for no permission; nothing to declare here. -->
+</manifest>

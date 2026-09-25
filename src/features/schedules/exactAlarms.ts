@@ -1,4 +1,4 @@
-import type { CapabilityStatus } from '../../platform/capabilities';
+import type { BlockingStatus } from '../../platform/blockingTypes';
 
 /**
  * Whether Android's exact-alarm toggle is off. Without it a routine window can open
@@ -8,8 +8,6 @@ import type { CapabilityStatus } from '../../platform/capabilities';
  * `status()` of the blocking module carries the toggle in an optional `detail`; a
  * status without it (iOS, no module) is not "off", so nothing is claimed.
  */
-type StatusWithDetail = CapabilityStatus & { detail?: { exactAlarm?: boolean } };
-
-export function exactAlarmsOff(status: CapabilityStatus): boolean {
-  return (status as StatusWithDetail).detail?.exactAlarm === false;
+export function exactAlarmsOff(status: BlockingStatus): boolean {
+  return status.detail?.exactAlarm === false;
 }

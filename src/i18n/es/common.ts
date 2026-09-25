@@ -22,6 +22,8 @@ export const common = {
   edit: 'Editar',
   continue: 'Continuar',
   none: 'Ninguno',
+  /** The brand word, set in capitals like the mark: the one all-caps word the app writes. */
+  brand: 'VESPER',
   /** The dash a value shows when there is nothing to show. */
   empty: '—',
 };

@@ -2,10 +2,11 @@ import { useNavigationContainerRef, usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
-import { useFocusStore } from '../../data';
+import { useAppStore, useFocusStore } from '../../data';
 import { breakEndsAt, plannedEndAt } from '../../domain/session';
 
 const SESSION_PREFIX = '/session';
+const COMPLETE_PATH = '/session/complete';
 /** How often to look again while the navigator is still mounting. */
 const READY_POLL_MS = 50;
 
@@ -22,17 +23,26 @@ const READY_POLL_MS = 50;
  *   keeps counting a session that is over. A chosen duration completes; an open
  *   session at its cap expires (ADR-0022).
  * - A break that runs out ends by itself, and the session goes on.
+ * - A session that ran out while the app was dead was closed by boot, silently. Its
+ *   closing is shown once, on this open (ADR-0047 §9): the store marks it owed.
  *
  * The exact moments are scheduled once; on foreground the clock is read again
  * because timers sleep in the background. Renders nothing. Mounted once, under the
  * root layout.
+ *
+ * Until onboarding is done it navigates nowhere: the session routes sit behind the
+ * `onboardingDone` guard, so a push there would bounce back to the onboarding on every
+ * path change. A session that is due still closes; only the screen change waits.
  */
 export function SessionGate() {
   const router = useRouter();
   const navigation = useNavigationContainerRef();
   const pathname = usePathname();
+  const onboardingDone = useAppStore((state) => state.settings.onboardingDone);
   const session = useFocusStore((state) => state.session);
   const settleNow = useFocusStore((state) => state.settleNow);
+  const unseenClosing = useFocusStore((state) => state.unseenClosing);
+  const closingSeen = useFocusStore((state) => state.closingSeen);
   const sessionId = session?.id ?? null;
   const endAt = session === null ? null : plannedEndAt(session);
   const breakEnd = session === null ? null : breakEndsAt(session);
@@ -47,7 +57,7 @@ export function SessionGate() {
 
   // Pull into the session whenever one is running and the app is somewhere else.
   useEffect(() => {
-    if (sessionId === null || insideSession()) {
+    if (!onboardingDone || sessionId === null || insideSession()) {
       return undefined;
     }
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -72,8 +82,39 @@ export function SessionGate() {
         clearInterval(timer);
       }
     };
-    // Re-checked when the session changes or when the path leaves the session routes.
-  }, [sessionId, pathname, navigation, router]);
+    // Re-checked when the session changes, when the path leaves the session routes, and
+    // when onboarding finishes with a session already running.
+  }, [onboardingDone, sessionId, pathname, navigation, router]);
+
+  // Show the closing nobody saw, once, as soon as the navigator can.
+  useEffect(() => {
+    if (!onboardingDone || !unseenClosing || sessionId !== null) {
+      return undefined;
+    }
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const go = () => {
+      if (!navigation.isReady()) {
+        return false;
+      }
+      closingSeen();
+      if (!pathRef.current.startsWith(COMPLETE_PATH)) {
+        router.push(COMPLETE_PATH);
+      }
+      return true;
+    };
+    if (!go()) {
+      timer = setInterval(() => {
+        if (go() && timer !== null) {
+          clearInterval(timer);
+        }
+      }, READY_POLL_MS);
+    }
+    return () => {
+      if (timer !== null) {
+        clearInterval(timer);
+      }
+    };
+  }, [onboardingDone, unseenClosing, sessionId, navigation, router, closingSeen]);
 
   // End the session the moment its time is up, or the break the moment it is over.
   useEffect(() => {
@@ -88,13 +129,13 @@ export function SessionGate() {
       // One verdict for boot and foreground (ADR-0026): the store settles the break
       // past its length and the session past its end, at that end, not at now.
       const settled = settleNow(Date.now());
-      if (settled === null || settled.outcome === 'running') {
+      if (settled === null || settled.outcome === 'running' || !onboardingDone) {
         return;
       }
       if (insideSession()) {
-        router.replace('/session/complete');
+        router.replace(COMPLETE_PATH);
       } else {
-        router.push('/session/complete');
+        router.push(COMPLETE_PATH);
       }
     };
     const at = breakEnd ?? endAt;
@@ -110,7 +151,7 @@ export function SessionGate() {
       }
       subscription.remove();
     };
-  }, [sessionId, endAt, breakEnd, settleNow, router]);
+  }, [onboardingDone, sessionId, endAt, breakEnd, settleNow, router]);
 
   return null;
 }

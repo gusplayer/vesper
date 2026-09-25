@@ -10,6 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { bootAndHydrate, useAppStore } from '../data';
 import type { BootResult } from '../db/boot';
 import { DevJump } from '../dev/DevJump';
+import { PendingInviteGate } from '../features/onboarding/PendingInviteGate';
 import { SessionGate } from '../features/session/SessionGate';
 import { StreakSettle } from '../features/streak/StreakSettle';
 import { PlatformEffects } from '../platform/PlatformEffects';
@@ -33,7 +34,9 @@ SplashScreen.setOptions({ duration: 0, fade: false });
  *
  * Two worlds behind guards: onboarding until it is done, the app after. The session
  * routes are full screen and cannot be swiped away (ADR-0009 still holds there);
- * SessionGate pulls the app into them whenever a session is running.
+ * SessionGate pulls the app into them whenever a session is running. An invitation
+ * link that arrives during the onboarding is parked by `+native-intent` and opened by
+ * PendingInviteGate when the onboarding ends: the guard would otherwise drop it.
  *
  * The database is opened, migrated and read into the stores here, synchronously,
  * before anything renders (ADR-0017): op-sqlite is sync, so no screen has to handle
@@ -103,6 +106,7 @@ export default function RootLayout() {
           {__DEV__ ? <DevJump /> : null}
           <PlatformEffects />
           <SessionGate />
+          <PendingInviteGate />
           <StreakSettle />
           <Stack screenOptions={stackScreenOptions}>
             <Stack.Protected guard={!onboardingDone}>
@@ -131,6 +135,7 @@ export default function RootLayout() {
               <Stack.Screen name="settings/help" />
               <Stack.Screen name="settings/about" />
               <Stack.Screen name="settings/circle" />
+              <Stack.Screen name="settings/backup" />
               <Stack.Screen name="habits/edit" />
               <Stack.Screen name="habits/new" />
               <Stack.Screen name="circle/index" />
@@ -145,6 +150,12 @@ export default function RootLayout() {
                 last on purpose — the first screen of a Stack is its initial route, and
                 declaring this one first made every launch open on the disclosure. */}
             <Stack.Screen name="usage-access" />
+            {/* Restoring with the backup key belongs to no world either (ADR-0048): the
+                welcome screen opens it, and a restored backup flips the onboarding guard
+                while it runs, so it must survive the switch. Declared after the guards
+                for the same reason as usage-access. The run itself cannot be swiped away. */}
+            <Stack.Screen name="restore/key" />
+            <Stack.Screen name="restore/restoring" options={lockedPaperScreenOptions} />
           </Stack>
         </ChromeProvider>
       ) : null}

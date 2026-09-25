@@ -1,29 +1,41 @@
 import { useRouter } from 'expo-router';
 
-import { goBack } from '../../lib/goBack';
+import { BACK_FALLBACK, goBack } from '../../lib/goBack';
 import { useEffect, useState } from 'react';
+import { AppState, Linking } from 'react-native';
 
 import { useAppStore, useSettings } from '../../data';
-import {
-  Button,
-  Card,
-  ListGroup,
-  ListRow,
-  PageHeader,
-  Screen,
-  Stack,
-  Text,
-  Toggle,
-} from '../../design/components';
+import { Button, ListGroup, ListRow, NoticeCard, PageHeader, Screen, Toggle } from '../../design/components';
+import type { NotificationPrefs } from '../../data/types';
 import { ReminderTimeSheet, reminderTimeText } from '../../features/settings/ReminderTimeSheet';
 import { useStrings } from '../../i18n';
-import { hasPermission, presentNow, requestPermission, status } from '../../platform/notifications';
+import { presentNow, requestPermission, status } from '../../platform/notifications';
+import { reconcileNotificationPermission } from '../../platform/hooks/useNotificationSync';
+
+type SwitchKey = Exclude<keyof NotificationPrefs, 'reminderMinutes' | 'updates'>;
+type GroupTitle = 'generalGroup' | 'dailyGroup' | 'circleGroup';
+
+/**
+ * The switches, grouped like Brick. "Cada día" also holds the hour row and the budget
+ * footer. `updates` has no row: no notice of that kind exists, and a switch that
+ * controls nothing is a flag passed off as a capability.
+ */
+const GROUPS: readonly { title: GroupTitle; rows: readonly SwitchKey[] }[] = [
+  { title: 'generalGroup', rows: ['coaching', 'sessionEnd', 'weeklyClose'] },
+  { title: 'dailyGroup', rows: ['streak', 'noFocus', 'reactivation', 'challenges'] },
+  { title: 'circleGroup', rows: ['nudges'] },
+];
 
 /**
  * Notificaciones: the real OS permission first, then the switches for each kind of
- * notice, grouped like Brick: general, the daily ones with their hour (ADR-0027), the
- * circle, the system. The switches do nothing until the permission exists; the sync
- * hook reads both.
+ * notice, grouped like Brick: general, the daily ones with their hour (ADR-0027), and
+ * the circle. The switches are dimmed and cannot move until the permission exists: a
+ * switch that looks live while nothing can be shown would pass for a capability.
+ *
+ * The permission lives in the system settings. The page reads it on opening and on
+ * every return to the foreground, so a permission turned on or off there shows here
+ * without a tap. Once the system will not ask again (`blocked`), the only way left is
+ * the system settings, and the primary button goes there.
  */
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -38,37 +50,53 @@ export default function NotificationsScreen() {
   const allowed = settings.notificationsAllowed;
 
   const [asking, setAsking] = useState(false);
-  /** The OS said no. iOS will not ask again; only the system settings can flip it. */
-  const [denied, setDenied] = useState(false);
+  /**
+   * The system said no and will not ask again (iOS after the first no, Android after
+   * the second). Read from the system, not remembered: leaving the page and coming
+   * back still knows.
+   */
+  const [blocked, setBlocked] = useState(false);
   const [choosingTime, setChoosingTime] = useState(false);
 
-  // The user can revoke the permission in the system settings behind our back. Keep
-  // the flag honest, so the screen asks again instead of pretending.
+  // The user can turn the permission on or off in the system settings behind our back.
+  // Read it now and on every return, so the flag and this page say what the system says.
   useEffect(() => {
-    if (!allowed || !capability.available) {
+    if (!capability.available) {
       return;
     }
     let cancelled = false;
-    void hasPermission().then((granted) => {
-      if (!cancelled && !granted) {
-        updateSettings({ notificationsAllowed: false });
+    const read = () => {
+      void reconcileNotificationPermission().then((state) => {
+        if (!cancelled) {
+          setBlocked(state === 'blocked');
+        }
+      });
+    };
+    read();
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') {
+        read();
       }
     });
     return () => {
       cancelled = true;
+      subscription.remove();
     };
-  }, [allowed, capability.available, updateSettings]);
+  }, [capability.available]);
 
   const allow = async () => {
     setAsking(true);
     const granted = await requestPermission();
     setAsking(false);
     if (granted) {
-      setDenied(false);
       updateSettings({ notificationsAllowed: true });
-    } else {
-      setDenied(true);
     }
+    const state = await reconcileNotificationPermission();
+    setBlocked(state === 'blocked');
+  };
+
+  const openSystemSettings = () => {
+    void Linking.openSettings();
   };
 
   const tryNow = () => {
@@ -81,6 +109,8 @@ export default function NotificationsScreen() {
       footer={
         allowed ? (
           <Button label={page.tryNow} variant="ghost" onPress={tryNow} />
+        ) : blocked && capability.available ? (
+          <Button label={page.openSettings} onPress={openSystemSettings} />
         ) : (
           <Button
             label={page.allow}
@@ -92,161 +122,48 @@ export default function NotificationsScreen() {
         )
       }
     >
-      <PageHeader onBack={() => goBack(router)} title={page.title} />
+      <PageHeader onBack={() => goBack(router, BACK_FALLBACK.settings)} title={page.title} />
 
       {!capability.available ? (
-        <Card>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {page.unavailableTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {capability.reason}
-            </Text>
-          </Stack>
-        </Card>
-      ) : allowed ? null : denied ? (
-        <Card>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {page.deniedTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {page.deniedBody}
-            </Text>
-          </Stack>
-        </Card>
+        <NoticeCard title={page.unavailableTitle} body={capability.reason ?? undefined} />
+      ) : allowed ? null : blocked ? (
+        <NoticeCard title={page.deniedTitle} body={page.deniedBody} />
       ) : (
-        <Card>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {page.pendingTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {page.pendingBody}
-            </Text>
-          </Stack>
-        </Card>
+        <NoticeCard title={page.pendingTitle} body={page.pendingBody} />
       )}
 
-      <ListGroup title={page.generalGroup}>
-        <ListRow
-          label={page.coaching.label}
-          description={page.coaching.description}
-          right={
-            <Toggle
-              value={notifications.coaching}
-              onValueChange={(coaching) => updateNotifications({ coaching })}
-              accessibilityLabel={page.coaching.label}
+      {GROUPS.map((group) => (
+        <ListGroup
+          key={group.title}
+          title={page[group.title]}
+          footer={group.title === 'dailyGroup' ? page.dailyCaption : undefined}
+        >
+          {group.rows.map((key) => (
+            <ListRow
+              key={key}
+              label={page[key].label}
+              description={page[key].description}
+              right={
+                <Toggle
+                  value={notifications[key]}
+                  onValueChange={(value) => updateNotifications({ [key]: value })}
+                  accessibilityLabel={page[key].label}
+                  accessibilityHint={page[key].description}
+                  disabled={!allowed}
+                />
+              }
             />
-          }
-        />
-        <ListRow
-          label={page.sessionEnd.label}
-          description={page.sessionEnd.description}
-          right={
-            <Toggle
-              value={notifications.sessionEnd}
-              onValueChange={(sessionEnd) => updateNotifications({ sessionEnd })}
-              accessibilityLabel={page.sessionEnd.label}
+          ))}
+          {group.title === 'dailyGroup' ? (
+            <ListRow
+              label={page.reminderTime.label}
+              value={reminderTimeText(notifications.reminderMinutes)}
+              onPress={() => setChoosingTime(true)}
+              disabled={!allowed}
             />
-          }
-        />
-        <ListRow
-          label={page.weeklyClose.label}
-          description={page.weeklyClose.description}
-          right={
-            <Toggle
-              value={notifications.weeklyClose}
-              onValueChange={(weeklyClose) => updateNotifications({ weeklyClose })}
-              accessibilityLabel={page.weeklyClose.label}
-            />
-          }
-        />
-      </ListGroup>
-
-      <ListGroup title={page.dailyGroup}>
-        <ListRow
-          label={page.streak.label}
-          description={page.streak.description}
-          right={
-            <Toggle
-              value={notifications.streak}
-              onValueChange={(streak) => updateNotifications({ streak })}
-              accessibilityLabel={page.streak.label}
-            />
-          }
-        />
-        <ListRow
-          label={page.noFocus.label}
-          description={page.noFocus.description}
-          right={
-            <Toggle
-              value={notifications.noFocus}
-              onValueChange={(noFocus) => updateNotifications({ noFocus })}
-              accessibilityLabel={page.noFocus.label}
-            />
-          }
-        />
-        <ListRow
-          label={page.reactivation.label}
-          description={page.reactivation.description}
-          right={
-            <Toggle
-              value={notifications.reactivation}
-              onValueChange={(reactivation) => updateNotifications({ reactivation })}
-              accessibilityLabel={page.reactivation.label}
-            />
-          }
-        />
-        <ListRow
-          label={page.challenges.label}
-          description={page.challenges.description}
-          right={
-            <Toggle
-              value={notifications.challenges}
-              onValueChange={(challenges) => updateNotifications({ challenges })}
-              accessibilityLabel={page.challenges.label}
-            />
-          }
-        />
-        <ListRow
-          label={page.reminderTime.label}
-          value={reminderTimeText(notifications.reminderMinutes)}
-          onPress={() => setChoosingTime(true)}
-        />
-      </ListGroup>
-      <Text variant="caption" tone="tertiary" align="center">
-        {page.dailyCaption}
-      </Text>
-
-      <ListGroup title={page.circleGroup}>
-        <ListRow
-          label={page.nudges.label}
-          description={page.nudges.description}
-          right={
-            <Toggle
-              value={notifications.nudges}
-              onValueChange={(nudges) => updateNotifications({ nudges })}
-              accessibilityLabel={page.nudges.label}
-            />
-          }
-        />
-      </ListGroup>
-
-      <ListGroup title={page.systemGroup}>
-        <ListRow
-          label={page.updates.label}
-          description={page.updates.description}
-          right={
-            <Toggle
-              value={notifications.updates}
-              onValueChange={(updates) => updateNotifications({ updates })}
-              accessibilityLabel={page.updates.label}
-            />
-          }
-        />
-      </ListGroup>
+          ) : null}
+        </ListGroup>
+      ))}
 
       <ReminderTimeSheet
         visible={choosingTime}

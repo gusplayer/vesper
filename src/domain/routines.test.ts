@@ -5,11 +5,13 @@ import {
   activeWindow,
   dueRoutine,
   manualDurationMs,
+  markOpenWindows,
   nextStart,
   routineDecision,
   routineStatus,
   sortRoutines,
   type RoutineLike,
+  windowMinutes,
 } from './routines';
 import { HOUR, MINUTE } from './time';
 
@@ -222,6 +224,13 @@ describe('routineDecision', () => {
     expect(routineDecision([toggledOn], false, null, WED_10 + MINUTE).action).toBe('none');
   });
 
+  it('starts a window with no end time as an open session', () => {
+    const openEnded = routine({ id: 'r-open', startMinutes: 9 * 60, endMinutes: null });
+    const decision = routineDecision([openEnded], false, null, WED_10);
+    expect(decision.action).toBe('start');
+    expect(decision.action === 'start' ? decision.plannedMs : 'unset').toBeNull();
+  });
+
   it('never plans less than a minute', () => {
     const almostOver = new Date(2026, 8, 16, 17, 59, 50).getTime();
     const decision = routineDecision([work], false, null, almostOver);
@@ -281,5 +290,53 @@ describe('windows on the calendar, not on 24 h arithmetic', () => {
 
     expect(starts.map((s) => new Date(s).getDate())).toEqual([8, 9, 10, 11, 12, 13, 14]);
     expect(starts.every((s) => new Date(s).getHours() === 9 && new Date(s).getMinutes() === 0)).toBe(true);
+  });
+});
+
+describe('windowMinutes', () => {
+  it('reads a window the way the engine runs it', () => {
+    expect(windowMinutes({ startMinutes: 9 * 60, endMinutes: 18 * 60, durationMs: null })).toEqual({ start: 540, end: 1080 });
+    // An end before the start is the next day; the same minute is a whole day.
+    expect(windowMinutes({ startMinutes: 22 * 60, endMinutes: 6 * 60, durationMs: null })).toEqual({ start: 1320, end: 1800 });
+    expect(windowMinutes({ startMinutes: 18 * 60, endMinutes: 18 * 60, durationMs: null })).toEqual({ start: 1080, end: 2520 });
+    // No end time runs the open-end cap.
+    expect(windowMinutes({ startMinutes: 21 * 60 + 30, endMinutes: null, durationMs: null })).toEqual({
+      start: 1290,
+      end: 1290 + OPEN_END_CAP_MS / MINUTE,
+    });
+  });
+
+  it('is null for a routine you start by hand', () => {
+    expect(windowMinutes({ startMinutes: null, endMinutes: null, durationMs: 20 * MINUTE })).toBeNull();
+  });
+});
+
+describe('markOpenWindows', () => {
+  const work = routine();
+  const reading = routine({ id: 'r-reading', startMinutes: 13 * 60, endMinutes: 13 * 60 + 30 });
+  const AT_13_10 = new Date(2026, 8, 16, 13, 10).getTime();
+
+  it('marks every window open at that moment, so a waiting routine does not start', () => {
+    // A manual session runs from 12:50; at 13:00 Lectura waits for it. The user ends it
+    // at 13:10 with an emergency unlock: neither open window may start now.
+    const starts = markOpenWindows([work, reading], {}, AT_13_10);
+    expect(starts).toEqual({ 'r-work': WED_9, 'r-reading': new Date(2026, 8, 16, 13).getTime() });
+    expect(routineDecision([work, reading], false, starts, AT_13_10).action).toBe('none');
+  });
+
+  it('keeps the marks it does not touch and leaves later windows alone', () => {
+    const before = { 'r-old': 1 };
+    const starts = markOpenWindows([work, reading], before, WED_10);
+    expect(starts).toEqual({ 'r-old': 1, 'r-work': WED_9 });
+    // 13:00 comes: Lectura's window opens after the choice, and starts.
+    const AT_13 = new Date(2026, 8, 16, 13).getTime();
+    const decision = routineDecision([work, reading], false, starts, AT_13);
+    expect(decision.action === 'start' ? decision.routine.id : null).toBe('r-reading');
+  });
+
+  it('returns the same marks when no window is open', () => {
+    const before = { 'r-work': WED_9 };
+    expect(markOpenWindows([work], before, WED_22)).toBe(before);
+    expect(markOpenWindows([work, reading], null, WED_22)).toEqual({});
   });
 });

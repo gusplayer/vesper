@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 
+import { useLifetimeTotals } from '../../data';
 import type { DayStat } from '../../data/types';
 import { Columns, DotGrid, Stack, StatCard, Text } from '../../design/components';
 import { useLocale, useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { capitalize, monthLabel } from './dates';
-import { HabitsSection } from './HabitsSection';
+import { HabitsSummary } from './HabitsSummary';
 import { LifeSection } from './LifeSection';
-import { lifetimeTotals, recentMonths } from './selectors';
+import { recentMonths } from './selectors';
 import { StreakSection } from './StreakSection';
 import { daysText, hoursText } from './text';
 import { TodaySection } from './TodaySection';
@@ -16,16 +17,21 @@ import { WeeklyGoalSection } from './WeeklyGoalSection';
 type LifetimeViewProps = {
   stats: readonly DayStat[];
   now: number;
+  /** The habits summary opens Semanal, where they are marked (ADR-0047 §7). */
+  onShowWeek: () => void;
 };
 
 /**
- * Brick's two lifetime cards, then what only Vesper has: the weekly goal, the habits,
- * today's ledger and the weeks of life.
+ * Brick's two lifetime cards, then what only Vesper has: the weekly goal, the streak,
+ * a summary of the habits (they are marked in Semanal), today's ledger and the weeks of
+ * life. The two cards read every closed session
+ * (`useLifetimeTotals`), not the day stats' window, so "lifetime" stays lifetime past
+ * a year; the month grids are recent by nature and keep reading the day stats.
  */
-export function LifetimeView({ stats, now }: LifetimeViewProps) {
+export function LifetimeView({ stats, now, onShowWeek }: LifetimeViewProps) {
   const t = useStrings();
   const { tag } = useLocale();
-  const totals = useMemo(() => lifetimeTotals(stats), [stats]);
+  const totals = useLifetimeTotals();
   const months = useMemo(() => recentMonths(stats, now, 4, t.activity), [stats, now, t]);
 
   return (
@@ -55,14 +61,22 @@ export function LifetimeView({ stats, now }: LifetimeViewProps) {
               <Text variant="caption" tone="secondary">
                 {capitalize(month.label)}
               </Text>
-              <DotGrid cells={month.cells} columns={7} fill />
+              <DotGrid
+                cells={month.cells}
+                columns={7}
+                fill
+                accessibilityLabel={t.activity.spoken.monthGrid(
+                  capitalize(month.label),
+                  daysText(month.cells.filter(Boolean).length, t.activity, tag),
+                )}
+              />
             </Stack>
           ))}
         </Columns>
       </StatCard>
       <WeeklyGoalSection now={now} />
       <StreakSection now={now} />
-      <HabitsSection now={now} />
+      <HabitsSummary now={now} onShowWeek={onShowWeek} />
       <TodaySection now={now} />
       <LifeSection now={now} />
     </Stack>

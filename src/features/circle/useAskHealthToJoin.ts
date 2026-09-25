@@ -21,3 +21,13 @@ export function useAskHealthToJoin(): (name: string) => Promise<void> {
     }
   };
 }
+
+/**
+ * Why Health cannot confirm a challenge on this phone, or null where it can. The join
+ * line reads it: without Health the habit is born declared, and the line says so
+ * (rule 8) instead of promising a count nothing will make.
+ */
+export function healthMissingReason(): string | null {
+  const health = status();
+  return health.available ? null : health.reason;
+}

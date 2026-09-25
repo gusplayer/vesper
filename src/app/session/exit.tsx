@@ -1,7 +1,7 @@
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { goBack } from '../../lib/goBack';
-import { useRef, useState } from 'react';
 
 import { useFocusStore, useRunningSession } from '../../data';
 import {
@@ -47,6 +47,11 @@ const HELD_TICK_MS = 250;
  * underneath: the same language as entering, in reverse. A full-screen route without
  * a back gesture, and without Android's back button either: the ritual is the way
  * out, and a system back mid-breath would throw away the round and the typed reason.
+ *
+ * The flood sits outside the page, at a fixed place in the tree, so it survives the
+ * session closing under it and lingers through the fade into `session/closed` instead
+ * of leaving the dark route showing for a frame. Opened with no session (a stale link),
+ * the route goes to Focus; a deep session, which has no ritual, goes back to itself.
  */
 export default function ExitScreen() {
   const router = useRouter();
@@ -54,6 +59,7 @@ export default function ExitScreen() {
   const strings = useStrings();
   const t = strings.session.exit;
   const session = useRunningSession();
+  const [arrivedWithSession] = useState(session !== null);
   const finish = useFocusStore((state) => state.finish);
   const [index, setIndex] = useState(0);
   const [typed, setTyped] = useState('');
@@ -69,20 +75,15 @@ export default function ExitScreen() {
   // The session closes from here at most once, however the flood is retriggered.
   const leftRef = useRef(false);
   const now = useNow(pressedAt === null ? SECOND : HELD_TICK_MS);
+  const steps = session === null ? [] : exitStepsFor(session.depth);
+  // Deep has no way out by hand (domain/exitRitual): only a link could land it here.
+  const noRitual = session !== null && steps.length === 0;
+  useEffect(() => {
+    if (noRitual) {
+      goBack(router);
+    }
+  }, [noRitual, router]);
 
-  if (session === null) {
-    return null;
-  }
-
-  const steps = exitStepsFor(session.depth);
-  const step = steps[index] ?? 'breathe';
-  const cycles = breathCyclesFor(session.depth);
-  const totalMs = breathTotalMs(cycles);
-  const heldMs = completedMs + (pressedAt === null ? 0 : Math.max(0, now - pressedAt));
-  const breath = breathState(heldMs, cycles);
-  const served = durationText(elapsed(session, now));
-
-  const stay = () => goBack(router);
   const leave = () => {
     if (leftRef.current) {
       return;
@@ -91,11 +92,41 @@ export default function ExitScreen() {
     setLeaving(true);
   };
   // The page is paper: close the session under it and swap the route while it lingers.
+  // A null close means the timer won the race and SessionGate is already on its way to
+  // the completion page.
   const flooded = () => {
-    finish('cancelled', Date.now(), emptyToNull(reason));
-    router.replace('/session/closed');
+    const closed = finish('cancelled', Date.now(), emptyToNull(reason));
+    if (closed !== null) {
+      router.replace('/session/closed');
+    }
     setLeaving(false);
   };
+  const flood = <InkFlood active={leaving} tone="paper" onDone={flooded} />;
+  // The page, then the flood, always in these two places.
+  const withFlood = (page: ReactNode) => (
+    <>
+      {page}
+      {flood}
+    </>
+  );
+
+  if (session === null) {
+    return arrivedWithSession ? withFlood(null) : <Redirect href="/" />;
+  }
+  if (noRitual) {
+    return withFlood(null);
+  }
+
+  const step = steps[index] ?? 'breathe';
+  const cycles = breathCyclesFor(session.depth);
+  const totalMs = breathTotalMs(cycles);
+  const heldMs = completedMs + (pressedAt === null ? 0 : Math.max(0, now - pressedAt));
+  const breath = breathState(heldMs, cycles);
+  const served = durationText(elapsed(session, now));
+
+  const stay = () => goBack(router);
+  // Opened from a break, going back lands on the break, not on focus.
+  const stayLabel = session.breakStartedAt === null ? strings.session.stayFocused : t.backToBreak;
 
   const pressIn = () => {
     if (breath.done) {
@@ -116,16 +147,14 @@ export default function ExitScreen() {
     setPressedAt(null);
   };
 
-  const flood = <InkFlood active={leaving} tone="paper" onDone={flooded} />;
-
   if (step === 'breathe') {
     const last = steps.length === 1;
     const pressing = pressedAt !== null && !breath.done;
-    return (
+    return withFlood(
       <Screen
         footer={
           <>
-            <Button label={strings.session.stayFocused} onPress={stay} />
+            <Button label={stayLabel} onPress={stay} />
             <Button
               variant="ghost"
               label={last ? t.endWithServed(served) : t.wantToEnd}
@@ -139,7 +168,10 @@ export default function ExitScreen() {
           <Text variant="label" tone="secondary">
             {t.breatheFirst}
           </Text>
-          <Text variant="hero">{breath.done ? strings.common.done : pressing ? t.phase[breath.phase] : ''}</Text>
+          {/* The phase word is the rhythm for a screen reader too: each change is announced. */}
+          <Text variant="hero" live>
+            {breath.done ? strings.common.done : pressing ? t.phase[breath.phase] : ''}
+          </Text>
           <Text variant="title" tone="secondary">
             {pressing ? String(breath.secondsLeft) : ''}
           </Text>
@@ -159,7 +191,7 @@ export default function ExitScreen() {
         <Stack align="center" gap="xs">
           {breath.done ? (
             <>
-              <Text variant="caption" tone="secondary" align="center">
+              <Text variant="caption" tone="secondary" align="center" live>
                 {t.counted}
               </Text>
               {/* Keeps the block two lines tall, so the object does not move when the rounds end. */}
@@ -169,7 +201,7 @@ export default function ExitScreen() {
             </>
           ) : (
             <>
-              <Text variant="caption" tone="secondary" align="center">
+              <Text variant="caption" tone="secondary" align="center" live>
                 {released ? t.releasedHint : t.holdHint}
               </Text>
               <Text variant="caption" tone="secondary" align="center">
@@ -178,9 +210,8 @@ export default function ExitScreen() {
             </>
           )}
         </Stack>
-        <ProgressBar progress={breath.progress} />
-        {flood}
-      </Screen>
+        <ProgressBar progress={breath.progress} accessibilityLabel={t.progressLabel} />
+      </Screen>,
     );
   }
 
@@ -197,11 +228,12 @@ export default function ExitScreen() {
     setTyped(text);
     setMismatch(false);
   };
-  return (
+  return withFlood(
     <Screen
+      avoidKeyboard
       footer={
         <>
-          <Button label={strings.session.stayFocused} onPress={stay} />
+          <Button label={stayLabel} onPress={stay} />
           <Button variant="ghost" label={t.endWithServed(served)} onPress={tryLeave} />
         </>
       }
@@ -209,21 +241,27 @@ export default function ExitScreen() {
       <Spacer />
       <Stack gap="lg">
         <Stack gap="md">
-          <Text variant="title">{t.typeSentence}</Text>
+          <Text variant="title" align="center">
+            {t.typeSentence}
+          </Text>
           <Card tone="muted">
             <Text variant="heading" align="center">
               {t.sentence}
             </Text>
           </Card>
+          {/* Typed, not completed: no autocorrect, no suggestions. */}
           <FieldRow
             label={t.sentenceField}
             value={typed}
             onChangeText={type}
             placeholder={t.sentencePlaceholder}
             autoFocus
+            autoCorrect={false}
+            spellCheck={false}
+            returnKeyType="done"
           />
           {mismatch ? (
-            <Text variant="caption" tone="danger">
+            <Text variant="caption" tone="danger" align="center" live>
               {t.sentenceMismatch}
             </Text>
           ) : null}
@@ -234,14 +272,14 @@ export default function ExitScreen() {
             value={reason}
             onChangeText={setReason}
             placeholder={t.reasonPlaceholder}
+            multiline
           />
-          <Text variant="caption" tone="secondary">
+          <Text variant="caption" tone="secondary" align="center">
             {t.reasonHint}
           </Text>
         </Stack>
       </Stack>
       <Spacer />
-      {flood}
-    </Screen>
+    </Screen>,
   );
 }

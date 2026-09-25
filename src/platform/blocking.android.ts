@@ -4,7 +4,7 @@ import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, ty
 import { packageNamesFromToken } from '../domain/packageSelection';
 import { getStrings } from '../i18n';
 import type { NativeCopy, NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
-import type { PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
+import type { BlockingStatus, PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, type CapabilityStatus } from './capabilities';
 
 /**
@@ -82,21 +82,27 @@ export function nativeModule(): Module | null {
 /**
  * Whenever the module is there, `detail.exactAlarm` carries the exact-alarm toggle,
  * available or not, so a screen can point at it while usage access is still missing.
+ * `detail.missing` names the Settings toggle that is off, so a screen can offer the
+ * way in (usage access through its disclosure, the overlay directly).
  */
-export function status(): CapabilityStatus {
+export function status(): BlockingStatus {
   const mod = nativeModule();
   if (mod === null) {
     return unavailable(getStrings().modes.blocking.androidNoModule);
   }
   const native = nativeStatus(mod);
-  const detail = { exactAlarm: native.exactAlarm };
+  // No rule of Mis reglas reaches Android: there is no ManagedSettings counterpart.
+  const base = { exactAlarm: native.exactAlarm, appliedRules: [], grantable: false };
   if (!native.usageAccess) {
-    return { ...unavailable(getStrings().modes.blocking.androidNoUsageAccess), detail };
+    return {
+      ...unavailable(getStrings().modes.blocking.androidNoUsageAccess),
+      detail: { ...base, grantable: true, missing: 'usageAccess' },
+    };
   }
   if (!native.overlay) {
-    return { ...unavailable(getStrings().modes.blocking.androidNoOverlay), detail };
+    return { ...unavailable(getStrings().modes.blocking.androidNoOverlay), detail: { ...base, grantable: true, missing: 'overlay' } };
   }
-  return { available: true, reason: null, detail };
+  return { available: true, reason: null, detail: base };
 }
 
 /** True once both Settings toggles are on. There is no "not asked yet" on Android. */

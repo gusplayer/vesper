@@ -16,9 +16,31 @@ export const focus = {
     focusOpen: 'Enfocarme sin límite',
     /** The deep-mode button: the only one that asks for a hold. 'Mantén para enfocarme 25 min'. */
     holdFor: (minutes: string) => `Mantén para enfocarme ${minutes} min`,
+    /** Under the deep-mode button after a press too short to start. */
+    holdHint: 'Mantén presionado para empezar',
     noModes: 'Sin modos',
     noModesHint: 'Un modo dice qué se bloquea mientras enfocas',
-    createFirstMode: 'Crea tu primer modo ›',
+    createFirstMode: 'Crea tu primer modo',
+    /** Under the mode line when a deep mode meets "sin límite": the session will not be deep. */
+    openRunsFirm: 'Sin límite: este modo corre como firme.',
+    /** While any seeded row is left (ADR-0047 §1). Tapping it opens Ajustes. */
+    demo: 'Incluye datos de ejemplo. Quítalos en Ajustes.',
+    demoHint: 'Abre Ajustes',
+    /** After a routine's play set the mode and the duration here (ADR-0047 §3a). */
+    routineReady: (name: string) => `Rutina ${name} lista para empezar.`,
+  },
+  /**
+   * What a session in the mode really blocks (rule 8, ADR-0047 §1). A mode that blocks
+   * no apps is a valid choice, so it is said as a plain fact. Only "this phone cannot
+   * block" carries its reason, once per page. `summary` is the platform's own words for
+   * the selection ('3 apps · 1 categoría'); `reason` is its lowercase fragment.
+   */
+  blocking: {
+    blocks: (summary: string) => `Bloquea ${summary}`,
+    allowsOnly: (summary: string) => `Permite solo ${summary}`,
+    none: 'No bloquea apps',
+    unavailable: 'Este teléfono no bloquea apps.',
+    unavailableBecause: (reason: string) => `Este teléfono no bloquea apps: ${reason}.`,
   },
   pill: {
     /** '1h 45m enfocado hoy'. Only today: the week and its goal live in Actividad. */
@@ -30,12 +52,23 @@ export const focus = {
     /** '25 min', the row above the button. Tapping it opens the sheet. */
     minutes: (minutes: string) => `${minutes} min`,
     open: 'Sin límite',
-    label: (current: string) => `Duración: ${current}. Toca para cambiar`,
+    /** What VoiceOver adds after the row's words. */
+    hint: 'Abre las duraciones',
+    /**
+     * The optional intention in the same sheet (ADR-0047 §10): kept with the session,
+     * shown while it runs and on its closing.
+     */
+    intention: 'Intención',
+    intentionPlaceholder: 'Opcional',
+    intentionHint: 'Qué quieres hacer en esta sesión. Se ve mientras corre y al cerrarla.',
+    /** Under the duration row once one is written: '“Terminar el esquema”'. */
+    intentionQueued: (text: string) => `“${text}”`,
   },
   modePicker: {
     title: 'Modo',
-    label: (name: string) => `Modo: ${name}. Toca para elegir otro`,
-    manage: 'Gestionar modos ›',
+    /** What VoiceOver adds after the mode's name. */
+    hint: 'Abre la lista de modos',
+    manage: 'Gestionar modos',
   },
   nextRoutine: {
     /** 'Trabajo · activa hasta las 18:00', while a routine is inside its window. */

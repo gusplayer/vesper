@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { layout, space } from '../tokens';
+import { layout, opacity, space } from '../tokens';
 import { AppTile } from './AppTile';
+import { Check } from './Check';
 import { Text } from './Text';
 
 type AppRowProps = {
@@ -26,6 +27,15 @@ type AppRowProps = {
   subordinate?: boolean;
   onPress?: () => void;
   accessibilityLabel?: string;
+  accessibilityHint?: string;
+  /**
+   * A row of a picker: with `selection` the row draws its own box (or radio) on the
+   * right and VoiceOver hears a checkbox, checked or not. `right` still wins if given.
+   */
+  selected?: boolean;
+  selection?: 'checkbox' | 'radio';
+  /** Dims the row and ignores presses. */
+  disabled?: boolean;
 };
 
 /**
@@ -44,9 +54,19 @@ export function AppRow({
   subordinate = false,
   onPress,
   accessibilityLabel,
+  accessibilityHint,
+  selected,
+  selection,
+  disabled = false,
 }: AppRowProps) {
+  const trailing =
+    right !== undefined ? (
+      right
+    ) : selection === undefined ? null : (
+      <Check checked={selected === true} shape={selection === 'radio' ? 'radio' : 'box'} />
+    );
   const content = (
-    <View style={styles.row}>
+    <View style={[styles.row, disabled ? styles.disabled : null]}>
       <AppTile icon={icon} initial={initial} color={color} size={subordinate ? 'sm' : 'md'} />
       <View style={styles.text}>
         <Text variant={subordinate ? 'label' : 'body'}>{name}</Text>
@@ -61,7 +81,7 @@ export function AppRow({
           {value}
         </Text>
       )}
-      {right}
+      {trailing}
     </View>
   );
 
@@ -79,9 +99,18 @@ export function AppRow({
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? name}
-      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      disabled={disabled}
+      accessibilityRole={selection === 'radio' ? 'radio' : selection === 'checkbox' ? 'checkbox' : 'button'}
+      accessibilityLabel={accessibilityLabel ?? [name, description].filter(Boolean).join(', ')}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={
+        selection !== undefined
+          ? { checked: selected === true, disabled }
+          : selected === undefined
+            ? { disabled }
+            : { selected, disabled }
+      }
+      style={({ pressed }) => ({ opacity: pressed && !disabled ? opacity.pressed : 1 })}
     >
       {content}
     </Pressable>
@@ -89,6 +118,9 @@ export function AppRow({
 }
 
 const styles = StyleSheet.create({
+  disabled: {
+    opacity: opacity.disabled,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

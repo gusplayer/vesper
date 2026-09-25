@@ -15,7 +15,10 @@ export const SETTING_KEYS = {
   prototypeSettings: 'prototype_settings',
   /** The mode the home page shows. */
   activeModeId: 'active_mode_id',
-  /** Set once the demo data has been seeded, so it is never seeded twice. */
+  /**
+   * Set once the demo data has been seeded, so it is never seeded twice. A reset writes
+   * it again after emptying the table, so the examples never come back (ADR-0047 §1).
+   */
   demoSeededAt: 'demo_seeded_at',
   /** 'auto' | 'es' | 'en' — Ajustes › Idioma (ADR-0020). Missing reads as 'auto'. */
   language: 'language',
@@ -33,6 +36,28 @@ export const SETTING_KEYS = {
   circleSyncSince: 'circle_sync_since',
   /** When the server last answered, epoch ms. Missing means it never has. */
   circleSyncedAt: 'circle_synced_at',
+  /** The ids the onboarding wrote (its mode and routine), JSON; kept by src/data/onboardingIds.ts. */
+  onboardingIds: 'onboarding_ids',
+  /**
+   * This person's identity (ADR-0048), JSON `{ id, registeredAt }`. Born on the first
+   * launch; `registeredAt` is null until the server has it. The circle profile and
+   * account share this id. The secret is not here: it lives in platform/identity.
+   */
+  identity: 'identity',
+  /** The last `POST /device` ping (platform, version, time zone), epoch ms. Missing is never. */
+  identityPingAt: 'identity_ping_at',
+  /**
+   * The encrypted backup (ADR-0048), JSON `{ enabled, lastAt, lastError }`. Missing reads
+   * as enabled with no backup yet: it is on by default.
+   */
+  backup: 'backup',
+  /**
+   * The modes whose app selection stayed on another phone (ADR-0048 §9), JSON string[]:
+   * a restore empties a Screen Time token, and the card says to pick the apps again
+   * until a new selection is saved. It travels in the backup, so a restore of a restore
+   * still knows.
+   */
+  modesRepick: 'modes_repick',
 } as const;
 
 export function get(key: string): string | null {
@@ -127,16 +152,6 @@ function notifications(value: unknown, fallback: NotificationPrefs): Notificatio
   };
 }
 
-function banner(value: unknown, fallback: Settings['pendingBanner']): Settings['pendingBanner'] {
-  if (value === null) {
-    return null;
-  }
-  if (isRecord(value) && typeof value.title === 'string' && typeof value.message === 'string') {
-    return { title: value.title, message: value.message };
-  }
-  return fallback;
-}
-
 function routineStarts(value: unknown, fallback: Settings['routineStarts']): Settings['routineStarts'] {
   if (!isRecord(value)) {
     return fallback;
@@ -155,7 +170,9 @@ function routineStarts(value: unknown, fallback: Settings['routineStarts']): Set
 /**
  * Turns whatever is stored under `prototype_settings` into a complete Settings object.
  * Every field is checked one by one and falls back to `defaults` on its own, so a
- * field added later, or a corrupt one, never takes the rest down with it.
+ * field added later, or a corrupt one, never takes the rest down with it. A field an
+ * older build wrote and this one no longer has (the home banner's `pendingBanner`) is
+ * simply not read, and the next write leaves it out.
  */
 export function parseSettings(raw: unknown, defaults: Settings): Settings {
   const value = isRecord(raw) ? raw : {};
@@ -167,6 +184,8 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     liveActivities: bool(value.liveActivities, defaults.liveActivities),
     emergencyLeft: num(value.emergencyLeft, defaults.emergencyLeft),
     emergencyTotal: num(value.emergencyTotal, defaults.emergencyTotal),
+    emergencyMonthKey:
+      typeof value.emergencyMonthKey === 'string' ? value.emergencyMonthKey : defaults.emergencyMonthKey,
     rules: rules(value.rules, defaults.rules),
     notifications: notifications(value.notifications, defaults.notifications),
     birthDate: numOrNull(value.birthDate, defaults.birthDate),
@@ -174,7 +193,6 @@ export function parseSettings(raw: unknown, defaults: Settings): Settings {
     sex: value.sex === 'female' || value.sex === 'male' ? value.sex : defaults.sex,
     lifeExpectancyYears: num(value.lifeExpectancyYears, defaults.lifeExpectancyYears),
     weeklyTargetMs: numOrNull(value.weeklyTargetMs, defaults.weeklyTargetMs),
-    pendingBanner: banner(value.pendingBanner, defaults.pendingBanner),
     healthSyncedAt: numOrNull(value.healthSyncedAt, defaults.healthSyncedAt),
     routineStarts: routineStarts(value.routineStarts, defaults.routineStarts),
     lastOpenedAt: numOrNull(value.lastOpenedAt, defaults.lastOpenedAt),
@@ -188,6 +206,16 @@ export function getPrototypeSettings(defaults: Settings): Settings {
 
 export function setPrototypeSettings(settings: Settings, now: number): void {
   setJson(SETTING_KEYS.prototypeSettings, settings, now);
+}
+
+/** The modes to pick apps for again after a restore; an empty list when none. */
+export function getModesRepick(): string[] {
+  const raw = getJson<unknown>(SETTING_KEYS.modesRepick);
+  return Array.isArray(raw) ? raw.filter((id): id is string => typeof id === 'string') : [];
+}
+
+export function setModesRepick(ids: readonly string[], now: number): void {
+  setJson(SETTING_KEYS.modesRepick, [...new Set(ids)], now);
 }
 
 export function getActiveModeId(): string | null {
@@ -298,4 +326,133 @@ export function setSynced(since: number, now: number): void {
 
 export function getSyncedAt(): number | null {
   return getNumber(SETTING_KEYS.circleSyncedAt);
+}
+
+/**
+ * The cursor back to zero and the stamp gone, the account marker left alone: a phone
+ * that just restored asks the server for everything again (ADR-0048 §6).
+ */
+export function resetSync(): void {
+  const db = getDb();
+  for (const key of [SETTING_KEYS.circleSyncSince, SETTING_KEYS.circleSyncedAt]) {
+    db.executeSync('DELETE FROM settings WHERE key = ?', [key]);
+  }
+}
+
+// --- The identity (ADR-0048 §2) -------------------------------------------------------
+
+/**
+ * This install's identity, as the settings table keeps it. The secret is never here: it
+ * lives in platform/identity (the keychain, and the copy that travels).
+ *
+ * - `registeredAt`: null until `POST /account` answered with a secret.
+ * - `supersedes`: the id of a previous Vesper this phone chose to start over from
+ *   ("Empezar de cero") and could not delete yet, for lack of a connection. Its key
+ *   stays in the keychain until the server confirms the delete, and nothing else signs
+ *   with it.
+ * - `rotatePending`: a restore that could not change the secret (ADR-0048 §5); the
+ *   old one keeps working until the identity sync rotates it.
+ */
+export type IdentityRecord = {
+  id: string;
+  registeredAt: number | null;
+  supersedes: string | null;
+  rotatePending: boolean;
+};
+
+/** A stored identity, or null. An id is the whole of it: without one there is none. */
+export function parseIdentity(raw: unknown): IdentityRecord | null {
+  if (!isRecord(raw)) {
+    return null;
+  }
+  const { id, registeredAt, supersedes, rotatePending } = raw;
+  if (typeof id !== 'string' || id.length === 0) {
+    return null;
+  }
+  return {
+    id,
+    registeredAt: numOrNull(registeredAt, null),
+    supersedes: typeof supersedes === 'string' && supersedes.length > 0 ? supersedes : null,
+    rotatePending: rotatePending === true,
+  };
+}
+
+export function getIdentity(): IdentityRecord | null {
+  return parseIdentity(getJson<unknown>(SETTING_KEYS.identity));
+}
+
+export function setIdentity(record: IdentityRecord, now: number): void {
+  setJson(SETTING_KEYS.identity, record, now);
+}
+
+/** The record and the last ping go together: a new identity pings on its own. */
+export function deleteIdentity(): void {
+  const db = getDb();
+  for (const key of [SETTING_KEYS.identity, SETTING_KEYS.identityPingAt]) {
+    db.executeSync('DELETE FROM settings WHERE key = ?', [key]);
+  }
+}
+
+/** The last `POST /device` ping, epoch ms, or null when there has been none. */
+export function getIdentityPingAt(): number | null {
+  return getNumber(SETTING_KEYS.identityPingAt);
+}
+
+export function setIdentityPingAt(at: number, now: number): void {
+  setNumber(SETTING_KEYS.identityPingAt, at, now);
+}
+
+// --- The encrypted backup (ADR-0048 §7) -------------------------------------------------
+
+/**
+ * What this phone knows of its backup. It never travels in the backup itself: it is
+ * about this install (src/db/backup.ts).
+ *
+ * - `lastAt`: the last upload the server accepted, epoch ms.
+ * - `lastError`: why the last attempt did not go out, as a code the platform turns
+ *   into words at read time (the language can change in between). Null after a success.
+ * - `fingerprint`: what the last accepted upload held, so an automatic run with
+ *   nothing new does not send the same bytes again.
+ * - `remoteAt`: the server's `updatedAt` of the copy this install last wrote or
+ *   restored. A copy on the server with another stamp was written by another install,
+ *   and an automatic run never replaces it on its own.
+ */
+export type BackupSetting = {
+  enabled: boolean;
+  lastAt: number | null;
+  lastError: string | null;
+  fingerprint: string | null;
+  remoteAt: number | null;
+};
+
+/** On by default: the product owner chose it (ADR-0048). */
+export const DEFAULT_BACKUP: BackupSetting = {
+  enabled: true,
+  lastAt: null,
+  lastError: null,
+  fingerprint: null,
+  remoteAt: null,
+};
+
+/** Field by field, like every other stored value: one corrupt field never flips the switch. */
+export function parseBackup(raw: unknown): BackupSetting {
+  const value = isRecord(raw) ? raw : {};
+  return {
+    enabled: bool(value.enabled, DEFAULT_BACKUP.enabled),
+    lastAt: numOrNull(value.lastAt, null),
+    lastError: typeof value.lastError === 'string' ? value.lastError : null,
+    fingerprint: typeof value.fingerprint === 'string' ? value.fingerprint : null,
+    remoteAt: numOrNull(value.remoteAt, null),
+  };
+}
+
+export function getBackup(): BackupSetting {
+  return parseBackup(getJson<unknown>(SETTING_KEYS.backup));
+}
+
+/** Merges a patch into what is stored and returns the result. */
+export function updateBackup(patch: Partial<BackupSetting>, now: number): BackupSetting {
+  const next = { ...getBackup(), ...patch };
+  setJson(SETTING_KEYS.backup, next, now);
+  return next;
 }

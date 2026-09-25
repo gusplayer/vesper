@@ -1,27 +1,22 @@
 import { useMemo, useState } from 'react';
 
 import type { DayStat } from '../../data/types';
-import {
-  BarChart,
-  Card,
-  Icon,
-  ProgressBar,
-  Section,
-  Stack,
-  Text,
- PeriodStrip } from '../../design/components';
+import { BarChart, Card, Dot, Icon, PeriodStrip, ProgressBar, Section, Stack, Text } from '../../design/components';
 import { useLocale, useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
 import { CircleWeekSection } from '../circle/CircleWeekSection';
 import { dayLabel } from './dates';
+import { HabitsSection } from './HabitsSection';
 import {
   deltaVsPrevious,
+  emptyWeekLine,
   niceGuides,
   weekAverage,
   weekBars,
   weekDayCards,
   type CalendarDay,
   type Delta,
+  type EmptyWeekLine,
 } from './selectors';
 import { chartSummary, dayCardSummary, deltaText, sessionsText } from './text';
 
@@ -30,7 +25,12 @@ type WeeklyViewProps = {
   now: number;
 };
 
-/** Average per day, the seven bars, and one card per day back to Monday. */
+/**
+ * Average per day, the seven bars, this week's habits, and one card per day back to
+ * Monday. The habits sit right under the chart because marking one is a daily action
+ * (ADR-0047 §7); like the circle, they belong to this week only — last week's view has
+ * no "today" to mark.
+ */
 export function WeeklyView({ stats, now }: WeeklyViewProps) {
   const t = useStrings();
   const { tag } = useLocale();
@@ -47,6 +47,7 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
   const average = useMemo(() => weekAverage(stats, now, offset), [stats, now, offset]);
   const delta = useMemo(() => deltaVsPrevious(stats, now, offset), [stats, now, offset]);
   const days = useMemo(() => weekDayCards(stats, now, offset), [stats, now, offset]);
+  const empty = useMemo(() => emptyWeekLine(stats, now, offset), [stats, now, offset]);
   // The cards stop at today, and so does what VoiceOver reads for the chart: a day that
   // has not happened is not 'sin foco'.
   const spokenChart = useMemo(
@@ -60,10 +61,11 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
         options={periods}
         selectedKey={String(offset)}
         onSelect={(key) => setOffset(Number(key))}
+        locale={tag}
       />
       <Section title={t.activity.weekly.averagePerDay}>
         <Text variant="title">{average === null ? t.common.empty : durationText(average)}</Text>
-        <DeltaLine delta={delta} firstWeek={average === null && offset === 0} />
+        <DeltaLine delta={delta} empty={empty} />
       </Section>
       <BarChart
         bars={bars}
@@ -72,6 +74,7 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
         averageLabel={t.activity.chart.average}
         accessibilityLabel={spokenChart}
       />
+      {offset === 0 ? <HabitsSection now={now} /> : null}
       <Stack gap="md">
         {days.map((day) => (
           <DayCard key={day.dayKey} day={day} />
@@ -82,17 +85,21 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
   );
 }
 
-function DeltaLine({ delta, firstWeek }: { delta: Delta | null; firstWeek: boolean }) {
+function DeltaLine({ delta, empty }: { delta: Delta | null; empty: EmptyWeekLine | null }) {
   const t = useStrings();
   const { tag } = useLocale();
-  if (delta === null) {
-    // Nothing to compare against yet. The line only speaks up while the very first
-    // week is still empty; a quiet past week just shows its average.
-    return firstWeek ? (
+  if (empty !== null) {
+    // An empty week says which kind of empty it is: the very first one, this week
+    // before its first session, or a past week that had none (selectors.emptyWeekLine).
+    return (
       <Text variant="label" tone="secondary">
-        {t.activity.weekly.firstWeek}
+        {t.activity.weekly[empty]}
       </Text>
-    ) : null;
+    );
+  }
+  if (delta === null) {
+    // Nothing to compare against yet: fewer than two focused days in one of the weeks.
+    return null;
   }
   const icon =
     delta.direction === 'up' ? 'arrow-up-right' : delta.direction === 'down' ? 'arrow-down-right' : 'minus';
@@ -117,17 +124,14 @@ function DayCard({ day }: { day: CalendarDay }) {
           <Text variant="caption" tone="secondary">
             {day.isToday ? t.activity.weekly.today : dayLabel(day.at, t.activity, tag)}
           </Text>
-          {day.isToday ? (
-            <Text variant="caption" tone="accent" decorative>
-              ●
-            </Text>
-          ) : null}
+          {day.isToday ? <Dot /> : null}
         </Stack>
         <Text variant="heading">{durationText(day.stat.focusMs)}</Text>
         <Text variant="label" tone="secondary">
           {sessionsText(day.stat.sessions, t.activity)}
         </Text>
-        <ProgressBar progress={0} segments={day.stat.segments} />
+        {/* An empty track under 'Sin sesiones' says nothing twice. */}
+        {day.stat.sessions === 0 ? null : <ProgressBar progress={0} segments={day.stat.segments} />}
       </Stack>
     </Card>
   );

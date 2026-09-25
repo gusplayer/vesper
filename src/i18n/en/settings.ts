@@ -3,7 +3,7 @@ import type { LanguageStrings, LifeExpectancyStrings, settings as shape } from '
 const language: LanguageStrings = {
   title: 'Language',
   auto: 'Automatic',
-  autoHint: "Follows the phone's language",
+  autoHint: (language) => `Follows the phone's language: ${language}`,
   names: { es: 'Español', en: 'English' },
 };
 
@@ -48,7 +48,9 @@ export const settings: typeof shape = {
   tab: {
     title: 'Settings',
     thisPhone: 'This phone',
-    noAccount: 'No account. Everything stays here.',
+    noAccount: 'No email, no password. Your data lives here; with the backup on, it also leaves as an encrypted copy only your key opens.',
+    withAccount:
+      "Your circle syncs with Vesper's server. Everything else lives here; with the backup on, it also leaves as an encrypted copy only your key opens.",
     rules: 'My rules',
     emergency: 'Emergency unlock',
     liveActivities: 'Live Activities',
@@ -62,17 +64,29 @@ export const settings: typeof shape = {
     emergencyLeft: (left) => (left === 0 ? 'None' : `${left} left`),
     enabled: 'On',
     disabled: 'Off',
+    unavailable: 'Not available',
     healthConnected: 'Connected',
     healthNotConnected: 'Not connected',
     circle: 'Circle',
     circleNoProfile: 'No profile',
+    backup: 'Backup',
+    backupOn: 'On',
+    backupOff: 'Off',
     circleValue: (members) => (members === 0 ? 'Just you' : members === 1 ? '1 person' : `${members} people`),
     noBirthDate: 'No date',
     reset: 'Delete everything and start over',
-    resetCaption: 'Modes, routines, sessions and habits are lost.',
+    resetCaption: 'Deletes everything and starts from zero, with no sample data.',
     resetConfirmTitle: 'Delete everything and start over?',
-    resetConfirmMessage: 'Modes, routines, sessions and habits are lost. There is no way back.',
+    resetConfirmMessage:
+      'Everything on this phone is deleted: modes, routines, sessions, habits, Life, your settings and your circle profile, and on the server your account and your backup. Vesper goes back to the welcome screen and starts empty, with no sample data. There is no way back.',
     resetConfirm: 'Delete everything',
+    removeDemo: 'Remove the sample data',
+    removeDemoCaption: 'Keeps only what you made.',
+    removeDemoConfirmTitle: 'Remove the sample data?',
+    removeDemoConfirmMessage:
+      'The sample sessions, modes, routines and habits are deleted, with their marks, and so is the sample circle. What you made stays. An example you edited goes too.',
+    removeDemoConfirm: 'Remove',
+    resetting: 'Deleting…',
   },
   language,
   about: {
@@ -83,24 +97,28 @@ export const settings: typeof shape = {
     privacy: 'Privacy',
     legalNote: 'They open in your browser.',
     linkFailed: 'The browser could not be opened.',
-    prototypeNote:
-      'Vesper starts with sample data so it is not empty. You can erase it from Settings. The circle only syncs once you invite someone.',
+    demoNote: 'Vesper starts with sample data so it is not empty. Remove it whenever you want in Settings › Remove the sample data.',
+    circleNote: 'The circle only syncs once you invite someone or use a code.',
   },
   emergency: {
     title: 'Emergency unlock',
-    cardTitle: 'Emergency unlock',
-    cardDescription: 'Ends a session without waiting, when you really need it',
-    left: (left) => `${left} left`,
+    cardTitle: 'Unlocks this month',
+    cardDescription: 'They end a session without the exit ritual, when you really need it',
+    left: (left) => (left === 0 ? 'None' : `${left} left`),
     perMonth: (total) => `You have ${total} per month. Enough for a real emergency, not for scrolling.`,
-    fromSession: 'It is used from the session, with a ten-second wait.',
+    refills: (date) => `They refill on ${date}.`,
+    fromSession: 'You use it from the session, after a ten-second wait.',
   },
   health: {
     title: 'Health',
     blocks: {
-      how: { title: 'How you use it', text: 'Verified habits mark themselves: gym, steps, sleep. You touch nothing.' },
-      privacy: { title: 'How we use it', text: 'What Health shares never leaves the phone. Vesper only reads; it never writes to Health.' },
+      how: { title: 'Habits that mark themselves', text: "Gym, steps and sleep are confirmed by Health. You don't have to do anything." },
+      privacy: {
+        title: 'Your readings stay here',
+        text: 'Your steps, workouts and sleep never leave the phone. The days a habit was met go encrypted in your backup, and if you join a steps challenge your circle sees which days you hit the goal, never how many steps. Vesper only reads; it never writes to Health.',
+      },
       why: {
-        title: 'Why it matters',
+        title: 'Verified, not declared',
         text: 'A habit that marks itself is not up for debate. Verified and declared time are never added up.',
       },
     },
@@ -108,15 +126,21 @@ export const settings: typeof shape = {
     connect: 'Connect Health',
     connecting: 'Connecting…',
     disconnect: 'Disconnect',
-    syncNote: 'Health is read when the app opens and every 15 minutes. No Health data leaves the phone.',
+    disconnectTitle: 'Disconnect Health?',
+    disconnectMessage:
+      'Verified habits stop marking themselves and the marks that came from Health are removed. The permission stays in Health: remove it there if you want.',
+    syncNote:
+      'Health is read when you open Vesper, at most once every 15 minutes. Your steps, workouts and sleep never leave the phone; the days met go encrypted in your backup, and in a steps challenge your circle only sees which days you hit the goal.',
+    iosEmptyHint: 'If nothing shows up, check Settings › Privacy & Security › Health › Vesper.',
     install: 'Install Health Connect',
+    installFailed: 'The store could not be opened.',
     healthConnectNote:
-      'On Android, Health is read from Health Connect. If you do not see your steps, open Health Connect and link Samsung Health, Fit or your watch.',
+      'On Android, Health is read from Health Connect. If you do not see your steps, open Health Connect and link Samsung Health, Google Fit or your watch.',
     openHealthConnect: 'Open Health Connect',
   },
   help: {
     title: 'Help center',
-    faqTitle: 'frequently asked questions',
+    faqTitle: 'Frequently asked questions',
     faqs: [
       {
         question: 'What is a mode?',
@@ -125,33 +149,37 @@ export const settings: typeof shape = {
       },
       {
         question: 'What happens if I close the app during a session?',
-        answer:
-          'The session goes on. When you come back, the timer is where you left it. In firm or deep mode, closing the app does not end it.',
+        answer: 'The session goes on, and so does the blocking. When you come back, the timer is where you left it. If it ends while the app is closed, you see its closing the next time you open it.',
       },
       {
-        question: 'Why are the three currencies not added up?',
+        question: "Why doesn't Vesper add up all your time?",
         answer:
-          'Verified time (Health), declared time (you) and estimated time (phone usage) measure different things. Adding them would give a number that means nothing.',
+          'What Health confirms, what you declare and what the phone estimates measure different things. Adding them up would give a number that means nothing.',
       },
       {
         question: 'How does the emergency unlock work?',
-        answer: 'It waits ten seconds from the session and ends it without the ritual. You have five per month.',
+        answer:
+          'In the session, tap the life buoy at the top right, wait ten seconds, and the session ends without the exit ritual. You have five a month; they refill on the 1st.',
       },
       {
         question: 'Does Vesper upload my data?',
         answer:
-          'Almost nothing. Your sessions, modes, habits and anything from Health live only on this phone. The only thing that leaves is what you share with your circle, and only if you turn it on.',
+          'Only encrypted. Your sessions, modes, habits and anything from Health live on this phone, and the backup uploads a copy that is encrypted here: the server keeps it but cannot read it. The only things that leave unencrypted are what you share with your circle, if you use it, and an id with no name attached, with the system, the app version and when you last opened it. You can turn the backup off in Settings › Backup.',
       },
     ],
-    footer: 'Something else? There is nowhere to write yet.',
+    contactTitle: 'Something else?',
+    contact: 'Write to us',
+    contactFailed: (address) => `There is no mail app to open it. Write to ${address}.`,
   },
   life: {
     title: 'Life',
     birth: 'Birth date',
     birthPlaceholder: 'yyyy-mm-dd',
+    birthHint: "Leave it empty if you don't want to count weeks.",
     optional: 'Optional',
     country: 'Country',
     notChosen: 'Not chosen',
+    sexLabel: 'Sex',
     sex: { female: 'Woman', male: 'Man', undisclosed: 'Prefer not to say' },
     optionalHint:
       'They only refine the reference life expectancy. Without them we use an average. We do not ask for weight or height: we do not use them.',
@@ -162,7 +190,7 @@ export const settings: typeof shape = {
     weeksLeft: 'WEEKS LEFT',
     noBirthDate: 'Enter your birth date to see them.',
     livedOfTotal: (lived, total) => `${lived} lived of ${total} in total.`,
-    localOnly: 'Saved on this phone only.',
+    localOnly: 'Saved on this phone. It only leaves encrypted, in your backup.',
     countrySheet: 'Country',
   },
   lifeExpectancy,
@@ -181,15 +209,13 @@ export const settings: typeof shape = {
     tapToSeeWeeks: 'Tap the number to see it in weeks.',
     tapHint: (left, toDays) => `You have ${left} left. Tap to see in ${toDays ? 'days' : 'weeks'}`,
     atYourPace: (consumed) => `At your current pace, ${consumed} of that would go to social media.`,
-    estimateNote: 'Estimate with sample data. The real figure comes with Screen Time.',
     deviceNote: "Estimate from this week's real use, always a floor.",
   },
   liveActivities: {
     title: 'Live Activities',
     toggleTitle: 'Live Activities',
-    toggleDescription: 'The timer on the lock screen and in the Dynamic Island',
+    toggleDescription: 'The timer on the lock screen and, if your iPhone has one, in the Dynamic Island',
     previewMode: 'No socials',
-    previewStatus: (remaining) => `Focused · ${remaining} left`,
     previewCaption: 'This is how it looks while a session runs.',
   },
   notifications: {
@@ -199,22 +225,23 @@ export const settings: typeof shape = {
     asking: 'Asking for permission…',
     unavailableTitle: 'No notifications here',
     deniedTitle: 'Permission is off',
-    deniedBody: 'The system will not ask again. Turn it on in System Settings › Vesper › Notifications and come back.',
+    deniedBody:
+      'The system will not ask again. Turn it on in system settings › Vesper › Notifications; Vesper notices when you come back.',
+    openSettings: 'Open system settings',
     pendingTitle: 'Vesper cannot notify you yet',
-    pendingBody: 'Without permission there is no notice when a session ends and no weekly close. It is asked once.',
+    pendingBody: 'Without permission there is no notice when a session ends and no weekly close. The system asks only once.',
     generalGroup: 'General',
     dailyGroup: 'Every day',
     circleGroup: 'Circle',
-    systemGroup: 'System',
     coaching: { label: 'Coaching', description: 'A notice when a routine starts' },
     sessionEnd: { label: 'End of session', description: 'A notice when the timer ends' },
-    weeklyClose: { label: 'Weekly close', description: 'Sunday at 20:00, how the week closed' },
-    streak: { label: 'Streak at risk', description: 'If today does not count yet at the reminder time' },
+    weeklyClose: { label: 'Weekly close', description: 'Sunday at 20:00: how your week went' },
+    streak: { label: 'Streak at risk', description: "If you haven't reached 10 minutes by the reminder time" },
     noFocus: { label: 'Day without focus', description: 'If you have not focused by the reminder time' },
     reactivation: { label: 'Come back', description: 'After 3 and 7 days without opening Vesper' },
     challenges: {
       label: 'Challenges',
-      description: 'When a challenge only holds by marking every day that is left, and when it ends',
+      description: "When a challenge can't afford another missed day, and when it ends",
     },
     reminderTime: { label: 'Reminder time', sheet: 'Reminder time' },
     dailyCaption:
@@ -223,18 +250,18 @@ export const settings: typeof shape = {
       label: 'Circle notices',
       description: 'When someone nudges you on a challenge, asks to join your circle, or accepts you into theirs. Never during a session.',
     },
-    updates: { label: 'Important news', description: 'Changes worth knowing about' },
   },
   rules: {
     title: 'My rules',
-    strict: { title: 'Strict mode', description: 'Prevents ending a session by deleting the app' },
     installs: { title: 'Block installs', description: 'Prevents installing apps during a session' },
     purchases: { title: 'Block in-app purchases', description: 'Limits purchases during a session' },
     mature: {
       title: 'Block adult content',
       description: 'Limits adult content in apps and sites during a session',
     },
-    applied: 'They apply during a session. For now only the adult content filter reaches the system.',
+    applied: 'They apply during a session.',
+    noneApplied: 'On this phone none of them reach the system yet. They are kept for when Vesper can apply them.',
     notApplied: (reason) => `Not applied: ${reason}.`,
+    notYet: 'It does not reach the system on this phone yet.',
   },
 };

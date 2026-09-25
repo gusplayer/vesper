@@ -1,5 +1,14 @@
-import { useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  View,
+  type AccessibilityActionEvent,
+  type LayoutChangeEvent,
+} from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { dissolveLayers } from '../../lib/dissolve';
@@ -15,17 +24,27 @@ type HoldButtonProps = {
   label: string;
   /** Fires once the page is ink: the caller starts the session and opens its route. */
   onHold: () => void;
+  /**
+   * The line that answers a quick tap: es 'Mantén presionado para empezar'. Given, it
+   * reserves a caption under the pill and fades it in when a press ends too early,
+   * then out again. Only its opacity moves.
+   */
+  tapHint?: string;
 };
 
 /**
  * The focus button for a deep mode, the one session with no way out. Hold it and paper
  * dots close in from both ends of the pill toward the middle; let go early and they
  * vanish at once. When they meet, ink floods the page from the button and the session
- * opens underneath. A quick tap does nothing: the hold is the gesture.
+ * opens underneath. A quick tap does not start: the hold is the gesture, and
+ * `tapHint` says so. VoiceOver and TalkBack users get the same result from the
+ * default activate action (a double tap), which floods without the hold.
  */
-export function HoldButton({ label, onHold }: HoldButtonProps) {
+export function HoldButton({ label, onHold, tapHint }: HoldButtonProps) {
   const { colors } = useTheme();
   const [fill] = useState(() => new Animated.Value(0));
+  const [hint] = useState(() => new Animated.Value(0));
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [flooding, setFlooding] = useState(false);
@@ -63,14 +82,42 @@ export function HoldButton({ label, onHold }: HoldButtonProps) {
       if (!finished) {
         return;
       }
-      completed.current = true;
-      // The flood starts where the button is, so it reads as the button spilling over.
-      pill.current?.measureInWindow((x, y, width, height) => {
-        setOrigin({ x: x + width / 2, y: y + height / 2 });
-        setFlooding(true);
-      });
+      flood();
     });
   }
+
+  function flood(): void {
+    completed.current = true;
+    // The flood starts where the button is, so it reads as the button spilling over.
+    pill.current?.measureInWindow((x, y, width, height) => {
+      setOrigin({ x: x + width / 2, y: y + height / 2 });
+      setFlooding(true);
+    });
+  }
+
+  function showHint(): void {
+    if (tapHint === undefined) {
+      return;
+    }
+    if (hintTimer.current !== null) {
+      clearTimeout(hintTimer.current);
+    }
+    Animated.timing(hint, { toValue: 1, duration: motion.fadeMs, useNativeDriver: true }).start();
+    AccessibilityInfo.announceForAccessibility(tapHint);
+    hintTimer.current = setTimeout(() => {
+      hintTimer.current = null;
+      Animated.timing(hint, { toValue: 0, duration: motion.fadeMs, useNativeDriver: true }).start();
+    }, motion.tooltipMs);
+  }
+
+  useEffect(
+    () => () => {
+      if (hintTimer.current !== null) {
+        clearTimeout(hintTimer.current);
+      }
+    },
+    [],
+  );
 
   function release(): void {
     if (completed.current) {
@@ -78,6 +125,13 @@ export function HoldButton({ label, onHold }: HoldButtonProps) {
     }
     animation.current?.stop();
     fill.setValue(0);
+    showHint();
+  }
+
+  function onAccessibilityAction(event: AccessibilityActionEvent): void {
+    if (event.nativeEvent.actionName === 'activate' && !completed.current) {
+      flood();
+    }
   }
 
   function flooded(): void {
@@ -99,6 +153,8 @@ export function HoldButton({ label, onHold }: HoldButtonProps) {
         onPressOut={release}
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityActions={ACTIONS}
+        onAccessibilityAction={onAccessibilityAction}
         style={[styles.pill, { backgroundColor: colors.ink }]}
       >
         {size.width === 0
@@ -127,12 +183,25 @@ export function HoldButton({ label, onHold }: HoldButtonProps) {
           {label}
         </Text>
       </Pressable>
+      {tapHint === undefined ? null : (
+        <Animated.View style={[styles.hint, { opacity: hint }]} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+          <Text variant="caption" tone="secondary" align="center">
+            {tapHint}
+          </Text>
+        </Animated.View>
+      )}
       <InkFlood active={flooding} origin={origin} onDone={flooded} />
     </View>
   );
 }
 
+/** A double tap with VoiceOver or TalkBack starts, as the hold does. */
+const ACTIONS = [{ name: 'activate' as const }];
+
 const styles = StyleSheet.create({
+  hint: {
+    paddingTop: space.sm,
+  },
   pill: {
     minHeight: layout.touchTarget + space.md,
     borderRadius: radius.pill,

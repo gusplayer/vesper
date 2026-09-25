@@ -1,13 +1,13 @@
 import { useRouter } from 'expo-router';
 
-import { goBack } from '../../lib/goBack';
+import { BACK_FALLBACK, goBack } from '../../lib/goBack';
 
 import { useActiveMode, useAppStore, useSettings } from '../../data';
-import { Card, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { Card, PageHeader, Screen, Stack, StatusNote, Text } from '../../design/components';
 import { MINUTE, SECOND } from '../../domain/time';
 import { ToggleCard } from '../../features/settings/ToggleCard';
 import { useStrings } from '../../i18n';
-import { durationText, timerText } from '../../lib/format';
+import { timerText } from '../../lib/format';
 import { status } from '../../platform/liveActivity';
 
 /** What the preview shows on the clock. Frozen: it is a picture, not a timer. */
@@ -16,8 +16,10 @@ const PREVIEW_REMAINING_MS = 24 * MINUTE + 13 * SECOND;
 /**
  * Live Activities: one switch, and a picture of what the lock screen would show. The
  * picture is the banner of src/widgets/FocusActivity.tsx drawn with app components:
- * mode name and status on the left, the clock on the right. When the build cannot
- * show a real one, the platform says why under the switch.
+ * mode name and the phase on the left (the same words the widget receives, never
+ * minutes: ADR-0023), the clock on the right. When the phone cannot show a real one
+ * (Android, an old iOS, a build without the widget) the switch is dimmed, the platform
+ * says why under it, and the picture is not drawn: it would show what never happens.
  */
 export default function LiveActivitiesScreen() {
   const router = useRouter();
@@ -31,7 +33,7 @@ export default function LiveActivitiesScreen() {
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => goBack(router)} title={t.settings.liveActivities.title} />
+      <PageHeader onBack={() => goBack(router, BACK_FALLBACK.settings)} title={t.settings.liveActivities.title} />
 
       <Stack gap="sm">
         <ToggleCard
@@ -39,34 +41,31 @@ export default function LiveActivitiesScreen() {
           description={t.settings.liveActivities.toggleDescription}
           value={settings.liveActivities}
           onValueChange={(liveActivities) => updateSettings({ liveActivities })}
+          disabled={!availability.available}
         />
-        {availability.available ? null : (
-          <Text variant="caption" tone="secondary">
-            {availability.reason}
-          </Text>
-        )}
+        {availability.available || availability.reason === null ? null : <StatusNote text={availability.reason} />}
       </Stack>
 
-      <Stack gap="sm">
-        <Card tone="ink">
-          <Stack direction="row" align="center" justify="space-between" gap="md">
-            <Stack gap="xs">
-              <Text variant="body" weight="semibold" tone="onInk">
-                {modeName}
-              </Text>
-              <Text variant="caption" tone="tertiary">
-                {t.settings.liveActivities.previewStatus(durationText(PREVIEW_REMAINING_MS))}
+      {availability.available ? (
+        <Stack gap="sm">
+          <Card tone="ink">
+            <Stack direction="row" align="center" justify="space-between" gap="md">
+              <Stack grow gap="xs">
+                <Text variant="body" weight="semibold" tone="onInk">
+                  {modeName}
+                </Text>
+                <Text variant="caption" tone="onInkSecondary">
+                  {t.session.liveActivity.statusFocus}
+                </Text>
+              </Stack>
+              <Text variant="heading" tone="onInk">
+                {timerText(PREVIEW_REMAINING_MS)}
               </Text>
             </Stack>
-            <Text variant="heading" tone="onInk">
-              {timerText(PREVIEW_REMAINING_MS)}
-            </Text>
-          </Stack>
-        </Card>
-        <Text variant="caption" tone="secondary" align="center">
-          {t.settings.liveActivities.previewCaption}
-        </Text>
-      </Stack>
+          </Card>
+          <StatusNote text={t.settings.liveActivities.previewCaption} align="center" />
+        </Stack>
+      ) : null}
     </Screen>
   );
 }

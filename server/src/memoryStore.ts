@@ -1,8 +1,10 @@
 import { ConflictError } from './store.ts';
 import type {
   Account,
+  Backup,
   Challenge,
   ChallengeMark,
+  EndedLink,
   Kudos,
   Link,
   Nudge,
@@ -23,8 +25,12 @@ export function createMemoryStore(): Store {
   const marks = new Map<string, ChallengeMark>();
   const kudos = new Map<string, Kudos>();
   const nudges = new Map<string, Nudge>();
+  const backups = new Map<string, Backup>();
+  /** Keyed on the pair in a fixed order, like `ended_links` (a_id < b_id). */
+  const ended = new Map<string, { a: string; b: string; endedAt: number }>();
 
   const linkKey = (ownerId: string, memberId: string) => `${ownerId}|${memberId}`;
+  const pairKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
   const weekKey = (accountId: string, key: string) => `${accountId}|${key}`;
   const markKey = (challengeId: string, accountId: string, dayKey: string) =>
     `${challengeId}|${accountId}|${dayKey}`;
@@ -46,20 +52,40 @@ export function createMemoryStore(): Store {
         if (other.id === account.id) {
           continue;
         }
-        if (other.handle === account.handle) {
+        // Null is not a claim, and Postgres counts nulls as distinct: every account
+        // without a circle profile coexists with every other (ADR-0048).
+        if (account.handle !== null && other.handle === account.handle) {
           throw new ConflictError('handle');
         }
         if (account.inviteCode !== null && other.inviteCode === account.inviteCode) {
           throw new ConflictError('inviteCode');
         }
       }
-      accounts.set(account.id, account);
+      // `lastSeenAt` has one writer after the insert, `touchAccount`, as in pgStore.
+      const previous = accounts.get(account.id);
+      accounts.set(account.id, {
+        ...account,
+        lastSeenAt: previous === undefined ? account.lastSeenAt : previous.lastSeenAt,
+      });
+    },
+    async touchAccount(id, at) {
+      const account = accounts.get(id);
+      if (account !== undefined && (account.lastSeenAt === null || account.lastSeenAt < at)) {
+        accounts.set(id, { ...account, lastSeenAt: at });
+      }
     },
     async deleteAccount(id) {
       accounts.delete(id);
+      // `backups.account_id` cascades in Postgres.
+      backups.delete(id);
       for (const [key, link] of links) {
         if (link.ownerId === id || link.memberId === id) {
           links.delete(key);
+        }
+      }
+      for (const [key, row] of ended) {
+        if (row.a === id || row.b === id) {
+          ended.delete(key);
         }
       }
       for (const [key, week] of weeks) {
@@ -96,9 +122,25 @@ export function createMemoryStore(): Store {
     },
     async putLink(link) {
       links.set(linkKey(link.ownerId, link.memberId), link);
+      ended.delete(pairKey(link.ownerId, link.memberId));
     },
     async linksOf(id) {
       return [...links.values()].filter((link) => link.ownerId === id || link.memberId === id);
+    },
+    async endLink(a, b, at) {
+      links.delete(linkKey(a, b));
+      links.delete(linkKey(b, a));
+      const [first, second] = a < b ? [a, b] : [b, a];
+      ended.set(pairKey(a, b), { a: first, b: second, endedAt: at });
+    },
+    async endedLinksOf(id, since) {
+      const rows: EndedLink[] = [];
+      for (const row of ended.values()) {
+        if (row.endedAt > since && (row.a === id || row.b === id)) {
+          rows.push({ otherId: row.a === id ? row.b : row.a, endedAt: row.endedAt });
+        }
+      }
+      return rows;
     },
 
     async putWeek(week) {
@@ -150,6 +192,26 @@ export function createMemoryStore(): Store {
       return [...nudges.values()].filter(
         (row) => row.updatedAt > since && (row.toId === id || row.fromId === id),
       );
+    },
+
+    async putBackup(backup) {
+      // A copy, as Postgres would keep: the caller's buffer is not the stored one.
+      backups.set(backup.accountId, { ...backup, data: new Uint8Array(backup.data) });
+    },
+    async getBackup(accountId) {
+      const backup = backups.get(accountId);
+      return backup === undefined ? null : { ...backup, data: new Uint8Array(backup.data) };
+    },
+    async getBackupMeta(accountId) {
+      const backup = backups.get(accountId);
+      if (backup === undefined) {
+        return null;
+      }
+      const { data: _bytes, ...meta } = backup;
+      return meta;
+    },
+    async deleteBackup(accountId) {
+      backups.delete(accountId);
     },
   };
 }

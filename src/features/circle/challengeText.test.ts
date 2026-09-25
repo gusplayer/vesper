@@ -20,6 +20,13 @@ describe('challengeConsentText', () => {
     );
   });
 
+  it('says the user marks it where Health does not exist, and why (rule 8)', () => {
+    expect(challengeConsentText('Caminar 10.000 pasos', es.circle, 'es-ES', 'Salud no existe en este teléfono')).toBe(
+      'Salud no existe en este teléfono: el reto lo marcas tú, y tu círculo verá qué días marcaste.',
+    );
+    expect(challengeConsentText('Leer', es.circle, 'es-ES', 'Salud no existe en este teléfono')).toBeNull();
+  });
+
   it('says nothing where nothing verifies the challenge', () => {
     expect(challengeConsentText('Leer', es.circle, 'es-ES')).toBeNull();
   });

@@ -6,6 +6,11 @@ import { font, layout, radius, space } from '../tokens';
 import { Icon } from './Icon';
 import { Text } from './Text';
 
+/** The clear x is a 16 pt glyph; its touch area is 44. */
+const CLEAR_SLOP = (layout.touchTarget - layout.icon.sm) / 2;
+/** The cancel word is one body line; its touch area is 44 tall. */
+const CANCEL_SLOP = { top: (layout.touchTarget - font.lineHeight.body) / 2, bottom: (layout.touchTarget - font.lineHeight.body) / 2, left: space.sm, right: space.sm };
+
 type SearchFieldProps = {
   value: string;
   onChangeText: (text: string) => void;
@@ -33,13 +38,13 @@ export function SearchField({ value, onChangeText, placeholder }: SearchFieldPro
           style={[styles.input, { color: colors.ink }]}
         />
         {active ? (
-          <Pressable onPress={() => onChangeText('')} hitSlop={space.sm} accessibilityRole="button" accessibilityLabel={clear}>
+          <Pressable onPress={() => onChangeText('')} hitSlop={CLEAR_SLOP} accessibilityRole="button" accessibilityLabel={clear}>
             <Icon name="x-circle" size="sm" tone="secondary" />
           </Pressable>
         ) : null}
       </View>
       {active && cancel !== undefined ? (
-        <Pressable onPress={() => onChangeText('')} hitSlop={space.sm} accessibilityRole="button">
+        <Pressable onPress={() => onChangeText('')} hitSlop={CANCEL_SLOP} accessibilityRole="button" accessibilityLabel={cancel}>
           <Text variant="body">{cancel}</Text>
         </Pressable>
       ) : null}

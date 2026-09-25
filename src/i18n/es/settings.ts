@@ -14,9 +14,9 @@ export type LifeExpectancyStrings = {
 
 export type LanguageStrings = {
   title: string;
-  /** The `auto` row: 'Automático' and the line under it. */
+  /** The `auto` row: 'Automático' and the line under it, naming what it resolves to. */
   auto: string;
-  autoHint: string;
+  autoHint: (language: string) => string;
   /** Each language in its own words, in every dictionary: 'Español', 'English'. */
   names: Record<Locale, string>;
 };
@@ -24,7 +24,7 @@ export type LanguageStrings = {
 const language: LanguageStrings = {
   title: 'Idioma',
   auto: 'Automático',
-  autoHint: 'Sigue el idioma del teléfono',
+  autoHint: (language) => `Sigue el idioma del teléfono: ${language}`,
   names: { es: 'Español', en: 'English' },
 };
 
@@ -70,10 +70,18 @@ export const settings = {
   tab: {
     title: 'Ajustes',
     thisPhone: 'Este teléfono',
-    noAccount: 'Sin cuenta. Todo queda aquí.',
+    /**
+     * No correo, no contraseña (ADR-0048 §1). What leaves without the circle is the
+     * encrypted backup, on by default, and the line says so.
+     */
+    noAccount: 'Sin correo ni contraseña. Tus datos viven aquí; con el respaldo encendido sale una copia cifrada que solo tu clave abre.',
+    /** Once the circle has an account on the server (ADR-0044 §2), "sin cuenta" is no longer true. */
+    withAccount:
+      'Tu círculo se sincroniza con el servidor de Vesper. Lo demás vive aquí; con el respaldo encendido sale una copia cifrada que solo tu clave abre.',
     rules: 'Mis reglas',
     emergency: 'Desbloqueo de emergencia',
-    liveActivities: 'Live Activities',
+    /** Apple's own Spanish name for Live Activities. */
+    liveActivities: 'Actividades en tiempo real',
     notifications: 'Notificaciones',
     health: 'Salud',
     life: 'Vida',
@@ -87,19 +95,38 @@ export const settings = {
     /** Live Activities and notifications, as a row value. */
     enabled: 'Activadas',
     disabled: 'Desactivadas',
+    /** A row whose capability does not exist on this phone (Live Activities on Android). */
+    unavailable: 'No disponible',
     healthConnected: 'Conectada',
     healthNotConnected: 'Sin conectar',
     circle: 'Círculo',
     circleNoProfile: 'Sin perfil',
+    /** Ajustes › Respaldo (ADR-0048 §7) and its switch, as a row value. */
+    backup: 'Respaldo',
+    backupOn: 'Activado',
+    backupOff: 'Desactivado',
     /** 'Solo tú', '1 persona', '3 personas'. */
     circleValue: (members: number) =>
       members === 0 ? 'Solo tú' : members === 1 ? '1 persona' : `${members} personas`,
     noBirthDate: 'Sin fecha',
     reset: 'Borrar todo y reiniciar',
-    resetCaption: 'Modos, rutinas, sesiones y hábitos se pierden.',
+    resetCaption: 'Borra todo y empieza de cero, sin datos de ejemplo.',
     resetConfirmTitle: '¿Borrar todo y reiniciar?',
-    resetConfirmMessage: 'Modos, rutinas, sesiones y hábitos se pierden. No hay vuelta atrás.',
+    resetConfirmMessage:
+      'Se borra todo lo de este teléfono: modos, rutinas, sesiones, hábitos, Vida, tus ajustes y tu perfil del círculo, y en el servidor tu cuenta y tu respaldo. Vesper vuelve a la bienvenida y empieza vacío, sin datos de ejemplo. No hay vuelta atrás.',
     resetConfirm: 'Borrar todo',
+    /**
+     * "Quitar los datos de ejemplo" (ADR-0047 §1): shown only while something seeded is
+     * left. It takes the examples and nothing the user made.
+     */
+    removeDemo: 'Quitar los datos de ejemplo',
+    removeDemoCaption: 'Deja solo lo que creaste tú.',
+    removeDemoConfirmTitle: '¿Quitar los datos de ejemplo?',
+    removeDemoConfirmMessage:
+      'Se borran las sesiones, los modos, las rutinas y los hábitos de ejemplo, con sus marcas, y el círculo de ejemplo. Lo que creaste tú se queda. Un ejemplo que editaste también se va.',
+    removeDemoConfirm: 'Quitar',
+    /** The row while the reset runs: deleting the circle account can take a few seconds. */
+    resetting: 'Borrando…',
   },
   language,
   about: {
@@ -112,26 +139,36 @@ export const settings = {
     privacy: 'Privacidad',
     legalNote: 'Se abren en el navegador.',
     linkFailed: 'No se pudo abrir el navegador.',
-    prototypeNote:
-      'Vesper arranca con datos de ejemplo para que no la veas vacía. Puedes borrarlos desde Ajustes. El círculo se sincroniza solo cuando invitas a alguien.',
+    /** Honest until the demo data policy is decided: the reset brings the sample data back. */
+    /** Only while the sample data is still there. */
+    demoNote:
+      'Vesper arranca con datos de ejemplo para que no la veas vacía. Quítalos cuando quieras en Ajustes › Quitar los datos de ejemplo.',
+    circleNote: 'El círculo se sincroniza solo cuando invitas a alguien o usas un código.',
   },
   emergency: {
     title: 'Desbloqueo de emergencia',
-    cardTitle: 'Desbloqueo de emergencia',
-    cardDescription: 'Termina una sesión sin esperar cuando de verdad lo necesitas',
-    /** The badge: '5 restantes'. */
-    left: (left: number) => (left === 1 ? '1 restante' : `${left} restantes`),
+    cardTitle: 'Desbloqueos este mes',
+    cardDescription: 'Terminan una sesión sin el ritual de salida, cuando de verdad lo necesitas',
+    /** The badge: '5 restantes', 'Ninguno' at zero like the Ajustes row. */
+    left: (left: number) => (left === 0 ? 'Ninguno' : left === 1 ? '1 restante' : `${left} restantes`),
     perMonth: (total: number) => `Tienes ${total} por mes. Suficientes para una emergencia real, no para el scroll.`,
+    /** `date` is already '1 de octubre'. The count fills again on the first of each month. */
+    refills: (date: string) => `Se renuevan el ${date}.`,
     /** The page only counts; the unlock itself lives in the session (ADR-0025). */
-    fromSession: 'Se usa desde la sesión, con diez segundos de espera.',
+    fromSession: 'Se usa desde la sesión, tras diez segundos de espera.',
   },
   health: {
     title: 'Salud',
     blocks: {
-      how: { title: 'Cómo lo usas', text: 'Los hábitos verificados se marcan solos: gym, pasos, sueño. Tú no tocas nada.' },
-      privacy: { title: 'Cómo lo usamos', text: 'Lo que Salud comparte nunca sale del teléfono. Vesper solo lee; nunca escribe en Salud.' },
+      how: { title: 'Hábitos que se marcan solos', text: 'Gym, pasos y sueño se confirman con Salud. No tienes que tocar nada.' },
+      /** ADR-0042 §3: a step challenge shares the days met, a datum derived from Health. */
+      privacy: {
+        title: 'Tus lecturas se quedan aquí',
+        /** ADR-0048 §7: the days a habit was met travel, encrypted, in the backup. */
+        text: 'Tus pasos, entrenamientos y sueño no salen del teléfono. Los días que un hábito se cumplió van cifrados en tu respaldo, y si te unes a un reto de pasos tu círculo ve qué días llegaste a la meta, nunca cuántos pasos. Vesper solo lee; nunca escribe en Salud.',
+      },
       why: {
-        title: 'Por qué importa',
+        title: 'Verificado, no declarado',
         text: 'Un hábito que se marca solo no se discute. Lo verificado y lo declarado nunca se suman.',
       },
     },
@@ -139,16 +176,24 @@ export const settings = {
     connect: 'Conectar Salud',
     connecting: 'Conectando…',
     disconnect: 'Desconectar',
-    syncNote: 'Salud se lee al abrir la app y cada 15 minutos. Ningún dato de Salud sale del teléfono.',
+    disconnectTitle: '¿Desconectar Salud?',
+    disconnectMessage:
+      'Los hábitos verificados dejan de marcarse solos y se quitan las marcas que vinieron de Salud. El permiso sigue en Salud: quítalo ahí si quieres.',
+    /** There is no timer: Health is read on open and on every return, throttled (useHealthSync). */
+    syncNote:
+      'Salud se lee cuando abres Vesper, como mucho una vez cada 15 minutos. Tus pasos, entrenamientos y sueño no salen del teléfono; los días cumplidos van cifrados en tu respaldo, y en un reto de pasos tu círculo solo ve qué días llegaste a la meta.',
+    /** iOS never says whether reading was allowed: an empty week is what a refusal looks like. */
+    iosEmptyHint: 'Si no ves nada, revisa en Ajustes del sistema › Privacidad y seguridad › Salud › Vesper.',
     /** Android: Health Connect, not the app, holds what is read (ADR-0043). */
     install: 'Instalar Health Connect',
+    installFailed: 'No se pudo abrir la tienda.',
     healthConnectNote:
-      'En Android, Salud se lee de Health Connect. Si no ves tus pasos, abre Health Connect y conecta Samsung Health, Fit o tu reloj.',
+      'En Android, Salud se lee de Health Connect. Si no ves tus pasos, abre Health Connect y conecta Samsung Health, Google Fit o tu reloj.',
     openHealthConnect: 'Abrir Health Connect',
   },
   help: {
     title: 'Centro de ayuda',
-    faqTitle: 'preguntas frecuentes',
+    faqTitle: 'Preguntas frecuentes',
     faqs: [
       {
         question: '¿Qué es un modo?',
@@ -157,33 +202,40 @@ export const settings = {
       },
       {
         question: '¿Qué pasa si cierro la app durante una sesión?',
-        answer:
-          'La sesión sigue. Al volver, el timer está donde lo dejaste. En modo firme o profundo, cerrar la app no la termina.',
+        answer: 'La sesión sigue, y el bloqueo también. Al volver, el reloj está donde lo dejaste. Si termina con la app cerrada, ves su cierre la próxima vez que la abras.',
       },
       {
-        question: '¿Por qué no se suman las tres monedas?',
+        question: '¿Por qué Vesper no suma todo el tiempo?',
         answer:
-          'Lo verificado (Salud), lo declarado (tú) y lo estimado (uso del teléfono) miden cosas distintas. Sumarlos daría un número que no significa nada.',
+          'Lo que confirma Salud, lo que declaras tú y lo que estima el teléfono miden cosas distintas. Sumarlos daría un número que no significa nada.',
       },
       {
         question: '¿Cómo funciona el desbloqueo de emergencia?',
-        answer: 'Espera diez segundos desde la sesión y la termina sin el ritual. Tienes cinco por mes.',
+        answer:
+          'En la sesión, toca el salvavidas de arriba a la derecha, espera diez segundos y la sesión termina sin el ritual de salida. Tienes cinco al mes; se renuevan el día 1.',
       },
       {
         question: '¿Vesper sube mis datos?',
         answer:
-          'Casi nada. Tus sesiones, modos, hábitos y lo que viene de Salud viven solo en este teléfono. Lo único que sale es lo que compartes con tu círculo, y solo si lo enciendes.',
+          'Solo cifrados. Tus sesiones, modos, hábitos y lo que viene de Salud viven en este teléfono, y el respaldo sube una copia que se cifra aquí: el servidor la guarda, pero no puede leerla. Lo único que sale sin cifrar es lo que compartes con tu círculo, si lo usas, y un identificador sin nombre con el sistema, la versión de la app y cuándo la abriste por última vez. El respaldo se apaga en Ajustes › Respaldo.',
       },
     ],
-    footer: '¿Otra cosa? Todavía no hay a dónde escribir.',
+    /** ADR-0047 §13: the contact the owner chose. The address itself lives in the screen. */
+    contactTitle: '¿Otra cosa?',
+    contact: 'Escríbenos',
+    /** When no mail app can open the address: say it so it can be copied by hand. */
+    contactFailed: (address: string) => `No hay una app de correo para abrirlo. Escribe a ${address}.`,
   },
   life: {
     title: 'Vida',
     birth: 'Nacimiento',
     birthPlaceholder: 'aaaa-mm-dd',
+    /** Vida is opt-in (docs/PRD.md §3): an empty date is a valid answer. */
+    birthHint: 'Déjala vacía si no quieres contar semanas.',
     optional: 'Opcional',
     country: 'País',
     notChosen: 'Sin elegir',
+    sexLabel: 'Sexo',
     sex: { female: 'Mujer', male: 'Hombre', undisclosed: 'Prefiero no decirlo' },
     optionalHint:
       'Solo sirven para afinar la esperanza de vida de referencia. Sin ellos usamos un promedio. No pedimos peso ni altura: no los usamos.',
@@ -196,7 +248,8 @@ export const settings = {
     noBirthDate: 'Escribe tu fecha de nacimiento para verlas.',
     /** Both numbers already formatted. */
     livedOfTotal: (lived: string, total: string) => `${lived} vividas de ${total} en total.`,
-    localOnly: 'Se guarda solo en este teléfono.',
+    /** The birth date travels only inside the encrypted backup (ADR-0048 §7). */
+    localOnly: 'Se guarda en este teléfono y solo sale cifrado, en tu respaldo.',
     countrySheet: 'País',
   },
   lifeExpectancy,
@@ -219,18 +272,15 @@ export const settings = {
     /** VoiceOver: what is left and what a tap does. */
     tapHint: (left: string, toDays: boolean) => `Te quedan ${left}. Toca para ver en ${toDays ? 'días' : 'semanas'}`,
     atYourPace: (consumed: string) => `A tu ritmo actual, ${consumed} de eso se irían en redes.`,
-    estimateNote: 'Estimación con datos de ejemplo. El dato real llega con Tiempo de uso.',
     /** The projection runs on this week's real floor (Android, ADR-0029). */
     deviceNote: 'Estimación con el uso real de esta semana, siempre como piso.',
   },
   liveActivities: {
-    title: 'Live Activities',
-    toggleTitle: 'Live Activities',
-    toggleDescription: 'El timer en la pantalla bloqueada y en la Dynamic Island',
+    title: 'Actividades en tiempo real',
+    toggleTitle: 'Actividades en tiempo real',
+    toggleDescription: 'El reloj de la sesión en la pantalla bloqueada y, si tu iPhone la tiene, en la Dynamic Island',
     /** The mode name the preview shows when no mode is active. */
     previewMode: 'Sin redes',
-    /** 'Enfocado · quedan 24m'. */
-    previewStatus: (remaining: string) => `Enfocado · quedan ${remaining}`,
     previewCaption: 'Así se ve mientras corre una sesión.',
   },
   notifications: {
@@ -241,22 +291,23 @@ export const settings = {
     unavailableTitle: 'Aquí no hay notificaciones',
     deniedTitle: 'El permiso está apagado',
     deniedBody:
-      'El sistema no lo vuelve a pedir. Actívalo en Ajustes del sistema › Vesper › Notificaciones y vuelve aquí.',
+      'El sistema ya no lo pregunta. Actívalo en Ajustes del sistema › Vesper › Notificaciones; al volver, Vesper lo nota solo.',
+    /** The primary once the system will not ask again: opens the app's page in the system settings. */
+    openSettings: 'Abrir Ajustes del sistema',
     pendingTitle: 'Vesper todavía no puede avisarte',
     pendingBody: 'Sin permiso no hay aviso al terminar una sesión ni cierre semanal. Se pide una sola vez.',
     generalGroup: 'General',
     dailyGroup: 'Cada día',
     circleGroup: 'Círculo',
-    systemGroup: 'Sistema',
     coaching: { label: 'Acompañamiento', description: 'Aviso cuando empieza una rutina' },
-    sessionEnd: { label: 'Fin de sesión', description: 'Aviso cuando el timer termina' },
+    sessionEnd: { label: 'Fin de sesión', description: 'Aviso cuando el reloj de la sesión llega a cero' },
     weeklyClose: { label: 'Cierre semanal', description: 'El domingo a las 20:00, cómo cerró la semana' },
-    streak: { label: 'Racha en riesgo', description: 'Si a la hora del aviso hoy todavía no cuenta' },
+    streak: { label: 'Racha en riesgo', description: 'Si a la hora del aviso todavía no llevas 10 minutos hoy' },
     noFocus: { label: 'Día sin foco', description: 'Si a la hora del aviso no has enfocado' },
     reactivation: { label: 'Volver', description: 'A los 3 y a los 7 días sin abrir Vesper' },
     challenges: {
       label: 'Retos',
-      description: 'Cuando un reto solo se cumple marcando todos los días que quedan, y cuando termina',
+      description: 'Cuando un reto ya no admite fallar otro día, y cuando termina',
     },
     /** The row and the sheet share the name. */
     reminderTime: { label: 'Hora del aviso', sheet: 'Hora del aviso' },
@@ -267,18 +318,20 @@ export const settings = {
       label: 'Avisos del círculo',
       description: 'Cuando alguien te empuja en un reto, pide entrar a tu círculo o te acepta en el suyo. Nunca durante una sesión.',
     },
-    updates: { label: 'Novedades importantes', description: 'Cambios que vale la pena saber' },
   },
   rules: {
     title: 'Mis reglas',
-    strict: { title: 'Modo estricto', description: 'Impide terminar una sesión borrando la app' },
     installs: { title: 'Bloquear instalaciones', description: 'Evita instalar apps durante una sesión' },
     purchases: { title: 'Bloquear compras dentro de apps', description: 'Limita compras durante una sesión' },
     mature: {
       title: 'Bloquear contenido adulto',
       description: 'Limita contenido adulto en apps y sitios durante una sesión',
     },
-    applied: 'Se aplican durante una sesión. Por ahora solo el filtro de contenido adulto llega al sistema.',
+    applied: 'Se aplican durante una sesión.',
+    /** Every rule is on, and this phone applies none of them (Android today). */
+    noneApplied: 'En este teléfono ninguna llega al sistema todavía. Se guardan para cuando Vesper pueda aplicarlas.',
     notApplied: (reason: string) => `No se aplican: ${reason}.`,
+    /** Under a rule this phone keeps but cannot apply: no flag passes for a capability. */
+    notYet: 'Todavía no llega al sistema en este teléfono.',
   },
 };

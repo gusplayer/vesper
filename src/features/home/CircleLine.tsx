@@ -1,9 +1,10 @@
 import { useRouter } from 'expo-router';
 
-import { useKudosReceived, useMyChallengeWeeks } from '../../data';
+import { useKudosReceived } from '../../data';
 import { Tappable, Text } from '../../design/components';
 import { useStrings } from '../../i18n';
 import { challengeOutlookText } from '../circle/challengeText';
+import { useLinkedChallengeWeeks } from '../circle/useChallengeLink';
 import { pickHomeChallenge } from './homeChallenge';
 
 type CircleLineProps = {
@@ -19,7 +20,7 @@ type CircleLineProps = {
 export function CircleLine({ now }: CircleLineProps) {
   const t = useStrings().circle;
   const router = useRouter();
-  const challenge = pickHomeChallenge(useMyChallengeWeeks(now));
+  const challenge = pickHomeChallenge(useLinkedChallengeWeeks(now));
   const kudos = useKudosReceived(now);
 
   if (challenge !== null) {
@@ -36,11 +37,14 @@ export function CircleLine({ now }: CircleLineProps) {
     );
   }
 
-  if (kudos.count > 0) {
+  // Names, not the count: a cheer from someone no longer in the circle still counts,
+  // and a line with no name in it would read " te dieron ánimo esta semana."
+  if (kudos.names.length > 0) {
+    const line = t.kudos.received(kudos.names);
     return (
-      <Tappable onPress={() => router.push('/circle')} accessibilityLabel={t.section.seeCircle}>
+      <Tappable onPress={() => router.push('/circle')} accessibilityLabel={line}>
         <Text variant="caption" tone="secondary">
-          {t.kudos.received(kudos.names)}
+          {line}
         </Text>
       </Tappable>
     );

@@ -36,22 +36,47 @@ function setup() {
   let clock = T0;
   const app = createApp({ store, push, now: () => (clock += 1) });
 
+  /**
+   * JSON in and out, like the phone's client. `raw` sends bytes instead, the way the
+   * backup travels; `headers` adds to or overrides the defaults; and a response that is
+   * not JSON comes back as `bytes`, with its `headers` to read.
+   */
   const call = async (
     method: string,
     path: string,
-    options: { token?: string; body?: unknown } = {},
-  ): Promise<{ status: number; body: any }> => {
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    options: {
+      token?: string;
+      body?: unknown;
+      raw?: Uint8Array<ArrayBuffer>;
+      headers?: Record<string, string>;
+    } = {},
+  ): Promise<{ status: number; body: any; bytes: Uint8Array; headers: Headers }> => {
+    const headers: Record<string, string> = {
+      'content-type': options.raw === undefined ? 'application/json' : 'application/octet-stream',
+    };
     if (options.token !== undefined) {
       headers.Authorization = `Bearer ${options.token}`;
     }
+    Object.assign(headers, options.headers);
     const response = await app.request(path, {
       method,
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body:
+        options.raw !== undefined
+          ? options.raw
+          : options.body === undefined
+            ? undefined
+            : JSON.stringify(options.body),
     });
-    const text = await response.text();
-    return { status: response.status, body: text === '' ? null : JSON.parse(text) };
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const json = (response.headers.get('content-type') ?? '').includes('application/json');
+    const text = json ? new TextDecoder().decode(bytes) : '';
+    return {
+      status: response.status,
+      body: text === '' ? null : JSON.parse(text),
+      bytes,
+      headers: response.headers,
+    };
   };
 
   /** A phone that just installed the app: it picks its id, the server hands the secret. */
@@ -60,7 +85,21 @@ function setup() {
     return { id, token: `${id}.${created.body.secret}` };
   };
 
-  return { store, push, call, join };
+  /**
+   * A phone on its first launch since ADR-0048: the id alone, no name, no handle. What
+   * comes back is a bare identity, nobody in any circle yet.
+   */
+  const identity = async (id: string) => {
+    const created = await call('POST', '/account', { body: { id } });
+    return { id, token: `${id}.${created.body.secret}`, created };
+  };
+
+  /** Moves the clock forward, for the rules that are about an hour passing. */
+  const wait = (ms: number) => {
+    clock += ms;
+  };
+
+  return { store, push, call, join, identity, wait };
 }
 
 /**
@@ -147,6 +186,495 @@ describe('accounts', () => {
     expect(gone.status).toBe(204);
     expect(await store.getAccount(GUS)).toBeNull();
     expect(await store.weeksOf([GUS], 0)).toEqual([]);
+  });
+});
+
+describe('restoring with the backup key', () => {
+  it('hands a new phone its own profile, and nothing it should not read', async () => {
+    const { call, join } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+    await call('POST', '/device', { token: gus.token, body: { pushToken: 'ExponentPushToken[old]' } });
+
+    const me = await call('GET', '/account', { token: gus.token });
+
+    expect(me.status).toBe(200);
+    expect(me.body).toEqual(
+      expect.objectContaining({ id: GUS, name: 'Gus', handle: 'gus', inviteCode: GUS_CODE, nudgesOn: true }),
+    );
+    expect(me.body).not.toHaveProperty('secretHash');
+    expect(me.body).not.toHaveProperty('pushToken');
+    expect((await call('GET', '/account')).status).toBe(401);
+  });
+
+  it('rotates the secret, shuts out the old phone and forgets where it pushed', async () => {
+    const { call, join, store } = setup();
+    const gus = await join(GUS, 'Gus', 'gus');
+    await call('POST', '/device', { token: gus.token, body: { pushToken: 'ExponentPushToken[old]' } });
+
+    const rotated = await call('POST', '/account/secret', { token: gus.token });
+    const fresh = `${GUS}.${rotated.body.secret}`;
+
+    expect(rotated.status).toBe(200);
+    expect(rotated.body.id).toBe(GUS);
+    expect((await call('GET', '/account', { token: gus.token })).status).toBe(401);
+    expect((await call('GET', '/account', { token: fresh })).status).toBe(200);
+    expect((await store.getAccount(GUS))?.pushToken).toBeNull();
+  });
+
+  it('gives back your own marks only when asked to restore, whatever the cursor', async () => {
+    const { call, gus, ana } = await circleWithChallenge();
+    await call('POST', '/sync', {
+      token: gus.token,
+      body: {
+        since: 0,
+        marks: [
+          { challengeId: CH1, dayKey: '2026-09-22', source: 'health' },
+          { challengeId: CH1, dayKey: '2026-09-23', source: 'session' },
+        ],
+      },
+    });
+    await call('POST', '/sync', {
+      token: ana.token,
+      body: { since: 0, marks: [{ challengeId: CH1, dayKey: '2026-09-22' }] },
+    });
+
+    const ordinary = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    const restored = await call('POST', '/sync', {
+      token: gus.token,
+      body: { since: ordinary.body.now, restore: true },
+    });
+
+    expect(ordinary.body).not.toHaveProperty('own');
+    expect(ordinary.body.marks).toEqual([expect.objectContaining({ accountId: ANA })]);
+    expect(restored.body.own.marks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: GUS, dayKey: '2026-09-22', source: 'health' }),
+        expect.objectContaining({ accountId: GUS, dayKey: '2026-09-23', source: 'session' }),
+      ]),
+    );
+    expect(restored.body.own.marks).toHaveLength(2);
+  });
+});
+
+const HOUR_MS = 60 * 60 * 1000;
+const MB = 1024 * 1024;
+
+/**
+ * ADR-0048: the account is the person's identity, born on first launch with an id and a
+ * secret and nothing else. Until it claims a handle it has nothing social, and that is
+ * a rule the server keeps, not one it trusts the phone to keep.
+ */
+describe('an identity without a circle', () => {
+  it('is born from an id alone, with no name and no handle', async () => {
+    const { identity, call, store } = setup();
+
+    const gus = await identity(GUS);
+    const ana = await identity(ANA);
+
+    expect(gus.created.status).toBe(201);
+    expect(gus.created.body).toEqual({ id: GUS, secret: expect.any(String), handle: null });
+    // Two accounts without a handle are not two claims on the same handle.
+    expect(ana.created.status).toBe(201);
+    expect(await store.getAccount(GUS)).toEqual(
+      expect.objectContaining({ name: null, handle: null, inviteCode: null }),
+    );
+    const me = await call('GET', '/account', { token: gus.token });
+    expect(me.body).toEqual(expect.objectContaining({ id: GUS, name: null, handle: null }));
+  });
+
+  it('takes a name and a handle together or not at all', async () => {
+    const { call } = setup();
+
+    const nameOnly = await call('POST', '/account', { body: { id: GUS, name: 'Gus' } });
+    const handleOnly = await call('POST', '/account', { body: { id: GUS, handle: 'gus' } });
+    const codeOnly = await call('POST', '/account', { body: { id: GUS, inviteCode: GUS_CODE } });
+
+    expect([nameOnly.status, handleOnly.status, codeOnly.status]).toEqual([400, 400, 400]);
+  });
+
+  it('claims its circle profile later, with its secret and the usual rules', async () => {
+    const { identity, join, call, store } = setup();
+    await join(ANA, 'Ana', 'ana');
+    const gus = await identity(GUS);
+
+    const stranger = await call('POST', '/account', {
+      body: { id: GUS, name: 'Gus', handle: 'gus' },
+    });
+    const taken = await call('POST', '/account', {
+      token: gus.token,
+      body: { id: GUS, name: 'Gus', handle: 'ana' },
+    });
+    const claimed = await call('POST', '/account', {
+      token: gus.token,
+      body: { id: GUS, name: 'Gus', handle: 'gus', inviteCode: GUS_CODE },
+    });
+
+    expect(stranger.status).toBe(401);
+    expect(taken.status).toBe(409);
+    expect(claimed.status).toBe(200);
+    expect(claimed.body).toEqual({ id: GUS, handle: 'gus' });
+    expect(await store.getAccount(GUS)).toEqual(
+      expect.objectContaining({ name: 'Gus', handle: 'gus', inviteCode: GUS_CODE }),
+    );
+  });
+
+  it('answers a second registration with the secret, and changes nothing', async () => {
+    const { identity, join, call, store } = setup();
+    const gus = await identity(GUS);
+    const ana = await join(ANA, 'Ana', 'ana');
+
+    const again = await call('POST', '/account', { token: gus.token, body: { id: GUS } });
+    const hers = await call('POST', '/account', { token: ana.token, body: { id: ANA } });
+    const unsure = await call('POST', '/account', { body: { id: GUS } });
+
+    expect(again.status).toBe(200);
+    expect(again.body).toEqual({ id: GUS, handle: null });
+    // A bare body never takes a profile away.
+    expect(hers.body).toEqual({ id: ANA, handle: 'ana' });
+    expect((await store.getAccount(ANA))?.name).toBe('Ana');
+    // Without the secret the id is someone else's, as it always was.
+    expect(unsure.status).toBe(401);
+  });
+
+  it('spends the same budget as any new account', async () => {
+    const { call } = setup();
+    const idAt = (n: number) => `0199a1b2-c3d4-7e5f-8a9b-${n.toString(16).padStart(12, '0')}`;
+
+    const made = [];
+    for (let i = 1; i <= 10; i += 1) {
+      const body = i % 2 === 0 ? { id: idAt(i) } : { id: idAt(i), name: 'Quien', handle: `who${i}` };
+      made.push((await call('POST', '/account', { body })).status);
+    }
+    const eleventh = await call('POST', '/account', { body: { id: idAt(11) } });
+
+    expect(made).toEqual(Array.from({ length: 10 }, () => 201));
+    expect(eleventh.status).toBe(429);
+  });
+
+  it('cannot redeem, accept or join until it has a handle', async () => {
+    const { identity, join, call, push, store } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+    await call('POST', '/device', { token: gus.token, body: { pushToken: 'ExponentPushToken[gus]' } });
+    const sofia = await identity(SOF);
+    await call('POST', '/sync', {
+      token: gus.token,
+      body: { since: 0, challenges: [{ id: CH1, name: 'Leer', weeklyTarget: 4, startWeekKey: '2026-09-21' }] },
+    });
+
+    const redeemed = await call('POST', '/invite/redeem', { token: sofia.token, body: { code: GUS_CODE } });
+    const accepted = await call('POST', '/invite/accept', { token: sofia.token, body: { memberId: GUS } });
+    const joined = await call('POST', '/challenge/join', { token: sofia.token, body: { challengeId: CH1 } });
+
+    for (const refused of [redeemed, accepted, joined]) {
+      expect(refused.status).toBe(409);
+      expect(refused.body).toEqual({ error: 'handle required' });
+    }
+    // No link written, nobody woken, and nobody named by a handle that does not exist.
+    expect(await store.linksOf(SOF)).toEqual([]);
+    expect(push.sent).toEqual([]);
+    expect((await store.getChallenge(CH1))?.participantIds).toEqual([GUS]);
+  });
+
+  it('is nobody’s member, whatever the rows say', async () => {
+    const { identity, join, call, store } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+    await identity(SOF);
+    // Not reachable through the API; written by hand to show the read holds on its own.
+    await store.putLink({ ownerId: GUS, memberId: SOF, status: 'member', createdAt: T0, updatedAt: T0 });
+    await store.putLink({ ownerId: SOF, memberId: GUS, status: 'member', createdAt: T0, updatedAt: T0 });
+    await store.putWeek({
+      accountId: SOF,
+      weekKey: '2026-09-21',
+      focusMs: 1,
+      socialMs: null,
+      habitsDone: null,
+      habitsTarget: null,
+      updatedAt: T0,
+    });
+
+    const mine = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+
+    expect(mine.body.members).toEqual([]);
+    expect(mine.body.weeks).toEqual([]);
+  });
+
+  it('syncs, and writes nothing social', async () => {
+    const { identity, call, store } = setup();
+    const gus = await identity(GUS);
+
+    const synced = await call('POST', '/sync', {
+      token: gus.token,
+      body: {
+        since: 0,
+        weeks: [{ weekKey: '2026-09-21', focusMs: 3600000, habitsDone: 3, habitsTarget: 4 }],
+        challenges: [{ id: CH1, name: 'Leer', weeklyTarget: 4, startWeekKey: '2026-09-21' }],
+      },
+    });
+
+    expect(synced.status).toBe(200);
+    expect(synced.body).toEqual(
+      expect.objectContaining({ now: expect.any(Number), members: [], weeks: [], challenges: [] }),
+    );
+    // The server keeps no totals of someone who does not use the circle (ADR-0048 §3).
+    expect(await store.weeksOf([GUS], 0)).toEqual([]);
+    expect(await store.getChallenge(CH1)).toBeNull();
+  });
+});
+
+describe('what a phone says about itself', () => {
+  it('takes its system and its app version, and nothing shaped otherwise', async () => {
+    const { identity, call, store } = setup();
+    const gus = await identity(GUS);
+
+    const told = await call('POST', '/device', {
+      token: gus.token,
+      body: { platform: 'ios', appVersion: '1.4.0 (212)' },
+    });
+    const refused = await Promise.all(
+      [
+        { platform: 'windows' },
+        { platform: null },
+        { appVersion: '' },
+        { appVersion: 'x'.repeat(33) },
+        { appVersion: '1.0\n<script>' },
+        { appVersion: 140 },
+      ].map(async (body) => (await call('POST', '/device', { token: gus.token, body })).status),
+    );
+
+    expect(told.status).toBe(200);
+    expect(await store.getAccount(GUS)).toEqual(
+      expect.objectContaining({ platform: 'ios', appVersion: '1.4.0 (212)' }),
+    );
+    expect(refused).toEqual([400, 400, 400, 400, 400, 400]);
+  });
+
+  it('keeps the push token when a report does not mention it, and drops it on null', async () => {
+    const { join, call, store } = setup();
+    const gus = await join(GUS, 'Gus', 'gus');
+    await call('POST', '/device', { token: gus.token, body: { pushToken: 'ExponentPushToken[gus]' } });
+
+    await call('POST', '/device', { token: gus.token, body: { platform: 'android', appVersion: '1.0.0' } });
+    const kept = await store.getAccount(GUS);
+    await call('POST', '/device', { token: gus.token, body: { pushToken: null } });
+    const dropped = await store.getAccount(GUS);
+
+    expect(kept).toEqual(
+      expect.objectContaining({ pushToken: 'ExponentPushToken[gus]', platform: 'android' }),
+    );
+    expect(dropped).toEqual(expect.objectContaining({ pushToken: null, appVersion: '1.0.0' }));
+  });
+
+  it('is seen at most once an hour, however often it calls', async () => {
+    const { identity, call, store, wait } = setup();
+    const gus = await identity(GUS);
+    const touches: number[] = [];
+    const touch = store.touchAccount;
+    store.touchAccount = async (id, at) => {
+      touches.push(at);
+      await touch(id, at);
+    };
+    const born = (await store.getAccount(GUS))?.lastSeenAt;
+
+    for (let i = 0; i < 5; i += 1) {
+      await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    }
+    const stale = await store.getAccount(GUS);
+    const early = stale?.lastSeenAt;
+    wait(HOUR_MS);
+    await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    // A write that began from the account as it was read before the touch — another
+    // request in flight — cannot move it back.
+    if (stale !== null) {
+      await store.putAccount({ ...stale, appVersion: '1.0.1' });
+    }
+    await call('POST', '/device', { token: gus.token, body: { appVersion: '1.0.2' } });
+    const later = (await store.getAccount(GUS))?.lastSeenAt;
+
+    expect(born).toEqual(expect.any(Number));
+    expect(early).toBe(born);
+    expect(touches).toHaveLength(1);
+    expect(later).toBe(touches[0]);
+    expect(later).toBeGreaterThanOrEqual((born ?? 0) + HOUR_MS);
+  });
+});
+
+/**
+ * ADR-0048 §7: one encrypted copy of the phone's database per account. The server
+ * keeps bytes it cannot read; what these tests check is that it keeps them whole, keeps
+ * them apart, keeps them small, and lets them go with the account.
+ */
+describe('the encrypted backup', () => {
+  const BACKUP_HEADERS = {
+    'X-Backup-Format': '1',
+    'X-Backup-Schema': '9',
+    'X-Backup-Platform': 'android',
+  };
+  /** Stands in for ciphertext: every byte value, zero and 0xff included. */
+  const blob = (size: number, seed = 0) =>
+    Uint8Array.from({ length: size }, (_, i) => (i + seed) % 256);
+
+  it('gives the bytes back as they came, with what was said about them', async () => {
+    const { identity, call } = setup();
+    const gus = await identity(GUS);
+    const sent = blob(1000);
+
+    const put = await call('PUT', '/backup', { token: gus.token, raw: sent, headers: BACKUP_HEADERS });
+    const got = await call('GET', '/backup', { token: gus.token });
+    const meta = await call('GET', '/backup/meta', { token: gus.token });
+
+    expect(put.status).toBe(200);
+    expect(put.body).toEqual({ updatedAt: expect.any(Number), size: 1000 });
+    expect(got.status).toBe(200);
+    expect(got.bytes).toEqual(sent);
+    expect(got.headers.get('content-type')).toBe('application/octet-stream');
+    expect(got.headers.get('x-backup-format')).toBe('1');
+    expect(got.headers.get('x-backup-schema')).toBe('9');
+    expect(got.headers.get('x-backup-platform')).toBe('android');
+    expect(got.headers.get('x-backup-updated-at')).toBe(String(put.body.updatedAt));
+    expect(meta.body).toEqual({
+      updatedAt: put.body.updatedAt,
+      size: 1000,
+      schema: 9,
+      platform: 'android',
+      format: 1,
+    });
+  });
+
+  it('deletes the copy when the backup is turned off, and keeps the account', async () => {
+    const { identity, call } = setup();
+    const gus = await identity(GUS);
+    await call('PUT', '/backup', { token: gus.token, raw: blob(100), headers: BACKUP_HEADERS });
+
+    const gone = await call('DELETE', '/backup', { token: gus.token });
+    const again = await call('DELETE', '/backup', { token: gus.token });
+
+    expect([gone.status, again.status]).toEqual([204, 204]);
+    expect((await call('GET', '/backup/meta', { token: gus.token })).status).toBe(404);
+    expect((await call('GET', '/account', { token: gus.token })).status).toBe(200);
+    expect((await call('DELETE', '/backup')).status).toBe(401);
+  });
+
+  it('answers 404 when there is none', async () => {
+    const { identity, call } = setup();
+    const gus = await identity(GUS);
+
+    const got = await call('GET', '/backup', { token: gus.token });
+    const meta = await call('GET', '/backup/meta', { token: gus.token });
+
+    expect([got.status, meta.status]).toEqual([404, 404]);
+    expect(got.body).toEqual({ error: 'no backup' });
+    expect(meta.body).toEqual({ error: 'no backup' });
+  });
+
+  it('keeps one per account, the last one', async () => {
+    const { identity, call } = setup();
+    const gus = await identity(GUS);
+
+    await call('PUT', '/backup', { token: gus.token, raw: blob(500), headers: BACKUP_HEADERS });
+    await call('PUT', '/backup', {
+      token: gus.token,
+      raw: blob(300, 7),
+      headers: { ...BACKUP_HEADERS, 'X-Backup-Schema': '10', 'X-Backup-Platform': 'ios' },
+    });
+    const got = await call('GET', '/backup', { token: gus.token });
+
+    expect(got.bytes).toEqual(blob(300, 7));
+    expect(got.headers.get('x-backup-schema')).toBe('10');
+    expect(got.headers.get('x-backup-platform')).toBe('ios');
+  });
+
+  it('is only its owner’s to read', async () => {
+    const { identity, call } = setup();
+    const gus = await identity(GUS);
+    const ana = await identity(ANA);
+    await call('PUT', '/backup', { token: gus.token, raw: blob(100), headers: BACKUP_HEADERS });
+
+    expect((await call('GET', '/backup', { token: ana.token })).status).toBe(404);
+    expect((await call('GET', '/backup')).status).toBe(401);
+    expect((await call('PUT', '/backup', { raw: blob(100), headers: BACKUP_HEADERS })).status).toBe(401);
+  });
+
+  it('refuses a body it could not file, and an empty one', async () => {
+    const { identity, call, store } = setup();
+    const gus = await identity(GUS);
+    const without = (name: string) =>
+      Object.fromEntries(Object.entries(BACKUP_HEADERS).filter(([key]) => key !== name));
+
+    const statuses = await Promise.all(
+      [
+        without('X-Backup-Format'),
+        without('X-Backup-Schema'),
+        without('X-Backup-Platform'),
+        { ...BACKUP_HEADERS, 'X-Backup-Format': '0' },
+        { ...BACKUP_HEADERS, 'X-Backup-Format': 'one' },
+        { ...BACKUP_HEADERS, 'X-Backup-Schema': '-3' },
+        { ...BACKUP_HEADERS, 'X-Backup-Schema': '2.5' },
+        { ...BACKUP_HEADERS, 'X-Backup-Platform': 'web' },
+      ].map(async (headers) => (await call('PUT', '/backup', { token: gus.token, raw: blob(10), headers })).status),
+    );
+    const empty = await call('PUT', '/backup', {
+      token: gus.token,
+      raw: new Uint8Array(0),
+      headers: BACKUP_HEADERS,
+    });
+
+    expect(statuses).toEqual(Array.from({ length: 8 }, () => 400));
+    expect(empty.status).toBe(400);
+    expect(await store.getBackup(GUS)).toBeNull();
+  });
+
+  it('takes five megabytes and not a byte more, by the header and by the bytes', async () => {
+    const { identity, call, store } = setup();
+    const gus = await identity(GUS);
+
+    const announced = await call('PUT', '/backup', {
+      token: gus.token,
+      raw: blob(10),
+      headers: { ...BACKUP_HEADERS, 'Content-Length': String(6 * MB) },
+    });
+    const over = await call('PUT', '/backup', {
+      token: gus.token,
+      raw: blob(5 * MB + 1),
+      headers: BACKUP_HEADERS,
+    });
+    const exact = await call('PUT', '/backup', {
+      token: gus.token,
+      raw: blob(5 * MB),
+      headers: BACKUP_HEADERS,
+    });
+
+    expect(announced.status).toBe(413);
+    expect(announced.body).toEqual({ error: 'backup too large' });
+    expect(over.status).toBe(413);
+    expect(over.body).toEqual({ error: 'backup too large' });
+    expect(exact.status).toBe(200);
+    expect((await store.getBackupMeta(GUS))?.size).toBe(5 * MB);
+  });
+
+  it('takes thirty uploads an hour', async () => {
+    const { identity, call } = setup();
+    const gus = await identity(GUS);
+
+    const statuses = [];
+    for (let i = 0; i < 31; i += 1) {
+      statuses.push(
+        (await call('PUT', '/backup', { token: gus.token, raw: blob(10, i), headers: BACKUP_HEADERS })).status,
+      );
+    }
+
+    expect(statuses.slice(0, 30)).toEqual(Array.from({ length: 30 }, () => 200));
+    expect(statuses[30]).toBe(429);
+  });
+
+  it('goes with the account', async () => {
+    const { identity, call, store } = setup();
+    const gus = await identity(GUS);
+    await call('PUT', '/backup', { token: gus.token, raw: blob(100), headers: BACKUP_HEADERS });
+
+    await call('DELETE', '/account', { token: gus.token });
+
+    expect(await store.getBackup(GUS)).toBeNull();
+    expect(await store.getBackupMeta(GUS)).toBeNull();
   });
 });
 
@@ -608,6 +1136,9 @@ describe('the invite code belongs to one account', () => {
       pushToken: null,
       timeZone: null,
       nudgesOn: true,
+      platform: null,
+      appVersion: null,
+      lastSeenAt: null,
       createdAt: T0,
       updatedAt: T0,
     };
@@ -789,5 +1320,140 @@ describe('no push carries anything to show', () => {
       expect(Object.values(message.data)).not.toContain('Gus');
       expect(Object.values(message.data)).not.toContain('Leer');
     }
+  });
+});
+
+describe('ending a link (ADR-0049)', () => {
+  const CH2 = '0199a1b2-c3d4-7e5f-8a9b-0000000000c2';
+  const K3 = '0199a1b2-c3d4-7e5f-8a9b-00000000a003';
+
+  it('declines a request: the one who asked learns it, and may ask again', async () => {
+    const { call, join } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+    const ana = await join(ANA, 'Ana', 'ana');
+    await call('POST', '/invite/redeem', { token: ana.token, body: { code: GUS_CODE } });
+    const before = await call('POST', '/sync', { token: ana.token, body: { since: 0 } });
+
+    const declined = await call('POST', '/link/end', { token: gus.token, body: { memberId: ANA } });
+
+    expect(declined.body).toEqual({ ok: true, ended: 1 });
+    const after = await call('POST', '/sync', { token: ana.token, body: { since: before.body.now } });
+    expect(after.body.ended).toEqual([GUS]);
+    expect(after.body.members).toEqual([]);
+    const gusSync = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    expect(gusSync.body.members).toEqual([]);
+
+    // A new request supersedes the end: a phone starting from zero sees the request, not the end.
+    await call('POST', '/invite/redeem', { token: ana.token, body: { code: GUS_CODE } });
+    const again = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    expect(again.body.ended).toEqual([]);
+    expect(again.body.members).toEqual([expect.objectContaining({ id: ANA, status: 'pending' })]);
+  });
+
+  it('removes a member: they stop seeing your week, stop cheering you, and leave your challenges', async () => {
+    const { call, gus, ana } = await circleWithChallenge();
+    const cursor = (await call('POST', '/sync', { token: ana.token, body: { since: 0 } })).body.now;
+
+    const removed = await call('POST', '/link/end', { token: gus.token, body: { memberId: ANA } });
+
+    expect(removed.status).toBe(200);
+    await call('POST', '/sync', {
+      token: gus.token,
+      body: { since: 0, weeks: [{ weekKey: '2026-09-21', focusMs: 3600000, habitsDone: 1, habitsTarget: 2 }] },
+    });
+    const anaSync = await call('POST', '/sync', {
+      token: ana.token,
+      body: { since: cursor, kudos: [{ id: K3, toId: GUS, dayKey: '2026-09-22' }] },
+    });
+    expect(anaSync.body.ended).toEqual([GUS]);
+    expect(anaSync.body.weeks).toEqual([]);
+    expect(anaSync.body.rejected).toContain(K3);
+    // The challenge Gus made no longer reaches Ana at all: her phone archives it when it
+    // learns the end, because its maker is not in her circle any more.
+    expect(anaSync.body.challenges).toEqual([]);
+    const gusSync = await call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    expect(gusSync.body.challenges[0].participantIds).toEqual([GUS]);
+    expect(gusSync.body.ended).toEqual([ANA]);
+  });
+
+  it('takes the one who ends it out of the challenges the other one made', async () => {
+    const { call, gus, ana } = await circleWithChallenge();
+    await call('POST', '/sync', {
+      token: ana.token,
+      body: {
+        since: 0,
+        challenges: [{ id: CH2, name: 'Correr', weeklyTarget: 3, startWeekKey: '2026-09-21', participantIds: [ANA, GUS] }],
+      },
+    });
+
+    await call('POST', '/link/end', { token: gus.token, body: { memberId: ANA } });
+
+    const anaSync = await call('POST', '/sync', { token: ana.token, body: { since: 0 } });
+    const correr = anaSync.body.challenges.find((challenge: { id: string }) => challenge.id === CH2);
+    expect(correr.participantIds).toEqual([ANA]);
+  });
+
+  it('leaves the whole circle with everyone: true', async () => {
+    const { call, join, gus, ana } = await circleWithChallenge();
+    const sof = await join(SOF, 'Sofía', 'sofia');
+    await call('POST', '/invite/redeem', { token: sof.token, body: { code: GUS_CODE } });
+
+    const left = await call('POST', '/link/end', { token: gus.token, body: { everyone: true } });
+
+    expect(left.body).toEqual({ ok: true, ended: 2 });
+    expect((await call('POST', '/sync', { token: ana.token, body: { since: 0 } })).body.ended).toEqual([GUS]);
+    expect((await call('POST', '/sync', { token: sof.token, body: { since: 0 } })).body.ended).toEqual([GUS]);
+    expect((await call('POST', '/sync', { token: gus.token, body: { since: 0 } })).body.members).toEqual([]);
+  });
+
+  it('answers 200 to a link that is already gone, and tells a stranger nothing', async () => {
+    const { call, join } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+    const stranger = await join(SOF, 'Sofía', 'sofia');
+
+    const nothing = await call('POST', '/link/end', { token: gus.token, body: { memberId: SOF } });
+
+    expect(nothing.body).toEqual({ ok: true, ended: 0 });
+    expect((await call('POST', '/sync', { token: stranger.token, body: { since: 0 } })).body.ended).toEqual([]);
+  });
+
+  it('refuses a body with no one to end, or with yourself', async () => {
+    const { call, join } = setup();
+    const gus = await join(GUS, 'Gus', 'gus', GUS_CODE);
+
+    expect((await call('POST', '/link/end', { token: gus.token, body: {} })).status).toBe(400);
+    expect((await call('POST', '/link/end', { token: gus.token, body: { memberId: 'ana' } })).status).toBe(400);
+    expect((await call('POST', '/link/end', { token: gus.token, body: { memberId: GUS } })).status).toBe(400);
+    expect((await call('POST', '/link/end', { body: { memberId: ANA } })).status).toBe(401);
+  });
+});
+
+describe('leaving a challenge (ADR-0049)', () => {
+  it('takes the caller out, so nobody sees them in it or can nudge them in it', async () => {
+    const { call, gus, ana } = await circleWithChallenge();
+
+    const left = await call('POST', '/challenge/leave', { token: ana.token, body: { challengeId: CH1 } });
+
+    expect(left.status).toBe(200);
+    const gusSync = await call('POST', '/sync', {
+      token: gus.token,
+      body: { since: 0, nudges: [{ id: N9, toId: ANA, challengeId: CH1, dayKey: '2026-09-22' }] },
+    });
+    expect(gusSync.body.challenges[0].participantIds).toEqual([GUS]);
+    expect(gusSync.body.rejected).toContain(N9);
+    // Still in each other's circle: leaving a challenge ends no link.
+    expect(gusSync.body.members).toEqual([expect.objectContaining({ id: ANA, status: 'member' })]);
+  });
+
+  it('answers 200 to a challenge already left or unknown, and 400 to a malformed id', async () => {
+    const { call, ana } = await circleWithChallenge();
+    await call('POST', '/challenge/leave', { token: ana.token, body: { challengeId: CH1 } });
+
+    expect((await call('POST', '/challenge/leave', { token: ana.token, body: { challengeId: CH1 } })).status).toBe(200);
+    expect(
+      (await call('POST', '/challenge/leave', { token: ana.token, body: { challengeId: '0199a1b2-c3d4-7e5f-8a9b-0000000000ff' } }))
+        .status,
+    ).toBe(200);
+    expect((await call('POST', '/challenge/leave', { token: ana.token, body: { challengeId: 'nope' } })).status).toBe(400);
   });
 });

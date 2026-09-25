@@ -6,10 +6,10 @@
     <title>Privacidad · Vesper</title>
     <meta name="description" content="Qué datos toca Vesper, dónde viven y cómo se borran." />
     <!--
-      BORRADOR (2026-09-24). Escrito contra el código de este commit: ADR-0017, 0021, 0029,
-      0033, 0035, 0042, 0043, 0044 y 0046. Antes de publicarlo: poner el correo de contacto
-      (marcado con [CONTACTO]), la fecha de vigencia, y que lo lea alguien con criterio
-      legal. Cada vez que cambie qué sale del teléfono, esta página cambia en el mismo
+      BORRADOR (2026-09-25). Escrito contra el código de este commit: ADR-0017, 0021, 0029,
+      0033, 0035, 0042, 0043, 0044, 0046 y 0048 (la identidad sin login y el respaldo cifrado). El correo de contacto es el que decidió el dueño
+      (ADR-0047 §13). Antes de publicarlo: poner la fecha de vigencia, y que lo lea alguien
+      con criterio legal. Cada vez que cambie qué sale del teléfono, esta página cambia en el mismo
       commit. Los dos idiomas están en la página y legal.js esconde el que no se pidió.
     -->
     <link rel="stylesheet" href="/style.css" />
@@ -20,18 +20,20 @@
       <section lang="es">
         <h1>Privacidad</h1>
         <p>
-          Vesper funciona entera en tu teléfono y sin red. Lo único que sale de ahí es lo que
-          compartes con tu círculo, si lo usas, y solo lo que enciendes; mientras no invites a
-          nadie, no hay cuenta en ningún servidor. Esta página dice qué datos toca la app, dónde
-          viven y cómo se borran; las reglas de uso están en <a href="/terms">Términos</a>. Si algo
-          de aquí deja de ser cierto, la página cambia antes que la app.
+          Vesper funciona entera en tu teléfono y sin red, sin correo ni contraseña. Lo que sale de
+          ahí es poco y está contado aquí: un identificador sin nombre, un respaldo cifrado que solo
+          tu clave abre —y que puedes apagar— y lo que compartes con tu círculo, si lo usas. Esta
+          página dice qué datos toca la app, dónde viven y cómo se borran; las reglas de uso están
+          en <a href="/terms">Términos</a>. Si algo de aquí deja de ser cierto, la página cambia
+          antes que la app.
         </p>
 
         <div class="card">
           <h2>Lo que se queda en tu teléfono</h2>
           <p>
             Tus modos, rutinas, sesiones de foco, hábitos, meta semanal y, si la pones, tu fecha de
-            nacimiento. Viven en una base de datos local. No hay copia en ningún servidor.
+            nacimiento. Viven en una base de datos local. Al servidor solo llega una copia cifrada,
+            en tu respaldo (más abajo), que el servidor no puede leer.
           </p>
           <p>
             <strong>Bloqueo y uso por app.</strong> En iPhone, Tiempo de uso te deja elegir apps y
@@ -50,7 +52,8 @@
             Si la conectas, Vesper lee de Salud (iPhone) o Health Connect (Android) tres cosas de la
             semana en curso: pasos, entrenamientos y sueño. Las usa solo para marcar tus hábitos
             verificados. Nunca escribe en Salud, nunca lee otros tipos y no guarda las muestras: guarda
-            solo qué días quedó cumplido cada hábito.
+            solo qué días quedó cumplido cada hábito. Las lecturas no salen del teléfono; esos días
+            cumplidos sí van en tu respaldo, cifrados.
           </p>
           <p>
             Los datos de Salud no se usan para publicidad, no se venden y no se comparten con nadie,
@@ -59,15 +62,59 @@
         </div>
 
         <div class="card">
-          <h2>El círculo, si lo usas</h2>
+          <h2>Lo que el servidor sabe de todos</h2>
           <p>
-            El círculo es opcional y la cuenta nace tarde: la primera vez que invitas a alguien o usas
-            un código. Si nunca invitas a nadie, no hay cuenta en ningún servidor y nada tuyo sale del
-            teléfono. Desde ahí sube esto y nada más:
+            No hay registro: la primera vez que abres Vesper, tu teléfono crea una identidad sin
+            nombre y la registra cuando hay red. Desde entonces el servidor guarda esto y nada más:
           </p>
           <ul>
-            <li>Una cuenta sin correo: un identificador y un secreto que genera tu teléfono. El
-              servidor guarda solo una huella del secreto.</li>
+            <li>Un identificador que genera tu teléfono, y una huella del secreto que lo acompaña.
+              El secreto no se guarda en el servidor.</li>
+            <li>Cuándo nació esa identidad y cuándo se vio por última vez.</li>
+            <li>La plataforma (iPhone o Android) y la versión de la app.</li>
+          </ul>
+          <p>
+            Sirve para saber cuántas personas usan Vesper y cuántas vuelven, y para darte un número
+            con el que pedir soporte. Ningún correo, ningún nombre, ninguna sesión en claro. Tu
+            teléfono guarda el secreto en su llavero; en iPhone puede viajar por el llavero de
+            iCloud y en Android por Block Store, cifrado con el bloqueo de pantalla, para que un
+            teléfono nuevo con tu misma cuenta de Apple o de Google lo encuentre solo.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>El respaldo cifrado</h2>
+          <p>
+            Para que un teléfono nuevo te devuelva lo tuyo, Vesper sube una copia de su base de
+            datos: modos, rutinas, sesiones con sus intenciones, hábitos y sus marcas —incluidos
+            los días que confirmó Salud, nunca las lecturas—, meta semanal, fecha de nacimiento,
+            tus ajustes y tu círculo tal como lo ve tu teléfono. No lleva las apps que eliges en
+            iPhone (Tiempo de uso las ata a cada teléfono) ni nada del uso por app, que nunca se
+            guarda.
+          </p>
+          <p>
+            La copia se cifra en tu teléfono antes de salir, con AES-256-GCM y una llave que sale de
+            tu clave de respaldo y que el servidor no tiene. El servidor guarda un solo archivo por
+            cuenta, que se reemplaza en cada respaldo, con su tamaño, su fecha, su versión y la
+            plataforma. <strong>No puede leerlo.</strong> Se sube al terminar una sesión y, como
+            mucho, una vez al día.
+          </p>
+          <p>
+            Está encendido por defecto y se apaga en Ajustes › Respaldo. Apagarlo borra la copia
+            del servidor (si no hay conexión, en cuanto la haya) y deja de subir copias nuevas. El
+            precio de que nadie más pueda leerlo: si pierdes el teléfono y la clave no llegó sola al
+            nuevo ni la guardaste, el respaldo no se puede abrir. Nadie más la tiene, tampoco
+            Vesper.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>El círculo, si lo usas</h2>
+          <p>
+            El círculo es opcional y usa la misma identidad sin nombre de arriba. Cuando invitas a
+            alguien o usas un código, se le suma esto y nada más:
+          </p>
+          <ul>
             <li>Tu nombre, tu alias —único, para que nadie se haga pasar por otro— y el código con
               el que invitas.</li>
             <li>Tu semana, métrica por métrica, según los tres interruptores de Ajustes › Círculo:
@@ -83,9 +130,10 @@
               nombre de tu zona horaria, que sirve para agrupar los ánimos al final de tu día.</li>
           </ul>
           <p>
-            Nunca suben tus sesiones, tus intenciones, tus modos, las apps que eliges, lo que midió
-            Tiempo de uso o el uso por app, ni nada que venga de Salud. La app suma en el teléfono y
-            el servidor recibe totales.
+            Tu círculo nunca ve tus sesiones, tus intenciones, tus modos, las apps que eliges, lo que
+            midió Tiempo de uso o el uso por app, ni nada que venga de Salud. La app suma en el
+            teléfono y el servidor recibe totales. Tu respaldo lleva parte de eso, pero cifrado: el
+            servidor lo guarda sin poder leerlo y nadie más lo recibe.
           </p>
           <p>
             El servidor no tiene analítica, no guarda tu ubicación y no le pasa nada a terceros. Ve tu
@@ -99,15 +147,20 @@
         <div class="card">
           <h2>Cómo se borra</h2>
           <p>
-            <strong>En el teléfono:</strong> Ajustes › Borrar todo y reiniciar vacía la base de datos.
-            Desinstalar la app también. Desconectar Salud en Ajustes › Salud borra las marcas que vinieron
-            de ahí, y puedes quitar el permiso en Salud o Health Connect cuando quieras.
+            <strong>Todo:</strong> Ajustes › Borrar todo y reiniciar borra primero tu cuenta del
+            servidor —y con ella tu respaldo y todas sus filas del círculo, en el acto y sin copia— y
+            después vacía el teléfono. Sin conexión el teléfono se vacía igual, y la app te dice que la
+            cuenta quedó en el servidor.
           </p>
           <p>
-            <strong>En el servidor del círculo:</strong> Ajustes › Círculo borra tu cuenta cuando
-            quieras, y con ella todas sus filas, en el acto y sin copia. Es un botón propio: vaciar la
-            base del teléfono no la borra. Salir del círculo borra de tu teléfono a las personas y sus
-            números. Si nunca invitaste a nadie, allá no hay nada que borrar.
+            <strong>En el teléfono:</strong> desinstalar la app vacía la base de datos, pero no borra
+            tu cuenta ni tu respaldo del servidor. Desconectar Salud en Ajustes › Salud borra las
+            marcas que vinieron de ahí, y puedes quitar el permiso en Salud o Health Connect cuando
+            quieras. Salir del círculo borra de tu teléfono a las personas y sus números.
+          </p>
+          <p>
+            <strong>El respaldo:</strong> apagarlo en Ajustes › Respaldo borra la copia del servidor
+            y deja de subir copias nuevas; borrar tu cuenta también la borra.
           </p>
         </div>
 
@@ -128,7 +181,7 @@
           </p>
         </div>
 
-        <p class="quiet">Preguntas o pedidos sobre tus datos: [CONTACTO].</p>
+        <p class="quiet">Preguntas o pedidos sobre tus datos: <a href="mailto:gusmoreno.dev@gmail.com">gusmoreno.dev@gmail.com</a>.</p>
       </section>
 
       <hr class="rule" />
@@ -136,17 +189,19 @@
       <section lang="en">
         <h1>Privacy</h1>
         <p>
-          Vesper runs entirely on your phone and with no network. The only thing that leaves it is
-          what you share with your circle, if you use it, and only what you turn on; until you invite
-          someone there is no account on any server. This page says what data the app touches, where
-          it lives and how it is deleted; the rules for using it are in <a href="/terms">Terms</a>.
+          Vesper runs entirely on your phone and with no network, with no email and no password.
+          What leaves it is little and listed here: an id with no name attached, an encrypted backup
+          only your key opens —which you can turn off— and what you share with your circle, if you
+          use it. This page says what data the app touches, where it lives and how it is deleted;
+          the rules for using it are in <a href="/terms">Terms</a>.
         </p>
 
         <div class="card">
           <h2>What stays on your phone</h2>
           <p>
             Your modes, routines, focus sessions, habits, weekly goal and, if you add it, your birth
-            date, in a local database with no copy on any server. On iPhone, Screen Time gives Vesper
+            date, in a local database. The only copy on a server is the encrypted one in your backup
+            (below), which the server cannot read. On iPhone, Screen Time gives Vesper
             an opaque token for the apps you pick. On Android, Vesper keeps the package names you pick,
             and usage access is used for two things and only those two: during a session, seeing which
             app is in front so it can be covered; and, with the app open, adding up how long you spent
@@ -162,18 +217,56 @@
             If you connect it, Vesper reads three things for the current week from Health (iPhone) or
             Health Connect (Android): steps, workouts and sleep, only to mark your verified habits. It
             never writes to Health, never reads other types and does not keep the samples, only which
-            days each habit was done. Health data is not used for ads, not sold and not shared, except
-            for the one case you choose: a circle challenge.
+            days each habit was done. The readings never leave the phone; those days do travel in your
+            backup, encrypted. Health data is not used for ads, not sold and not shared, except for the
+            one case you choose: a circle challenge.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>What the server knows about everyone</h2>
+          <p>
+            There is no sign-up: the first time you open Vesper, your phone creates an identity with
+            no name and registers it when there is a network. From then on the server keeps this and
+            nothing else: an id your phone makes and a hash of the secret that goes with it (the
+            secret itself is never stored there), when that identity was created and last seen, the
+            platform (iPhone or Android) and the app version. It is how Vesper knows how many people
+            use it and how many come back, and it gives you a number to ask for support with. No
+            email, no name, no session in the clear. Your phone keeps the secret in its keychain; on
+            iPhone it can travel through iCloud Keychain and on Android through Block Store, encrypted
+            with your screen lock, so a new phone on the same Apple or Google account finds it by
+            itself.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>The encrypted backup</h2>
+          <p>
+            So a new phone can give you back what is yours, Vesper uploads a copy of its database:
+            modes, routines, sessions with their intentions, habits and their marks —including the
+            days Health confirmed, never the readings—, weekly goal, birth date, your settings and
+            your circle as your phone sees it. It does not hold the apps you pick on iPhone (Screen
+            Time ties them to each phone) or anything from per-app usage, which is never kept.
+          </p>
+          <p>
+            The copy is encrypted on your phone before it leaves, with AES-256-GCM and a key derived
+            from your backup key, which the server does not have. The server keeps one file per
+            account, replaced on every backup, with its size, date, version and platform.
+            <strong>It cannot read it.</strong> It goes up when a session ends and, at most, once a
+            day. It is on by default and you can turn it off in Settings › Backup; turning it off
+            deletes the copy on the server (as soon as there is a connection, if there is none) and
+            nothing new goes up. The price of nobody else being able to read it: if you lose your phone and the key
+            neither reached the new one by itself nor was saved by you, the backup cannot be opened.
+            Nobody else has the key, Vesper included.
           </p>
         </div>
 
         <div class="card">
           <h2>The circle, if you use it</h2>
           <p>
-            The circle is optional, and the account is born late: the first time you invite someone or
-            use a code. If you never invite anyone, there is no account on any server. From then on
-            this is all that travels: an account with no email (an id and a secret your phone makes;
-            the server keeps only a hash), your name, your unique handle and the code you invite with,
+            The circle is optional and uses the same nameless identity described above. When you
+            invite someone or use a code, this is all that is added to it: your name, your unique
+            handle and the code you invite with,
             your week metric by metric following the three switches in Settings › Circle (focus hours,
             habits done, the estimated social floor — what is off travels as "not shared", never as a
             zero, and the sample estimate is never shared at all), the challenges you join with which
@@ -183,9 +276,10 @@
             share that, and the app says so before the button.
           </p>
           <p>
-            Your sessions, intentions, modes, chosen apps, anything Screen Time or per-app usage
-            measured and anything from Health never travel. The phone does the adding up; the server
-            receives totals. The server has no analytics, keeps no location and hands nothing to third
+            Your circle never sees your sessions, intentions, modes, chosen apps, anything Screen Time
+            or per-app usage measured or anything from Health. The phone does the adding up; the
+            server receives totals. Your backup holds some of that, but encrypted: the server keeps it
+            without being able to read it, and nobody else receives it. The server has no analytics, keeps no location and hands nothing to third
             parties; it sees your IP address, as any server does, and uses it only to count how many
             accounts and code attempts come from there, in memory and never stored. Notifications go
             through Expo's push service, which sees the token and nothing else: the notice leaves with
@@ -196,12 +290,14 @@
         <div class="card">
           <h2>How it is deleted</h2>
           <p>
-            On the phone: Settings › Delete everything and start over, or uninstall. Disconnecting Health
-            in Settings › Health deletes the marks that came from it. On the circle server: Settings ›
-            Circle deletes your account and every row it owns, at once and with no copy. It is a button
-            of its own — emptying the phone's database does not delete it. Leaving the circle removes
-            the people and their numbers from your phone. If you never invited anyone, there is nothing
-            there to delete.
+            Everything: Settings › Delete everything and start over first deletes your account from the
+            server —and with it your backup and every circle row it owns, at once and with no copy—
+            and then empties the phone. Without a connection the phone is emptied anyway and the app
+            tells you the account is still on the server. Uninstalling empties the phone's database
+            but does not delete your account or your backup. Disconnecting Health in Settings › Health
+            deletes the marks that came from it. Leaving the circle removes the people and their
+            numbers from your phone. Turning the backup off in Settings › Backup deletes the copy on the
+            server and stops new ones; deleting your account deletes it too.
           </p>
         </div>
 
@@ -222,7 +318,7 @@
           </p>
         </div>
 
-        <p class="quiet">Questions or requests about your data: [CONTACTO].</p>
+        <p class="quiet">Questions or requests about your data: <a href="mailto:gusmoreno.dev@gmail.com">gusmoreno.dev@gmail.com</a>.</p>
       </section>
     </main>
 

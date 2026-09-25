@@ -41,6 +41,11 @@ export type Mode = {
    */
   selectionToken: string | null;
   createdAt: number;
+  /**
+   * Its apps were chosen on another phone and did not travel (ADR-0048 §9): the card
+   * says to pick them again. Derived from the `modes_repick` setting, never a column.
+   */
+  needsRepick?: boolean;
 };
 
 /**
@@ -122,6 +127,12 @@ export type Settings = {
   liveActivities: boolean;
   emergencyLeft: number;
   emergencyTotal: number;
+  /**
+   * The month (`'2026-09'`) the emergency count belongs to. When the local month is a
+   * different one, the count goes back to `emergencyTotal` (ADR-0025: five a month).
+   * Null before the first settle.
+   */
+  emergencyMonthKey: string | null;
   rules: Rules;
   notifications: NotificationPrefs;
   birthDate: number | null;
@@ -135,8 +146,6 @@ export type Settings = {
   /** Kept in step with country and sex by the settings action; editable by hand. */
   lifeExpectancyYears: number;
   weeklyTargetMs: number | null;
-  /** Shown once on the home page after the first schedule completes. */
-  pendingBanner: { title: string; message: string } | null;
   /** Last time Health was read, epoch ms. Null until the first sync. */
   healthSyncedAt: number | null;
   /**

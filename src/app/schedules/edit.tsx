@@ -8,31 +8,27 @@ import { useAppStore, useModes, useSchedules } from '../../data';
 import {
   Button,
   Card,
-  Check,
-  Chip,
+  ChipGroup,
   DayPicker,
   FieldRow,
-  Icon,
   ListGroup,
   ListRow,
+  NoticeCard,
   PageHeader,
   Screen,
   Section,
   SegmentedControl,
-  Sheet,
-  Stack,
+  StatusNote,
   Text,
 } from '../../design/components';
 import { MANUAL_DEFAULT_MS } from '../../domain/routines';
 import { MINUTE } from '../../domain/time';
-import { daysText, overlaps, timeText } from '../../features/schedules/format';
+import { ModeSheet } from '../../features/modes/ModeSheet';
+import { daysText, endsNextDay, overlaps, timeText } from '../../features/schedules/format';
+import { TimeSheet } from '../../features/schedules/TimeSheet';
 import { useStrings } from '../../i18n';
 import { minutesText } from '../../lib/format';
-import { requestExactAlarms } from '../../platform/blocking';
-import { isAndroid } from '../../platform/capabilities';
 
-const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
-const MINUTE_STEPS = [0, 15, 30, 45];
 const MINUTES_PER_HOUR = 60;
 
 const DEFAULT_DAYS = [true, true, true, true, true, false, false];
@@ -53,6 +49,10 @@ type Picking = 'start' | 'end' | null;
  * Add or edit a routine: name, whether it runs at an hour or when you want, the mode
  * it turns on, and then either start, end and days (chips, no native picker) with a
  * warning when it crosses an enabled routine, or a session length.
+ *
+ * The window reads as the engine will run it (domain/routines): an end at or before
+ * the start is the next day and says so, the same start and end would be a whole day
+ * and cannot be saved, and no end time is the open-end cap, said with its hours.
  */
 export default function ScheduleEditScreen() {
   const router = useRouter();
@@ -89,15 +89,25 @@ export default function ScheduleEditScreen() {
   const [modeSheetOpen, setModeSheetOpen] = useState(false);
 
   const mode = modes.find((candidate) => candidate.id === modeId) ?? null;
+  const modeWasMissing = existing !== null && !modes.some((candidate) => candidate.id === existing.modeId);
   const draft = { startMinutes, endMinutes, days };
-  // Only timed routines can clash; a hand-started one runs when you say so.
+  // Start and end on the same minute is a 24-hour window for the engine; nobody means that.
+  const sameStartEnd = kind === 'timed' && endMinutes === startMinutes;
+  // Only timed routines can clash, and a routine that is off cannot: the tab never
+  // lists it as crossing either. A hand-started one runs when you say so.
   const clash =
-    kind === 'timed'
-      ? schedules.find(
-          (other) => other.enabled && other.id !== existing?.id && overlaps(draft, other),
-        ) ?? null
+    kind === 'timed' && existing?.enabled !== false
+      ? (schedules.find((other) => other.enabled && other.id !== existing?.id && overlaps(draft, other)) ?? null)
       : null;
-  const canSave = name.trim() !== '' && mode !== null && (kind === 'manual' || days.some(Boolean));
+  const canSave =
+    name.trim() !== '' && mode !== null && (kind === 'manual' || (days.some(Boolean) && !sameStartEnd));
+
+  const endText =
+    endMinutes === null
+      ? t.routines.edit.openEnd
+      : endsNextDay({ startMinutes, endMinutes })
+        ? t.routines.edit.nextDay(timeText(endMinutes))
+        : timeText(endMinutes);
 
   const save = () => {
     const when =
@@ -109,13 +119,13 @@ export default function ScheduleEditScreen() {
       name: name.trim(),
       modeId,
       ...when,
-      enabled: existing?.enabled ?? true,
+      // A routine whose mode was deleted was switched off with it (deleteMode); giving
+      // it a mode again turns it back on. A manual routine has no switch at all, so it
+      // is always on. Otherwise a timed one keeps its switch where the user left it.
+      enabled: kind === 'manual' || modeWasMissing ? true : (existing?.enabled ?? true),
     });
-    // A timed window needs Android's exact-alarm toggle to open on the minute. This
-    // opens its page only while it is off; iOS resolves at once and does nothing.
-    if (kind === 'timed' && isAndroid) {
-      void requestExactAlarms();
-    }
+    // Exact alarms are not asked for here: the Rutinas tab says what they change and
+    // offers the page. Throwing the user into Settings on every save explains nothing.
     goBack(router);
   };
 
@@ -123,7 +133,7 @@ export default function ScheduleEditScreen() {
     if (existing === null) {
       return;
     }
-    Alert.alert(t.routines.deleteAlert.title, t.routines.deleteAlert.message, [
+    Alert.alert(t.routines.deleteAlert.title(existing.name), t.routines.deleteAlert.message, [
       { text: t.common.cancel, style: 'cancel' },
       {
         text: t.routines.deleteAlert.confirm,
@@ -136,39 +146,28 @@ export default function ScheduleEditScreen() {
     ]);
   };
 
-  // The time sheet edits whichever of start or end is open. A null end (until you end
-  // it) borrows the start's hour and minute as a baseline when a chip is tapped.
-  const picked = picking === 'start' ? startMinutes : endMinutes;
-  const baseline = picked ?? startMinutes;
-  const setPicked = (minutes: number | null) => {
-    if (picking === 'start') {
-      setStartMinutes(minutes ?? DEFAULT_START);
-    } else {
-      setEndMinutes(minutes);
-    }
+  const createMode = () => {
+    setModeSheetOpen(false);
+    router.push('/modes/edit');
   };
-  const pickHour = (hour: number) => setPicked(hour * MINUTES_PER_HOUR + (baseline % MINUTES_PER_HOUR));
-  const pickMinute = (minute: number) =>
-    setPicked(Math.floor(baseline / MINUTES_PER_HOUR) * MINUTES_PER_HOUR + minute);
 
   return (
     <Screen
       scroll
+      avoidKeyboard
       footer={
         <>
           <Button label={t.routines.edit.save} onPress={save} disabled={!canSave} />
           {existing === null ? null : (
-            <Button label={t.routines.edit.remove} variant="ghost" onPress={remove} />
+            <Button label={t.routines.edit.remove} variant="ghost" tone="danger" onPress={remove} />
           )}
         </>
       }
     >
       <PageHeader
-        onClose={() => goBack(router)}
+        onBack={() => goBack(router)}
         title={existing === null ? t.routines.edit.newTitle : t.routines.edit.editTitle}
       />
-
-      <SegmentedControl segments={kindSegments} value={kind} onChange={setKind} />
 
       <FieldRow
         label={t.routines.edit.name}
@@ -178,16 +177,14 @@ export default function ScheduleEditScreen() {
         autoFocus={existing === null}
       />
 
+      <SegmentedControl segments={kindSegments} value={kind} onChange={setKind} />
+
       <ListGroup>
         {kind === 'timed' ? (
           <ListRow label={t.routines.edit.starts} value={timeText(startMinutes)} onPress={() => setPicking('start')} />
         ) : null}
         {kind === 'timed' ? (
-          <ListRow
-            label={t.routines.edit.ends}
-            value={endMinutes === null ? t.routines.edit.openEnd : timeText(endMinutes)}
-            onPress={() => setPicking('end')}
-          />
+          <ListRow label={t.routines.edit.ends} value={endText} onPress={() => setPicking('end')} />
         ) : null}
         <ListRow
           label={t.routines.edit.mode}
@@ -195,6 +192,7 @@ export default function ScheduleEditScreen() {
           onPress={() => setModeSheetOpen(true)}
         />
       </ListGroup>
+      {sameStartEnd ? <StatusNote text={t.routines.edit.sameStartEnd} tone="danger" icon="alert-circle" live /> : null}
 
       {kind === 'timed' ? (
         <Section
@@ -211,89 +209,56 @@ export default function ScheduleEditScreen() {
         </Section>
       ) : (
         <Section title={t.routines.edit.duration}>
-          <Stack direction="row" wrap gap="sm">
-            {DURATION_OPTIONS_MS.map((option) => (
-              <Chip
-                key={option}
-                label={t.routines.edit.minutesChip(minutesText(option))}
-                selected={option === durationMs}
-                onPress={() => setDurationMs(option)}
-              />
-            ))}
-          </Stack>
+          <ChipGroup
+            accessibilityLabel={t.routines.edit.duration}
+            options={DURATION_OPTIONS_MS.map((option) => ({
+              value: option,
+              label: t.routines.edit.minutesChip(minutesText(option)),
+            }))}
+            value={durationMs}
+            onChange={setDurationMs}
+          />
         </Section>
       )}
 
       {clash === null ? null : (
-        <Card tone="muted">
-          <Stack direction="row" align="flex-start" gap="md">
-            <Icon name="info" size="md" tone="secondary" />
-            <Stack grow gap="xs">
-              <Text variant="body" weight="medium">
-                {t.routines.edit.overlapTitle}
-              </Text>
-              <Text variant="label" tone="secondary">
-                {t.routines.edit.overlapMessage(clash.name)}
-              </Text>
-            </Stack>
-          </Stack>
-        </Card>
+        <NoticeCard
+          tone="muted"
+          icon="info"
+          title={t.routines.edit.overlapTitle}
+          body={t.routines.edit.overlapMessage(clash.name)}
+        />
       )}
 
-      <Sheet visible={picking !== null} title={t.routines.edit.pickTime} onClose={() => setPicking(null)}>
-        <Stack gap="lg">
-          <Stack gap="sm">
-            <Text variant="caption" tone="secondary">
-              {t.routines.edit.hour}
-            </Text>
-            <Stack direction="row" wrap gap="sm">
-              {HOURS.map((hour) => (
-                <Chip
-                  key={hour}
-                  label={String(hour)}
-                  selected={picked !== null && Math.floor(picked / MINUTES_PER_HOUR) === hour}
-                  onPress={() => pickHour(hour)}
-                />
-              ))}
-            </Stack>
-          </Stack>
-          <Stack gap="sm">
-            <Text variant="caption" tone="secondary">
-              {t.routines.edit.minutes}
-            </Text>
-            <Stack direction="row" wrap gap="sm">
-              {MINUTE_STEPS.map((minute) => (
-                <Chip
-                  key={minute}
-                  label={String(minute).padStart(2, '0')}
-                  selected={picked !== null && picked % MINUTES_PER_HOUR === minute}
-                  onPress={() => pickMinute(minute)}
-                />
-              ))}
-              {picking === 'end' ? (
-                <Chip label={t.routines.edit.openEnd} selected={picked === null} onPress={() => setPicked(null)} />
-              ) : null}
-            </Stack>
-          </Stack>
-          <Button label={t.common.done} onPress={() => setPicking(null)} />
-        </Stack>
-      </Sheet>
+      <TimeSheet
+        visible={picking !== null}
+        title={picking === 'end' ? t.routines.edit.ends : t.routines.edit.starts}
+        value={picking === 'end' ? endMinutes : startMinutes}
+        openEnd={picking === 'end'}
+        onClose={() => setPicking(null)}
+        onDone={(minutes) => {
+          if (picking === 'start') {
+            setStartMinutes(minutes ?? startMinutes);
+          } else if (picking === 'end') {
+            setEndMinutes(minutes);
+          }
+          setPicking(null);
+        }}
+      />
 
-      <Sheet visible={modeSheetOpen} title={t.routines.edit.mode} onClose={() => setModeSheetOpen(false)}>
-        <ListGroup>
-          {modes.map((candidate) => (
-            <ListRow
-              key={candidate.id}
-              label={candidate.name}
-              right={<Check checked={candidate.id === modeId} />}
-              onPress={() => {
-                setModeId(candidate.id);
-                setModeSheetOpen(false);
-              }}
-            />
-          ))}
-        </ListGroup>
-      </Sheet>
+      <ModeSheet
+        visible={modeSheetOpen}
+        title={t.routines.edit.mode}
+        modes={modes}
+        selectedId={mode?.id ?? null}
+        onSelect={(next) => {
+          setModeId(next);
+          setModeSheetOpen(false);
+        }}
+        onClose={() => setModeSheetOpen(false)}
+        onCreate={createMode}
+        createLabel={t.routines.edit.createMode}
+      />
     </Screen>
   );
 }

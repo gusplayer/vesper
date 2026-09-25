@@ -1,6 +1,6 @@
 {
   "ios": {
-    "NSHealthShareUsageDescription": "Vesper reads workouts, steps and sleep to mark your verified habits on their own. Nothing leaves your phone.",
+    "NSHealthShareUsageDescription": "Vesper reads workouts, steps and sleep to mark your verified habits on their own. The readings stay on your phone; the days met only leave encrypted in your backup, or to your circle when they belong to a challenge.",
     "NSHealthUpdateUsageDescription": "Vesper does not write health data."
   }
 }

@@ -1,37 +1,29 @@
 import { useRouter } from 'expo-router';
-
-import { goBack } from '../../lib/goBack';
+import { useState } from 'react';
 
 import { useAppStore } from '../../data';
-import { Card, PageHeader, Screen, Stack, Text } from '../../design/components';
+import { Button, NoticeCard, PageHeader, Screen } from '../../design/components';
+import { activeHabitCount, canAddHabit } from '../../domain/habits';
 import { MAX_HABITS } from '../../domain/types';
 import { HabitForm } from '../../features/habits/HabitForm';
 import { useStrings } from '../../i18n';
+import { goBack } from '../../lib/goBack';
 
 /** A new habit, unless the five slots are taken: that is a product decision. */
 export default function NewHabitScreen() {
   const t = useStrings();
   const router = useRouter();
-  const activeCount = useAppStore(
-    (state) => state.habits.filter((habit) => habit.archivedAt === null).length,
-  );
+  const activeCount = useAppStore((state) => activeHabitCount(state.habits));
   const upsertHabit = useAppStore((state) => state.upsertHabit);
+  // The store holds the cap on its own (rule 4): a save it refuses stays here and says why.
+  const [refused, setRefused] = useState(false);
   const left = MAX_HABITS - activeCount;
 
-  if (left <= 0) {
+  if (!canAddHabit(activeCount)) {
     return (
-      <Screen>
+      <Screen footer={<Button label={t.common.back} onPress={() => goBack(router)} />}>
         <PageHeader title={t.habits.new.title} onBack={() => goBack(router)} />
-        <Card>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {t.habits.new.fullTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {t.habits.new.fullDescription}
-            </Text>
-          </Stack>
-        </Card>
+        <NoticeCard title={t.habits.new.fullTitle} body={t.habits.new.fullDescription} />
       </Screen>
     );
   }
@@ -39,9 +31,12 @@ export default function NewHabitScreen() {
   return (
     <HabitForm
       title={t.habits.new.title}
-      caption={t.habits.new.left(left)}
+      caption={refused ? t.habits.new.fullDescription : t.habits.new.left(left)}
       onSubmit={(values) => {
-        upsertHabit(values);
+        if (!upsertHabit(values)) {
+          setRefused(true);
+          return;
+        }
         goBack(router);
       }}
     />

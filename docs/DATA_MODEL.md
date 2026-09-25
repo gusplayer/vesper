@@ -182,13 +182,19 @@ ALTER TABLE sessions ADD COLUMN next_break_at_ms INTEGER NOT NULL DEFAULT 150000
 - **Hábitos y marcas.** `habits` y `habit_marks` tal cual. El editor de hábitos habla
   en claves de actividad; `habits.activity_id` recibe el id de fila resuelto.
   `replaceHealthMarks` borra todas las marcas `source = 'health'` y escribe las que
-  Salud reporta ahora; las manuales no se tocan. Solo en iOS: en Android Salud no existe.
-- **Datos de demostración.** `bootDatabase` los siembra una sola vez (modos, horarios,
-  hábitos, marcas de la semana y ~10 semanas de sesiones completadas generadas por
+  Salud reporta ahora; las manuales no se tocan. En iOS con HealthKit y en Android con Health Connect (ADR-0043).
+- **Datos de demostración.** `bootDatabase` los siembra una sola vez, en la primera
+  instalación (modos, horarios —las tres rutinas **apagadas**, ADR-0047 §1—, hábitos,
+  marcas de la semana y ~10 semanas de sesiones completadas generadas por
   `seedDemoSessions` en `src/data/seed.ts`). La guarda es la clave `demo_seeded_at`,
   no "la tabla está vacía": un usuario que borra todos sus modos no los recupera al
-  relanzar. "Borrar todo y reiniciar" (`resetDatabase`) vacía todas las tablas —el
-  esquema queda—, vuelve a sembrar y los stores se rehidratan.
+  relanzar. Qué es sembrado lo dicen los ids (`src/data/seededIds.ts`: las sesiones
+  `demo-` y los ids fijos del seed), y "Quitar los datos de ejemplo"
+  (`db/repositories/demo.ts` `removeSeeded`) borra solo esas filas, con sus marcas y el
+  círculo de ejemplo; lo que el usuario creó se queda, y el modo activo pasa al primero
+  que quede. "Borrar todo y reiniciar" (`resetDatabase`) vacía todas las tablas —el
+  esquema queda—, siembra solo las actividades, escribe `demo_seeded_at` para que nada
+  de ejemplo vuelva, y los stores se rehidratan: termina vacía.
 
 ### Círculo (ADR-0021)
 
@@ -428,12 +434,18 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 
 | key | valor | notas |
 |---|---|---|
-| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`), `rules`, `notifications` (`coaching`, `updates`, `sessionEnd`, `weeklyClose` y, desde ADR-0027, `streak`, `noFocus`, `reactivation`, `nudges` y `reminderMinutes`, el minuto del día local del aviso diario, 1200 por defecto), `birthDate`, `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `pendingBanner`, `healthSyncedAt`, `routineStarts` (un mapa `routineId → windowStart`: qué ventana arrancó cada rutina, para que ninguna arranque dos veces; era una sola marca global y con dos rutinas solapadas la segunda le robaba la marca a la primera, ADR-0036) y `lastOpenedAt` (la última vez que la app se abrió o volvió al primer plano, epoch ms o `null`; los avisos de reactivación del ADR-0027 cuentan desde ahí). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
+| `prototype_settings` | JSON | El objeto `Settings` completo de `src/data/types.ts`: `onboardingDone`, los tres permisos tal como el usuario los aceptó en la app (`screenTimeConnected`, `healthConnected`, `notificationsAllowed`; la disponibilidad real la dice `platform/*.status()`), `liveActivities`, desbloqueos de emergencia (`emergencyLeft`/`emergencyTotal`, y `emergencyMonthKey`, el mes en que se renovaron por última vez: al cambiar el mes, `settleEmergency` los devuelve al total, `data/emergency.ts`), `rules` (`rules.strictMode` sigue en el JSON y se lee, pero ninguna pantalla lo muestra ni lo usa desde ADR-0047 §6), `notifications` (`coaching`, `updates`, `sessionEnd`, `weeklyClose` y, desde ADR-0027, `streak`, `noFocus`, `reactivation`, `nudges` y `reminderMinutes`, el minuto del día local del aviso diario, 1200 por defecto), `birthDate` (`null` hasta que el usuario la escribe: Vida es opcional), `country`, `sex`, `lifeExpectancyYears`, `weeklyTargetMs`, `healthSyncedAt`, `routineStarts` (un mapa `routineId → windowStart`: qué ventana arrancó cada rutina, para que ninguna arranque dos veces; era una sola marca global y con dos rutinas solapadas la segunda le robaba la marca a la primera, ADR-0036) y `lastOpenedAt` (la última vez que la app se abrió o volvió al primer plano, epoch ms o `null`; los avisos de reactivación del ADR-0027 cuentan desde ahí). Se valida **campo por campo** al leer (`settings.parseSettings`): un campo ausente o corrupto vuelve al default de `seed.SETTINGS` sin arrastrar al resto |
 | `active_mode_id` | id | el modo que muestra la portada. Si ya no existe, se toma el primero |
+| `onboarding_ids` | JSON | `{modeId, scheduleId}`: lo que el commit del onboarding creó, hasta que el tour termina. Si la app muere entre el commit y "Listo", repetir el onboarding actualiza ese modo y esa rutina en vez de duplicarlos (`data/onboardingIds.ts`). Se vacía al terminar |
 | `demo_seeded_at` | epoch ms | escrita al sembrar los datos de demostración; su ausencia es lo único que dispara la siembra |
 | `language` | `auto` \| `es` \| `en` | Ajustes › Idioma (ADR-0020). Ausente o inválida se lee como `auto`, que sigue el idioma del teléfono. Se borra con todo lo demás en "Borrar todo y reiniciar" |
 | `circle_profile` | JSON | La identidad del usuario en el círculo (ADR-0021): `{id, name, handle, createdAt}`. `id` es UUID v7, `handle` va en minúsculas. Ausente hasta que el usuario crea su perfil; un valor corrupto o incompleto se lee como `null` y el flujo de crear perfil vuelve a correr (`settings.getProfile`). No se siembra. `codeGeneration` (entero, 0 si falta) entra en el código de invitación: subirlo invalida el anterior |
 | `circle_share` | JSON | Qué comparte el usuario con el círculo: `{focus, habits, social}`. Se valida interruptor por interruptor (`settings.getSharePrefs`); ausente o corrupto vuelve a `{focus: true, habits: true, social: false}`. Lo que está en `false` no sale del teléfono |
+| `identity` | JSON | La identidad sin login (ADR-0048): `{id, registeredAt, supersedes, rotatePending}`. `id` es UUID v7 y es también el id del perfil y de la cuenta del círculo; se reserva en el primer arranque, sin red. `registeredAt` es `null` hasta que el servidor la tiene. `supersedes`: la identidad anterior de esta instalación que todavía hay que borrar del servidor (tras "Empezar de cero" o una restauración). `rotatePending`: una rotación del secreto que falló y se reintenta. El secreto nunca está aquí: vive en `platform/identity` (llavero, Block Store). **Nunca viaja en el respaldo** |
+| `identity_ping_at` | epoch ms | El último `POST /device` con plataforma, versión y zona horaria; como mucho uno al día. No viaja en el respaldo |
+| `backup` | JSON | El respaldo cifrado (ADR-0048 §7): `{enabled, lastAt, lastError, fingerprint, remoteAt}`. Ausente se lee como encendido y sin respaldo aún (encendido por defecto). `fingerprint` es la huella de lo último que se subió, para no subir lo mismo dos veces; `remoteAt` es la fecha de la copia del servidor que este teléfono escribió o vio, para que una subida automática nunca pise una más nueva de otro teléfono. No viaja en el respaldo |
+| `modes_repick` | JSON | Los ids de los modos cuya selección de apps quedó en otro teléfono (ADR-0048 §9): un restaurar vació su token de Screen Time y su tarjeta dice "Vuelve a elegir las apps". Sale del ajuste al guardar una selección o borrar el modo. **Sí viaja** en el respaldo: restaurar un teléfono restaurado todavía sabe qué falta. Se lee como `Mode.needsRepick`, nunca es columna |
+
 Las claves de la fase 1 `last_session_config`, `birth_date`, `life_expectancy_years`,
 `weekly_focus_target_ms` y `onboarding_completed_at` **ya no existen en el código**
 (ADR-0026): sus valores viven en `prototype_settings` desde ADR-0017 y sus accesores se

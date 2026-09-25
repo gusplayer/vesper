@@ -6,8 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApps, useAppStore } from '../../data';
 import { useModeDraftStore } from '../../data/modeDraft';
 import { appsTitleText } from '../../data/modes';
-import { Button, Card, PageHeader, Screen, Stack, Text , NativeHost } from '../../design/components';
+import { Button, Card, NativeHost, NoticeCard, PageHeader, Screen, StatusNote, Text } from '../../design/components';
+import { packageNamesFromToken, tokenFromPackageNames } from '../../domain/packageSelection';
+import { grantableToggle, hasRealPicker } from '../../features/modes/realBlocking';
 import { SelectionPicker, type PickerItem } from '../../features/modes/SelectionPicker';
+import { useLaunchableApps } from '../../features/modes/useLaunchableApps';
 import { useStrings } from '../../i18n';
 import { SelectionPicker as NativeSelectionPicker } from '../../platform/BlockingSelectionView';
 import {
@@ -19,22 +22,29 @@ import {
 import { isAndroid } from '../../platform/capabilities';
 
 /**
- * Picks the apps of the mode draft. From onboarding (`onboarding=1`) it writes into
- * the same draft and continues to the Screen Time step instead of going back.
+ * Picks the apps of the mode draft: one list per mode (ADR-0047 §2).
  *
- * With `native=1` it shows Apple's own picker instead of the catalogue: the result is
- * an opaque Screen Time token stored on the mode, never a list of names (ADR-0004).
- * Where Screen Time is missing the screen says why and offers the way back.
+ * Where the phone can block, or the access can be given from the app, it is the real
+ * selection, the only thing a session blocks; `native=1` asks for it explicitly, and a
+ * phone with a real picker never shows the catalogue. On iOS,
+ * Apple's own picker: the result is an opaque Screen Time token, never a list of names
+ * (ADR-0004). On Android, the phone's launchable apps in the same full-page picker as
+ * the catalogue, with their real icons. Either way every change is written at once, to
+ * the draft and to the saved mode, so going back never loses a pick.
  *
- * Android grants usage access outside the app, so the same screen also offers the way
- * in: the disclosure Play requires (`usage-access`, ADR-0046 §2) and, on the way back,
- * a fresh read of `status()`. It is offered only when the access is what is missing —
- * a build without the blocking module has nothing to grant.
+ * Where no real picker exists (simulator, iPhone without the entitlement, a build
+ * without the module) it is the catalogue: a list of names that never blocks anything,
+ * so it says it is an example, with the reason.
+ *
+ * Where the real picker was asked for and is missing the screen says why. On Android it also offers the
+ * way in when what is missing is a Settings toggle: usage access through the
+ * disclosure Play requires (`usage-access`, ADR-0046 §2), the overlay directly, and on
+ * the way back a fresh read of `status()`.
  */
 export default function ModeAppsScreen() {
   const router = useRouter();
   const t = useStrings();
-  const { onboarding, native } = useLocalSearchParams<{ onboarding?: string; native?: string }>();
+  const { native } = useLocalSearchParams<{ native?: string }>();
   const catalogue = useApps();
   const behavior = useModeDraftStore((state) => state.behavior);
   const appIds = useModeDraftStore((state) => state.appIds);
@@ -43,8 +53,9 @@ export default function ModeAppsScreen() {
   const draftToken = useModeDraftStore((state) => state.selectionToken);
   const setSelectionToken = useModeDraftStore((state) => state.setSelectionToken);
   const setModeSelection = useAppStore((state) => state.setModeSelection);
-  const fromOnboarding = onboarding === '1';
-  const nativePicker = native === '1';
+  const [blocking, setBlocking] = useState(() => blockingStatus());
+  const [busy, setBusy] = useState(false);
+  const nativePicker = native === '1' || hasRealPicker(blocking);
 
   // The catalogue follows the language; its categories are the row descriptions.
   const items = useMemo<readonly PickerItem[]>(
@@ -58,43 +69,39 @@ export default function ModeAppsScreen() {
     [catalogue],
   );
 
-  // The token the native picker is editing. Starts from the draft and is written back
-  // on "Listo", like the catalogue's ids are written on each toggle.
-  const [token, setToken] = useState<string | null>(draftToken);
-  // The picker is blank until iOS has said yes; ask the first time it opens here.
-  const [reason, setReason] = useState<string | null>(blockingStatus().reason);
+  // The iOS picker is blank until iOS has said yes; ask the first time it opens here.
+  // On Android `isAuthorized` is the same as `available`, so this never runs there.
   useEffect(() => {
-    if (!nativePicker || reason !== null || isAuthorized()) {
-      return;
+    if (!nativePicker || !blocking.available || isAuthorized()) {
+      return undefined;
     }
     let alive = true;
     void requestAuthorization().then(() => {
       if (alive) {
-        setReason(blockingStatus().reason);
+        setBlocking(blockingStatus());
       }
     });
     return () => {
       alive = false;
     };
-  }, [nativePicker, reason]);
+  }, [nativePicker, blocking.available]);
 
-  // Android answers this in Settings, not in a dialog: whatever the user did over
-  // there, the screen re-reads it the moment it comes back into view.
+  // Android answers in Settings, not in a dialog: whatever the user did over there,
+  // the screen re-reads it the moment it comes back into view.
   useFocusEffect(
     useCallback(() => {
       if (isAndroid) {
-        setReason(blockingStatus().reason);
+        setBlocking(blockingStatus());
       }
     }, []),
   );
 
+  const launchable = useLaunchableApps(isAndroid && nativePicker && blocking.available);
+
   if (!nativePicker) {
-    // The catalogue is a list of names, never a block: where the device cannot block
-    // for real, the picker says so instead of letting the list pass for one (rule 8).
-    const blocking = blockingStatus();
     return (
       <SelectionPicker
-        notice={blocking.available || blocking.reason === null ? undefined : t.modes.apps.notReal(blocking.reason)}
+        notice={blocking.reason === null ? undefined : t.modes.apps.notReal(blocking.reason)}
         title={appsTitleText(behavior, t.modes)}
         searchPlaceholder={t.modes.apps.search}
         items={items}
@@ -103,66 +110,101 @@ export default function ModeAppsScreen() {
         listTitle={t.modes.apps.all}
         onToggle={toggleApp}
         onBack={() => goBack(router)}
-        onDone={() => (fromOnboarding ? router.push('/onboarding/screen-time') : goBack(router))}
-        doneLabel={fromOnboarding ? t.common.continue : t.common.done}
+        onDone={() => goBack(router)}
+        fullTip={t.modes.apps.fullTip}
       />
     );
   }
 
-  const done = () => {
-    setSelectionToken(token);
+  // Every change goes straight to the draft and, for a saved mode, to the mode: the
+  // selection comes from a system list and is not worth making the user redo because
+  // the edit was abandoned, or because they left with the back arrow.
+  const writeToken = (next: string | null) => {
+    setSelectionToken(next);
     if (draftId !== null) {
-      // An existing mode keeps its real selection even if the edit is abandoned: the
-      // token comes from a system dialog and is not worth making the user redo.
-      setModeSelection(draftId, token);
+      setModeSelection(draftId, next);
     }
-    goBack(router);
   };
 
-  if (reason !== null) {
-    // Only the two Android toggles can be granted from here; every other reason
-    // (no module, no entitlement, a simulator) is a fact, not a permission.
-    const canGrant =
-      isAndroid &&
-      (reason === t.modes.blocking.androidNoUsageAccess || reason === t.modes.blocking.androidNoOverlay);
+  if (!blocking.available) {
+    const missing = grantableToggle(blocking);
+    const allowOverlay = async () => {
+      setBusy(true);
+      await requestAuthorization();
+      setBusy(false);
+      setBlocking(blockingStatus());
+    };
+    const heading =
+      missing === 'usageAccess'
+        ? t.modes.usageAccess.title
+        : missing === 'overlay'
+          ? t.modes.usageAccess.overlay.missing
+          : isAndroid
+            ? t.modes.apps.unavailableAndroid
+            : t.modes.apps.unavailable;
+    const body =
+      missing === 'overlay'
+        ? t.modes.usageAccess.overlay.body
+        : blocking.reason === null
+          ? null
+          : t.modes.apps.unavailableReason(blocking.reason);
+    const footer =
+      missing === 'usageAccess' ? (
+        <Button label={t.modes.usageAccess.grant} onPress={() => router.push('/usage-access')} />
+      ) : missing === 'overlay' ? (
+        <Button
+          label={t.modes.usageAccess.overlay.allow}
+          busyLabel={t.modes.usageAccess.opening}
+          busy={busy}
+          onPress={() => void allowOverlay()}
+        />
+      ) : undefined;
     return (
-      <Screen
-        footer={
-          <>
-            {canGrant ? (
-              <Button label={t.modes.usageAccess.grant} onPress={() => router.push('/usage-access')} />
-            ) : null}
-            <Button variant="ghost" label={t.common.back} onPress={() => goBack(router)} />
-          </>
-        }
-      >
-        <PageHeader onBack={() => goBack(router)} title={t.modes.apps.realTitle} />
-        <Card>
-          <Stack gap="xs">
-            <Text variant="heading">{canGrant ? t.modes.usageAccess.title : t.modes.apps.unavailable}</Text>
-            <Text variant="label" tone="secondary">
-              {reason}
-            </Text>
-          </Stack>
-        </Card>
+      <Screen footer={footer}>
+        <PageHeader onBack={() => goBack(router)} title={appsTitleText(behavior, t.modes)} />
+        <NoticeCard icon={missing === null ? 'slash' : 'shield'} title={heading} body={body ?? undefined} />
       </Screen>
     );
   }
 
+  if (isAndroid) {
+    const selected = packageNamesFromToken(draftToken);
+    const toggle = (packageName: string) => {
+      const next = selected.includes(packageName)
+        ? selected.filter((name) => name !== packageName)
+        : [...selected, packageName];
+      writeToken(tokenFromPackageNames(next));
+    };
+    return (
+      <SelectionPicker
+        notice={t.modes.apps.realHintAndroid}
+        title={appsTitleText(behavior, t.modes)}
+        searchPlaceholder={t.modes.apps.search}
+        items={launchable ?? []}
+        loading={launchable === null}
+        selectedIds={selected}
+        selectedTitle={t.modes.apps.selected}
+        listTitle={t.modes.apps.all}
+        onToggle={toggle}
+        onBack={() => goBack(router)}
+        onDone={() => goBack(router)}
+        fullTip={t.modes.apps.fullTip}
+      />
+    );
+  }
+
   return (
-    <Screen scroll footer={<Button label={t.common.done} onPress={done} />}>
-      <PageHeader onBack={() => goBack(router)} title={t.modes.apps.realTitle} />
+    <Screen scroll footer={<Button label={t.common.done} onPress={() => goBack(router)} />}>
+      <PageHeader onBack={() => goBack(router)} title={appsTitleText(behavior, t.modes)} />
       <Text variant="label" tone="secondary">
         {t.modes.apps.realHint}
       </Text>
       <Card padded={false}>
         <NativeHost>
-          <NativeSelectionPicker token={token} onChange={setToken} />
+          <NativeSelectionPicker token={draftToken} onChange={writeToken} />
         </NativeHost>
       </Card>
-      <Text variant="caption" tone="tertiary" align="center">
-        {t.modes.apps.selectedSummary(selectionSummaryText(token))}
-      </Text>
+      <StatusNote text={t.modes.apps.selectedSummary(selectionSummaryText(draftToken))} align="center" live />
     </Screen>
   );
 }

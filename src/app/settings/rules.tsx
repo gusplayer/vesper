@@ -1,17 +1,32 @@
 import { useRouter } from 'expo-router';
 
-import { goBack } from '../../lib/goBack';
+import { BACK_FALLBACK, goBack } from '../../lib/goBack';
 
 import { useAppStore, useSettings } from '../../data';
-import { PageHeader, Screen, Stack, Text } from '../../design/components';
+import { PageHeader, Screen, Stack, StatusNote } from '../../design/components';
+import { appliedRules, type RuleKey } from '../../features/settings/appliedRules';
 import { ToggleCard } from '../../features/settings/ToggleCard';
 import { useStrings } from '../../i18n';
 import { status as blockingStatus } from '../../platform/blocking';
 
+type RuleCopyKey = 'installs' | 'purchases' | 'mature';
+
 /**
- * Mis reglas: four switches that make a session harder to leave. Where Screen Time is
- * available the adult-content filter applies during a session; the other three are
- * ManagedSettings the module does not expose yet, and the caption says so.
+ * The rules, in the order Brick lists them, with the copy each one reads. Strict mode
+ * is gone (ADR-0047 §6): it was never implemented. Its stored field stays readable.
+ */
+const RULES: readonly { key: RuleKey; copy: RuleCopyKey }[] = [
+  { key: 'blockInstalls', copy: 'installs' },
+  { key: 'blockPurchases', copy: 'purchases' },
+  { key: 'blockMature', copy: 'mature' },
+];
+
+/**
+ * Mis reglas: three switches that make a session harder to leave. Each card says on
+ * itself whether this phone applies it: where Screen Time is available the adult
+ * content filter applies during a session; installs and purchases are ManagedSettings
+ * the module does not expose yet, and Android has none of them. The footer sums it up,
+ * or says why nothing applies when blocking itself is not available.
  */
 export default function RulesScreen() {
   const router = useRouter();
@@ -19,41 +34,32 @@ export default function RulesScreen() {
   const updateRules = useAppStore((state) => state.updateRules);
   const t = useStrings();
   const blocking = blockingStatus();
+  const applied = appliedRules(blocking);
+
+  const footer = !blocking.available
+    ? t.settings.rules.notApplied(blocking.reason ?? '')
+    : applied.length === 0
+      ? t.settings.rules.noneApplied
+      : t.settings.rules.applied;
 
   return (
     <Screen scroll>
-      <PageHeader onBack={() => goBack(router)} title={t.settings.rules.title} />
+      <PageHeader onBack={() => goBack(router, BACK_FALLBACK.settings)} title={t.settings.rules.title} />
 
       <Stack gap="md">
-        <ToggleCard
-          title={t.settings.rules.strict.title}
-          description={t.settings.rules.strict.description}
-          value={rules.strictMode}
-          onValueChange={(strictMode) => updateRules({ strictMode })}
-        />
-        <ToggleCard
-          title={t.settings.rules.installs.title}
-          description={t.settings.rules.installs.description}
-          value={rules.blockInstalls}
-          onValueChange={(blockInstalls) => updateRules({ blockInstalls })}
-        />
-        <ToggleCard
-          title={t.settings.rules.purchases.title}
-          description={t.settings.rules.purchases.description}
-          value={rules.blockPurchases}
-          onValueChange={(blockPurchases) => updateRules({ blockPurchases })}
-        />
-        <ToggleCard
-          title={t.settings.rules.mature.title}
-          description={t.settings.rules.mature.description}
-          value={rules.blockMature}
-          onValueChange={(blockMature) => updateRules({ blockMature })}
-        />
+        {RULES.map(({ key, copy }) => (
+          <ToggleCard
+            key={key}
+            title={t.settings.rules[copy].title}
+            description={t.settings.rules[copy].description}
+            note={blocking.available && !applied.includes(key) ? t.settings.rules.notYet : undefined}
+            value={rules[key]}
+            onValueChange={(value) => updateRules({ [key]: value })}
+          />
+        ))}
       </Stack>
 
-      <Text variant="caption" tone="secondary" align="center">
-        {blocking.available ? t.settings.rules.applied : t.settings.rules.notApplied(blocking.reason ?? '')}
-      </Text>
+      <StatusNote text={footer} align="center" />
     </Screen>
   );
 }

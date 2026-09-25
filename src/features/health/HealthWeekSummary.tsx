@@ -1,17 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useAppStore, useSettings } from '../../data';
 import { ListGroup, ListRow } from '../../design/components';
 import { dayKeyOf, weekStart } from '../../domain/day';
 import { healthTypeFor } from '../../domain/habits';
 import type { Habit, HabitMark, HealthType } from '../../domain/types';
-import { useStrings } from '../../i18n';
+import type { Strings } from '../../i18n/es';
+import { useLocale, useStrings } from '../../i18n';
 import { clockText } from '../../lib/format';
 
 type HealthWeekSummaryProps = {
   now: number;
-  /** A row at the bottom that reads Health again. */
-  onSyncNow: () => void;
+  /** A row at the bottom that reads Health again. Resolves when the read is done. */
+  onSyncNow: () => Promise<void>;
 };
 
 type Counts = Record<HealthType, number | null>;
@@ -60,10 +61,38 @@ function countWeek(
   return counts;
 }
 
+/**
+ * When Health was last read: the time alone when it was today, the day and the time
+ * when it was not, so a read from last week does not pass for this afternoon's.
+ */
+function lastReadText(syncedAt: number, now: number, tag: string, t: Strings['habits']['healthWeek']): string {
+  if (dayKeyOf(syncedAt) === dayKeyOf(now)) {
+    return clockText(syncedAt);
+  }
+  const day = new Date(syncedAt).toLocaleDateString(tag, { day: 'numeric', month: 'short' });
+  return t.lastReadOn(day, clockText(syncedAt));
+}
+
 /** The connected state of the Health page: counts, last sync, and a way to sync again. */
 export function HealthWeekSummary({ now, onSyncNow }: HealthWeekSummaryProps) {
   const t = useStrings();
+  const { tag } = useLocale();
   const settings = useSettings();
+  const [reading, setReading] = useState(false);
+  // A ref as well: two taps in one frame both see `reading` false.
+  const readingRef = useRef(false);
+
+  const readNow = () => {
+    if (readingRef.current) {
+      return;
+    }
+    readingRef.current = true;
+    setReading(true);
+    void onSyncNow().finally(() => {
+      readingRef.current = false;
+      setReading(false);
+    });
+  };
   const habits = useAppStore((state) => state.habits);
   const marks = useAppStore((state) => state.habitMarks);
   const counts = useMemo(() => countWeek(habits, marks, now), [habits, marks, now]);
@@ -90,10 +119,15 @@ export function HealthWeekSummary({ now, onSyncNow }: HealthWeekSummaryProps) {
         value={
           settings.healthSyncedAt === null
             ? t.habits.healthWeek.notYet
-            : clockText(settings.healthSyncedAt)
+            : lastReadText(settings.healthSyncedAt, now, tag, t.habits.healthWeek)
         }
       />
-      <ListRow label={t.habits.healthWeek.readNow} onPress={onSyncNow} />
+      <ListRow
+        label={reading ? t.habits.healthWeek.reading : t.habits.healthWeek.readNow}
+        kind="action"
+        onPress={readNow}
+        disabled={reading}
+      />
     </ListGroup>
   );
 }

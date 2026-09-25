@@ -1,4 +1,4 @@
-import { Chip, Sheet, Stack } from '../../design/components';
+import { ChipGroup, Sheet } from '../../design/components';
 import { atMinuteOfDay } from '../../domain/day';
 import { useStrings } from '../../i18n';
 import { clockText } from '../../lib/format';
@@ -18,7 +18,7 @@ const MINUTES_PER_HOUR = 60;
 
 const HOURS = Array.from({ length: LAST_HOUR - FIRST_HOUR + 1 }, (_, i) => (FIRST_HOUR + i) * MINUTES_PER_HOUR);
 
-/** '20:00' for a minute of the day, through the same formatter the rest of the app uses. */
+/** '20:00' (or '8:00 PM' in English) for a minute of the day, through the app's one clock formatter. */
 export function reminderTimeText(minutes: number): string {
   return clockText(atMinuteOfDay(Date.now(), minutes));
 }
@@ -33,11 +33,12 @@ export function ReminderTimeSheet({ visible, value, onChange, onClose }: Reminde
 
   return (
     <Sheet visible={visible} title={t.settings.notifications.reminderTime.sheet} onClose={onClose}>
-      <Stack direction="row" gap="sm" wrap>
-        {HOURS.map((minutes) => (
-          <Chip key={minutes} label={reminderTimeText(minutes)} selected={minutes === value} onPress={() => choose(minutes)} />
-        ))}
-      </Stack>
+      <ChipGroup
+        options={HOURS.map((minutes) => ({ value: minutes, label: reminderTimeText(minutes) }))}
+        value={value}
+        onChange={choose}
+        accessibilityLabel={t.settings.notifications.reminderTime.sheet}
+      />
     </Sheet>
   );
 }

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 
-import { space } from '../tokens';
+import { font, space } from '../tokens';
 import { Card } from './Card';
 import { Text } from './Text';
 
@@ -22,14 +22,14 @@ export function StatCard({ label, value, description, tone = 'default', children
   const onInk = tone === 'ink';
   return (
     <Card tone={onInk ? 'ink' : 'default'} style={styles.card}>
-      <Text variant="caption" tone={onInk ? 'onInk' : 'secondary'} style={styles.label}>
+      <Text variant="caption" tone={onInk ? 'onInkSecondary' : 'secondary'} style={styles.label}>
         {label}
       </Text>
       <Text variant="title" tone={onInk ? 'onInk' : 'primary'}>
         {value}
       </Text>
       {description === undefined ? null : (
-        <Text variant="label" tone={onInk ? 'onInk' : 'secondary'}>
+        <Text variant="label" tone={onInk ? 'onInkSecondary' : 'secondary'}>
           {description}
         </Text>
       )}
@@ -43,6 +43,6 @@ const styles = StyleSheet.create({
     rowGap: space.sm,
   },
   label: {
-    letterSpacing: 1,
+    letterSpacing: font.tracking.caps,
   },
 });

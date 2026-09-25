@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
-import { layout, motion, radius, shadow, space } from '../tokens';
+import { layout, motion, radius, shadow, space, font } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
 import { Text } from './Text';
 
@@ -145,6 +145,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm / 4,
   },
   word: {
-    letterSpacing: 2,
+    letterSpacing: font.tracking.mark,
   },
 });

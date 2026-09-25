@@ -1,6 +1,6 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../theme';
@@ -8,46 +8,36 @@ import { layout, motion, radius, space } from '../tokens';
 import { useReduceMotion } from '../useReduceMotion';
 import { Text } from './Text';
 
-type Slot = { x: number; width: number };
-
 /**
- * Text-only tabs. Under the active one, a short ink bar that slides sideways when the
- * tab changes — the same movement as the flip clock's flaps: linear-ish, no bounce.
+ * Text-only tabs. Under the active one, a short ink bar as wide as its word. When the
+ * tab changes the bar does not travel: the old one fades out and the new one fades
+ * in, in the route fade's 160 ms, because only opacity moves in Vesper (CLAUDE.md
+ * rule 6). With "Reducir movimiento" it simply switches.
  */
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const reduceMotion = useReduceMotion();
-  const [tabs, setTabs] = useState<Record<number, Slot>>({});
-  const [labels, setLabels] = useState<Record<number, number>>({});
-  const [x] = useState(() => new Animated.Value(0));
-  const [width] = useState(() => new Animated.Value(0));
-  const first = useRef(true);
+  // One opacity per tab, made once: the four tabs never change.
+  const [opacities] = useState(() => state.routes.map((_, index) => new Animated.Value(index === state.index ? 1 : 0)));
 
-  const tab = tabs[state.index];
-  const labelWidth = labels[state.index];
-  const target: Slot | undefined =
-    tab === undefined || labelWidth === undefined
-      ? undefined
-      : { x: tab.x + (tab.width - labelWidth) / 2, width: labelWidth };
   useEffect(() => {
-    if (target === undefined) {
-      return;
+    if (reduceMotion) {
+      opacities.forEach((value, index) => value.setValue(index === state.index ? 1 : 0));
+      return undefined;
     }
-    // The first placement and "reduce motion" both put the bar where it goes, no slide.
-    if (first.current || reduceMotion) {
-      x.setValue(target.x);
-      width.setValue(target.width);
-      first.current = false;
-      return;
-    }
-    Animated.parallel([
-      Animated.timing(x, { toValue: target.x, duration: motion.slideMs, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-      Animated.timing(width, { toValue: target.width, duration: motion.slideMs, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-    ]).start();
-    // Only the numbers matter, not the object identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target?.x, target?.width, x, width, reduceMotion]);
+    const fades = opacities.map((value, index) =>
+      Animated.timing(value, {
+        toValue: index === state.index ? 1 : 0,
+        duration: motion.fadeMs,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    );
+    const animation = Animated.parallel(fades);
+    animation.start();
+    return () => animation.stop();
+  }, [state.index, opacities, reduceMotion]);
 
   return (
     <View
@@ -64,40 +54,26 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               style={styles.tab}
-              onLayout={(event: LayoutChangeEvent) => {
-                const { x: left, width: w } = event.nativeEvent.layout;
-                setTabs((current) =>
-                  current[index]?.x === left && current[index]?.width === w
-                    ? current
-                    : { ...current, [index]: { x: left, width: w } },
-                );
-              }}
             >
-              <View
-                onLayout={(event: LayoutChangeEvent) => {
-                  const w = event.nativeEvent.layout.width;
-                  setLabels((current) => (current[index] === w ? current : { ...current, [index]: w }));
-                }}
-                // The label box is what the bar measures, so the bar is as wide as the word.
-                style={styles.labelBox}
-              >
+              {/* The label box holds the bar, so the bar is exactly as wide as the word. */}
+              <View style={styles.labelBox}>
                 <Text variant="label" weight={active ? 'medium' : 'regular'} tone={active ? 'primary' : 'secondary'}>
                   {label}
                 </Text>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.indicator, { backgroundColor: colors.ink, opacity: opacities[index] ?? 0 }]}
+                />
               </View>
             </Pressable>
           );
         })}
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.indicator, { backgroundColor: colors.ink, transform: [{ translateX: x }], width }]}
-        />
       </View>
     </View>
   );
 }
 
-const INDICATOR = 3;
+const INDICATOR = layout.tabIndicator;
 
 const styles = StyleSheet.create({
   bar: {
@@ -122,6 +98,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
+    right: 0,
     height: INDICATOR,
     borderRadius: radius.pill,
   },

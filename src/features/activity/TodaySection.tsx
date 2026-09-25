@@ -1,7 +1,8 @@
+import { useRouter } from 'expo-router';
 import { Fragment } from 'react';
 
 import { useDayLedger, useUsage } from '../../data';
-import { AppRow, ListGroup, ListRow, Section, Text } from '../../design/components';
+import { AppRow, ListGroup, ListRow, Section, StatusNote } from '../../design/components';
 import { useStrings } from '../../i18n';
 import { clockText, durationText } from '../../lib/format';
 import { capitalize } from './dates';
@@ -38,12 +39,26 @@ type TodaySectionProps = {
  * Nothing is added across provenances: the total and its parts are both declared
  * time (rule 9), and the estimate row keeps this screen's own wording, which says
  * out loud that it is a floor.
+ *
+ * Past 6 h of declared time the focus row says the cap was reached (ADR-0010). When
+ * the reason for the demo is one the user can fix — usage access, or no real apps in
+ * a blocking mode — a row under the list leads there instead of a paragraph of steps.
  */
 export function TodaySection({ now }: TodaySectionProps) {
   const t = useStrings();
+  const router = useRouter();
   const ledger = useDayLedger(now);
   const usage = useUsage();
   const copy = t.activity.today;
+  // The reason is compared as text, the way modes/apps does: `platform/usage` spells it.
+  const fix =
+    usage.source !== 'demo'
+      ? null
+      : usage.reason === copy.usage.noUsageAccess
+        ? { label: copy.usage.grantAccess, go: () => router.push('/usage-access') }
+        : usage.reason === copy.usage.noApps
+          ? { label: copy.usage.pickApps, go: () => router.push('/modes') }
+          : null;
 
   const note =
     usage.source === 'device'
@@ -56,8 +71,12 @@ export function TodaySection({ now }: TodaySectionProps) {
 
   return (
     <Section title={copy.title}>
-      <ListGroup>
-        <ListRow label={copy.focused} value={durationText(ledger.declaredMs)} />
+      <ListGroup footer={copy.footer}>
+        <ListRow
+          label={copy.focused}
+          description={ledger.declaredCapped ? copy.capped : undefined}
+          value={durationText(ledger.declaredMs)}
+        />
         {ledger.rows.map((row) => {
           if (row.key === 'usage') {
             // The breakdown hangs off this row, so it is rendered with it and never
@@ -104,14 +123,12 @@ export function TodaySection({ now }: TodaySectionProps) {
           );
         })}
       </ListGroup>
-      {note === null ? null : (
-        <Text variant="caption" tone="secondary">
-          {note}
-        </Text>
+      {note === null ? null : <StatusNote text={note} />}
+      {fix === null ? null : (
+        <ListGroup>
+          <ListRow label={fix.label} onPress={fix.go} />
+        </ListGroup>
       )}
-      <Text variant="caption" tone="tertiary">
-        {copy.footer}
-      </Text>
     </Section>
   );
 }

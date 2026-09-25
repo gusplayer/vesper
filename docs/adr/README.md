@@ -34,7 +34,7 @@ e-ink; ADR-0026 cerró lo que 0016 había dejado "vigente en su fondo".
 | 0023 | Las superficies fuera de la app: relojes nativos, pausa distinta, escudo con tinta, notificación de Android como pantalla bloqueada | aceptada |
 | 0024 | Sonido y vibración suaves al empezar y terminar la sesión; el interruptor de silencio manda; nada al abrir la app | propuesta (sin implementar) |
 | 0025 | Salir de la sesión: la tinta se disuelve en papel; respirar sosteniendo el objeto; la emergencia es una ruta; cierre breve para las canceladas | aceptada |
-| 0026 | Cierre de decisiones anteriores: 0011, 0013 y 0015 superados, 0012 superado en forma, 0022 fijado a lo construido, restos de fase 1 borrados | aceptada |
+| 0026 | Cierre de decisiones anteriores: 0011, 0013 y 0015 superados, 0012 superado en forma, 0022 fijado a lo construido, restos de fase 1 borrados | aceptada; §7 superado por 0047 en las rutinas sembradas |
 | 0027 | Racha diaria con días de gracia, empujones del círculo y avisos que traen de vuelta; silencio absoluto en sesión | aceptada |
 | 0028 | Abrir la app: el splash es una hoja de tinta y `BootReveal` la disuelve de los bordes al centro hasta dejar la marca, que se funde con la app | aceptada |
 | 0029 | Uso por app como lectura efímera detrás de `platform/usage`, un solo `AppTile` (icono real en Android, cuadro con inicial en iOS) y desglose bajo "redes" en Actividad › Hoy; sin logos de marca dibujados a mano | aceptada |
@@ -52,3 +52,9 @@ e-ink; ADR-0026 cerró lo que 0016 había dejado "vigente en su fondo".
 | 0041 | Un hábito verificado que nada puede verificar cae a declarado, y lo dice | aceptada |
 | 0042 | Retos de pasos: la meta va en el nombre (`stepGoalFor`, como el sueño), unirse pide Salud y es el consentimiento, el círculo ve días y nunca pasos, y cada marca dice si vino de Salud, de una sesión o de la mano (migración 009) | aceptada |
 | 0043 | Salud en Android es Health Connect, leído por un módulo Kotlin propio (`modules/vesper-health`, solo `connect-client`); `health.ts` se parte en `.ios`/`.android` con la misma superficie; sin Health Connect en Android 9–13 el botón lo instala desde Play; `minSdk` 26 | aceptada |
+| 0044 | El cliente del círculo: cuenta, clave de respaldo y sincronía | aceptada |
+| 0045 | La moneda propia siempre tiene su fila, aunque marque cero (enmienda a 0038) | aceptada |
+| 0046 | Lo que la app tiene que decir por escrito, y dónde | aceptada |
+| 0047 | Lo que la pasada de UI dejó para decidir: datos de ejemplo (y las rutinas sembradas que arrancan una sesión profunda), una sola lista de apps por modo, los caminos que se saltan "profundo", un solo promedio, terminar un vínculo del círculo en el servidor, las reglas que no llegan al sistema, y cinco más | aceptada (2026-09-25; supera ADR-0026 §7 en las rutinas sembradas) |
+| 0048 | Una identidad sin login: nace en el primer arranque, llega al teléfono nuevo por el llavero de iCloud o Block Store, la clave de respaldo o (propuesto) un correo; lo social vuelve del servidor y lo personal de un respaldo cifrado, encendido por defecto; Android respalda la base; restaurar rota el secreto | aceptada (el correo, propuesta) |
+| 0049 | Terminar un vínculo del círculo en el servidor: `POST /link/end` (Rechazar, Quitar, Salir del círculo) y `POST /challenge/leave`; el fin se guarda por par y `/sync` lo devuelve en `ended`; mientras el servidor desplegado conteste 404, la app lo dice (enmienda 0033 y 0044) | aceptada (sin desplegar) |

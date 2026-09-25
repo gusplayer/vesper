@@ -65,7 +65,7 @@
       [
         "react-native-health",
         {
-          "healthSharePermission": "Vesper lee entrenamientos, pasos y sueño para marcar solos los hábitos verificados. Nada sale del teléfono.",
+          "healthSharePermission": "Vesper lee entrenamientos, pasos y sueño para marcar solos los hábitos verificados. Las lecturas se quedan en el teléfono; los días cumplidos solo salen cifrados en tu respaldo, o a tu círculo si son de un reto.",
           "healthUpdatePermission": "Vesper no escribe datos de salud."
         }
       ],
@@ -76,7 +76,13 @@
           "appGroup": "group.com.gusplayer.vesper"
         }
       ],
-      "expo-secure-store",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": false
+        }
+      ],
+      "./plugins/withAndroidBackup",
       "expo-localization"
     ],
     "extra": {

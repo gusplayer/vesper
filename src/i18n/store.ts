@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import * as settingsRepo from '../db/repositories/settings';
+import { setClockLocale } from '../lib/format';
 import { readDeviceLocales } from './device';
 import { isLanguagePreference, resolveLocale, resolveTag, type LanguagePreference, type Locale } from './locale';
 
@@ -25,7 +26,11 @@ type LocaleState = {
 function resolve(preference: LanguagePreference): Pick<LocaleState, 'preference' | 'locale' | 'tag'> {
   const devices = readDeviceLocales();
   const locale = resolveLocale(preference, devices);
-  return { preference, locale, tag: resolveTag(locale, devices) };
+  const tag = resolveTag(locale, devices);
+  // Clock times follow the language like everything else: 12 h in English, 24 h in
+  // Spanish (lib/format). Set here so every `clockText(at)` picks it up with no param.
+  setClockLocale(tag);
+  return { preference, locale, tag };
 }
 
 /**

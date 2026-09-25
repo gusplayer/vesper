@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DAY } from '../domain/time';
-import { birthDateText, formatBirthDate, parseBirthDate } from './birthDate';
+import { birthDateText, formatBirthDate, parseBirthDate, typeBirthDate } from './birthDate';
 
 // 2026-09-14 is a Monday. `now` is that day unless a test says otherwise.
 const TODAY_START = new Date(2026, 8, 14).getTime();
@@ -60,5 +60,37 @@ describe('birthDateText', () => {
     expect(spanish).toContain('1990');
     expect(english).toBe('Feb 3, 1990');
     expect(spanish).not.toBe(english);
+  });
+});
+
+describe('typeBirthDate', () => {
+  it('puts the hyphens in as the digits arrive', () => {
+    expect(typeBirthDate('1')).toBe('1');
+    expect(typeBirthDate('1992')).toBe('1992');
+    expect(typeBirthDate('19920')).toBe('1992-0');
+    expect(typeBirthDate('199204')).toBe('1992-04');
+    expect(typeBirthDate('1992041')).toBe('1992-04-1');
+    expect(typeBirthDate('19920414')).toBe('1992-04-14');
+  });
+
+  it('is stable on what it produced, so each keystroke only adds or removes a digit', () => {
+    expect(typeBirthDate('1992-04-14')).toBe('1992-04-14');
+    expect(typeBirthDate('1992-04-1')).toBe('1992-04-1');
+    // Backspace over '1992-04-1' leaves '1992-04-': the dangling hyphen goes too.
+    expect(typeBirthDate('1992-04-')).toBe('1992-04');
+  });
+
+  it('keeps only digits, at most eight, from anything pasted', () => {
+    expect(typeBirthDate('1992/04/14')).toBe('1992-04-14');
+    expect(typeBirthDate(' 14.04.1992 ')).toBe('1404-19-92');
+    expect(typeBirthDate('199204149999')).toBe('1992-04-14');
+  });
+
+  it('is empty for an empty field, which is how Vida is turned off', () => {
+    expect(typeBirthDate('')).toBe('');
+  });
+
+  it('produces what parseBirthDate accepts once the date is whole', () => {
+    expect(parseBirthDate(typeBirthDate('19900203'), TODAY_END)).toBe(new Date(1990, 1, 3).getTime());
   });
 });

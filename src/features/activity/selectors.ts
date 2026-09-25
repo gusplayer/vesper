@@ -89,12 +89,18 @@ function calendarDay(index: ReadonlyMap<string, DayStat>, at: number, now: numbe
   };
 }
 
-function averageOfFocused(days: readonly CalendarDay[]): number | null {
-  const focused = days.filter((day) => !day.isFuture && day.stat.focusMs > 0);
-  if (focused.length === 0) {
+/**
+ * The one "promedio" of the activity tab (ADR-0047 §4): mean focus over the days of the
+ * period that have happened, a day off counting as zero, so the number is honest about
+ * the period and not just about its good days. The week and the month both use it, and
+ * both draw it with the same pill. Null when the period has no focus at all.
+ */
+function averageOfElapsed(days: readonly CalendarDay[]): number | null {
+  const elapsed = days.filter((day) => !day.isFuture);
+  if (elapsed.length === 0 || !elapsed.some((day) => day.stat.focusMs > 0)) {
     return null;
   }
-  return focused.reduce((total, day) => total + day.stat.focusMs, 0) / focused.length;
+  return elapsed.reduce((total, day) => total + day.stat.focusMs, 0) / elapsed.length;
 }
 
 /** The seven days of the week `offset` weeks back, Monday first. */
@@ -121,16 +127,10 @@ export function weekBars(
 
 /**
  * Mean focus per day over the days of that week that have happened: Monday to today
- * for the current week, all seven for a past one. A day off counts as zero, so the
- * number is honest about the week and not just about the good days. Null when the
- * week has no focus at all.
+ * for the current week, all seven for a past one (`averageOfElapsed`).
  */
 export function weekAverage(stats: readonly DayStat[], now: number, offset = 0): number | null {
-  const elapsed = weekDays(stats, now, offset).filter((day) => !day.isFuture);
-  if (elapsed.length === 0 || !elapsed.some((day) => day.stat.focusMs > 0)) {
-    return null;
-  }
-  return elapsed.reduce((total, day) => total + day.stat.focusMs, 0) / elapsed.length;
+  return averageOfElapsed(weekDays(stats, now, offset));
 }
 
 /** How many days of that week had any focus. */
@@ -162,6 +162,23 @@ export function deltaVsPrevious(stats: readonly DayStat[], now: number, offset =
     percent: Math.abs(percent),
     direction: percent > 0 ? 'up' : percent < 0 ? 'down' : 'flat',
   };
+}
+
+/**
+ * What the line under an empty week's average says, or null when the week had focus.
+ * 'firstWeek' only while nothing at all has been focused yet: a user with months of
+ * history opening the app on a Monday morning is not in their first week.
+ */
+export type EmptyWeekLine = 'firstWeek' | 'noFocusYet' | 'noFocusThatWeek';
+
+export function emptyWeekLine(stats: readonly DayStat[], now: number, offset = 0): EmptyWeekLine | null {
+  if (weekFocusedDays(stats, now, offset) > 0) {
+    return null;
+  }
+  if (offset > 0) {
+    return 'noFocusThatWeek';
+  }
+  return stats.some((stat) => stat.focusMs > 0) ? 'noFocusYet' : 'firstWeek';
 }
 
 /** The days of that week up to today, newest first, for the per-day cards. */
@@ -211,9 +228,11 @@ export function monthTotals(
   offset = 0,
 ): { totalMs: number; averageMs: number | null } {
   const days = monthDays(stats, now, offset);
+  // The 1st to today for the current month, every day for a past one: the same rule
+  // as the week, so the two figures agree over the days they share (ADR-0047 §4).
   return {
     totalMs: days.reduce((total, day) => total + day.stat.focusMs, 0),
-    averageMs: averageOfFocused(days),
+    averageMs: averageOfElapsed(days),
   };
 }
 

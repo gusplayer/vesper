@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { space } from '../tokens';
-import { Text } from './Text';
+import { SectionTitle } from './SectionTitle';
 
 type SectionProps = {
   title?: string;
@@ -17,11 +17,7 @@ export function Section({ title, right, children }: SectionProps) {
     <View style={styles.section}>
       {title === undefined && right === undefined ? null : (
         <View style={styles.header}>
-          {title === undefined ? <View /> : (
-            <Text variant="label" tone="secondary">
-              {title}
-            </Text>
-          )}
+          {title === undefined ? <View /> : <SectionTitle>{title}</SectionTitle>}
           {right}
         </View>
       )}

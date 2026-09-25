@@ -3,17 +3,22 @@ import { create } from 'zustand';
 import { resolveActivityId } from '../../db/boot';
 import { loadDayStats } from '../../db/queries/dayStats';
 import { loadLedgerSources, type LedgerSources } from '../../db/queries/dayLedger';
+import { EMPTY_LIFETIME, loadLifetimeTotals, type LifetimeTotals } from '../../db/queries/lifetime';
 import { loadDayFocus } from '../../db/queries/streak';
 import * as graceDaysRepo from '../../db/repositories/graceDays';
 import * as habitsRepo from '../../db/repositories/habits';
 import * as modesRepo from '../../db/repositories/modes';
 import * as schedulesRepo from '../../db/repositories/schedules';
+import * as demoRepo from '../../db/repositories/demo';
 import * as settingsRepo from '../../db/repositories/settings';
 import { dayKeyOf, shiftDayKey } from '../../domain/day';
 import { activeHabitCount, canAddHabit } from '../../domain/habits';
 import { graceDaysToApply, monthKeyOf, STREAK_WINDOW_DAYS } from '../../domain/streak';
-import type { GraceDay, Habit, HabitMark } from '../../domain/types';
+import type { DayKey, GraceDay, Habit, HabitMark } from '../../domain/types';
 import { uuidv7 } from '../../lib/uuid';
+import { settledEmergency } from '../emergency';
+import { SEEDED_IDS } from '../seededIds';
+import { duplicateName } from '../modes';
 import { SETTINGS } from '../seed';
 import type { DayStat, Mode, NotificationPrefs, Rules, Schedule, Settings } from '../types';
 
@@ -44,6 +49,13 @@ type AppState = {
   habits: Habit[];
   habitMarks: HabitMark[];
   dayStats: DayStat[];
+  /** Every closed session ever, folded: the lifetime cards outgrow `dayStats`' window. */
+  lifetime: LifetimeTotals;
+  /**
+   * Seeded sample data is still on the phone (ADR-0047 §1): Focus and Actividad say so,
+   * and Ajustes offers to remove it.
+   */
+  hasDemoData: boolean;
   /** Today's sessions and their activities, for the day ledger (ADR-0038). */
   ledger: LedgerSources;
   /** The days the streak was bridged on its own, oldest first (ADR-0027). */
@@ -77,8 +89,20 @@ type AppState = {
   updateSettings: (patch: Partial<Settings>) => void;
   updateRules: (patch: Partial<Rules>) => void;
   updateNotifications: (patch: Partial<NotificationPrefs>) => void;
+  /** Spends one emergency unlock of this month, after the month's refill is settled. */
   useEmergency: () => void;
-  dismissBanner: () => void;
+  /**
+   * Fills the emergency count again when a new month has begun (ADR-0025: five a
+   * month). Runs at boot and should run on every return to the foreground.
+   */
+  settleEmergency: (now: number) => void;
+  /**
+   * "Quitar los datos de ejemplo" (ADR-0047 §1): deletes only what the seed wrote
+   * (`SEEDED_IDS`), then re-reads everything so every cache and `hasDemoData` agree.
+   * The circle's cache is refreshed by the caller (`src/data/demoData.ts`): this store
+   * cannot import the circle's without a cycle.
+   */
+  removeDemoData: (now: number) => void;
 
   // Habits
   /**
@@ -89,8 +113,11 @@ type AppState = {
   upsertHabit: (habit: Omit<Habit, 'id' | 'createdAt' | 'archivedAt'> & { id?: string }) => boolean;
   archiveHabit: (id: string) => void;
   toggleHabitToday: (id: string, now: number) => void;
-  /** Replaces every Health-sourced mark with what Health says now. Manual marks stay. */
-  setHealthMarks: (marks: HabitMark[], syncedAt: number) => void;
+  /**
+   * Replaces the Health-sourced marks of the window a read covered with what Health
+   * says now; without a window, all of them (disconnecting). Manual marks stay.
+   */
+  setHealthMarks: (marks: HabitMark[], syncedAt: number, window?: { fromKey: DayKey; toKey: DayKey }) => void;
 
   // Stats
   /**
@@ -114,6 +141,17 @@ function marksWindowFrom(now: number): string {
   return shiftDayKey(dayKeyOf(now), -HISTORY_DAYS);
 }
 
+/** Takes a mode off the restore's repick list (ADR-0048 §9). */
+function forgetRepick(id: string, now: number): void {
+  const ids = settingsRepo.getModesRepick();
+  if (ids.includes(id)) {
+    settingsRepo.setModesRepick(
+      ids.filter((other) => other !== id),
+      now,
+    );
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => {
   /** Writes the whole settings object and caches it. */
   const saveSettings = (settings: Settings): void => {
@@ -134,11 +172,14 @@ export const useAppStore = create<AppState>((set, get) => {
     habits: [],
     habitMarks: [],
     dayStats: [],
+    lifetime: EMPTY_LIFETIME,
+    hasDemoData: false,
     ledger: { sessions: [], activities: [] },
     graceDays: [],
 
     hydrate: (now = Date.now()) => {
-      const modes = modesRepo.list();
+      const repick = new Set(settingsRepo.getModesRepick());
+      const modes = modesRepo.list().map((m) => (repick.has(m.id) ? { ...m, needsRepick: true } : m));
       const stored = settingsRepo.getActiveModeId();
       const activeModeId =
         stored !== null && modes.some((m) => m.id === stored) ? stored : (modes[0]?.id ?? '');
@@ -150,12 +191,16 @@ export const useAppStore = create<AppState>((set, get) => {
         habits: habitsRepo.listActive(),
         habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKeyOf(now)),
         dayStats: loadDayStats(now, HISTORY_DAYS),
+        lifetime: loadLifetimeTotals(now),
+        hasDemoData: demoRepo.hasSeeded(SEEDED_IDS),
         ledger: loadLedgerSources(now),
         graceDays: graceDaysRepo.listGraceDays(),
       });
       // With the settings and the grace rows in, the days missed since the last open
       // get their grace before the first screen reads the streak.
       get().settleStreak(now);
+      // A new month since the last launch brings the emergency unlocks back.
+      get().settleEmergency(now);
     },
 
     upsertMode: (input) => {
@@ -186,7 +231,8 @@ export const useAppStore = create<AppState>((set, get) => {
       if (source === undefined) {
         return;
       }
-      const copy: Mode = { ...source, id: uuidv7(Date.now()), name: `${source.name} (1)`, createdAt: Date.now() };
+      const name = duplicateName(source.name, get().modes.map((m) => m.name));
+      const copy: Mode = { ...source, id: uuidv7(Date.now()), name, createdAt: Date.now() };
       modesRepo.upsert(copy);
       set((state) => {
         const index = state.modes.findIndex((m) => m.id === id);
@@ -199,6 +245,7 @@ export const useAppStore = create<AppState>((set, get) => {
     deleteMode: (id) => {
       const now = Date.now();
       modesRepo.remove(id);
+      forgetRepick(id, now);
       // Schedules using this mode are turned off, like Brick warns.
       schedulesRepo.disableByMode(id, now);
       const modes = get().modes.filter((m) => m.id !== id);
@@ -215,7 +262,15 @@ export const useAppStore = create<AppState>((set, get) => {
 
     setModeSelection: (id, selectionToken) => {
       modesRepo.setSelectionToken(id, selectionToken);
-      set((state) => ({ modes: state.modes.map((m) => (m.id === id ? { ...m, selectionToken } : m)) }));
+      // A selection saved here is this phone's: the mode no longer waits for a repick.
+      if (selectionToken !== null) {
+        forgetRepick(id, Date.now());
+      }
+      set((state) => ({
+        modes: state.modes.map((m) =>
+          m.id === id ? { ...m, selectionToken, needsRepick: selectionToken === null && m.needsRepick === true } : m,
+        ),
+      }));
     },
 
     upsertSchedule: (input) => {
@@ -270,11 +325,30 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     useEmergency: () => {
-      const current = get().settings;
+      const settings = get().settings;
+      // Settled first: an unlock spent on the 1st must come out of the new month's five.
+      const current = { ...settings, ...settledEmergency(settings, Date.now()) };
       saveSettings({ ...current, emergencyLeft: Math.max(0, current.emergencyLeft - 1) });
     },
 
-    dismissBanner: () => saveSettings({ ...get().settings, pendingBanner: null }),
+    removeDemoData: (now) => {
+      demoRepo.removeSeeded(SEEDED_IDS, now);
+      get().hydrate(now);
+      // The start marks of the example routines go with them.
+      const seededRoutines = new Set(SEEDED_IDS.schedules);
+      const { routineStarts } = get().settings;
+      if (Object.keys(routineStarts).some((id) => seededRoutines.has(id))) {
+        const kept = Object.fromEntries(Object.entries(routineStarts).filter(([id]) => !seededRoutines.has(id)));
+        saveSettings({ ...get().settings, routineStarts: kept });
+      }
+    },
+
+    settleEmergency: (now) => {
+      const settled = settledEmergency(get().settings, now);
+      if (settled !== null) {
+        saveSettings({ ...get().settings, ...settled });
+      }
+    },
 
     upsertHabit: (input) => {
       const existing = input.id === undefined ? undefined : get().habits.find((h) => h.id === input.id);
@@ -323,16 +397,18 @@ export const useAppStore = create<AppState>((set, get) => {
       set({ habitMarks: habitsRepo.listMarksBetween(marksWindowFrom(now), dayKey) });
     },
 
-    setHealthMarks: (marks, syncedAt) => {
-      habitsRepo.replaceHealthMarks(marks);
+    setHealthMarks: (marks, syncedAt, window) => {
+      habitsRepo.replaceHealthMarks(marks, window);
+      const replaced = (m: HabitMark) =>
+        m.source === 'health' && (window === undefined || (m.dayKey >= window.fromKey && m.dayKey <= window.toKey));
       set((state) => ({
-        habitMarks: [...state.habitMarks.filter((m) => m.source !== 'health'), ...marks],
+        habitMarks: [...state.habitMarks.filter((m) => !replaced(m)), ...marks],
       }));
       saveSettings({ ...get().settings, healthSyncedAt: syncedAt });
     },
 
     recordFocus: (now) =>
-      set({ dayStats: loadDayStats(now, HISTORY_DAYS), ledger: loadLedgerSources(now) }),
+      set({ dayStats: loadDayStats(now, HISTORY_DAYS), lifetime: loadLifetimeTotals(now), ledger: loadLedgerSources(now) }),
 
     settleStreak: (now) => {
       const toApply = graceDaysToApply(loadDayFocus(now), get().graceDays, dayKeyOf(now));

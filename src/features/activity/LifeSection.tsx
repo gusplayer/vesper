@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 
 import { useLife, useSettings, useUsage } from '../../data';
-import { Card, DotGrid, Section, Stack, Tappable, Text } from '../../design/components';
+import { Card, DotGrid, NoticeCard, Section, Stack, StatusNote, Tappable, Text } from '../../design/components';
 import { projectedWeeksConsumed } from '../../domain/life';
 import { expectancySourceText, resolveExpectancy, yearsText } from '../../domain/lifeExpectancy';
 import { useLocale, useStrings } from '../../i18n';
@@ -20,6 +20,10 @@ type LifeSectionProps = {
  * Weeks left, a grid of the ones lived, and what the current social pace would take
  * from the rest. Framing, not a countdown (docs/PRD.md). Tapping the number switches
  * between weeks and days: the same time, at a scale that lands differently.
+ *
+ * On the demo the last line says so and why, with the reason `platform/usage` gives
+ * (the same one Hoy shows): Screen Time is not the answer on Android, and on iOS the
+ * real figure never leaves the Report (ADR-0004), so nothing promises it arrives.
  */
 export function LifeSection({ now }: LifeSectionProps) {
   const router = useRouter();
@@ -38,16 +42,13 @@ export function LifeSection({ now }: LifeSectionProps) {
   if (life === null) {
     return (
       <Section title={copy.title}>
-        <Card onPress={() => router.push('/settings/life')} accessibilityLabel={copy.goToLife}>
-          <Stack gap="xs">
-            <Text variant="body" weight="medium">
-              {copy.noBirthTitle}
-            </Text>
-            <Text variant="label" tone="secondary">
-              {copy.noBirthBody}
-            </Text>
-          </Stack>
-        </Card>
+        <NoticeCard
+          title={copy.noBirthTitle}
+          body={copy.noBirthBody}
+          trailing="chevron"
+          onPress={() => router.push('/settings/life')}
+          accessibilityHint={copy.goToLife}
+        />
       </Section>
     );
   }
@@ -63,6 +64,12 @@ export function LifeSection({ now }: LifeSectionProps) {
   const leftText = unit === 'weeks' ? copy.weeks(life.left, tag) : copy.days(life.left * 7, tag);
   const consumedText =
     unit === 'weeks' ? copy.weeks(consumedWeeks, tag) : copy.days(consumedWeeks * 7, tag);
+  const paceNote =
+    usage.source === 'device'
+      ? copy.deviceNote
+      : usage.reason === null
+        ? t.activity.life.demoNote
+        : `${t.activity.life.demoNote} ${usage.reason}`;
 
   return (
     <Section title={copy.title}>
@@ -85,14 +92,18 @@ export function LifeSection({ now }: LifeSectionProps) {
               </Text>
             </Stack>
           </Tappable>
-          <DotGrid cells={cells} columns={LIFE_COLUMNS} dense fill />
+          <DotGrid
+            cells={cells}
+            columns={LIFE_COLUMNS}
+            dense
+            fill
+            accessibilityLabel={t.activity.life.gridA11y(life.lived, life.total, tag)}
+          />
           <Stack gap="xs">
             <Text variant="label" tone="secondary">
               {copy.atYourPace(consumedText)}
             </Text>
-            <Text variant="caption" tone="secondary">
-              {usage.source === 'device' ? copy.deviceNote : copy.estimateNote}
-            </Text>
+            <StatusNote text={paceNote} />
           </Stack>
         </Stack>
       </Card>
