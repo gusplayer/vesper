@@ -182,34 +182,40 @@ formulario.
 
 ## c) Seguridad de datos (Data safety)
 
-Play define "recopilar" como transmitir datos fuera del dispositivo. Vesper no transmite
-nada: no hay cuenta, no hay backend, no hay analítica, no hay SDK de anuncios. Todo vive
-en SQLite y en `SharedPreferences` del teléfono.
+Play define "recopilar" como transmitir datos fuera del dispositivo. Desde ADR-0048 y
+ADR-0050 salen cuatro cosas, y todas se declaran. **Se actualizó el 2026-09-25**: antes
+decía que nada salía, y dejó de ser cierto.
 
 | Pregunta del formulario | Respuesta | Por qué |
 |---|---|---|
-| Does your app collect or share any of the required user data types? | **No** | Nada sale del dispositivo |
-| Is all of the user data collected by your app encrypted in transit? | n/a | No hay tránsito |
-| Do you provide a way for users to request that their data is deleted? | n/a en el formulario; en la app, **sí** | Ajustes › "Borrar todo y reiniciar" vacía todas las tablas; desinstalar también |
+| Does your app collect or share any of the required user data types? | **Sí** | Identidad anónima, respaldo cifrado, círculo (opcional) y correo de recuperación (opcional) |
+| Is all of the user data collected by your app encrypted in transit? | **Sí** | Solo HTTPS al servidor del círculo |
+| Do you provide a way for users to request that their data is deleted? | **Sí** | En la app: Ajustes › Respaldo (apagarlo borra la copia), Ajustes › Círculo › "Borrar la cuenta", "Borrar todo y reiniciar". Fuera de la app: ver pendientes |
 | Independent security review | No | — |
 
-Lo que la app toca, para que el revisor no encuentre sorpresas:
+Tipos de datos, uno por fila del formulario:
 
-| Dato | Qué pasa con él | ¿Recopilado según Play? |
-|---|---|---|
-| Lista de apps instaladas (con lanzador) | Se lee para el selector; los nombres de paquete elegidos se guardan localmente en el modo | No |
-| App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara con la lista y se descarta. Al abrir Actividad se pregunta al sistema cuánto estuvo al frente cada app elegida, hoy y esta semana, y la respuesta se dibuja y se suelta. La app no guarda historial propio | No |
-| Sesiones, modos, rutinas, hábitos, meta semanal, fecha de nacimiento (opcional) | SQLite local | No |
-| Diagnóstico / crashes | No se envía | No |
+| Categoría de Play › tipo | Qué es en Vesper | Obligatorio u opcional | Propósito |
+|---|---|---|---|
+| App info and performance › Other / Identifiers › User IDs | El id anónimo de la identidad (UUID v7), plataforma, versión de la app, cuándo se vio por última vez | Obligatorio (nace en el primer arranque) | App functionality, Analytics (contar personas activas) |
+| App activity › Other user-generated content / In-app actions | El respaldo: sesiones, hábitos, modos, rutinas, meta, ajustes, **cifrado en el teléfono**. Sin correo de recuperación Vesper no puede leerlo; con correo, sí podría (ADR-0050), así que se declara | Opcional (encendido por defecto, se apaga) | App functionality (respaldo) |
+| Health and fitness › Fitness info | Los días en que un hábito verificado se cumplió, dentro del respaldo cifrado; y en un reto de pasos, qué días se llegó a la meta, visible para el círculo | Opcional | App functionality |
+| Personal info › Name | Nombre y alias del círculo | Opcional (solo con círculo) | App functionality |
+| Personal info › Email address | Correo de recuperación, verificado con un código | Opcional | Account management |
+| Device or other IDs | Token de push para los avisos del círculo | Opcional (solo con círculo y permiso) | App functionality |
 
-Health Connect (ADR-0043) cambia este formulario: aunque nada salga del teléfono, hay que
-declarar **Health and fitness → Health info / Fitness info** como datos a los que la app
-accede, marcados "procesados solo en el dispositivo". Y se llena aparte la declaración de
-Health Connect (sección f).
+Lo que la app toca **y no sale**, para que el revisor no encuentre sorpresas:
 
-Cuando la app le hable al servidor del círculo, los días cumplidos de un reto de pasos sí
-salen del teléfono (ADR-0042 §5): ahí la respuesta a la primera pregunta pasa a **Sí** y
-hay que declararlo como compartido, con consentimiento del usuario.
+| Dato | Qué pasa con él |
+|---|---|
+| Lista de apps instaladas (con lanzador) | Se lee para el selector; los paquetes elegidos se guardan en el modo, y salen solo dentro del respaldo cifrado |
+| App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara y se descarta; Actividad pregunta al sistema y suelta la respuesta. Sin historial propio (ADR-0029) |
+| Lecturas de Health Connect (pasos, entrenamientos, sueño) | Se leen para marcar hábitos y se sueltan; solo el día cumplido se guarda |
+| Diagnóstico / crashes | No se envía |
+
+Health Connect (ADR-0043) sigue pidiendo declarar **Health and fitness** y llenar su
+declaración aparte (sección f): las lecturas quedan en el teléfono y solo el día cumplido
+sale, cifrado o al círculo.
 
 ---
 
@@ -257,7 +263,7 @@ Pegar en "App access › Instructions" y en el campo de notas de la declaración
 > 4. Go Home and open the app you ticked. Within a second a dark full-screen reminder "Vesper · <mode>" covers it, with the time it lifts and one button "Volver" that returns to Home.
 > 5. Open Vesper › "Terminar" › after one breathing round tap "Terminar · llevas …". The session ends, the notification disappears and the app you ticked opens normally again.
 >
-> The app never uses AccessibilityService or QUERY_ALL_PACKAGES. Focus, habits, modes and routines work fully offline with no account. The only network feature is the optional circle (ADR-0033): a device account with no email, which syncs only what the user turns on, per metric, to people they invited. Deleting everything: Ajustes › "Borrar todo y reiniciar", and the circle account has its own delete.
+> The app never uses AccessibilityService or QUERY_ALL_PACKAGES. Focus, habits, modes and routines work fully offline with no sign-up. An anonymous identity (no email, no password) is created on first launch; it signs an encrypted backup of the user's data (on by default, can be turned off, which deletes the server copy) and, if the user joins, a small circle that syncs only what they turn on. An email for recovery is optional. Deleting everything: Ajustes › "Borrar todo y reiniciar"; the backup and the account can also be deleted on their own.
 
 *Traducción para uso interno: 1) abrir Vesper y conceder "Acceso de uso" y "Mostrar sobre
 otras apps" cuando la app mande a Ajustes (se piden desde "Apps" de un modo) o
@@ -307,3 +313,11 @@ entrenamiento o sueño. Lee solo la semana en curso, en el teléfono, con la app
 - Publicar la política de privacidad con los tres tipos de Health Connect (f).
 - Verificar en el manifiesto fusionado del build de release que la lista de permisos sea
   la de la tabla de arriba y nada más.
+- **Borrado de cuenta desde la web** (Play lo exige a toda app que crea cuentas, y la
+  identidad de ADR-0048 lo es): una página con los pasos dentro de la app y una forma de
+  pedirlo sin la app (un correo de contacto que acepte el id o el correo de recuperación),
+  enlazada en el formulario de Data safety. Hoy `web/privacy.html` explica el borrado dentro
+  de la app, pero no ofrece pedirlo sin ella.
+- Apple (App Privacy): los mismos tipos de la tabla de (c) — Identifiers › User ID, User
+  Content › Other, Health & Fitness, Contact Info › Name y Email (opcionales) —, todos
+  "vinculados al usuario", ninguno para rastrear.

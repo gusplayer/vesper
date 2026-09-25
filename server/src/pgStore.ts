@@ -4,7 +4,17 @@ import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 
 import { ConflictError, isPlatform, markSourceOf } from './store.ts';
-import type { Account, BackupMeta, Challenge, EndedLink, Link, Store } from './store.ts';
+import type {
+  Account,
+  BackupMeta,
+  Challenge,
+  CodePurpose,
+  EndedLink,
+  Link,
+  Recovery,
+  RecoveryCode,
+  Store,
+} from './store.ts';
 
 /**
  * Postgres behind the same contract as the memory store (ADR-0033). Plain SQL on a
@@ -89,6 +99,11 @@ function asConflict(error: unknown): ConflictError | null {
   return null;
 }
 
+/** A unique violation of any constraint: the one `putRecovery` retries once on. */
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23505';
+}
+
 /** The pair of an ended link in the fixed order `ended_links` keys on (a_id < b_id). */
 export function pairOf(x: string, y: string): [string, string] {
   return x < y ? [x, y] : [y, x];
@@ -154,6 +169,49 @@ function toBackupMeta(row: BackupMetaRow): BackupMeta {
     platform: row.platform === 'android' ? 'android' : 'ios',
     size: row.size,
     updatedAt: ms(row.updated_at),
+  };
+}
+
+type RecoveryRow = {
+  account_id: string;
+  email: string;
+  secret_enc: string;
+  verified_at: string;
+  updated_at: string;
+};
+
+function toRecovery(row: RecoveryRow): Recovery {
+  return {
+    accountId: row.account_id,
+    email: row.email,
+    secretEnc: row.secret_enc,
+    verifiedAt: ms(row.verified_at),
+    updatedAt: ms(row.updated_at),
+  };
+}
+
+type RecoveryCodeRow = {
+  purpose: string;
+  subject: string;
+  account_id: string | null;
+  email: string;
+  code_hash: string;
+  attempts: number;
+  expires_at: string;
+  created_at: string;
+};
+
+function toRecoveryCode(row: RecoveryCodeRow): RecoveryCode {
+  return {
+    // The column has a check; nothing else can be in it.
+    purpose: row.purpose === 'recover' ? 'recover' : 'verify',
+    subject: row.subject,
+    accountId: row.account_id,
+    email: row.email,
+    codeHash: row.code_hash,
+    attempts: row.attempts,
+    expiresAt: ms(row.expires_at),
+    createdAt: ms(row.created_at),
   };
 }
 
@@ -245,8 +303,9 @@ export function createPgStore(connectionString: string): PgStore {
       );
     },
     async deleteAccount(id) {
-      // The cascades take the links, weeks, marks, cheers, nudges and the backup with it;
-      // a challenge someone else made keeps running without this participant.
+      // The cascades take the links, weeks, marks, cheers, nudges, the backup and the
+      // recovery email with its codes; a challenge someone else made keeps running
+      // without this participant.
       await query(
         `update challenges set participant_ids = (
            select coalesce(jsonb_agg(value), '[]'::jsonb) from jsonb_array_elements(participant_ids)
@@ -501,6 +560,101 @@ export function createPgStore(connectionString: string): PgStore {
     },
     async deleteBackup(accountId) {
       await query('delete from backups where account_id = $1', [accountId]);
+    },
+
+    async getRecovery(accountId) {
+      const rows = await query<RecoveryRow>('select * from recovery where account_id = $1', [accountId]);
+      return rows[0] === undefined ? null : toRecovery(rows[0]);
+    },
+    async getRecoveryByEmail(email) {
+      const rows = await query<RecoveryRow>('select * from recovery where email = $1', [email]);
+      return rows[0] === undefined ? null : toRecovery(rows[0]);
+    },
+    async putRecovery(recovery) {
+      // One transaction, so the email is never on two accounts and never on none halfway
+      // through. Two accounts confirming one address in the same instant: the second
+      // insert waits on the unique index, fails when the first commits, and the retry
+      // finds the row it has to take the email from.
+      for (let attempt = 0; ; attempt += 1) {
+        const client = await pool.connect();
+        try {
+          await client.query('begin');
+          await client.query('delete from recovery where email = $1 and account_id <> $2', [
+            recovery.email,
+            recovery.accountId,
+          ]);
+          await client.query(
+            `insert into recovery (account_id, email, secret_enc, verified_at, updated_at)
+             values ($1,$2,$3,$4,$5)
+             on conflict (account_id) do update set
+               email = excluded.email, secret_enc = excluded.secret_enc,
+               verified_at = excluded.verified_at, updated_at = excluded.updated_at`,
+            [recovery.accountId, recovery.email, recovery.secretEnc, recovery.verifiedAt, recovery.updatedAt],
+          );
+          await client.query('commit');
+          return;
+        } catch (error) {
+          await client.query('rollback').catch(() => undefined);
+          if (attempt === 0 && isUniqueViolation(error)) {
+            continue;
+          }
+          throw error;
+        } finally {
+          client.release();
+        }
+      }
+    },
+    async deleteRecovery(accountId) {
+      await query('delete from recovery_codes where account_id = $1', [accountId]);
+      await query('delete from recovery where account_id = $1', [accountId]);
+    },
+
+    async putRecoveryCode(code) {
+      await query(
+        `insert into recovery_codes (purpose, subject, account_id, email, code_hash, attempts, expires_at, created_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8)
+         on conflict (purpose, subject) do update set
+           account_id = excluded.account_id, email = excluded.email, code_hash = excluded.code_hash,
+           attempts = excluded.attempts, expires_at = excluded.expires_at, created_at = excluded.created_at`,
+        [
+          code.purpose,
+          code.subject,
+          code.accountId,
+          code.email,
+          code.codeHash,
+          code.attempts,
+          code.expiresAt,
+          code.createdAt,
+        ],
+      );
+    },
+    async getRecoveryCode(purpose: CodePurpose, subject: string) {
+      const rows = await query<RecoveryCodeRow>(
+        'select * from recovery_codes where purpose = $1 and subject = $2',
+        [purpose, subject],
+      );
+      return rows[0] === undefined ? null : toRecoveryCode(rows[0]);
+    },
+    async spendRecoveryAttempt(purpose, subject, max) {
+      // The count and the check in one statement: the row lock serialises parallel
+      // guesses, and each one sees the attempts the previous one spent.
+      const rows = await query<RecoveryCodeRow>(
+        `update recovery_codes set attempts = attempts + 1
+         where purpose = $1 and subject = $2 and attempts < $3
+         returning *`,
+        [purpose, subject, max],
+      );
+      return rows[0] === undefined ? null : toRecoveryCode(rows[0]);
+    },
+    async consumeRecoveryCode(purpose, subject, codeHash) {
+      const rows = await query<{ subject: string }>(
+        'delete from recovery_codes where purpose = $1 and subject = $2 and code_hash = $3 returning subject',
+        [purpose, subject, codeHash],
+      );
+      return rows.length > 0;
+    },
+    async deleteExpiredRecoveryCodes(before) {
+      await query('delete from recovery_codes where expires_at < $1', [before]);
     },
   };
 }

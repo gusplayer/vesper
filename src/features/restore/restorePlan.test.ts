@@ -26,7 +26,17 @@ function codeAt(generation: number): string {
 }
 
 function account(patch: Partial<RemoteAccount> = {}): RemoteAccount {
-  return { id: ID, name: 'Gus', handle: 'gus', inviteCode: codeAt(0), createdAt: 5, ...patch };
+  return {
+    id: ID,
+    name: 'Gus',
+    handle: 'gus',
+    inviteCode: codeAt(0),
+    createdAt: 5,
+    lastSeenAt: null,
+    platform: null,
+    recoveryEmail: null,
+    ...patch,
+  };
 }
 
 function challenge(patch: Partial<Challenge>): Challenge {

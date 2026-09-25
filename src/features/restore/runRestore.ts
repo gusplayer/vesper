@@ -87,8 +87,10 @@ async function restore(target: Credentials, now: number): Promise<RestoreResult>
   if (!(await saveIdentity(credentials))) {
     return 'noKeychain';
   }
+  // The restored identity is the one that travels from now on: "Traerlo aquí" moves it
+  // here, key and all (ADR-0050 §9), and saveIdentity just wrote both copies.
   writeIdentity(
-    { id: target.id, registeredAt: now, supersedes: null, rotatePending: !rotated.ok },
+    { id: target.id, registeredAt: now, supersedes: null, rotatePending: !rotated.ok, localOnly: false },
     now,
   );
   useIdentityStore.getState().setFound(null);

@@ -352,12 +352,17 @@ export function resetSync(): void {
  *   with it.
  * - `rotatePending`: a restore that could not change the secret (ADR-0048 §5); the
  *   old one keeps working until the identity sync rotates it.
+ * - `localOnly`: this device's own identity next to another device's that keeps
+ *   travelling ("Empezar aparte", ADR-0050 §9). Its secret is kept only in the local
+ *   copy, never in the one iCloud Keychain or Block Store carries, so it does not reach
+ *   a new phone by itself.
  */
 export type IdentityRecord = {
   id: string;
   registeredAt: number | null;
   supersedes: string | null;
   rotatePending: boolean;
+  localOnly: boolean;
 };
 
 /** A stored identity, or null. An id is the whole of it: without one there is none. */
@@ -365,7 +370,7 @@ export function parseIdentity(raw: unknown): IdentityRecord | null {
   if (!isRecord(raw)) {
     return null;
   }
-  const { id, registeredAt, supersedes, rotatePending } = raw;
+  const { id, registeredAt, supersedes, rotatePending, localOnly } = raw;
   if (typeof id !== 'string' || id.length === 0) {
     return null;
   }
@@ -374,6 +379,7 @@ export function parseIdentity(raw: unknown): IdentityRecord | null {
     registeredAt: numOrNull(registeredAt, null),
     supersedes: typeof supersedes === 'string' && supersedes.length > 0 ? supersedes : null,
     rotatePending: rotatePending === true,
+    localOnly: localOnly === true,
   };
 }
 

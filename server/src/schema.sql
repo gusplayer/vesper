@@ -196,3 +196,43 @@ create table if not exists backups (
   size       int     not null,
   updated_at bigint  not null
 );
+
+-- The recovery email (ADR-0050), only for whoever turns it on in Ajustes › Respaldo: a
+-- verified address and the account's secret sealed with AES-256-GCM under
+-- `RECOVERY_KEY`, a key that lives in Railway's variables and never here, with the
+-- account id as associated data. A copy of this table alone opens nothing.
+--
+-- One email, one account: `email` is unique, and confirming an address that another
+-- account had takes it from that account (whoever confirms it controls the mailbox).
+create table if not exists recovery (
+  account_id  text    primary key references accounts (id) on delete cascade,
+  email       text    not null unique,
+  -- base64(iv | ciphertext | tag).
+  secret_enc  text    not null,
+  verified_at bigint  not null,
+  updated_at  bigint  not null
+);
+
+-- The six-digit codes, as HMAC-SHA256 under a key derived from `RECOVERY_KEY`: a million
+-- values is nothing to a plain hash. Ten minutes, five wrong attempts, one per
+-- (purpose, subject), and a new one replaces the old.
+--
+-- `subject` is who the code is for: the account id for 'verify', the email for
+-- 'recover'. A 'recover' row is written for every email that asks, whether an account
+-- has it or not — `account_id` is then null and no message goes out — so that a wrong
+-- code, an expired one and a burned one answer alike for a known and an unknown email.
+-- Rows past their expiry are cleared a day later, when someone asks for a new code.
+create table if not exists recovery_codes (
+  purpose     text    not null check (purpose in ('verify', 'recover')),
+  subject     text    not null,
+  account_id  text    references accounts (id) on delete cascade,
+  email       text    not null,
+  code_hash   text    not null,
+  attempts    int     not null default 0,
+  expires_at  bigint  not null,
+  created_at  bigint  not null,
+  primary key (purpose, subject)
+);
+
+create index if not exists recovery_codes_account on recovery_codes (account_id);
+create index if not exists recovery_codes_expires on recovery_codes (expires_at);

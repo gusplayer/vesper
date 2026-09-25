@@ -1,8 +1,13 @@
+import { randomBytes } from 'node:crypto';
+
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from './app.ts';
+import { createRecordingMailer, type Mailer } from './mailer.ts';
 import { createMemoryStore } from './memoryStore.ts';
 import { createRecordingPush } from './push.ts';
+import { openSecret, sealSecret } from './recovery.ts';
+import type { Store } from './store.ts';
 
 /**
  * What the server is for: a row has an owner, and only its owner writes it. These
@@ -30,11 +35,23 @@ const N1 = '0199a1b2-c3d4-7e5f-8a9b-00000000b001';
 const N2 = '0199a1b2-c3d4-7e5f-8a9b-00000000b002';
 const N9 = '0199a1b2-c3d4-7e5f-8a9b-00000000b009';
 
-function setup() {
+/**
+ * `mailer` and `recoveryKey` default to a recording mailer and a fresh key, the way
+ * `npm run dev` runs; a test passes null to see the server without them.
+ */
+function setup(options: { mailer?: Mailer | null; recoveryKey?: Uint8Array | null } = {}) {
   const store = createMemoryStore();
   const push = createRecordingPush();
+  const mailer = createRecordingMailer();
+  const recoveryKey = options.recoveryKey === undefined ? randomBytes(32) : options.recoveryKey;
   let clock = T0;
-  const app = createApp({ store, push, now: () => (clock += 1) });
+  const app = createApp({
+    store,
+    push,
+    now: () => (clock += 1),
+    mailer: options.mailer === undefined ? mailer : options.mailer,
+    recoveryKey,
+  });
 
   /**
    * JSON in and out, like the phone's client. `raw` sends bytes instead, the way the
@@ -99,7 +116,7 @@ function setup() {
     clock += ms;
   };
 
-  return { store, push, call, join, identity, wait };
+  return { store, push, mailer, recoveryKey, call, join, identity, wait };
 }
 
 /**
@@ -1455,5 +1472,536 @@ describe('leaving a challenge (ADR-0049)', () => {
         .status,
     ).toBe(200);
     expect((await call('POST', '/challenge/leave', { token: ana.token, body: { challengeId: 'nope' } })).status).toBe(400);
+  });
+});
+
+const MINUTE_MS = 60 * 1000;
+type Kit = ReturnType<typeof setup>;
+
+/** Some other six digits: the code plus one, wrapped. */
+const otherThan = (code: string) => String((Number(code) + 1) % 1_000_000).padStart(6, '0');
+
+/** Asks for a confirmation code for `email` and hands back what the mailer got. */
+async function askToConfirm(kit: Kit, token: string, email: string, locale = 'es') {
+  const asked = await kit.call('POST', '/recovery/email', { token, body: { email, locale } });
+  return { asked, code: kit.mailer.sent.at(-1)?.code ?? '' };
+}
+
+/** Ajustes › Respaldo › Correo de recuperación, both steps. */
+async function confirmEmail(kit: Kit, token: string, email: string) {
+  const { code } = await askToConfirm(kit, token, email);
+  return kit.call('POST', '/recovery/email/verify', { token, body: { code } });
+}
+
+/** Records the name of every store call, to compare the path two requests take. */
+function traceStore(store: Store): string[] {
+  const calls: string[] = [];
+  const methods = store as unknown as Record<string, (...args: unknown[]) => unknown>;
+  for (const name of Object.keys(methods)) {
+    const original = methods[name];
+    if (typeof original !== 'function') {
+      continue;
+    }
+    methods[name] = (...args: unknown[]) => {
+      calls.push(name);
+      return original(...args);
+    };
+  }
+  return calls;
+}
+
+/**
+ * ADR-0050 §1–2, §5–6: an optional address, confirmed with a six-digit code, and the
+ * secret sealed beside it under a key that is not in the database.
+ */
+describe('the recovery email', () => {
+  it('confirms an address with the code it mails, and seals the secret beside it', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    const secret = gus.token.slice(GUS.length + 1);
+
+    const before = await kit.call('GET', '/account', { token: gus.token });
+    const { asked, code } = await askToConfirm(kit, gus.token, '  Gus@Example.COM ', 'en');
+    const confirmed = await kit.call('POST', '/recovery/email/verify', {
+      token: gus.token,
+      body: { code },
+    });
+    const after = await kit.call('GET', '/account', { token: gus.token });
+    const row = await kit.store.getRecovery(GUS);
+
+    expect(before.body.recoveryEmail).toBeNull();
+    expect(asked.status).toBe(202);
+    expect(asked.body).toEqual({ sent: true });
+    expect(kit.mailer.sent).toEqual([
+      { to: 'gus@example.com', code: expect.stringMatching(/^\d{6}$/), purpose: 'verify', locale: 'en' },
+    ]);
+    expect(confirmed.status).toBe(200);
+    expect(confirmed.body).toEqual({ email: 'gus@example.com' });
+    expect(after.body.recoveryEmail).toBe('gus@example.com');
+    // Sealed, not stored: the row does not carry the secret, and it opens for this
+    // account alone.
+    expect(row?.secretEnc).not.toContain(secret);
+    expect(openSecret(kit.recoveryKey as Uint8Array, GUS, row?.secretEnc ?? '')).toBe(secret);
+    expect(openSecret(kit.recoveryKey as Uint8Array, ANA, row?.secretEnc ?? '')).toBeNull();
+    expect(openSecret(randomBytes(32), GUS, row?.secretEnc ?? '')).toBeNull();
+  });
+
+  it('refuses an address that is not one', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+
+    const statuses = [];
+    for (const email of [
+      '',
+      'gus',
+      'gus@example',
+      'gus@@example.com',
+      'gus@example.',
+      'g us@example.com',
+      'a,b@example.com',
+      'Gus <gus@example.com>',
+      `${'x'.repeat(250)}@e.co`,
+      42,
+    ]) {
+      statuses.push((await kit.call('POST', '/recovery/email', { token: gus.token, body: { email } })).status);
+    }
+
+    expect(statuses).toEqual(Array.from({ length: 10 }, () => 400));
+    expect(kit.mailer.sent).toEqual([]);
+  });
+
+  it('answers a wrong code 400, and burns the code after five', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    const { code } = await askToConfirm(kit, gus.token, 'gus@example.com');
+
+    const tries = [];
+    for (let i = 0; i < 5; i += 1) {
+      tries.push(
+        await kit.call('POST', '/recovery/email/verify', { token: gus.token, body: { code: otherThan(code) } }),
+      );
+    }
+    const right = await kit.call('POST', '/recovery/email/verify', { token: gus.token, body: { code } });
+
+    expect(tries.map((answer) => answer.status)).toEqual([400, 400, 400, 400, 400]);
+    expect(tries[0]?.body).toEqual({ error: 'wrong code' });
+    // The right digits no longer help: the code is burned.
+    expect(right.status).toBe(429);
+    expect(await kit.store.getRecovery(GUS)).toBeNull();
+
+    // A new code is a new five tries.
+    const again = await confirmEmail(kit, gus.token, 'gus@example.com');
+    expect(again.status).toBe(200);
+  });
+
+  it('lets a code expire after ten minutes', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    const { code } = await askToConfirm(kit, gus.token, 'gus@example.com');
+
+    kit.wait(10 * MINUTE_MS);
+    const late = await kit.call('POST', '/recovery/email/verify', { token: gus.token, body: { code } });
+
+    expect(late.status).toBe(410);
+    expect(late.body).toEqual({ error: 'code expired' });
+    expect(await kit.store.getRecovery(GUS)).toBeNull();
+  });
+
+  it('keeps one live code: a new one replaces the last', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    const first = await askToConfirm(kit, gus.token, 'old@example.com');
+    let second = await askToConfirm(kit, gus.token, 'new@example.com');
+    while (second.code === first.code) {
+      second = await askToConfirm(kit, gus.token, 'new@example.com');
+    }
+
+    const stale = await kit.call('POST', '/recovery/email/verify', { token: gus.token, body: { code: first.code } });
+    const live = await kit.call('POST', '/recovery/email/verify', { token: gus.token, body: { code: second.code } });
+
+    expect(stale.status).toBe(400);
+    expect(live.body).toEqual({ email: 'new@example.com' });
+  });
+
+  it('gives one email to one account: confirming it elsewhere takes it', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    const ana = await kit.identity(ANA);
+
+    await confirmEmail(kit, gus.token, 'shared@example.com');
+    const taken = await confirmEmail(kit, ana.token, 'Shared@example.com');
+
+    expect(taken.status).toBe(200);
+    expect((await kit.call('GET', '/account', { token: gus.token })).body.recoveryEmail).toBeNull();
+    expect((await kit.call('GET', '/account', { token: ana.token })).body.recoveryEmail).toBe('shared@example.com');
+    expect((await kit.store.getRecoveryByEmail('shared@example.com'))?.accountId).toBe(ANA);
+  });
+
+  it('removes the address and the sealed secret, with or without mail configured', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+    await kit.call('POST', '/recovery/start', { body: { email: 'gus@example.com' } });
+    const code = kit.mailer.sent.at(-1)?.code;
+
+    const removed = await kit.call('DELETE', '/recovery/email', { token: gus.token });
+    const again = await kit.call('DELETE', '/recovery/email', { token: gus.token });
+    const finish = await kit.call('POST', '/recovery/finish', { body: { email: 'gus@example.com', code } });
+
+    expect(removed.status).toBe(204);
+    expect(again.status).toBe(204);
+    expect(await kit.store.getRecovery(GUS)).toBeNull();
+    expect((await kit.call('GET', '/account', { token: gus.token })).body.recoveryEmail).toBeNull();
+    expect(finish.status).toBe(400);
+    expect((await kit.call('DELETE', '/recovery/email')).status).toBe(401);
+
+    const bare = setup({ mailer: null, recoveryKey: null });
+    const ana = await bare.identity(ANA);
+    expect((await bare.call('DELETE', '/recovery/email', { token: ana.token })).status).toBe(204);
+  });
+
+  it('mails five confirmation codes an hour per account', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+
+    const statuses = [];
+    for (let i = 1; i <= 6; i += 1) {
+      statuses.push((await askToConfirm(kit, gus.token, `gus${i}@example.com`)).asked.status);
+    }
+
+    expect(statuses).toEqual([202, 202, 202, 202, 202, 429]);
+    expect(kit.mailer.sent).toHaveLength(5);
+  });
+
+  it('answers 502 when the provider does not take the message', async () => {
+    const failing: Mailer = {
+      async send() {
+        throw new Error('resend answered 403');
+      },
+    };
+    const kit = setup({ mailer: failing });
+    const gus = await kit.identity(GUS);
+
+    const asked = await kit.call('POST', '/recovery/email', {
+      token: gus.token,
+      body: { email: 'gus@example.com' },
+    });
+
+    expect(asked.status).toBe(502);
+    expect(asked.body).toEqual({ error: 'email not sent' });
+  });
+
+  it('reseals the new secret when the secret rotates', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+
+    const rotated = await kit.call('POST', '/account/secret', { token: gus.token });
+    const row = await kit.store.getRecovery(GUS);
+
+    expect(openSecret(kit.recoveryKey as Uint8Array, GUS, row?.secretEnc ?? '')).toBe(rotated.body.secret);
+    expect(row?.email).toBe('gus@example.com');
+  });
+
+  it('drops the address on a rotation it cannot reseal', async () => {
+    const kit = setup({ recoveryKey: null });
+    const gus = await kit.identity(GUS);
+    await kit.store.putRecovery({
+      accountId: GUS,
+      email: 'gus@example.com',
+      secretEnc: sealSecret(randomBytes(32), GUS, 'old'),
+      verifiedAt: T0,
+      updatedAt: T0,
+    });
+
+    await kit.call('POST', '/account/secret', { token: gus.token });
+
+    expect(await kit.store.getRecovery(GUS)).toBeNull();
+  });
+
+  it('goes with the account, codes and all', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+    await askToConfirm(kit, gus.token, 'next@example.com');
+    await kit.call('POST', '/recovery/start', { body: { email: 'gus@example.com' } });
+
+    await kit.call('DELETE', '/account', { token: gus.token });
+
+    expect(await kit.store.getRecovery(GUS)).toBeNull();
+    expect(await kit.store.getRecoveryByEmail('gus@example.com')).toBeNull();
+    expect(await kit.store.getRecoveryCode('verify', GUS)).toBeNull();
+    expect(await kit.store.getRecoveryCode('recover', 'gus@example.com')).toBeNull();
+  });
+
+  it('answers 503 without a mailer or a usable key, and says nothing else', async () => {
+    for (const options of [{ mailer: null }, { recoveryKey: null }, { recoveryKey: randomBytes(16) }]) {
+      const kit = setup(options);
+      const gus = await kit.identity(GUS);
+
+      const answers = [
+        await kit.call('POST', '/recovery/email', { token: gus.token, body: { email: 'gus@example.com' } }),
+        await kit.call('POST', '/recovery/email/verify', { token: gus.token, body: { code: '123456' } }),
+        await kit.call('POST', '/recovery/start', { body: { email: 'gus@example.com' } }),
+        await kit.call('POST', '/recovery/finish', { body: { email: 'gus@example.com', code: '123456' } }),
+      ];
+
+      expect(answers.map((answer) => answer.status)).toEqual([503, 503, 503, 503]);
+      expect(answers.map((answer) => answer.body)).toEqual(
+        Array.from({ length: 4 }, () => ({ error: 'email not configured' })),
+      );
+      expect(kit.mailer.sent).toEqual([]);
+    }
+  });
+
+  it('needs the account for the confirmation steps', async () => {
+    const kit = setup();
+
+    expect((await kit.call('POST', '/recovery/email', { body: { email: 'gus@example.com' } })).status).toBe(401);
+    expect((await kit.call('POST', '/recovery/email/verify', { body: { code: '123456' } })).status).toBe(401);
+  });
+});
+
+/**
+ * ADR-0050 §3–5: recovering with the email alone, and never telling anyone whether an
+ * email has an account behind it.
+ */
+describe('recovering with the email', () => {
+  it('gives back the identity, whose secret opens the account', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+
+    const started = await kit.call('POST', '/recovery/start', {
+      body: { email: ' GUS@example.com', locale: 'en' },
+    });
+    const mail = kit.mailer.sent.at(-1);
+    const finished = await kit.call('POST', '/recovery/finish', {
+      body: { email: 'gus@example.com', code: mail?.code },
+    });
+    const token = `${finished.body.id}.${finished.body.secret}`;
+    const reused = await kit.call('POST', '/recovery/finish', {
+      body: { email: 'gus@example.com', code: mail?.code },
+    });
+
+    expect(started.status).toBe(202);
+    expect(started.body).toEqual({ sent: true });
+    expect(mail).toEqual(expect.objectContaining({ to: 'gus@example.com', purpose: 'recover', locale: 'en' }));
+    expect(finished.status).toBe(200);
+    expect(finished.body).toEqual({ id: GUS, secret: gus.token.slice(GUS.length + 1) });
+    expect((await kit.call('GET', '/account', { token })).status).toBe(200);
+    // A code is good once.
+    expect(reused.status).toBe(400);
+  });
+
+  it('gives back the rotated secret after a restore', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+    const rotated = await kit.call('POST', '/account/secret', { token: gus.token });
+
+    await kit.call('POST', '/recovery/start', { body: { email: 'gus@example.com' } });
+    const finished = await kit.call('POST', '/recovery/finish', {
+      body: { email: 'gus@example.com', code: kit.mailer.sent.at(-1)?.code },
+    });
+
+    expect(finished.body.secret).toBe(rotated.body.secret);
+    expect((await kit.call('GET', '/account', { token: `${GUS}.${finished.body.secret}` })).status).toBe(200);
+  });
+
+  it('answers an email nobody has exactly like a wrong code, all the way to the store', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+    const mailed = kit.mailer.sent.length;
+    const calls = traceStore(kit.store);
+
+    /** Start, then six tries with digits that are not the code, then one after expiry. */
+    const walk = async (email: string, wrong: string) => {
+      calls.length = 0;
+      const started = await kit.call('POST', '/recovery/start', { body: { email } });
+      const startPath = [...calls];
+      const answers = [];
+      const paths = [];
+      for (let i = 0; i < 6; i += 1) {
+        calls.length = 0;
+        answers.push(await kit.call('POST', '/recovery/finish', { body: { email, code: wrong } }));
+        paths.push([...calls]);
+      }
+      kit.wait(10 * MINUTE_MS);
+      answers.push(await kit.call('POST', '/recovery/finish', { body: { email, code: wrong } }));
+      return { started, startPath, answers, paths };
+    };
+
+    const known = await walk('gus@example.com', '000000');
+    const knownCode = kit.mailer.sent.at(-1)?.code ?? '';
+    // The known walk must not guess right by accident.
+    const unknown = await walk('nobody@example.com', knownCode === '000000' ? '000001' : '000000');
+
+    expect(knownCode).not.toBe('000000');
+    expect(known.started.status).toBe(202);
+    expect(unknown.started.body).toEqual(known.started.body);
+    expect(unknown.started.status).toBe(known.started.status);
+    // Only the known address got a message.
+    expect(kit.mailer.sent).toHaveLength(mailed + 1);
+    // Same answers, same bodies: five wrong, one burned, one expired.
+    expect(known.answers.map((answer) => answer.status)).toEqual([400, 400, 400, 400, 400, 429, 410]);
+    expect(unknown.answers.map((answer) => answer.status)).toEqual(known.answers.map((answer) => answer.status));
+    expect(unknown.answers.map((answer) => answer.body)).toEqual(known.answers.map((answer) => answer.body));
+    // And the same path through the store, which is what makes the time comparable.
+    expect(unknown.startPath).toEqual(known.startPath);
+    expect(unknown.paths).toEqual(known.paths);
+  });
+
+  it('answers wrong code for an email never asked about, known or not', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+
+    const known = await kit.call('POST', '/recovery/finish', { body: { email: 'gus@example.com', code: '123456' } });
+    const unknown = await kit.call('POST', '/recovery/finish', { body: { email: 'no@example.com', code: '123456' } });
+    const malformed = await kit.call('POST', '/recovery/finish', { body: { email: 'gus@example.com', code: '12' } });
+
+    expect([known.status, unknown.status, malformed.status]).toEqual([400, 400, 400]);
+    expect([known.body, unknown.body, malformed.body]).toEqual(
+      Array.from({ length: 3 }, () => ({ error: 'wrong code' })),
+    );
+  });
+
+  it('refuses a code for an address that moved to another account', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    const ana = await kit.identity(ANA);
+    await confirmEmail(kit, gus.token, 'shared@example.com');
+    await kit.call('POST', '/recovery/start', { body: { email: 'shared@example.com' } });
+    const code = kit.mailer.sent.at(-1)?.code;
+    await confirmEmail(kit, ana.token, 'shared@example.com');
+
+    const finished = await kit.call('POST', '/recovery/finish', { body: { email: 'shared@example.com', code } });
+
+    expect(finished.status).toBe(400);
+  });
+
+  it('says so when the sealed copy does not open, and gives nothing', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+    const row = await kit.store.getRecovery(GUS);
+    if (row !== null) {
+      // Sealed under another RECOVERY_KEY than the one the server runs with.
+      await kit.store.putRecovery({ ...row, secretEnc: sealSecret(randomBytes(32), GUS, 'whatever') });
+    }
+    await kit.call('POST', '/recovery/start', { body: { email: 'gus@example.com' } });
+
+    const finished = await kit.call('POST', '/recovery/finish', {
+      body: { email: 'gus@example.com', code: kit.mailer.sent.at(-1)?.code },
+    });
+
+    expect(finished.status).toBe(500);
+    expect(finished.body).toEqual({ error: 'escrow unreadable' });
+  });
+
+  it('takes ten requests an hour from one address and five for one email', async () => {
+    const kit = setup();
+
+    const byAddress = [];
+    for (let i = 1; i <= 11; i += 1) {
+      byAddress.push((await kit.call('POST', '/recovery/start', { body: { email: `p${i}@example.com` } })).status);
+    }
+    const byEmail = [];
+    for (let i = 1; i <= 6; i += 1) {
+      byEmail.push(
+        (
+          await kit.call('POST', '/recovery/start', {
+            body: { email: 'same@example.com' },
+            headers: { 'x-forwarded-for': `10.0.0.${i}` },
+          })
+        ).status,
+      );
+    }
+    const malformed = await kit.call('POST', '/recovery/start', {
+      body: { email: 'nope' },
+      headers: { 'x-forwarded-for': '10.0.1.1' },
+    });
+
+    expect(byAddress).toEqual([...Array.from({ length: 10 }, () => 202), 429]);
+    expect(byEmail).toEqual([202, 202, 202, 202, 202, 429]);
+    expect(malformed.status).toBe(400);
+    expect(malformed.body).toEqual({ error: 'bad email' });
+  });
+
+  it('mails one address ten times a day at most, whichever route asks', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await confirmEmail(kit, gus.token, 'gus@example.com');
+
+    const statuses = [];
+    for (let hour = 0; hour < 3; hour += 1) {
+      for (let i = 0; i < 4; i += 1) {
+        statuses.push(
+          (
+            await kit.call('POST', '/recovery/start', {
+              body: { email: 'gus@example.com' },
+              headers: { 'x-forwarded-for': `10.0.${hour}.${i}` },
+            })
+          ).status,
+        );
+      }
+      kit.wait(HOUR_MS);
+    }
+
+    // One confirmation and nine recoveries make ten.
+    expect(statuses.filter((status) => status === 202)).toHaveLength(9);
+    expect(statuses.slice(9)).toEqual([429, 429, 429]);
+  });
+
+  it('takes thirty tries an hour from one address', async () => {
+    const kit = setup();
+
+    const statuses = [];
+    for (let i = 0; i < 31; i += 1) {
+      statuses.push(
+        (await kit.call('POST', '/recovery/finish', { body: { email: `p${i}@example.com`, code: '123456' } })).status,
+      );
+    }
+
+    expect(statuses.slice(0, 30)).toEqual(Array.from({ length: 30 }, () => 400));
+    expect(statuses[30]).toBe(429);
+  });
+});
+
+/** ADR-0050 §9: the welcome screen of a second device asks whether this Vesper is in use. */
+describe('a Vesper found on a second device', () => {
+  it('tells when it was last seen before this call, and on which system', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+    await kit.call('POST', '/device', { token: gus.token, body: { platform: 'ios' } });
+    const born = (await kit.store.getAccount(GUS))?.lastSeenAt;
+
+    kit.wait(3 * HOUR_MS);
+    // The second device only reads: its questions are not the other device's use.
+    await kit.call('GET', '/backup/meta', { token: gus.token });
+    const first = await kit.call('GET', '/account', { token: gus.token });
+    const second = await kit.call('GET', '/account', { token: gus.token });
+
+    expect(first.body).toEqual(
+      expect.objectContaining({ lastSeenAt: born, platform: 'ios', recoveryEmail: null }),
+    );
+    expect(second.body.lastSeenAt).toBe(born);
+
+    // Doing something is use: the next reader sees it.
+    await kit.call('POST', '/sync', { token: gus.token, body: { since: 0 } });
+    const third = await kit.call('GET', '/account', { token: gus.token });
+    expect(third.body.lastSeenAt).toBeGreaterThanOrEqual((born ?? 0) + 3 * HOUR_MS);
+  });
+
+  it('answers null for a system the phone never reported', async () => {
+    const kit = setup();
+    const gus = await kit.identity(GUS);
+
+    const me = await kit.call('GET', '/account', { token: gus.token });
+
+    expect(me.body.platform).toBeNull();
+    expect(me.body.lastSeenAt).toEqual(expect.any(Number));
   });
 });

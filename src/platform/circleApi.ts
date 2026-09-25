@@ -218,6 +218,16 @@ export type RemoteAccount = {
   handle: string | null;
   inviteCode: string | null;
   createdAt: number | null;
+  /**
+   * The last time the server saw this account **before** this very request (ADR-0050
+   * §9): what tells a Vesper still in use on another device from one left behind. Null
+   * when it was never seen, or from a server deployed before the field existed.
+   */
+  lastSeenAt: number | null;
+  /** The platform of the last `POST /device`. Null when it never said. */
+  platform: 'ios' | 'android' | null;
+  /** The verified recovery email (ADR-0050 §1), or null when there is none. */
+  recoveryEmail: string | null;
 };
 
 /**
@@ -559,6 +569,9 @@ export function readAccount(value: unknown, id: string): RemoteAccount {
     handle: str(body.handle),
     inviteCode: str(body.inviteCode),
     createdAt: num(body.createdAt),
+    lastSeenAt: num(body.lastSeenAt),
+    platform: body.platform === 'ios' || body.platform === 'android' ? body.platform : null,
+    recoveryEmail: str(body.recoveryEmail),
   };
 }
 

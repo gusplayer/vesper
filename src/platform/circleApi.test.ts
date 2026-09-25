@@ -894,7 +894,16 @@ describe('the identity calls (ADR-0048)', () => {
     expect(call.headers.Authorization).toBe(`Bearer ${ID}.a-secret`);
     expect(result).toEqual({
       ok: true,
-      value: { id: ID, name: null, handle: null, inviteCode: null, createdAt: 7 },
+      value: {
+        id: ID,
+        name: null,
+        handle: null,
+        inviteCode: null,
+        createdAt: 7,
+        lastSeenAt: null,
+        platform: null,
+        recoveryEmail: null,
+      },
     });
     expect(readAccount({ name: 'Gus', handle: 'gus', inviteCode: 'ABC234' }, ID)).toEqual({
       id: ID,
@@ -902,6 +911,21 @@ describe('the identity calls (ADR-0048)', () => {
       handle: 'gus',
       inviteCode: 'ABC234',
       createdAt: null,
+      lastSeenAt: null,
+      platform: null,
+      recoveryEmail: null,
+    });
+  });
+
+  it('reads when the account was last seen, from where, and its recovery email (ADR-0050)', () => {
+    expect(
+      readAccount({ id: ID, lastSeenAt: 1_700, platform: 'ios', recoveryEmail: 'gus@example.com' }, ID),
+    ).toMatchObject({ lastSeenAt: 1_700, platform: 'ios', recoveryEmail: 'gus@example.com' });
+    // Anything unshaped reads as never set, field by field.
+    expect(readAccount({ id: ID, lastSeenAt: '1700', platform: 'web', recoveryEmail: '' }, ID)).toMatchObject({
+      lastSeenAt: null,
+      platform: null,
+      recoveryEmail: null,
     });
   });
 

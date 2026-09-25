@@ -11,12 +11,19 @@ resolución de una hora), la plataforma y la versión de la app. También guarda
 respaldo por cuenta**: la base del teléfono cifrada en el teléfono con una llave derivada
 del secreto. El servidor recibe bytes que no puede leer y no intenta mirarlos.
 
+Desde el ADR-0050, de quien lo activa guarda además **un correo de recuperación** y una
+copia de su secreto cifrada con `RECOVERY_KEY`, una llave que no vive en la base. Es lo
+único que el servidor puede devolver: con el correo y un código, el secreto (abajo, "El
+correo de recuperación").
+
 ## Correrlo en local
 
 ```sh
 npm install
-npm run dev          # sin DATABASE_URL: todo en memoria, los push se registran y no salen
-npm test             # 89 tests: dueño de la fila, cursor, código, identidad, respaldo y topes
+npm run dev          # sin DATABASE_URL: todo en memoria, los push se registran y no salen,
+                     # y los códigos de recuperación se imprimen en la consola
+npm test             # 138 tests: dueño de la fila, cursor, código, identidad, respaldo,
+                     # correo de recuperación y topes
 npm run typecheck
 ```
 
@@ -31,6 +38,15 @@ correrlo dos veces no rompe nada) y los push salen de verdad por Expo.
 | `DATABASE_URL` | Sí en producción | Sin ella el servidor corre en memoria y lo dice al arrancar. |
 | `PORT` | No | `8787` por defecto. Railway la pone sola. |
 | `DATABASE_CA_CERT` | No | El PEM de una CA privada, si algún día la base está detrás de una. **Neon no la necesita**: presenta un certificado de una CA pública (ISRG / Let's Encrypt) que Node ya trae. Si se define, se usa como único ancla de confianza. |
+| `RESEND_API_KEY` | Para el correo de recuperación | La llave de la API de Resend, con permiso de envío. Sin ella las rutas `/recovery` responden `503 email not configured`. |
+| `RECOVERY_FROM` | Para el correo de recuperación | El remitente, en una dirección de un dominio **verificado en Resend** (un `*.vercel.app` no sirve): `Vesper <codigo@tudominio.com>`. Sin ella, `503`. |
+| `RECOVERY_KEY` | Para el correo de recuperación | 32 bytes en base64: la llave con la que se cifra la copia de cada secreto y con la que se firman los códigos. Se genera una vez con `openssl rand -base64 32`. Sin ella, o con otro largo, `503`. **No se puede perder ni cambiar**: sin la misma llave, las copias no se abren y todo el que tenía correo tiene que confirmarlo de nuevo. Vive en las variables de Railway y en ningún otro lado del repositorio. |
+
+Sin `DATABASE_URL` (en local) no hacen falta las tres: el correo se reemplaza por uno que
+imprime `recovery code for <correo>: <código>` en la consola, y la llave es aleatoria y
+dura lo que dura el proceso, como todas las filas. Con `DATABASE_URL`, el arranque dice
+en una línea si el correo está activo o qué variable falta, sin imprimir nunca un valor:
+`email recovery off (RESEND_API_KEY, RECOVERY_FROM not set): /recovery answers 503`.
 
 La conexión a Postgres **verifica el certificado y el nombre del host** (`ssl: true` llega
 tal cual a `tls.connect`). Nunca `rejectUnauthorized: false`: eso deja el tráfico cifrado
@@ -80,18 +96,35 @@ corrido dos veces encima.
 No hay variables nuevas obligatorias. `DATABASE_CA_CERT` existe pero se deja sin definir
 con Neon.
 
+### Qué hace el próximo despliegue (ADR-0050)
+
+Nada a mano en la base. El arranque crea dos tablas nuevas con `create table if not
+exists`, las dos con `on delete cascade` hacia `accounts`, y dos índices con `create
+index if not exists`; no toca ninguna tabla que ya exista:
+
+- `recovery`: una fila por cuenta que confirmó un correo. `email` es `unique`.
+- `recovery_codes`: los códigos vivos, con clave `(purpose, subject)`.
+
+Probado contra un Postgres 17 local: el esquema desplegado con una cuenta adentro, y el
+nuevo corrido dos veces encima.
+
+Lo que sí hay que hacer, en las variables del servicio en Railway y antes o después del
+despliegue: `RESEND_API_KEY`, `RECOVERY_FROM` y `RECOVERY_KEY`. Mientras falte alguna,
+el servidor arranca igual y las rutas `/recovery` responden `503`, que la app muestra
+como "todavía no está disponible".
+
 ## La API, en corto
 
-Todo menos `POST /account` y `GET /health` necesita
-`Authorization: Bearer <id>.<secreto>`.
+Todo menos `POST /account`, `GET /health`, `POST /recovery/start` y
+`POST /recovery/finish` necesita `Authorization: Bearer <id>.<secreto>`.
 
 | Verbo | Ruta | Qué hace |
 |---|---|---|
 | GET | `/health` | Responde `{"ok":true}`. Es el healthcheck de Railway. |
 | POST | `/account` | Crea la cuenta (el teléfono elige el id, que es un UUID v7; el servidor entrega el secreto **una sola vez**) o actualiza nombre, alias y código de invitación. Sin `inviteCode` en el cuerpo, el código que ya tenía se queda como está; con `null`, lo suelta. Con `{ id }` solo, sin `Authorization`, nace una identidad sin círculo: `201 { id, secret, handle: null }` (ADR-0048). Nombre y alias van juntos o no van (uno solo es `400`), y un código sin ellos también es `400`. Con el secreto, el mismo cuerpo `{ id }` responde `200 { id, handle }` sin escribir nada, y `{ id, name, handle }` reclama el perfil del círculo de una identidad. |
-| GET | `/account` | El perfil propio (nombre, alias, código, zona, interruptor de empujones), para un teléfono que acaba de restaurar con la clave de respaldo. Nunca el hash del secreto ni el token de push (ADR-0048). |
-| POST | `/account/secret` | Rota el secreto: entrega uno nuevo **una sola vez**, el viejo deja de servir y el token de push se borra, porque apunta al teléfono anterior. Se llama al restaurar (ADR-0048). 10 por hora por cuenta. |
-| DELETE | `/account` | Borra la cuenta y todas sus filas, el respaldo incluido. |
+| GET | `/account` | El perfil propio (nombre, alias, código, zona, interruptor de empujones), para un teléfono que acaba de restaurar con la clave de respaldo. Nunca el hash del secreto ni el token de push (ADR-0048). Además `lastSeenAt` (la última vez que se vio la cuenta **antes** de esta petición, con resolución de una hora, o null), `platform` (`ios`, `android` o null) y `recoveryEmail` (el correo confirmado o null): con eso la bienvenida de un segundo dispositivo sabe si el Vesper que encontró sigue en uso (ADR-0050 §9). |
+| POST | `/account/secret` | Rota el secreto: entrega uno nuevo **una sola vez**, el viejo deja de servir y el token de push se borra, porque apunta al teléfono anterior. Se llama al restaurar (ADR-0048). Si la cuenta tiene correo de recuperación, vuelve a cifrar la copia con el secreto nuevo; si el servidor no tiene `RECOVERY_KEY`, borra el correo, porque una copia de un secreto muerto es peor que ninguna. 10 por hora por cuenta. |
+| DELETE | `/account` | Borra la cuenta y todas sus filas, el respaldo y el correo de recuperación incluidos. |
 | POST | `/device` | Token de push, zona horaria, interruptor de empujones, `platform` (`ios` o `android`) y `appVersion` (1 a 32 caracteres ASCII imprimibles). Todo es opcional y **lo que no viene se queda como estaba**; `pushToken: null` es lo que retira el token. |
 | PUT | `/backup` | Sube el respaldo cifrado: bytes crudos (`application/octet-stream`), hasta 5 MB (`413 backup too large`, primero por `Content-Length` y después contando los bytes). Exige `X-Backup-Format` y `X-Backup-Schema` (enteros positivos) y `X-Backup-Platform` (`ios` o `android`); sin ellos, o con el cuerpo vacío, `400`. Reemplaza el anterior y responde `{ updatedAt, size }` (ADR-0048). |
 | GET | `/backup` | Los bytes tal como llegaron, con `X-Backup-Format`, `X-Backup-Schema`, `X-Backup-Platform` y `X-Backup-Updated-At`. `404 no backup` si no hay. |
@@ -102,6 +135,11 @@ Todo menos `POST /account` y `GET /health` necesita
 | POST | `/challenge/join` | Entra a un reto de alguien de tu círculo. |
 | POST | `/link/end` | Termina el vínculo con `memberId` en los dos sentidos, sea cual sea su estado (Rechazar, Quitar), o con todos si el cuerpo trae `everyone: true` (Salir del círculo). Cada uno sale de los retos que hizo el otro. Responde 200 aunque no hubiera vínculo; un 404 solo puede venir de un servidor sin esta ruta (ADR-0049). |
 | POST | `/challenge/leave` | Sale de un reto: el llamante deja de ser participante, nadie lo ve en él ni puede empujarlo en él. Responde 200 aunque ya hubiera salido (ADR-0049). |
+| POST | `/recovery/email` | `{ email, locale }` → `202 { sent: true }`: manda un código de seis dígitos a ese correo para confirmarlo. `locale` es `es` o `en` (otro valor, español). `400 bad email`; `502 email not sent` si Resend no tomó el mensaje. 5 por hora por cuenta (ADR-0050). |
+| POST | `/recovery/email/verify` | `{ code }` → `200 { email }`. Guarda el correo como confirmado y una copia cifrada del secreto de **esta misma petición** (el de su `Authorization`). Si otra cuenta tenía ese correo, lo pierde. `400 wrong code`, `410 code expired`, `429 too many attempts` después de cinco equivocados. |
+| DELETE | `/recovery/email` | Borra el correo, la copia del secreto y los códigos vivos. `204` haya o no. Funciona aunque el correo no esté configurado: quitar un dato propio no espera a un proveedor. |
+| POST | `/recovery/start` | Sin `Authorization`. `{ email, locale }` → **siempre** `202 { sent: true }`, tenga o no una cuenta ese correo; el mensaje sale solo si es un correo confirmado. `400 bad email` solo por la forma. |
+| POST | `/recovery/finish` | Sin `Authorization`. `{ email, code }` → `200 { id, secret }`, el secreto con el que el teléfono abre el respaldo y sigue la restauración de siempre. `400 wrong code` para un código equivocado **y** para un correo que nadie tiene; `410 code expired`; `429 too many attempts`. |
 | POST | `/sync` | Sube lo que el llamante posee y baja lo que cambió en su círculo desde `since`. Devuelve `now` como próximo cursor y `rejected` con lo que no pasó las reglas. Con `restore: true` agrega `own.marks`: todas las marcas propias en los retos del llamante, sin mirar el cursor (ADR-0048). |
 
 `/sync` devuelve además `ended`: los ids de las personas cuyo vínculo con el llamante
@@ -188,9 +226,48 @@ duplican, y ese día se mueven a Postgres. No se disfrazan de distribuidos.
 | `POST /account/secret` | 10 por cuenta | Un teléfono nuevo rota una vez, al restaurar. |
 | `PUT /backup` | 30 por cuenta | El teléfono sube al cerrar una sesión y como mucho una vez al día; cada subida puede pesar 5 MB. |
 | `GET /backup` | 30 por cuenta | Un teléfono nuevo baja una vez, dos si falla el descifrado; son 5 MB por llamada. `GET /backup/meta` no tiene tope propio: no trae bytes. |
+| `POST /recovery/email` | 5 por cuenta | Una persona escribe un correo, dos si se equivocó. Se cuenta después de revisar la forma: un correo mal escrito no gasta. |
+| `POST /recovery/start` | 10 por dirección, 5 por correo | Nadie inició sesión, así que se cuenta por dirección y por el correo pedido, exista o no, para que el tope no diga cuál existe. |
+| `POST /recovery/finish` | 30 por dirección | Cada código ya muere a los cinco intentos; esto es una dirección probando muchos correos. |
+| Correos a una misma dirección | 10 por día | Sumando las dos rutas que mandan. Vesper no sirve para llenarle el buzón a nadie, y limita a diez códigos por día las adivinanzas sobre un correo. |
 | Push de una persona a otra | 5 por par | La fila del empujón siempre se guarda; lo que tiene presupuesto es el push. Sin esto, resincronizar el mismo empujón despierta el teléfono ajeno una y otra vez. |
 
-Un tope que se pasa responde `429` con `Retry-After`.
+Un tope que se pasa responde `429` con `Retry-After`. Un código quemado por intentos
+responde `429 too many attempts`, sin `Retry-After`: lo que sirve ahí es pedir otro.
+
+## El correo de recuperación
+
+El ADR-0050 acepta el precio del punto 8 del ADR-0048: para que un correo solo baste, el
+servidor tiene que poder devolver el secreto. Lo hace así:
+
+- **La copia del secreto** se cifra con AES-256-GCM, con `RECOVERY_KEY` como llave y el
+  id de la cuenta como dato autenticado, y se guarda como base64(iv | cifrado | etiqueta).
+  Una copia de la base sola no abre nada, y una copia movida a la fila de otra cuenta
+  tampoco. Se toma del `Authorization` de la petición que confirma el correo, y se vuelve
+  a cifrar cada vez que el secreto rota.
+- **Los códigos** son seis dígitos de `crypto.randomInt`, duran diez minutos y aguantan
+  cinco intentos equivocados; el sexto responde `429` y el código queda quemado hasta que
+  vence o se pide otro. Hay uno vivo por `(propósito, sujeto)` y uno nuevo reemplaza al
+  anterior. Se guardan como HMAC-SHA256 con una llave derivada de `RECOVERY_KEY` y con el
+  propósito y el sujeto adentro: seis dígitos son un millón de valores, y un hash sin
+  llave se revierte en un segundo con la tabla en la mano. El intento se cuenta en la
+  misma sentencia que revisa el tope, así que cinco adivinanzas en paralelo cuentan
+  cinco.
+- **Nada dice si un correo existe.** `/recovery/start` escribe una fila de código para
+  cualquier correo que pida, exista o no una cuenta con él (en ese caso con `account_id`
+  en null y sin mandar nada), y no espera a Resend para responder. Así `/recovery/finish`
+  recorre el mismo camino para un correo conocido y uno desconocido: cinco `400`, un
+  `429`, y `410` cuando vence, con los mismos cuerpos y las mismas consultas a la base.
+  Los códigos vencidos se borran un día después, cuando alguien pide uno nuevo.
+- **Un correo, una cuenta.** `recovery.email` es `unique`, y confirmar un correo que ya
+  usa otra cuenta se lo quita a esa, dentro de una transacción.
+- **El mensaje** es solo texto, en español o en inglés según pida el teléfono: el código,
+  "Vence en 10 minutos." y "Si no lo pediste, ignora este correo." Sin HTML, así que sin
+  píxel de seguimiento, y sin enlaces.
+
+Si alguna vez `RECOVERY_KEY` cambia, `/recovery/finish` responde `500 escrow unreadable`
+con el código correcto y el log lo dice; la persona tiene que confirmar su correo de
+nuevo desde un teléfono que todavía tenga la clave.
 
 ## El push es silencioso, y tiene que seguir siéndolo
 

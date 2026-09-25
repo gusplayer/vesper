@@ -41,8 +41,10 @@ sigue vigente y cuál fue superado.
    iCloud, Block Store) o con la clave de respaldo. Salen del teléfono solo tres cosas: lo
    que el usuario comparte con su círculo, un **respaldo cifrado que el servidor no puede
    leer** (encendido por defecto, se apaga y se borra en Ajustes › Respaldo) y, de la
-   identidad, cuándo nació, cuándo se vio, plataforma y versión. Nada viaja en claro. No
-   agregues backend sin ADR.
+   identidad, cuándo nació, cuándo se vio, plataforma y versión. Nada viaja en claro. Si el
+   usuario lo da, un **correo de recuperación** (ADR-0050) con una copia de su clave cifrada
+   con una llave del servidor: es opcional y la pantalla dice su precio. Una identidad es un
+   dispositivo activo a la vez. No agregues backend sin ADR.
 8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un
    permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué
    no (ADR-0017). El onboarding puede pedirlos, pero nunca los exige (ADR-0026).

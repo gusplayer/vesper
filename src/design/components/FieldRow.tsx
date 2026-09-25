@@ -11,7 +11,12 @@ type FieldRowProps = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   autoFocus?: boolean;
-  keyboardType?: 'default' | 'number-pad' | 'decimal-pad';
+  keyboardType?: 'default' | 'number-pad' | 'decimal-pad' | 'email-address';
+  /**
+   * What the system may fill in: 'email' offers the person's addresses, 'one-time-code'
+   * the code that just arrived by mail or message. On iOS it sets the content type.
+   */
+  autoComplete?: 'email' | 'one-time-code' | 'off';
   /** 'none' for values kept lowercase, like a handle; 'characters' for a code. Defaults to the keyboard's sentences. */
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
   /** Off for codes, handles and the exit sentence, which must be typed as they are. */
@@ -39,6 +44,7 @@ export function FieldRow({
   placeholder,
   autoFocus = false,
   keyboardType = 'default',
+  autoComplete,
   autoCapitalize = 'sentences',
   autoCorrect,
   spellCheck,
@@ -58,6 +64,7 @@ export function FieldRow({
       placeholderTextColor={colors.inkTertiary}
       autoFocus={autoFocus}
       keyboardType={keyboardType}
+      autoComplete={autoComplete}
       autoCapitalize={autoCapitalize}
       autoCorrect={autoCorrect}
       spellCheck={spellCheck}

@@ -15,6 +15,9 @@ export const identity = {
     blockStoreNoScreenLock:
       'Con un bloqueo de pantalla, tu clave llegaría sola a un Android nuevo. Sin él, guarda tu clave de respaldo.',
     unavailable: 'Este teléfono no lleva tu clave a otro por sí solo. Guarda tu clave de respaldo.',
+    /** "Empezar aparte" (ADR-0050 §9): la clave que viaja es la del otro dispositivo. */
+    localOnly:
+      'La clave de este dispositivo no viaja sola: la que viaja es la de tu otro dispositivo. Guárdala o agrega un correo de recuperación.',
   },
   /** La bienvenida, cuando encuentra un Vesper anterior en este teléfono. */
   welcome: {
@@ -23,10 +26,34 @@ export const identity = {
     /** '25 de septiembre de 2026': la fecha llega formateada con el idioma de la app. */
     foundBackup: (when: string) => `Encontramos tu Vesper anterior, con un respaldo del ${when}.`,
     foundNoBackup: 'Encontramos tu Vesper anterior. No tiene respaldo: vuelven tu círculo y las marcas de tus retos.',
-    /** Sin red no se puede preguntar de cuándo es el respaldo. */
-    foundUnknown: 'Encontramos tu Vesper anterior. Sin conexión no se puede ver de cuándo es su respaldo.',
+    /** Sin red no se puede preguntar si sigue en uso ni de cuándo es el respaldo. */
+    foundUnknown: 'Encontramos tu Vesper anterior. Sin conexión no se puede ver si sigue en uso ni de cuándo es su respaldo.',
+    /**
+     * Usado en los últimos 30 días (ADR-0050 §9); `when` es `ago`: 'hace 2 horas'. El
+     * servidor no distingue otro dispositivo de una reinstalación de este: dice cuándo, no dónde.
+     */
+    inUse: (when: string) => `Este Vesper se usó por última vez ${when}. Si sigue en otro dispositivo, puedes traerlo aquí o empezar aparte.`,
+    /** Hermes no trae Intl.RelativeTimeFormat: el "hace" se escribe aquí, en cada idioma. */
+    ago: (count: number, unit: 'minute' | 'hour' | 'day') => {
+      if (unit === 'minute') {
+        return count === 1 ? 'hace 1 minuto' : `hace ${count} minutos`;
+      }
+      if (unit === 'hour') {
+        return count === 1 ? 'hace 1 hora' : `hace ${count} horas`;
+      }
+      return count === 1 ? 'hace 1 día' : `hace ${count} días`;
+    },
     restore: 'Restaurar',
     startFresh: 'Empezar de cero',
+    bringHere: 'Traerlo aquí',
+    bringHereQuestion: '¿Traerlo aquí?',
+    bringHereMessage:
+      'Si sigue en otro dispositivo, ese deja de respaldar y de ver tu círculo. Lo que tiene se queda en él, pero ya no se actualiza.',
+    bringHereConfirm: 'Traerlo aquí',
+    /** Una identidad propia para este dispositivo, sin borrar nada. */
+    startApart: 'Empezar aparte',
+    apartDone:
+      'Este dispositivo tiene su propio Vesper y el otro sigue igual. Su clave no viaja sola: guárdala o agrega un correo en Ajustes › Respaldo.',
     haveKey: 'Tengo una clave',
     freshQuestion: '¿Empezar de cero?',
     freshMessage:
@@ -46,6 +73,53 @@ export const identity = {
     /** Desde la app, no desde la bienvenida: lo que hay aquí se reemplaza. */
     replaces: 'Restaurar reemplaza lo que hay en este teléfono por lo de esa clave.',
     restore: 'Restaurar',
+    /** La fila hacia restore/email (ADR-0050 §3). */
+    emailRow: 'Recuperar con mi correo',
+    emailHint: 'Si agregaste un correo de recuperación, te llega un código y no necesitas la clave.',
+  },
+  /** restore/email: recuperar con el correo y un código (ADR-0050 §3). */
+  email: {
+    title: 'Recuperar con tu correo',
+    body: 'Escribe el correo de recuperación que confirmaste en Vesper. Te llega un código de seis dígitos.',
+    emailLabel: 'Correo',
+    emailPlaceholder: 'tu@correo.com',
+    send: 'Enviar código',
+    sending: 'Enviando…',
+    /** Nunca dice si el correo existe (ADR-0050 §4). */
+    sent: (email: string) => `Si ${email} tiene un Vesper, te llegó un código. Dura diez minutos.`,
+    codeLabel: 'Código',
+    codePlaceholder: '123456',
+    recover: 'Recuperar',
+    recovering: 'Comprobando…',
+    otherEmail: 'Usar otro correo',
+    replaces: 'Recuperar reemplaza lo que hay en este teléfono por lo de ese Vesper.',
+  },
+  /**
+   * Por qué no se pudo, con el correo de recuperación: al confirmarlo en Ajustes y al
+   * recuperar. Un código equivocado y un correo sin Vesper dicen lo mismo (ADR-0050 §4).
+   */
+  recoveryErrors: {
+    badEmail: 'Ese correo no parece completo. Revisa que tenga una @ y un dominio.',
+    wrongCode: 'Ese código no sirve. Revisa el correo y los seis dígitos, o pide uno nuevo.',
+    codeExpired: 'Ese código venció: dura diez minutos. Pide uno nuevo.',
+    /** 429 del tope por dirección o por correo: esperar sí sirve. */
+    tooMany: 'Demasiadas solicitudes seguidas. Espera un rato y vuelve a intentarlo.',
+    /** 429 'too many attempts': cinco códigos equivocados; ese código ya no sirve. */
+    tooManyAttempts: 'Demasiados intentos con ese código. Pide uno nuevo.',
+    /** 502 'email not sent': el proveedor de correo no lo aceptó. */
+    notSent: 'No se pudo enviar el correo. Prueba de nuevo más tarde.',
+    /** 500 'escrow unreadable': el servidor ya no puede abrir su copia de la clave. */
+    escrowUnreadable: 'Tu correo ya no puede devolverte la clave. Usa tu clave de respaldo en "Tengo una clave".',
+    offline: 'Sin conexión. No se envió nada: inténtalo cuando haya red.',
+    /** 503 'email not configured': el servidor todavía no tiene cómo enviar correos (regla 8). */
+    notConfigured: 'El correo de recuperación todavía no está disponible. Tu clave de respaldo sigue funcionando.',
+    noIdentity:
+      'Este teléfono todavía no está registrado en el servidor. Pasa solo, la próxima vez que haya conexión.',
+    noKey: 'Este teléfono no tiene su clave, así que no puede agregar un correo. Pégala en "Tengo una clave".',
+    /** 401 con la clave de este dispositivo (ADR-0050 §10). */
+    keyRejected:
+      'La clave de este dispositivo dejó de servir: tu Vesper se trasladó a otro dispositivo o su clave cambió.',
+    server: 'El servidor no respondió. Inténtalo de nuevo en un rato.',
   },
   /** restore/restoring: lo que pasó, en palabras. */
   restoring: {

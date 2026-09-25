@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 
 import {
   eraseIdentity,
+  noteKeyRejected,
   readIdentity,
   readIdentityPingAt,
   useIdentityStore,
@@ -17,7 +18,15 @@ import { DAY, SECOND } from '../../domain/time';
 import { uuidv7 } from '../../lib/uuid';
 import { forgetLastBackup } from '../backup';
 import { isAndroid, isIos } from '../capabilities';
-import { createIdentity, deleteAccount, putDevice, rotateSecret, type ApiFailure, type Credentials } from '../circleApi';
+import {
+  createIdentity,
+  deleteAccount,
+  getAccount,
+  putDevice,
+  rotateSecret,
+  type ApiFailure,
+  type Credentials,
+} from '../circleApi';
 import {
   clearIdentity,
   forgetIdentityPreparation,
@@ -25,6 +34,7 @@ import {
   loadIdentity,
   readStoredCredential,
   saveIdentity,
+  travellingCopyIsAnothers,
 } from '../identity';
 
 /**
@@ -73,7 +83,7 @@ export function forgetIdentitySync(): void {
 }
 
 function recordOf(id: string, patch: Partial<IdentityRecord> = {}): IdentityRecord {
-  return { id, registeredAt: null, supersedes: null, rotatePending: false, ...patch };
+  return { id, registeredAt: null, supersedes: null, rotatePending: false, localOnly: false, ...patch };
 }
 
 // --- Birth ------------------------------------------------------------------------------------
@@ -142,7 +152,7 @@ async function dropSuperseded(record: IdentityRecord, now: number): Promise<Iden
     if (!result.ok && result.failure.kind !== 'unauthorized') {
       return result.failure;
     }
-    await clearIdentity();
+    await clearIdentity(stored);
   }
   const next = { ...record, supersedes: null };
   writeIdentity(next, now);
@@ -156,13 +166,17 @@ async function rotateIfPending(record: IdentityRecord, credentials: Credentials,
   }
   const rotated = await rotateSecret(credentials);
   if (!rotated.ok) {
+    if (rotated.failure.kind === 'unauthorized') {
+      // Not this key's to rotate any more: another device took the Vesper (ADR-0050 §10).
+      noteKeyRejected(record.id);
+    }
     // The old secret still works; the next foreground tries again.
     return credentials;
   }
   // The server already forgot the old secret, so the rotation is over whether or not the
   // keychain takes the new one; a keychain that refuses leaves this call the only one
   // that can sign, and the record must not ask to rotate a secret it never kept.
-  await saveIdentity(rotated.value);
+  await saveIdentity(rotated.value, { travels: !record.localOnly });
   writeIdentity({ ...record, rotatePending: false }, now);
   return rotated.value;
 }
@@ -204,32 +218,54 @@ async function register(now: number): Promise<IdentityOutcome> {
     // foreground tries again. Nothing is shown.
     return { kind: 'failed', failure: created.failure };
   }
+  // A key another device wrote in the copy that travels stays there (ADR-0050 §9): the
+  // new identity is this device's alone, whether the user chose "Empezar aparte" or this
+  // phone was left behind and started over. Read before the save below changes the
+  // local copy it is compared with.
+  const localOnly = record.localOnly || (await travellingCopyIsAnothers());
   // The key first, the note after (ADR-0044 §1): the other order would leave an identity
   // recorded as registered that this phone can never sign for.
-  if (!(await saveIdentity(created.value))) {
+  if (!(await saveIdentity(created.value, { travels: !localOnly }))) {
     return { kind: 'noKeychain' };
   }
-  writeIdentity({ ...record, registeredAt: now }, now);
+  writeIdentity({ ...record, registeredAt: now, localOnly }, now);
   return { kind: 'ok', credentials: created.value };
 }
 
 /**
  * "Empezar una identidad nueva" (Ajustes › Respaldo), for an identity recorded as
- * registered whose key never reached this phone: an Android system restore brings the
- * database back and, without a screen lock, not the secret (ADR-0048). Nothing here
- * decides that on its own — a keychain that fails one read must not cost anybody their
- * account — so the screen asks, next to "Tengo una clave".
+ * registered that this phone cannot sign for:
+ *
+ * - **Its key never reached this phone**: an Android system restore brings the database
+ *   back and, without a screen lock, not the secret (ADR-0048).
+ * - **Its key stopped working** (ADR-0050 §10): another device took the Vesper with
+ *   "Traerlo aquí", which changed the secret, or the key changed some other way. The
+ *   server answers 401, and this phone was left behind.
+ *
+ * Nothing here decides that on its own — a keychain that fails one read, or a server
+ * that answers 401 once by mistake, must not cost anybody their account — so the screen
+ * asks, next to "Tengo una clave". A key that is here is asked about again first: only
+ * the server refusing it now starts anything over.
  *
  * The data on this phone stays. A new id is reserved and registered, and the backup goes
  * out again under it. The old account cannot be deleted without its key; a circle it
- * held stays with it, and "Tengo una clave" can still bring both back.
+ * held stays with it, and "Tengo una clave" can still bring both back. When the copy
+ * that travels holds a key this phone did not write — the device that took the Vesper
+ * wrote it — the new identity keeps out of it (`register`), so that one still travels.
  */
 export function startNewIdentity(now: number): Promise<IdentityOutcome> {
   return exclusive(async () => {
     const record = readIdentity();
-    if (record !== null && (await loadIdentity()) !== null) {
-      // The key is here after all: there is nothing to start over from.
-      return register(now);
+    const current = record === null ? null : await loadIdentity();
+    if (record !== null && current !== null) {
+      const account = await getAccount(current);
+      if (account.ok) {
+        // The key works after all: there is nothing to start over from.
+        return register(now);
+      }
+      if (account.failure.kind !== 'unauthorized') {
+        return { kind: 'failed', failure: account.failure };
+      }
     }
     const fresh = uuidv7(now);
     const circle = useCircleStore.getState();
@@ -289,6 +325,9 @@ async function pingIfDue(now: number): Promise<void> {
   });
   if (result.ok) {
     writeIdentityPingAt(now);
+  } else if (result.failure.kind === 'unauthorized') {
+    // Left behind (ADR-0050 §10): Ajustes › Respaldo says so and offers the way out.
+    noteKeyRejected(credentials.id);
   }
 }
 
@@ -347,7 +386,7 @@ export async function startFresh(now: number): Promise<StartFreshOutcome> {
     if (stored !== null && stored.id !== readIdentity()?.id) {
       const result = await deleteAccount(stored);
       if (result.ok || result.failure.kind === 'unauthorized') {
-        await clearIdentity();
+        await clearIdentity(stored);
       } else {
         supersedes = stored.id;
       }
@@ -363,6 +402,24 @@ export async function startFresh(now: number): Promise<StartFreshOutcome> {
 }
 
 /**
+ * "Empezar aparte" on the welcome screen (ADR-0050 §9): the previous Vesper this device
+ * found is still in use on another one, and this device gets an identity of its own.
+ * Nothing is deleted — not that Vesper, not its key in the copy that travels — and the
+ * new key is kept only in the local copy, so the identity that travels is still the
+ * other device's. This one comes back on a new phone with its key or its email, not by
+ * itself, and Ajustes › Respaldo says so.
+ */
+export async function startApart(now: number): Promise<void> {
+  await exclusive(async () => {
+    const id = uuidv7(now);
+    useCircleStore.getState().setProfileId(id, now);
+    writeIdentity(recordOf(id, { localOnly: true }), now);
+    useIdentityStore.getState().setFound(null);
+  });
+  void ensureIdentityRegistered(now);
+}
+
+/**
  * A new identity in place of one that was deleted ("Borrar la cuenta" in Ajustes ›
  * Círculo) or whose key was lost. A new id, not the old one again: the deleted account
  * should not be linkable to the next. The circle's marker must already be gone, so the
@@ -370,7 +427,7 @@ export async function startFresh(now: number): Promise<StartFreshOutcome> {
  */
 export async function rebirthIdentity(now: number): Promise<void> {
   await exclusive(async () => {
-    await clearIdentity();
+    await clearIdentity(await loadIdentity());
     eraseIdentity();
     const id = uuidv7(now);
     useCircleStore.getState().setProfileId(id, now);
@@ -405,7 +462,9 @@ export function deleteIdentityForReset(): Promise<IdentityDeleteOutcome> {
     } else if (record !== null && record.registeredAt !== null) {
       outcome = 'orphaned';
     }
-    await clearIdentity();
+    // This identity's key, and the copy that travels only when it is that key: another
+    // device's there is not this reset's to take (ADR-0050 §9).
+    await clearIdentity(credentials);
     eraseIdentity();
     return outcome;
   });

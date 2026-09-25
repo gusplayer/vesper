@@ -10,10 +10,35 @@ import {
   secretMatches,
 } from './auth.ts';
 import { derivesFrom, normalizeInviteCode } from './invite.ts';
+import { localeOf, type Mailer } from './mailer.ts';
 import type { Push } from './push.ts';
 import { createRateLimiter } from './rateLimit.ts';
+import {
+  CODE_ATTEMPTS,
+  CODE_TTL_MS,
+  codeKey,
+  codeMatches,
+  hashCode,
+  isRecoveryKey,
+  newCode,
+  normalizeCode,
+  normalizeEmail,
+  openSecret,
+  sealSecret,
+} from './recovery.ts';
 import { ConflictError, isPlatform } from './store.ts';
-import { markSourceOf, type Account, type Challenge, type ChallengeMark, type Kudos, type Nudge, type Store, type Week } from './store.ts';
+import {
+  markSourceOf,
+  type Account,
+  type Challenge,
+  type ChallengeMark,
+  type CodePurpose,
+  type Kudos,
+  type Nudge,
+  type RecoveryCode,
+  type Store,
+  type Week,
+} from './store.ts';
 
 /**
  * The circle's API (ADR-0033). Five verbs and one sync, over rows that each have an
@@ -29,6 +54,9 @@ import { markSourceOf, type Account, type Challenge, type ChallengeMark, type Ku
  * Since ADR-0048 an account is also the person's identity, born on first launch with no
  * name and no handle. Such an account has nothing social: it is nobody's member and it
  * cannot redeem, accept or join until it claims a handle through `POST /account`.
+ *
+ * Since ADR-0050 it may also keep a recovery email, and with it a copy of the account's
+ * secret sealed under a key that is not in the database (`/recovery/*`, recovery.ts).
  */
 
 export type Deps = {
@@ -36,14 +64,35 @@ export type Deps = {
   push: Push;
   /** Injected so the tests can hold time still. */
   now: () => number;
+  /**
+   * Who sends the recovery codes (ADR-0050). Null when `RESEND_API_KEY` or
+   * `RECOVERY_FROM` is missing: every `/recovery` route that mails or reads a code then
+   * answers `503 email not configured`, and the phone says it is not available yet.
+   */
+  mailer: Mailer | null;
+  /**
+   * `RECOVERY_KEY`, 32 bytes: what seals the recovery copy of each secret and what the
+   * codes are hashed under. Null, or any other length, is the same 503. Rotating a secret
+   * needs this alone, not the mailer.
+   */
+  recoveryKey: Uint8Array | null;
 };
 
-type Authed = { account: Account };
+type Authed = {
+  account: Account;
+  /**
+   * `lastSeenAt` as it was before this request touched it (ADR-0050 §9). A phone that
+   * finds an identity in the keychain asks `GET /account` when that identity was last
+   * used; answering with the touch this very request made would always say "just now".
+   */
+  seenBefore: number | null;
+};
 
 /** node-server hands the raw request through `c.env`; nothing else uses it. */
 type Bindings = { incoming?: { socket?: { remoteAddress?: string } } };
 
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
 /**
  * The budgets, in calls per hour, per address and per account.
@@ -98,6 +147,27 @@ const LIMITS = {
    * (push.ts), and charging for it would let a silent target eat a real one's allowance.
    */
   pushPerPair: { limit: 5, windowMs: HOUR },
+  /**
+   * Codes to confirm a recovery address (ADR-0050). A person types one address, maybe
+   * twice with a typo in between.
+   */
+  recoveryEmailPerAccount: { limit: 5, windowMs: HOUR },
+  /**
+   * Asking for a code to recover. Nobody is signed in, so it is counted by address and by
+   * the email asked for — known or not, so that the budget says nothing about which.
+   */
+  recoveryStartPerIp: { limit: 10, windowMs: HOUR },
+  recoveryStartPerEmail: { limit: 5, windowMs: HOUR },
+  /**
+   * Trying a code to recover. Each code already dies after five wrong tries; this is the
+   * address trying many emails.
+   */
+  recoveryFinishPerIp: { limit: 30, windowMs: HOUR },
+  /**
+   * Every message to one mailbox, whichever route asked for it. Vesper is not a way to
+   * fill someone's inbox, and it caps guessing at ten codes a day for one email.
+   */
+  mailPerEmail: { limit: 10, windowMs: DAY },
 };
 
 /** Lengths. Nothing a caller writes reaches the database without one. */
@@ -116,6 +186,11 @@ const MAX_APP_VERSION = 32;
 const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
 /** How stale `lastSeenAt` may get before a request writes it again: one write an hour. */
 const SEEN_EVERY_MS = HOUR;
+/** How long an expired code still answers 410 before it is swept away. */
+const EXPIRED_CODE_KEPT_MS = DAY;
+
+/** The routes nobody signs in to call. Everything else needs `Authorization`. */
+const PUBLIC = new Set(['POST /account', 'POST /recovery/start', 'POST /recovery/finish']);
 
 /** 'YYYY-MM-DD', which is what both a day key and a week key are (domain/day.ts). */
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
@@ -216,6 +291,13 @@ export function createApp(deps: Deps) {
   const app = new Hono<{ Variables: Authed; Bindings: Bindings }>();
   const limiter = createRateLimiter(now);
 
+  // A key of any other length is a misconfiguration, and it answers like a missing one.
+  const recoveryKey = isRecoveryKey(deps.recoveryKey) ? deps.recoveryKey : null;
+  const recovery =
+    deps.mailer !== null && recoveryKey !== null
+      ? { mailer: deps.mailer, key: recoveryKey, codeSecret: codeKey(recoveryKey) }
+      : null;
+
   /** True when the call fits its budget. `over` turns the refusal into a 429. */
   const fits = (key: string, rule: { limit: number; windowMs: number }): boolean =>
     limiter.take(key, rule.limit, rule.windowMs);
@@ -251,21 +333,25 @@ export function createApp(deps: Deps) {
   };
 
   app.use('*', async (c, next) => {
-    if (c.req.path === '/account' && c.req.method === 'POST') {
-      return next();
-    }
-    if (c.req.path === '/health') {
+    if (PUBLIC.has(`${c.req.method} ${c.req.path}`) || c.req.path === '/health') {
       return next();
     }
     const account = await authenticate(c.req.header('Authorization'));
     if (account === null) {
       return c.json({ error: 'unauthorized' }, 401);
     }
+    c.set('seenBefore', account.lastSeenAt);
     // "When did we last see them" is the one question it answers (ADR-0048 §3), and an
     // hour is enough resolution for it: a sync every twenty seconds would otherwise be a
     // write every twenty seconds on the hottest row there is.
+    //
+    // Only what a phone does counts as use, never what it reads. A new iPad that found
+    // this identity reads `GET /backup/meta` and `GET /account` to ask whether the other
+    // device still uses it (ADR-0050 §9); counting those reads would answer "just now"
+    // about itself.
     const at = now();
-    if (account.lastSeenAt === null || at - account.lastSeenAt >= SEEN_EVERY_MS) {
+    const acts = c.req.method !== 'GET';
+    if (acts && (account.lastSeenAt === null || at - account.lastSeenAt >= SEEN_EVERY_MS)) {
       await store.touchAccount(account.id, at);
       c.set('account', { ...account, lastSeenAt: at });
     } else {
@@ -447,8 +533,9 @@ export function createApp(deps: Deps) {
    * second belongs to whichever phone registered it. A bare identity answers with name
    * and handle null, which is how the new phone knows there is no circle to rebuild.
    */
-  app.get('/account', (c) => {
+  app.get('/account', async (c) => {
     const account = c.get('account');
+    const escrow = await store.getRecovery(account.id);
     return c.json({
       id: account.id,
       name: account.name,
@@ -457,6 +544,11 @@ export function createApp(deps: Deps) {
       timeZone: account.timeZone,
       nudgesOn: account.nudgesOn,
       createdAt: account.createdAt,
+      // ADR-0050 §9: whether the Vesper found in the keychain is still in use elsewhere.
+      // The last time it was seen before this call, and on which system.
+      lastSeenAt: c.get('seenBefore'),
+      platform: account.platform,
+      recoveryEmail: escrow?.email ?? null,
     });
   });
 
@@ -479,10 +571,29 @@ export function createApp(deps: Deps) {
       pushToken: null,
       updatedAt: now(),
     });
+    // The recovery copy follows the secret (ADR-0050 §2), or it would hand back one that
+    // no longer opens anything. Without the key the new one cannot be sealed, and a copy
+    // of a dead secret is worse than none: the email goes, and Ajustes offers it again.
+    const escrow = await store.getRecovery(account.id);
+    if (escrow !== null) {
+      if (recoveryKey !== null) {
+        await store.putRecovery({
+          ...escrow,
+          secretEnc: sealSecret(recoveryKey, account.id, secret),
+          updatedAt: now(),
+        });
+      } else {
+        console.warn(`no RECOVERY_KEY: the recovery email of ${account.id} went with its old secret`);
+        await store.deleteRecovery(account.id);
+      }
+    }
     return c.json({ id: account.id, secret });
   });
 
-  /** Leaving for good: the account and every row of it, its backup too. No soft delete. */
+  /**
+   * Leaving for good: the account and every row of it, its backup and its recovery email
+   * too. No soft delete.
+   */
   app.delete('/account', async (c) => {
     await store.deleteAccount(c.get('account').id);
     return c.body(null, 204);
@@ -586,6 +697,233 @@ export function createApp(deps: Deps) {
   app.delete('/backup', async (c) => {
     await store.deleteBackup(c.get('account').id);
     return c.body(null, 204);
+  });
+
+  // --- The recovery email (ADR-0050) ----------------------------------------------------
+
+  const notConfigured = (c: Context<{ Variables: Authed; Bindings: Bindings }>) =>
+    c.json({ error: 'email not configured' }, 503);
+
+  const wrongCode = (c: Context<{ Variables: Authed; Bindings: Bindings }>) =>
+    c.json({ error: 'wrong code' }, 400);
+
+  /**
+   * One try at a code: the code as it stood if the digits were right, or why not. The
+   * attempt is spent before the digits are compared, in one step at the store, so parallel
+   * guesses each count. A code that already spent its five answers 'burned' until it
+   * expires or a new one replaces it; the right digits no longer help.
+   */
+  const tryCode = async (
+    codeSecret: Uint8Array,
+    purpose: CodePurpose,
+    subject: string,
+    typed: string,
+  ): Promise<RecoveryCode | 'wrong' | 'expired' | 'burned'> => {
+    const at = now();
+    const spent = await store.spendRecoveryAttempt(purpose, subject, CODE_ATTEMPTS);
+    if (spent === null) {
+      const code = await store.getRecoveryCode(purpose, subject);
+      if (code === null) {
+        return 'wrong';
+      }
+      return code.expiresAt <= at ? 'expired' : 'burned';
+    }
+    if (spent.expiresAt <= at) {
+      return 'expired';
+    }
+    if (!codeMatches(hashCode(codeSecret, purpose, subject, typed), spent.codeHash)) {
+      return 'wrong';
+    }
+    // Single use: of two right answers in flight, one gets it.
+    return (await store.consumeRecoveryCode(purpose, subject, spent.codeHash)) ? spent : 'wrong';
+  };
+
+  const refuseCode = (
+    c: Context<{ Variables: Authed; Bindings: Bindings }>,
+    outcome: 'wrong' | 'expired' | 'burned',
+  ) =>
+    outcome === 'expired'
+      ? c.json({ error: 'code expired' }, 410)
+      : outcome === 'burned'
+        ? c.json({ error: 'too many attempts' }, 429)
+        : wrongCode(c);
+
+  /**
+   * Ajustes › Respaldo › Correo de recuperación, step one: a code to the address, to
+   * prove the person reads it. Nothing is stored as theirs until the code comes back.
+   * This one waits for the provider, so the phone can say when a message did not leave.
+   */
+  app.post('/recovery/email', async (c) => {
+    if (recovery === null) {
+      return notConfigured(c);
+    }
+    const account = c.get('account');
+    const body: unknown = await c.req.json().catch(() => null);
+    const email = isObject(body) ? normalizeEmail(body.email) : null;
+    if (email === null || !isObject(body)) {
+      return c.json({ error: 'bad email' }, 400);
+    }
+    // After the shape: the budget counts codes asked for, and a typo caught here sends none.
+    if (!fits(`recovery:email:${account.id}`, LIMITS.recoveryEmailPerAccount)) {
+      return over(c, LIMITS.recoveryEmailPerAccount);
+    }
+    if (!fits(`mail:${email}`, LIMITS.mailPerEmail)) {
+      return over(c, LIMITS.mailPerEmail);
+    }
+    const code = newCode();
+    const at = now();
+    await store.putRecoveryCode({
+      purpose: 'verify',
+      subject: account.id,
+      accountId: account.id,
+      email,
+      codeHash: hashCode(recovery.codeSecret, 'verify', account.id, code),
+      attempts: 0,
+      expiresAt: at + CODE_TTL_MS,
+      createdAt: at,
+    });
+    try {
+      await recovery.mailer.send({ to: email, code, purpose: 'verify', locale: localeOf(body.locale) });
+    } catch (error) {
+      console.warn(`recovery mail failed: ${error instanceof Error ? error.message : 'unknown'}`);
+      return c.json({ error: 'email not sent' }, 502);
+    }
+    return c.json({ sent: true }, 202);
+  });
+
+  /**
+   * Step two: the code back. The address becomes the account's, and the secret this very
+   * request authenticated with is sealed beside it (ADR-0050 §2). If another account had
+   * the address, it loses it: whoever confirms it controls the mailbox (§6).
+   */
+  app.post('/recovery/email/verify', async (c) => {
+    if (recovery === null) {
+      return notConfigured(c);
+    }
+    const account = c.get('account');
+    const body: unknown = await c.req.json().catch(() => null);
+    const typed = isObject(body) ? normalizeCode(body.code) : null;
+    if (typed === null) {
+      return wrongCode(c);
+    }
+    const outcome = await tryCode(recovery.codeSecret, 'verify', account.id, typed);
+    if (typeof outcome === 'string') {
+      return refuseCode(c, outcome);
+    }
+    // The middleware authenticated with exactly this header.
+    const credentials = credentialsFrom(c.req.header('Authorization'));
+    if (credentials === null) {
+      return c.json({ error: 'unauthorized' }, 401);
+    }
+    const at = now();
+    await store.putRecovery({
+      accountId: account.id,
+      email: outcome.email,
+      secretEnc: sealSecret(recovery.key, account.id, credentials.secret),
+      verifiedAt: at,
+      updatedAt: at,
+    });
+    return c.json({ email: outcome.email });
+  });
+
+  /**
+   * Removing it (ADR-0050 §1): the address, the sealed secret and any code in flight.
+   * 204 whether or not there was one. It works without the mail configured: taking your
+   * data back never waits on a provider.
+   */
+  app.delete('/recovery/email', async (c) => {
+    await store.deleteRecovery(c.get('account').id);
+    return c.body(null, 204);
+  });
+
+  /**
+   * "Recuperar con mi correo", step one, with nobody signed in. **It answers the same
+   * whether or not an account has the email** (ADR-0050 §4): a code row is written either
+   * way, so the next step fails alike, and the message goes out only for a verified
+   * address — without waiting for it, so the answer takes the same time too.
+   */
+  app.post('/recovery/start', async (c) => {
+    if (recovery === null) {
+      return notConfigured(c);
+    }
+    if (!fits(`recovery:start:ip:${clientIp(c)}`, LIMITS.recoveryStartPerIp)) {
+      return over(c, LIMITS.recoveryStartPerIp);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const email = isObject(body) ? normalizeEmail(body.email) : null;
+    if (email === null || !isObject(body)) {
+      return c.json({ error: 'bad email' }, 400);
+    }
+    if (!fits(`recovery:start:email:${email}`, LIMITS.recoveryStartPerEmail)) {
+      return over(c, LIMITS.recoveryStartPerEmail);
+    }
+    if (!fits(`mail:${email}`, LIMITS.mailPerEmail)) {
+      return over(c, LIMITS.mailPerEmail);
+    }
+    const at = now();
+    await store.deleteExpiredRecoveryCodes(at - EXPIRED_CODE_KEPT_MS);
+    const holder = await store.getRecoveryByEmail(email);
+    const code = newCode();
+    await store.putRecoveryCode({
+      purpose: 'recover',
+      subject: email,
+      accountId: holder?.accountId ?? null,
+      email,
+      codeHash: hashCode(recovery.codeSecret, 'recover', email, code),
+      attempts: 0,
+      expiresAt: at + CODE_TTL_MS,
+      createdAt: at,
+    });
+    if (holder !== null) {
+      void recovery.mailer
+        .send({ to: email, code, purpose: 'recover', locale: localeOf(body.locale) })
+        .catch((error: unknown) => {
+          console.warn(`recovery mail failed: ${error instanceof Error ? error.message : 'unknown'}`);
+        });
+    }
+    return c.json({ sent: true }, 202);
+  });
+
+  /**
+   * Step two: the email and the code, and back comes the identity — `{ id, secret }`, the
+   * secret that opens the backup — for the phone to restore as with a key (ADR-0050 §3).
+   * An email nobody has answers `wrong code`, like a wrong code, down to the path it takes.
+   */
+  app.post('/recovery/finish', async (c) => {
+    if (recovery === null) {
+      return notConfigured(c);
+    }
+    if (!fits(`recovery:finish:ip:${clientIp(c)}`, LIMITS.recoveryFinishPerIp)) {
+      return over(c, LIMITS.recoveryFinishPerIp);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const email = isObject(body) ? normalizeEmail(body.email) : null;
+    if (email === null) {
+      return c.json({ error: 'bad email' }, 400);
+    }
+    const typed = isObject(body) ? normalizeCode(body.code) : null;
+    if (typed === null) {
+      return wrongCode(c);
+    }
+    const outcome = await tryCode(recovery.codeSecret, 'recover', email, typed);
+    if (typeof outcome === 'string') {
+      return refuseCode(c, outcome);
+    }
+    // The address must still be that account's: it may have moved or gone since the code
+    // was sent. A row with no account behind it is an email nobody has.
+    const escrow = outcome.accountId === null ? null : await store.getRecovery(outcome.accountId);
+    const account = escrow === null ? null : await store.getAccount(escrow.accountId);
+    if (escrow === null || account === null || escrow.email !== email) {
+      return wrongCode(c);
+    }
+    const secret = openSecret(recovery.key, escrow.accountId, escrow.secretEnc);
+    if (secret === null || !secretMatches(secret, account.secretHash)) {
+      // Another RECOVERY_KEY than the one that sealed it, or a copy that missed a
+      // rotation. Nothing the phone can fix; the person confirms the email again.
+      console.error(`the recovery copy of ${escrow.accountId} does not open its account`);
+      return c.json({ error: 'escrow unreadable' }, 500);
+    }
+    return c.json({ id: escrow.accountId, secret });
   });
 
   /**

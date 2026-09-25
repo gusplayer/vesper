@@ -817,3 +817,32 @@ elección). Las mismas siete áreas lo implementaron.
 - **Punto 9 cerrado después:** la tarjeta de cada modo cuya selección quedó en otro
   teléfono dice "Vuelve a elegir las apps" (`modes_repick`), en tests; en pantalla no, porque
   el simulador no tiene selector real de Screen Time.
+
+- **2026-09-25 · Correo de recuperación con Resend y un segundo dispositivo (ADR-0050).**
+  Dos equipos: servidor y app.
+  - **Correo:** Ajustes › Respaldo › Correo de recuperación (código de seis dígitos, la
+    pantalla dice el precio); "Tengo una clave" › "Recuperar con mi correo". El servidor
+    guarda el correo y la clave cifrada con `RECOVERY_KEY` (fuera de la base), la vuelve a
+    guardar al rotar, no revela si un correo existe, y quita el correo a otra cuenta cuando
+    alguien lo confirma. Sin `RESEND_API_KEY`/`RECOVERY_FROM`, las rutas responden 503 y la
+    app dice "todavía no disponible".
+  - **Segundo dispositivo:** la bienvenida pregunta cuándo se usó por última vez el Vesper
+    encontrado (las lecturas `GET` ya no cuentan como uso). Si fue hace menos de 30 días:
+    "Traerlo aquí" o "Empezar aparte", que no borra nada y guarda su clave solo en local.
+    Un dispositivo cuya clave dejó de servir lo dice y ofrece la clave o una identidad nueva.
+    "Empezar de cero" ya no aparece sin conexión.
+  - Privacidad web y `PLAY_DECLARATIONS.md` al día: el formulario de Data safety decía que
+    nada salía del teléfono y ya no era cierto.
+- **Verificado en el simulador iPhone 17 Pro contra un servidor local (los códigos salen en
+  su consola):** confirmar un correo; con el llavero y la base borrados, recuperar solo con
+  el correo (`/recovery/finish` 200 → restaurar completo, y la identidad temporal se borra);
+  después de rotar, el correo devuelve el secreto **nuevo** y abre la cuenta; un correo
+  desconocido responde igual que un código equivocado; con el llavero intacto, la
+  bienvenida dice "This Vesper was last used 1 minute ago" y "Start separately" crea otra
+  identidad sin `DELETE /account`. `tsc`, lint, 1265 tests de la app y 138 del servidor.
+- **`RECOVERY_KEY` está en Railway** (32 bytes, generada sin mostrarse). **Faltan, del dueño:**
+  una cuenta de Resend con un dominio propio verificado, y `RESEND_API_KEY` y
+  `RECOVERY_FROM` en Railway. Hasta entonces el correo dice "todavía no disponible".
+- **No verificado:** un envío real por Resend; el caso del iPad en un iPad de verdad con la
+  misma cuenta de Apple; "Traerlo aquí" en pantalla (la restauración es la misma ya
+  probada).

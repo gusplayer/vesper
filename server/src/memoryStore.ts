@@ -8,6 +8,8 @@ import type {
   Kudos,
   Link,
   Nudge,
+  Recovery,
+  RecoveryCode,
   Store,
   Week,
 } from './store.ts';
@@ -26,10 +28,14 @@ export function createMemoryStore(): Store {
   const kudos = new Map<string, Kudos>();
   const nudges = new Map<string, Nudge>();
   const backups = new Map<string, Backup>();
+  const recoveries = new Map<string, Recovery>();
+  /** Keyed on `purpose|subject`, the primary key of `recovery_codes`. */
+  const codes = new Map<string, RecoveryCode>();
   /** Keyed on the pair in a fixed order, like `ended_links` (a_id < b_id). */
   const ended = new Map<string, { a: string; b: string; endedAt: number }>();
 
   const linkKey = (ownerId: string, memberId: string) => `${ownerId}|${memberId}`;
+  const codeKey = (purpose: string, subject: string) => `${purpose}|${subject}`;
   const pairKey = (x: string, y: string) => (x < y ? `${x}|${y}` : `${y}|${x}`);
   const weekKey = (accountId: string, key: string) => `${accountId}|${key}`;
   const markKey = (challengeId: string, accountId: string, dayKey: string) =>
@@ -76,8 +82,15 @@ export function createMemoryStore(): Store {
     },
     async deleteAccount(id) {
       accounts.delete(id);
-      // `backups.account_id` cascades in Postgres.
+      // `backups.account_id`, `recovery.account_id` and `recovery_codes.account_id`
+      // cascade in Postgres.
       backups.delete(id);
+      recoveries.delete(id);
+      for (const [key, code] of codes) {
+        if (code.accountId === id) {
+          codes.delete(key);
+        }
+      }
       for (const [key, link] of links) {
         if (link.ownerId === id || link.memberId === id) {
           links.delete(key);
@@ -212,6 +225,65 @@ export function createMemoryStore(): Store {
     },
     async deleteBackup(accountId) {
       backups.delete(accountId);
+    },
+
+    async getRecovery(accountId) {
+      const row = recoveries.get(accountId);
+      return row === undefined ? null : { ...row };
+    },
+    async getRecoveryByEmail(email) {
+      const row = [...recoveries.values()].find((recovery) => recovery.email === email);
+      return row === undefined ? null : { ...row };
+    },
+    async putRecovery(recovery) {
+      // `recovery.email` is unique in Postgres, and the write takes it from its holder.
+      for (const [accountId, other] of recoveries) {
+        if (accountId !== recovery.accountId && other.email === recovery.email) {
+          recoveries.delete(accountId);
+        }
+      }
+      recoveries.set(recovery.accountId, { ...recovery });
+    },
+    async deleteRecovery(accountId) {
+      recoveries.delete(accountId);
+      for (const [key, code] of codes) {
+        if (code.accountId === accountId) {
+          codes.delete(key);
+        }
+      }
+    },
+
+    async putRecoveryCode(code) {
+      codes.set(codeKey(code.purpose, code.subject), { ...code });
+    },
+    async getRecoveryCode(purpose, subject) {
+      const code = codes.get(codeKey(purpose, subject));
+      return code === undefined ? null : { ...code };
+    },
+    async spendRecoveryAttempt(purpose, subject, max) {
+      const key = codeKey(purpose, subject);
+      const code = codes.get(key);
+      if (code === undefined || code.attempts >= max) {
+        return null;
+      }
+      const spent = { ...code, attempts: code.attempts + 1 };
+      codes.set(key, spent);
+      return { ...spent };
+    },
+    async consumeRecoveryCode(purpose, subject, codeHash) {
+      const key = codeKey(purpose, subject);
+      if (codes.get(key)?.codeHash !== codeHash) {
+        return false;
+      }
+      codes.delete(key);
+      return true;
+    },
+    async deleteExpiredRecoveryCodes(before) {
+      for (const [key, code] of codes) {
+        if (code.expiresAt < before) {
+          codes.delete(key);
+        }
+      }
     },
   };
 }

@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { useSettings } from '../../data';
-import { Button, FieldRow, PageHeader, Screen, StatusNote, Text } from '../../design/components';
+import { Button, FieldRow, ListGroup, ListRow, PageHeader, Screen, StatusNote, Text } from '../../design/components';
 import { useRestoreTarget } from '../../features/restore/restoreTarget';
 import { useStrings } from '../../i18n';
 import { goBack } from '../../lib/goBack';
@@ -20,6 +20,9 @@ import { credentialsFromPastedKey } from '../../platform/circleApi';
  * The route belongs to neither world (src/app/_layout.tsx): the welcome screen opens it
  * during the onboarding, and it works the same from the app. From the app, the screen
  * says that restoring replaces what is on this phone.
+ *
+ * Without the key, a row leads to the recovery email (ADR-0050 §3): a code to the email
+ * the person confirmed, and the server hands the key back.
  */
 export default function RestoreKeyScreen() {
   const router = useRouter();
@@ -66,6 +69,9 @@ export default function RestoreKeyScreen() {
       />
       {invalid ? <StatusNote text={copy.invalid} tone="danger" live /> : null}
       {settings.onboardingDone ? <StatusNote text={copy.replaces} /> : null}
+      <ListGroup footer={copy.emailHint}>
+        <ListRow icon="mail" label={copy.emailRow} onPress={() => router.push('/restore/email')} />
+      </ListGroup>
     </Screen>
   );
 }

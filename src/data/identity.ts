@@ -20,14 +20,30 @@ export function readIdentity(): IdentityRecord | null {
   return settingsRepo.getIdentity();
 }
 
+/**
+ * Every write is a new identity, a new key or one the server just took (a registration,
+ * a restore, a rotation), so whatever refusal was noted about the previous key is over.
+ */
 export function writeIdentity(record: IdentityRecord, now: number): void {
   settingsRepo.setIdentity(record, now);
-  useIdentityStore.setState({ id: record.id, registered: record.registeredAt !== null });
+  useIdentityStore.setState({ id: record.id, registered: record.registeredAt !== null, keyRejected: false });
 }
 
 export function eraseIdentity(): void {
   settingsRepo.deleteIdentity();
-  useIdentityStore.setState({ id: null, registered: false });
+  useIdentityStore.setState({ id: null, registered: false, keyRejected: false });
+}
+
+/**
+ * The server answered 401 to this install's own key (ADR-0050 §10): the Vesper moved to
+ * another device ("Traerlo aquí" there rotated the secret) or its key changed. Held in
+ * memory: the backup's `lastError` is what outlives a launch, and the next call that
+ * reaches the server says it again.
+ */
+export function noteKeyRejected(id: string): void {
+  if (useIdentityStore.getState().id === id) {
+    useIdentityStore.setState({ keyRejected: true });
+  }
 }
 
 export function readIdentityPingAt(): number | null {
@@ -50,6 +66,8 @@ type IdentityState = {
   /** This install's identity id, once there is one. Mirrors the record for screens. */
   id: string | null;
   registered: boolean;
+  /** The server refused this install's key (`noteKeyRejected`). */
+  keyRejected: boolean;
   /** Null when nothing was found, or once the user decided (restore or start over). */
   found: FoundIdentity | null;
   /**
@@ -66,12 +84,18 @@ type IdentityState = {
 export const useIdentityStore = create<IdentityState>((set) => ({
   id: null,
   registered: false,
+  keyRejected: false,
   found: null,
   checked: false,
   setFound: (found) => set({ found }),
   setChecked: () => set({ checked: true }),
   refresh: () => {
     const record = settingsRepo.getIdentity();
-    set({ id: record?.id ?? null, registered: record !== null && record.registeredAt !== null });
+    const id = record?.id ?? null;
+    set((state) => ({
+      id,
+      registered: record !== null && record.registeredAt !== null,
+      keyRejected: state.keyRejected && state.id === id,
+    }));
   },
 }));

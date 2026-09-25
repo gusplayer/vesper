@@ -76,6 +76,46 @@ export type Backup = {
 /** Everything about a backup but its bytes, which is all a settings row needs. */
 export type BackupMeta = Omit<Backup, 'data'>;
 
+/**
+ * A recovery email (ADR-0050): verified, one per account and one account per email, with
+ * the account's secret sealed under `RECOVERY_KEY` (recovery.ts). Only people who turn it
+ * on have one.
+ */
+export type Recovery = {
+  accountId: string;
+  /** Trimmed and lowercased. Unique: confirming it elsewhere takes it from here. */
+  email: string;
+  /** base64(iv | ciphertext | tag), AES-256-GCM with the account id as associated data. */
+  secretEnc: string;
+  verifiedAt: number;
+  updatedAt: number;
+};
+
+/** 'verify' confirms an address from Ajustes; 'recover' gets the secret back with it. */
+export type CodePurpose = 'verify' | 'recover';
+
+/**
+ * A six-digit code, hashed, alive for ten minutes and five wrong attempts. One per
+ * `(purpose, subject)`, and a new one replaces the old.
+ *
+ * `subject` is who the code is for: the account id for 'verify', the email for
+ * 'recover'. A 'recover' code is written for **every** email that asks, known or not,
+ * with `accountId` null when no account has it — and no message goes out for those. That
+ * is what keeps "does this email exist" unanswerable: a wrong code, an expired one and
+ * one that ran out of attempts answer the same whoever the email belongs to, because the
+ * same row is there to answer.
+ */
+export type RecoveryCode = {
+  purpose: CodePurpose;
+  subject: string;
+  accountId: string | null;
+  email: string;
+  codeHash: string;
+  attempts: number;
+  expiresAt: number;
+  createdAt: number;
+};
+
 export type Link = {
   ownerId: string;
   memberId: string;
@@ -165,7 +205,7 @@ export type Store = {
   putAccount(account: Account): Promise<void>;
   /** Moves `lastSeenAt` forward to `at`, and touches nothing else on the row. */
   touchAccount(id: string, at: number): Promise<void>;
-  /** The account and every row of it, its backup included. */
+  /** The account and every row of it, its backup and its recovery email included. */
   deleteAccount(id: string): Promise<void>;
 
   getLink(ownerId: string, memberId: string): Promise<Link | null>;
@@ -206,4 +246,28 @@ export type Store = {
   getBackupMeta(accountId: string): Promise<BackupMeta | null>;
   /** Turning the backup off in Ajustes: the copy goes, the account stays. */
   deleteBackup(accountId: string): Promise<void>;
+
+  getRecovery(accountId: string): Promise<Recovery | null>;
+  getRecoveryByEmail(email: string): Promise<Recovery | null>;
+  /**
+   * Writes the account's recovery row, and takes the email away from any other account
+   * that had it: one email, one account (ADR-0050 §6).
+   */
+  putRecovery(recovery: Recovery): Promise<void>;
+  /** The email, the sealed secret and every code of the account. */
+  deleteRecovery(accountId: string): Promise<void>;
+
+  /** Replaces whatever code `(purpose, subject)` had. */
+  putRecoveryCode(code: RecoveryCode): Promise<void>;
+  getRecoveryCode(purpose: CodePurpose, subject: string): Promise<RecoveryCode | null>;
+  /**
+   * Counts one attempt at the code, in one step, and returns it as it now stands — or null
+   * when there is none or it already spent `max`. In one step because five parallel
+   * guesses must not all read "no attempts yet".
+   */
+  spendRecoveryAttempt(purpose: CodePurpose, subject: string, max: number): Promise<RecoveryCode | null>;
+  /** Deletes the code if it is still the one hashed `codeHash`. True when this call did. */
+  consumeRecoveryCode(purpose: CodePurpose, subject: string, codeHash: string): Promise<boolean>;
+  /** Forgets codes that expired before `before`. */
+  deleteExpiredRecoveryCodes(before: number): Promise<void>;
 };

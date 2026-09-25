@@ -136,6 +136,7 @@ export default function RootLayout() {
               <Stack.Screen name="settings/about" />
               <Stack.Screen name="settings/circle" />
               <Stack.Screen name="settings/backup" />
+              <Stack.Screen name="settings/recovery-email" />
               <Stack.Screen name="habits/edit" />
               <Stack.Screen name="habits/new" />
               <Stack.Screen name="circle/index" />
@@ -153,8 +154,10 @@ export default function RootLayout() {
             {/* Restoring with the backup key belongs to no world either (ADR-0048): the
                 welcome screen opens it, and a restored backup flips the onboarding guard
                 while it runs, so it must survive the switch. Declared after the guards
-                for the same reason as usage-access. The run itself cannot be swiped away. */}
+                for the same reason as usage-access. The run itself cannot be swiped away.
+                Recovering with the email (ADR-0050) is the same path by another door. */}
             <Stack.Screen name="restore/key" />
+            <Stack.Screen name="restore/email" />
             <Stack.Screen name="restore/restoring" options={lockedPaperScreenOptions} />
           </Stack>
         </ChromeProvider>

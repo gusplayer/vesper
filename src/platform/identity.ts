@@ -15,10 +15,14 @@ import { backupKeyOf, credentialsFrom, type Credentials } from './circleApi';
  *   item on iOS (iCloud Keychain) and Block Store on Android. A new phone on the same
  *   Apple or Google account finds it without the user doing anything.
  *
- * Both are written on every save and both are cleared together. Reading the local copy
- * first is what keeps two phones of one person apart: the copy that travels is one slot,
- * and the last phone to write it wins there, but each phone goes on signing with its own.
- * Without the native module (Expo Go, an older build) the local copy works alone.
+ * Both are written on every save, except for an identity that must not travel ("Empezar
+ * aparte", ADR-0050 §9): that one lives in the local copy only, and the copy that
+ * travels keeps the other device's. A clear takes the local copy, and the one that
+ * travels only when it holds the very key being dropped: another device's key there is
+ * not this phone's to delete. Reading the local copy first is what keeps two phones of
+ * one person apart: the copy that travels is one slot, and the last phone to write it
+ * wins there, but each phone goes on signing with its own. Without the native module
+ * (Expo Go, an older build) the local copy works alone.
  *
  * The secret never goes to SQLite (ADR-0044 §1) and is never logged: a bearer token in
  * a console line is the same leak by another road.
@@ -122,6 +126,20 @@ async function writeBoth(credentials: Credentials): Promise<boolean> {
   return local || travelling;
 }
 
+async function readLocal(): Promise<Credentials | null> {
+  const local = await readSecure(LOCAL_KEY);
+  return local === null ? null : credentialsFrom(local);
+}
+
+async function readTravelling(): Promise<Credentials | null> {
+  const travelling = await native()?.getCredential();
+  return travelling === null || travelling === undefined ? null : credentialsFrom(travelling);
+}
+
+function sameKey(a: Credentials | null, b: Credentials | null): boolean {
+  return a !== null && b !== null && a.id === b.id && a.secret === b.secret;
+}
+
 // --- The entry ADR-0044 left behind ---------------------------------------------------------
 
 let prepared: Promise<void> | null = null;
@@ -166,7 +184,10 @@ async function migrateLegacy(): Promise<void> {
   // the server. Recorded here so no caller ever sees it as a phone without one.
   if (readIdentity() === null && circle.account !== null) {
     const at = circle.account.createdAt > 0 ? circle.account.createdAt : Date.now();
-    writeIdentity({ id: circle.account.id, registeredAt: at, supersedes: null, rotatePending: false }, Date.now());
+    writeIdentity(
+      { id: circle.account.id, registeredAt: at, supersedes: null, rotatePending: false, localOnly: false },
+      Date.now(),
+    );
   }
 }
 
@@ -185,13 +206,7 @@ export function forgetIdentityPreparation(): void {
  */
 export async function readStoredCredential(): Promise<Credentials | null> {
   await prepare();
-  const local = await readSecure(LOCAL_KEY);
-  const fromLocal = local === null ? null : credentialsFrom(local);
-  if (fromLocal !== null) {
-    return fromLocal;
-  }
-  const travelling = await native()?.getCredential();
-  return travelling === null || travelling === undefined ? null : credentialsFrom(travelling);
+  return (await readLocal()) ?? (await readTravelling());
 }
 
 /**
@@ -209,17 +224,47 @@ export async function loadIdentity(): Promise<Credentials | null> {
  * Both copies. False when neither could be written: the caller must not then record the
  * identity as registered, because a phone convinced it has an account it can never sign
  * for is worse than one without (ADR-0044 §1).
+ *
+ * `travels: false` is an identity of this device alone ("Empezar aparte", ADR-0050 §9):
+ * only the local copy is written, so the copy that travels keeps the other device's key,
+ * and false then means the local copy refused.
  */
-export async function saveIdentity(credentials: Credentials): Promise<boolean> {
+export async function saveIdentity(credentials: Credentials, options: { travels?: boolean } = {}): Promise<boolean> {
   await prepare();
+  if (options.travels === false) {
+    return writeSecure(LOCAL_KEY, backupKeyOf(credentials));
+  }
   return writeBoth(credentials);
 }
 
-/** Both copies, and the old entry if it is still there. Never throws. */
-export async function clearIdentity(): Promise<void> {
+/**
+ * Forgets a key. Never throws.
+ *
+ * - Nothing given: both copies, whatever they hold, and the old entry.
+ * - A key: the local copy and the old entry, and the copy that travels only when it holds
+ *   that very key. Anything else there was written by another device of the same person
+ *   — its own identity, or this one's after "Traerlo aquí" moved it there — and deleting
+ *   it would take that device's way back to a new phone.
+ * - Null (a key this phone never had): the local copy and the old entry only.
+ */
+export async function clearIdentity(dropped?: Credentials | null): Promise<void> {
+  const travelling = dropped === undefined || dropped === null ? null : await readTravelling();
   await deleteSecure(LOCAL_KEY);
   await deleteSecure(LEGACY_KEY);
-  await native()?.clearCredential();
+  if (dropped === undefined || sameKey(travelling, dropped)) {
+    await native()?.clearCredential();
+  }
+}
+
+/**
+ * Whether the copy that travels holds a key this phone did not write: another device's
+ * identity, or this identity after another device took it over with a new secret
+ * (ADR-0050 §10). A new identity started here must not write over it, so it stays local.
+ */
+export async function travellingCopyIsAnothers(): Promise<boolean> {
+  await prepare();
+  const travelling = await readTravelling();
+  return travelling !== null && !sameKey(travelling, await readLocal());
 }
 
 /** Whether this build can keep a secret at all. False in Expo Go and on the web. */
@@ -254,9 +299,19 @@ const NOT_TRAVELLING: IdentityTransport = { travels: false, endToEnd: false, rea
  * that shows it says so instead of implying the automatic path exists.
  */
 export async function identityTravels(): Promise<IdentityTravelStatus> {
+  const t = getStrings().identity.travel;
+  let localOnly = false;
+  try {
+    localOnly = readIdentity()?.localOnly === true;
+  } catch {
+    localOnly = false;
+  }
+  if (localOnly) {
+    // Whatever the transport could do, this key is not in it (ADR-0050 §9).
+    return { travels: false, endToEnd: false, reason: t.localOnly };
+  }
   const module = native();
   const transport = module === null ? NOT_TRAVELLING : await module.describe();
-  const t = getStrings().identity.travel;
   const reason = {
     'icloud-keychain': t.icloudKeychain,
     'block-store': t.blockStore,

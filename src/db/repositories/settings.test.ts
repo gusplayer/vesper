@@ -293,19 +293,23 @@ describe('the identity record (ADR-0048)', () => {
       registeredAt: null,
       supersedes: null,
       rotatePending: false,
+      localOnly: false,
     });
   });
 
   it('keeps each field on its own: a corrupt one never takes the id with it', () => {
-    expect(settings.parseIdentity({ id: ID, registeredAt: 'soon', supersedes: 7, rotatePending: 'yes' })).toEqual({
+    expect(
+      settings.parseIdentity({ id: ID, registeredAt: 'soon', supersedes: 7, rotatePending: 'yes', localOnly: 'yes' }),
+    ).toEqual({
       id: ID,
       registeredAt: null,
       supersedes: null,
       rotatePending: false,
+      localOnly: false,
     });
     expect(
-      settings.parseIdentity({ id: ID, registeredAt: T0, supersedes: 'old-id', rotatePending: true }),
-    ).toEqual({ id: ID, registeredAt: T0, supersedes: 'old-id', rotatePending: true });
+      settings.parseIdentity({ id: ID, registeredAt: T0, supersedes: 'old-id', rotatePending: true, localOnly: true }),
+    ).toEqual({ id: ID, registeredAt: T0, supersedes: 'old-id', rotatePending: true, localOnly: true });
   });
 
   it('deletes the record and the last ping together', () => {
