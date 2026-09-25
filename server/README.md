@@ -52,7 +52,7 @@ desharía la decisión en silencio.
 `DATABASE_URL` vive en las variables del servicio en Railway y **no se guarda en el
 repositorio**. Si hay que rotarla, se saca de la consola de Neon y se pone ahí.
 
-### Qué pasa en el próximo despliegue
+### Qué pasó en el último despliegue (2026-09-25)
 
 Nada a mano. `src/schema.sql` corre al arrancar y ahora agrega `unique` sobre
 `invite_code` dentro de una guarda (`pg_constraint`), así que es idempotente y no hay

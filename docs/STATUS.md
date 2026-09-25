@@ -794,8 +794,7 @@ elección). Las mismas siete áreas lo implementaron.
   Block Store; el círculo restaurado con alias, reto y marcas propias en un dispositivo
   (sí en tests); el interruptor de Respaldo tocado con el dedo: en iOS 26 el `UISwitch` no
   responde a los toques de `idb` ni de maestro (tampoco el de Live Activities, que ya
-  existía), así que se probó llamando a `setBackupEnabled(false)`. **El servidor no está
-  desplegado**: hacer push a `main` lo despliega.
+  existía), así que se probó llamando a `setBackupEnabled(false)`.
 - **Verificado en Android, emulador Pixel 7 (API 36), aparte del que usaba otra sesión,
   contra el servidor local:** el dev client compila con `vesper-identity` (Kotlin, Block
   Store 16.4.0) y el manifiesto apunta a `vesper_*_rules`; primer arranque → identidad y
@@ -809,6 +808,12 @@ elección). Las mismas siete áreas lo implementaron.
   dos veces, sin errores; las filas viejas intactas; `name` y `handle` anulables, `backups`
   y `ended_links` creadas. El servidor sobre esa base: identidad, 200 KB de respaldo que
   vuelven idénticos, y al borrar la cuenta no queda nada.
+- **Desplegado el 2026-09-25 (`d5d126c`, que lleva también ADR-0047 y ADR-0049).** Railway
+  arrancó con `postgres ready` (el esquema nuevo corrió sobre Neon). Prueba en producción:
+  identidad nueva, 50 KB de respaldo que vuelven idénticos, `/device` con plataforma y
+  versión, `DELETE /backup` y `DELETE /account` (después, 401). La base quedó vacía como se
+  pidió: las nueve tablas en cero, `backups` y `ended_links` incluidas. Las rutas de
+  ADR-0049 (`/link/end`, `ended` en `/sync`) se probaron antes sobre un Postgres local.
 - **Punto 9 cerrado después:** la tarjeta de cada modo cuya selección quedó en otro
   teléfono dice "Vuelve a elegir las apps" (`modes_repick`), en tests; en pantalla no, porque
   el simulador no tiene selector real de Screen Time.
