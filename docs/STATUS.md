@@ -843,6 +843,9 @@ elección). Las mismas siete áreas lo implementaron.
 - **`RECOVERY_KEY` está en Railway** (32 bytes, generada sin mostrarse). **Faltan, del dueño:**
   una cuenta de Resend con un dominio propio verificado, y `RESEND_API_KEY` y
   `RECOVERY_FROM` en Railway. Hasta entonces el correo dice "todavía no disponible".
+- **Desplegado (`badbfb4`):** Railway arrancó con `postgres ready` y "email recovery off
+  (RESEND_API_KEY, RECOVERY_FROM not set)"; `/recovery/start` responde 503 "email not
+  configured" en producción, y la base sigue vacía con `recovery` y `recovery_codes` creadas.
 - **No verificado:** un envío real por Resend; el caso del iPad en un iPad de verdad con la
   misma cuenta de Apple; "Traerlo aquí" en pantalla (la restauración es la misma ya
   probada).
