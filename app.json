@@ -24,7 +24,12 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -83,7 +88,15 @@
         }
       ],
       "./plugins/withAndroidBackup",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Vesper usa la cámara solo cuando decides agregar una foto a un día de un reto.",
+          "photosPermission": "Vesper solo usa la foto que eliges para un día de un reto.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "extra": {
       "router": {},

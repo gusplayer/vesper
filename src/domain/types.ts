@@ -262,6 +262,12 @@ export type Challenge = {
   participantIds: string[];
   /** The user's habit that counts, or null while the user has not joined. */
   habitId: string | null;
+  /**
+   * "Fotos del día" (ADR-0051 §6): whether a marked day can carry a photo. Chosen when
+   * the challenge is made; a suggestion that clashes with a camera starts off. Off,
+   * nothing offers to add one.
+   */
+  photos: boolean;
   createdAt: Millis;
   archivedAt: Millis | null;
 };
@@ -278,4 +284,39 @@ export type ChallengeMark = {
    */
   source: MarkSource;
   markedAt: Millis;
+};
+
+// --- Photos in challenges (ADR-0051) ------------------------------------------------
+
+/** Where a photo came from. Said in the viewer, never in the grid, never read from EXIF. */
+export type PhotoOrigin = 'camera' | 'library';
+
+/**
+ * A photo pinned to one marked day of a challenge (ADR-0051). Testimony, never
+ * verification: it does not touch the mark, does not count, and a photo on a day that
+ * is no longer marked is kept but not drawn. One per (challenge, person, day).
+ */
+export type ChallengePhoto = {
+  /** UUID v7. Also the stem of its file names. */
+  id: string;
+  challengeId: string;
+  /** ME or a member id. */
+  memberId: string;
+  dayKey: DayKey;
+  origin: PhotoOrigin;
+  /** Up to PHOTO_CAPTION_MAX characters, one line; null without one. */
+  caption: string | null;
+  /** Of the full image, in pixels. */
+  width: number;
+  height: number;
+  /**
+   * File names inside the photos directory (platform/camera), never a path: the app's
+   * container moves on iOS. Null while the file is not on this phone.
+   */
+  fullFile: string | null;
+  thumbFile: string | null;
+  /** When it was added. */
+  takenAt: Millis;
+  createdAt: Millis;
+  updatedAt: Millis;
 };

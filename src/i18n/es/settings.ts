@@ -113,7 +113,7 @@ export const settings = {
     resetCaption: 'Borra todo y empieza de cero, sin datos de ejemplo.',
     resetConfirmTitle: '¿Borrar todo y reiniciar?',
     resetConfirmMessage:
-      'Se borra todo lo de este teléfono: modos, rutinas, sesiones, hábitos, Vida, tus ajustes y tu perfil del círculo, y en el servidor tu cuenta y tu respaldo. Vesper vuelve a la bienvenida y empieza vacío, sin datos de ejemplo. No hay vuelta atrás.',
+      'Se borra todo lo de este teléfono: modos, rutinas, sesiones, hábitos, las fotos de tus retos, Vida, tus ajustes y tu perfil del círculo, y en el servidor tu cuenta y tu respaldo. Vesper vuelve a la bienvenida y empieza vacío, sin datos de ejemplo. No hay vuelta atrás.',
     resetConfirm: 'Borrar todo',
     /**
      * "Quitar los datos de ejemplo" (ADR-0047 §1): shown only while something seeded is

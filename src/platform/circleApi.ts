@@ -1036,6 +1036,9 @@ export function foldDownload(
       createdBy: localId(row.createdBy, accountId),
       participantIds,
       habitId: existing?.habitId ?? null,
+      // The server does not carry the switch until the photos are shared (ADR-0051,
+      // batch 2): keep what this phone has, and on for a challenge it has never seen.
+      photos: existing?.photos ?? true,
       createdAt: existing?.createdAt ?? row.createdAt ?? now,
       archivedAt: row.archivedAt,
     };

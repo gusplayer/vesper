@@ -40,6 +40,7 @@ Dos esquemas con la misma paleta de roles. Nunca negro ni blanco puros.
 | `danger` | `#C0392B` | `#E06B5E` | acciones destructivas |
 | `shadow` | tinta | negro | color de las sombras de tarjeta y del objeto |
 | `scrim` | tinta al 45 % | fondo al 60 % | la página atenuada detrás de una hoja |
+| `photoVeil` | papel (`card`) al 42 % | fondo al 38 % | el velo que apaga una miniatura en la grilla y en el álbum (ADR-0051): la foto a color solo aparece al abrirla |
 
 **Superficie.** Un control con relleno "apagado" (`Chip`, `DayPicker`, el riel de
 `SegmentedControl`, `Button size="sm" variant="secondary"`) toma su relleno de lo que
@@ -93,8 +94,12 @@ promedio de `BarChart`; `PeriodStrip` pone en mayúsculas sus propias opciones (
 - `layout`: margen de página 20, objetivo táctil 44, barra de pestañas 56, iconos
   16/20/24 (18 en filas), objeto central 132, icono de app 24/40/56, QR 168; también las
   medidas de `BarChart` (`layout.chart`), `DotGrid` (`layout.dotGrid`), el círculo de
-  `DayPicker` (40, con área táctil de 44), el indicador de pestañas y el tope de alto de
-  `Sheet` (85 % de la ventana). Ningún componente escribe un número de tamaño propio.
+  `DayPicker` (40, con área táctil de 44), el indicador de pestañas, el tope de alto de
+  `Sheet` (85 % de la ventana), los cuadros de `HeatGrid` (`layout.heatGrid`: 28 y 16, con
+  su hueco y su esquina) y las fotos (`layout.photo`: la celda de 36 del tamaño `lg`, que
+  también encabeza una fila, la miniatura del álbum, el borde punteado de "agregar" y el
+  alto máximo de una foto en su tarjeta, 58 % de la ventana). Ningún componente escribe
+  un número de tamaño propio.
 - **Objetivo táctil.** Todo lo tocable llega a 44 pt: `Tappable` mide a sus hijos y
   extiende el área con `hitSlop` sin mover nada; los glifos sueltos (la x de `Banner`
   y de `SearchField`) y los círculos de `DayPicker` hacen lo mismo.
@@ -117,13 +122,16 @@ promedio de `BarChart`; `PeriodStrip` pone en mayúsculas sus propias opciones (
   - `BreathingObject` enciende sus 16 celdas de abajo hacia arriba al inhalar y las
     apaga de arriba hacia abajo al exhalar, solo con el dedo puesto.
   - `FlipDigit` cae en dos mitades en 340 ms, lineal, sin rebote.
+  - Una foto (`PhotoTile`, `PhotoCard`, la celda de `HeatGrid`) aparece con un fade de
+    160 ms cuando termina de cargar. El visor no desliza ni hace zoom (ADR-0051).
   - Con "Reducir movimiento" activo (`useReduceMotion`) la grilla y la respiración
     saltan a su estado final.
 
 ## Componentes
 
-Lo que exporta `src/design/components/index.ts` (59 componentes y el hook `useTooltip`). `HeatSquare` (una celda de `HeatGrid`) y `FlipDigit` (una carta de `FlipClock`)
-existen pero no se exportan: son internos.
+Lo que exporta `src/design/components/index.ts` (62 componentes y el hook `useTooltip`). `HeatSquare` (una celda de `HeatGrid`), `FlipDigit` (una carta de `FlipClock`)
+y `PhotoImage` (la imagen con su velo y su fade, que dibujan `PhotoTile`, `PhotoCard` y
+`HeatSquare`) existen pero no se exportan: son internos.
 
 | Componente | Qué es |
 |---|---|
@@ -160,7 +168,10 @@ existen pero no se exportan: son internos.
 | `HeroObject` | El objeto central: tile con la grilla de semanas |
 | `BreathingObject` | El tile que respira con el dedo (ADR-0025) |
 | `BootReveal` | El arranque: la tinta del splash se disuelve de los bordes al centro hasta dejar la marca, que se funde con la app (ADR-0028) |
-| `HeatGrid` | La grilla de los últimos días en Focus, cuatro niveles, se enciende al aparecer |
+| `HeatGrid` | La grilla de los últimos días en Focus, cuatro niveles, se enciende al aparecer. `size`: `md` (Focus), `sm` (una semana junto a texto) y `lg` (tu semana en un reto, ADR-0051); cada `HeatCell` puede llevar `image` (la miniatura, apagada bajo el velo, encima de la marca) y `onPress` con su etiqueta, con área táctil de 44 |
+| `PhotoTile` | Una foto como cuadro pequeño con el radio del sistema: `size` `cell` (36, encabeza una fila) o `thumb` (el álbum); `muted` la pone bajo el velo; `variant="add"` es el cuadro punteado con "+" (nunca un llamado relleno: una marca sin foto cuenta igual); sin `uri`, el relleno de espera. Con `onPress`, tocable a 44 |
+| `PhotoCard` | La foto a color a lo ancho de su tarjeta, con su forma hasta el 58 % de la ventana (más alta, entera dentro del marco, nunca recortada), y debajo `title` ("Tú · martes 24"), `caption` y `lines` en voz baja. La vista previa y el visor |
+| `PhotoMosaic` | El álbum al cierre de un reto: filas (`label` opcional) de miniaturas apagadas en orden de días, con el día debajo, que abren la foto. Sin cuántas tiene cada quien |
 | `FlipClock` | Reloj split-flap de la sesión; `scale` para el modo horizontal |
 | `StippleCanvas` | El lienzo del arte de foco: los primeros N puntos como un path SVG |
 | `InkFlood` | La inundación punteada desde un origen: `ink` para entrar, `paper` para salir |

@@ -23,6 +23,7 @@ const CHALLENGE: Challenge = {
   createdBy: 'ana',
   participantIds: [ME, 'ana'],
   habitId: HABIT.id,
+  photos: true,
   createdAt: 1,
   archivedAt: null,
 };

@@ -25,6 +25,10 @@ import { SETTING_KEYS } from './repositories/settings';
  *   lands on another Android intact. Every mode whose selection is emptied — at the
  *   export on iPhone, at the import anywhere but Android to Android — goes on the
  *   `modes_repick` list, so its card says to pick the apps again.
+ * - The photos of challenges (`LOCAL_TABLES`, ADR-0051 §14). Their files are not in the
+ *   backup — the backup has a 5 MB cap and goes up whole every day — and a row whose
+ *   file is on another phone is a photo nobody can draw. A restore keeps this phone's
+ *   own rows, whose files are still here, and ignores any a payload might carry.
  *
  * Nothing here reads `DeviceActivityReport`: nothing in the database ever came from it
  * (rule 10).
@@ -50,6 +54,13 @@ export type BackupPayload = {
 
 /** The highest migration this app knows. A backup above it comes from a newer app. */
 export const LATEST_SCHEMA = migrations.reduce((max, migration) => Math.max(max, migration.id), 0);
+
+/**
+ * Tables that belong to this install: left out of the export, ignored in a payload, and
+ * kept as they are across an import. `challenge_photos` rows name files that live only
+ * in this phone's photos directory (ADR-0051).
+ */
+export const LOCAL_TABLES: readonly string[] = ['challenge_photos'];
 
 /** Settings that belong to this install. They are left out of the export and kept on import. */
 export const LOCAL_SETTING_KEYS: readonly string[] = [
@@ -160,6 +171,9 @@ export function payloadFromTables(input: {
 }): BackupPayload {
   const tables: Record<string, BackupRow[]> = {};
   for (const [table, raw] of Object.entries(input.tables)) {
+    if (LOCAL_TABLES.includes(table)) {
+      continue;
+    }
     let rows = raw.map(toRow);
     if (table === 'settings') {
       rows = rows.filter((row) => typeof row.key !== 'string' || !LOCAL_SETTING_KEYS.includes(row.key));
@@ -245,8 +259,9 @@ export function withDeviceFields(backupValue: string, local: string | null): str
 /**
  * The rows a restore writes, by table: the payload with the import's rules applied.
  * This install's settings are dropped from it (they are kept, not overwritten), a
- * Screen Time token is emptied unless it goes from Android to Android, and the
- * permission fields of `prototype_settings` are this phone's.
+ * Screen Time token is emptied unless it goes from Android to Android, the
+ * permission fields of `prototype_settings` are this phone's, and a table of this
+ * install (`LOCAL_TABLES`) is ignored: its rows here are kept instead.
  */
 export function planImport(
   payload: BackupPayload,
@@ -255,6 +270,9 @@ export function planImport(
   const keepTokens = payload.platform === 'android' && device.platform === 'android';
   const plan: Record<string, BackupRow[]> = {};
   for (const [table, rows] of Object.entries(payload.tables)) {
+    if (LOCAL_TABLES.includes(table)) {
+      continue;
+    }
     let planned = rows;
     if (table === 'settings') {
       planned = planned
@@ -366,7 +384,7 @@ export function exportBackup(now: number, platform: BackupPlatform): BackupPaylo
   const db = getDb();
   const tables: Record<string, Record<string, unknown>[]> = {};
   for (const table of listTables(db)) {
-    if (table === '_migrations') {
+    if (table === '_migrations' || LOCAL_TABLES.includes(table)) {
       continue;
     }
     tables[table] = db.executeSync(`SELECT * FROM "${table}" ORDER BY rowid`).rows;
@@ -389,6 +407,18 @@ function keptSettings(db: SqlHandle): KeptSetting[] {
   ).rows) {
     if (typeof row.key === 'string' && typeof row.value === 'string') {
       kept.push({ key: row.key, value: row.value, updatedAt: typeof row.updated_at === 'number' ? row.updated_at : 0 });
+    }
+  }
+  return kept;
+}
+
+/** This install's own tables, read before the drop so the import can put them back. */
+function keptTables(db: SqlHandle): Record<string, BackupRow[]> {
+  const present = new Set(listTables(db));
+  const kept: Record<string, BackupRow[]> = {};
+  for (const table of LOCAL_TABLES) {
+    if (present.has(table)) {
+      kept[table] = db.executeSync(`SELECT * FROM "${table}" ORDER BY rowid`).rows.map(toRow);
     }
   }
   return kept;
@@ -435,8 +465,9 @@ function insertRows(db: SqlHandle, plan: Record<string, BackupRow[]>): void {
 /**
  * Replaces the database with a backup, in one transaction: every table dropped, the
  * schema rebuilt up to the backup's migration, its rows written, the remaining
- * migrations run over them. This install's own settings are kept as they were, and
- * the circle's cursor goes back to 0 so the next `/sync` brings everything.
+ * migrations run over them. This install's own settings and tables (`LOCAL_TABLES`,
+ * the photos) are kept as they were, and the circle's cursor goes back to 0 so the
+ * next `/sync` brings everything.
  *
  * Foreign keys are off while it runs: dropping a parent before its child, and writing
  * a child before its parent, are both normal here. SQLite only switches them outside
@@ -451,6 +482,7 @@ export function importBackup(payload: BackupPayload, now: number, platform: Back
   }
   const db = getDb();
   const kept = keptSettings(db);
+  const keptRows = keptTables(db);
   const plan = planImport(payload, { platform, localPrototypeSettings: localPrototypeSettings(db) });
 
   db.executeSync('PRAGMA foreign_keys = OFF');
@@ -463,6 +495,8 @@ export function importBackup(payload: BackupPayload, now: number, platform: Back
       runMigrations(db, { upTo: payload.schema, transaction: 'caller' });
       insertRows(db, plan);
       runMigrations(db, { transaction: 'caller' });
+      // Back into the fully migrated schema: they were written under this app's.
+      insertRows(db, keptRows);
       for (const setting of kept) {
         db.executeSync(UPSERT_SETTING, [setting.key, setting.value, setting.updatedAt]);
       }

@@ -25,6 +25,15 @@ vi.mock('../../db/client', () => ({
 
 vi.mock('../../lib/uuid', () => ({ uuidv7: (now: number) => `id-${now}` }));
 
+const photoFiles = vi.hoisted(() => ({ deleted: [] as (string | null)[][] }));
+
+vi.mock('../../platform/camera', () => ({
+  deletePhotoFiles: (names: readonly (string | null)[]) => {
+    photoFiles.deleted.push([...names]);
+  },
+  deleteAllPhotoFiles: () => undefined,
+}));
+
 const ANA = '0199a1b2-c3d4-7e5f-8a9b-000000000002';
 const CHALLENGE = '0199a1b2-c3d4-7e5f-8a9b-0000000000c1';
 const PROFILE_ID = '0199a1b2-c3d4-7e5f-8a9b-000000000001';
@@ -67,6 +76,7 @@ function seedFakeDb(): void {
 }
 
 beforeEach(() => {
+  photoFiles.deleted.length = 0;
   seedFakeDb();
 });
 
@@ -98,6 +108,7 @@ const REMOTE_CHALLENGE: Challenge = {
   createdBy: ANA,
   participantIds: [ANA],
   habitId: null,
+  photos: true,
   createdAt: 20,
   archivedAt: null,
 };
@@ -383,5 +394,77 @@ describe('ending a link here (ADR-0049)', () => {
     expect(state.pendingEnds).toEqual([]);
     expect(state.pendingLeaves).toEqual([]);
     expect(state.linkEndSupport).toBe('no');
+  });
+});
+
+describe('photos in challenges (ADR-0051)', () => {
+  const photoRow = (id: string, challengeId: string, memberId = ME) => ({
+    id,
+    challenge_id: challengeId,
+    member_id: memberId,
+    day_key: '2026-09-22',
+    origin: 'camera',
+    caption: null,
+    width: 1280,
+    height: 960,
+    full_file: `${id}.jpg`,
+    thumb_file: `${id}.thumb.jpg`,
+    taken_at: 1,
+    created_at: 1,
+    updated_at: 1,
+  });
+
+  function photoDeletes(column: 'challenge_id' | 'member_id'): unknown[] {
+    return fake.calls
+      .filter((call) => call.sql === `DELETE FROM challenge_photos WHERE ${column} = ?`)
+      .map((call) => call.params?.[0]);
+  }
+
+  it('creates a challenge with "Fotos del día" on unless told otherwise', () => {
+    const input = { name: 'Leer', weeklyTarget: 4, days: 21, participantIds: [ANA], join: false };
+
+    const on = useCircleStore.getState().createChallenge(input, 100);
+    const off = useCircleStore.getState().createChallenge({ ...input, name: 'Mesa', photos: false }, 200);
+
+    const byId = (result: { id: string } | 'habitsFull') =>
+      useCircleStore.getState().challenges.find((c) => result !== 'habitsFull' && c.id === result.id);
+    expect(byId(on)?.photos).toBe(true);
+    expect(byId(off)?.photos).toBe(false);
+    const writes = fake.calls.filter((call) => /INSERT INTO challenges/.test(call.sql)).map((call) => call.params?.[9]);
+    expect(writes).toEqual([1, 0]);
+  });
+
+  it('keeps "Fotos del día" when the challenge is rewritten, as when the user leaves it', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, challenges: [{ ...REMOTE_CHALLENGE, photos: false }] });
+
+    useCircleStore.getState().leaveChallenge(CHALLENGE, 30);
+
+    expect(useCircleStore.getState().challenges.find((c) => c.id === CHALLENGE)?.photos).toBe(false);
+  });
+
+  it('deletes the photos of a challenge when it is archived, rows and then files', () => {
+    fake.whenSql('WHERE challenge_id = ? ORDER BY', [photoRow('p-1', DEMO_CHALLENGE_ID)]);
+
+    useCircleStore.getState().archiveChallenge(DEMO_CHALLENGE_ID, 40);
+
+    expect(photoDeletes('challenge_id')).toEqual([DEMO_CHALLENGE_ID]);
+    expect(photoFiles.deleted).toEqual([['p-1.jpg', 'p-1.thumb.jpg']]);
+    expect(useCircleStore.getState().challenges[0]?.archivedAt).toBe(40);
+  });
+
+  it('deletes the photos of every challenge it archives when leaving the circle', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, challenges: [REMOTE_CHALLENGE] });
+
+    useCircleStore.getState().leaveCircle(50);
+
+    expect(photoDeletes('challenge_id')).toEqual([DEMO_CHALLENGE_ID, CHALLENGE]);
+  });
+
+  it('takes the photos of a person who leaves the circle with the rest of their rows', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+
+    useCircleStore.getState().removeMember(ANA);
+
+    expect(photoDeletes('member_id')).toEqual([ANA]);
   });
 });

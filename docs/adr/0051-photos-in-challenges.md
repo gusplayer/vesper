@@ -256,6 +256,31 @@ otra persona llega a un teléfono de la tienda antes de la 3.
   (ADR-0049). Hace falta una lápida sin vínculo con `accounts`, o que cada teléfono vence
   las fotos por su cuenta, que ya lo hace.
 
+## Precisiones que la implementación obligó a tomar
+
+**Tanda 1 (local), 2026-09-26.**
+
+- **`expo-image-manipulator` se compila desde el fuente en iOS, con un parche.** iOS decodifica las
+  fotos de gama amplia y las HDR (la HEIC en Display P3 del simulador, y casi toda foto de un iPhone
+  reciente) en un espacio de color de rango extendido. El paso con que la librería endereza cada
+  imagen dibuja en un contexto de 8 bits con ese mismo espacio, y CoreGraphics lo rechaza ("requires
+  floating point or CIF10 bitmap context"): la foto fallaba entera como "Image context has been lost".
+  `patches/expo-image-manipulator+57.0.20.patch` dibuja esas imágenes en Display P3 de 8 bits (la gama
+  se conserva y el JPEG es normal), y `package.json` › `expo.autolinking.ios.buildFromSource` hace que
+  el pod se compile desde el fuente, porque el XCFramework precompilado de Expo no llevaría el parche.
+  Cuando Expo lo corrija, se quitan las dos cosas.
+- **El selector de iOS pide la representación compatible** (un JPEG que transcodifica el sistema), no
+  el archivo original de la fototeca.
+- **En Android 8 y 9 no hay cámara.** Por debajo de Android 10, abrir la cámara exige también
+  `WRITE_EXTERNAL_STORAGE`, y ese permiso está bloqueado a propósito (Vesper solo escribe en sus
+  carpetas). `cameraStatus()` lo dice con su razón y queda la galería.
+- **Una foto sin marca se guarda y no se dibuja.** Desmarcar el día la oculta; volver a marcarlo la
+  trae de vuelta. Archivar el reto, salir del círculo, quitar a alguien y "Borrar todo y reiniciar"
+  borran filas y archivos.
+- **Las fotos no entran al respaldo** (`challenge_photos` se excluye al exportar y se ignora al importar).
+- **La celda de hoy no cambia** cuando falta la foto: ofrecerla le toca solo a la fila, para que una
+  marca sin foto se vea igual que siempre.
+
 ## Alternativas descartadas
 
 - **Historias de 24 h, reacciones y comentarios** (opción C): feed, FOMO y likes con

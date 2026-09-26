@@ -39,6 +39,12 @@ export type Colors = {
   shadow: string;
   /** The dimmed page behind a sheet. Ink with alpha, never pure black. */
   scrim: string;
+  /**
+   * The veil over a photo in a grid or an album (ADR-0051): paper in light, the page in
+   * dark, so the thumbnails sit quiet in a page of ink. The photo in full color only
+   * appears when it is opened.
+   */
+  photoVeil: string;
 };
 
 export const colors: Record<Scheme, Colors> = {
@@ -61,6 +67,7 @@ export const colors: Record<Scheme, Colors> = {
     danger: '#C0392B',
     shadow: '#1C1B1A',
     scrim: 'rgba(28, 27, 26, 0.45)',
+    photoVeil: 'rgba(248, 247, 245, 0.42)',
   },
   dark: {
     bg: '#191919',
@@ -79,6 +86,7 @@ export const colors: Record<Scheme, Colors> = {
     danger: '#E06B5E',
     shadow: '#191919',
     scrim: 'rgba(25, 25, 25, 0.6)',
+    photoVeil: 'rgba(25, 25, 25, 0.38)',
   },
 };
 
@@ -179,6 +187,19 @@ export const layout = {
   dot: { size: 6, active: 18 },
   /** The tooltip bubble: how wide it may get, and the triangle that points at the row. */
   tooltip: { maxWidth: 280, tail: 8 },
+  /**
+   * HeatGrid squares: 'md' the four weeks on Focus, 'sm' a week beside text, with the
+   * gap of each, and a square's corner as a share of its side. 'lg' is `photo.cell`.
+   */
+  heatGrid: { md: 28, sm: 16, gap: 6, smallGap: 4, cornerRatio: 0.28 },
+  /**
+   * Photos in a challenge (ADR-0051). `cell` is a HeatGrid square at 'lg', big enough
+   * to hold a thumbnail (a week with its gaps is 288 pt), and the tile that leads a
+   * row; `thumb` an album thumbnail and `gap` the room between two; `dash` the border
+   * of the empty "add" tile; `maxHeight` the tallest a photo is drawn in a card, as a
+   * share of the window, so the lines under it stay on screen.
+   */
+  photo: { cell: 36, thumb: 52, gap: 6, dash: 1.5, maxHeight: 0.58, previewMaxHeight: 0.44 },
 } as const;
 
 /** Opacity roles. A disabled control fades as a whole, on top of its muted colors. */

@@ -32,6 +32,7 @@ import type { CircleAccount } from '../types';
 import { DEMO_CHALLENGE_ID, DEMO_MEMBER_IDS } from '../circleSeed';
 import { readIdentity, useIdentityStore } from '../identity';
 import { useAppStore } from './app';
+import { usePhotoStore } from './photos';
 
 /**
  * The circle (ADR-0021), cached in memory from SQLite. Screens read it through the
@@ -122,6 +123,11 @@ type ChallengeInput = {
   participantIds: string[];
   /** Whether the user takes part from the start, which links or creates a habit. */
   join: boolean;
+  /**
+   * "Fotos del día" (ADR-0051 §6). On when left out; a suggestion brings its own value
+   * (data/challenges.ts) and "Repetir" the value of the challenge it repeats.
+   */
+  photos?: boolean;
 };
 
 type CircleState = {
@@ -251,11 +257,13 @@ type CircleState = {
   joinChallenge: (id: string, now: number) => JoinResult;
   /** Takes the user out; the habit stays, it is theirs. Queued for the server (ADR-0049). */
   leaveChallenge: (id: string, now: number) => void;
+  /** Archived, never deleted: its marks are history. Its photos go, rows and files (ADR-0051). */
   archiveChallenge: (id: string, now: number) => void;
 
   /**
-   * Deletes every person and their rows and archives every challenge. Profile and share
-   * stay. With an account, every link's end is queued for the server (ADR-0049).
+   * Deletes every person and their rows and archives every challenge, whose photos go
+   * with it. Profile and share stay. With an account, every link's end is queued for the
+   * server (ADR-0049).
    */
   leaveCircle: (now: number) => void;
 };
@@ -705,6 +713,9 @@ export const useCircleStore = create<CircleState>((set, get) => {
         return without;
       });
       circleRepo.removeMemberEverywhere(memberId, dropped);
+      // Their photos are rows of theirs too (ADR-0051). None exist before the shared
+      // tanda brings other people's, and then they must not outlive the person.
+      usePhotoStore.getState().removeMemberPhotos(memberId);
       set((state) => ({
         members: state.members.filter((m) => m.id !== memberId),
         memberWeeks: state.memberWeeks.filter((w) => w.memberId !== memberId),
@@ -767,6 +778,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         createdBy: ME,
         participantIds: input.join ? [ME, ...others] : others,
         habitId,
+        photos: input.photos ?? true,
         createdAt: now,
         archivedAt: null,
       };
@@ -813,6 +825,8 @@ export const useCircleStore = create<CircleState>((set, get) => {
       set((state) => ({
         challenges: state.challenges.map((c) => (c.id === id ? { ...c, archivedAt: now } : c)),
       }));
+      // Archiving is when "tus fotos se quedan en este teléfono" ends (ADR-0051 §13).
+      usePhotoStore.getState().removeChallengePhotos(id);
     },
 
     leaveCircle: (now) => {
@@ -827,6 +841,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
           get().settleAccept(memberId, now);
         }
       }
+      const open = get().challenges.filter((c) => c.archivedAt === null).map((c) => c.id);
       circleRepo.clearAll();
       circleRepo.archiveAllChallenges(now);
       set((state) => ({
@@ -837,6 +852,10 @@ export const useCircleStore = create<CircleState>((set, get) => {
         challengeMarks: [],
         challenges: state.challenges.map((c) => (c.archivedAt === null ? { ...c, archivedAt: now } : c)),
       }));
+      // Archived here, so their photos go like with any archive (ADR-0051 §13).
+      for (const id of open) {
+        usePhotoStore.getState().removeChallengePhotos(id);
+      }
     },
   };
 });

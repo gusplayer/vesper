@@ -89,6 +89,7 @@ function challenge(overrides: Partial<Challenge> = {}): Challenge {
     createdBy: 'ana',
     participantIds: ['ana', ME, 'luis'],
     habitId: 'habit-read',
+    photos: true,
     createdAt: 0,
     archivedAt: null,
     ...overrides,

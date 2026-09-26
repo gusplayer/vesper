@@ -127,6 +127,8 @@ export function bootDatabase(now: number, demo: DemoStrings): BootResult {
 const TABLES_IN_DELETE_ORDER = [
   'nudges',
   'grace_days',
+  // Rows only: the files are the photo store's to delete (`usePhotoStore.clear`).
+  'challenge_photos',
   'challenge_marks',
   'challenges',
   'kudos',

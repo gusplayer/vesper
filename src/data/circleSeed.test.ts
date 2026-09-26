@@ -130,6 +130,7 @@ describe('demoChallenge', () => {
       createdBy: 'ana',
       participantIds: [ME, 'ana', 'luis'],
       habitId: 'habit-read',
+      photos: true,
       archivedAt: null,
     });
     expect(demoHabits(es.demo).some((h) => h.id === challenge.habitId)).toBe(true);

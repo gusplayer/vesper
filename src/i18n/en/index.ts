@@ -12,6 +12,7 @@ import { identity } from './identity';
 import { modes } from './modes';
 import { notifications } from './notifications';
 import { onboarding } from './onboarding';
+import { photos } from './photos';
 import { routines } from './routines';
 import { session } from './session';
 import { settings } from './settings';
@@ -28,6 +29,7 @@ export const en: Strings = {
   activity,
   habits,
   circle,
+  photos,
   settings,
   identity,
   backup,

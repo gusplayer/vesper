@@ -861,3 +861,25 @@ elección). Las mismas siete áreas lo implementaron.
   reto y día, cifrada de extremo a extremo, sin avisos, reacciones ni comentarios.
 - El mismo día el dueño la aceptó con las recomendaciones (cifrado de extremo a extremo,
   la tanda local primero, 14 días) y pidió construirla entera en `feat/challenge-photos`.
+- **Tanda 1 (local), en la rama.** La foto opcional en tu marca de un día de un reto, solo en el
+  teléfono: `platform/camera` (galería y cámara, 1280 px + miniatura de 320 px, JPEG 0,7, metadatos
+  fuera con `lib/jpegMetadata`), migración 011 (`challenge_photos`, `challenges.photos`),
+  `domain/photos`, store `photos` con borrador, `PhotoTile`/`PhotoCard`/`PhotoMosaic` y `HeatGrid` con
+  imagen, rutas `circle/photo-new` y `circle/photo`, "Fotos del día" al crear un reto y "Tu álbum" al
+  cierre. Dependencias: `expo-image-picker`, `expo-image-manipulator` (desde el fuente en iOS, con un
+  parche; ver ADR-0051) y `expo-file-system` declarada.
+- **Verificado en el simulador iPhone 17 Pro (iOS 26), en inglés:** marcar hoy hace aparecer "Add
+  today's photo"; la hoja muestra la cámara deshabilitada con "The camera is not available on this
+  device." y la galería del sistema sin pedir permiso; una foto de prueba con GPS en su EXIF queda en
+  `Documents/photos/` a 960×1280 (116 KB) y 240×320 (18 KB) **sin EXIF, sin GPS y sin la marca de la
+  cámara** (leído con Pillow); el pie se guarda; la celda del sábado muestra la miniatura apagada y
+  abre el visor ("You · Saturday, September 26", el pie, "From the library", "Marked by hand", "Only
+  you see it."); desmarcar oculta la foto y volver a marcar la trae, también tras recargar; cambiar la
+  foto por la HEIC en Display P3 de la fototeca **fallaba** ("Image context has been lost") y con el
+  parche funciona, conserva el perfil de color y borra los archivos anteriores.
+- **Sin verificar:** la cámara (el simulador no tiene), Android, un teléfono físico, el cierre de un
+  reto con "Tu álbum" (cubierto por tests) y el español en pantalla (cubierto por `tsc`).
+- **Producción:** el primer arranque de esta prueba, antes de apuntar la app al servidor local, dejó
+  una identidad en la base de producción (`01a0de94…`, sin alias). Está pendiente de borrarse con
+  permiso del dueño.
+

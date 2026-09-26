@@ -5,14 +5,17 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 
 import {
+  useAlbum,
   useAppStore,
   useSettings,
   useChallenge,
+  useChallengePhotos,
   useChallengeStandings,
   useChallengeWeeks,
   useCircleMembers,
   useCircleStore,
   useMyChallengeWeeks,
+  useMyPhotoSlot,
   useNudgesGivenToday,
   useNudgesReceivedToday,
 } from '../../data';
@@ -23,19 +26,25 @@ import {
   ListRow,
   NoticeCard,
   PageHeader,
+  PhotoMosaic,
+  PhotoTile,
   Screen,
   Section,
   Stack,
   StatusNote,
   Text,
 } from '../../design/components';
-import { challengeDays, challengeWeeksMet, weekdayIndex } from '../../domain/circle';
+import { challengeDays, challengeWeeksMet, weekDayKeys, weekdayIndex } from '../../domain/circle';
 import { isMarkedByHealth } from '../../domain/habits';
+import { weekPhotos } from '../../domain/photos';
 import { ME } from '../../domain/types';
 import { challengeStatusText, challengeSummaryText } from '../../features/circle/ChallengeCard';
 import { useChallengeLink } from '../../features/circle/useChallengeLink';
 import { ChallengeWeek } from '../../features/circle/ChallengeWeek';
+import { photoDayNumber, photoDayText, shownWeekKey } from '../../features/circle/challengePhotos';
 import { challengeConsentText, challengeOutlookText } from '../../features/circle/challengeText';
+import { PhotoSourceSheet } from '../../features/circle/PhotoSourceSheet';
+import { thumbUriOf } from '../../features/circle/photoUri';
 import { StandingsList } from '../../features/circle/StandingsList';
 import { healthMissingReason, useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
 import { useCircleSyncStatus } from '../../features/circle/useCircleSyncStatus';
@@ -60,6 +69,13 @@ const CLOCK_MS = 60_000;
  *   exist, the line says the user marks it.
  * Leaving keeps the habit. A challenge that ran out has no button: it has how it went,
  * the offer to run it again (if you took part), and the way to archive it.
+ *
+ * Photos (ADR-0051), where the challenge has "Fotos del día": your week is drawn large
+ * and a marked day with a photo shows it and opens it. Under the week, a row offers the
+ * photo of today (or of yesterday, if today is not marked and yesterday is) once the
+ * day is marked, and replaces it once there is one; "Marcar hoy" stays the one button.
+ * A finished challenge adds your album. The photos stay on this phone until the
+ * challenge is archived, and archiving says it deletes them.
  */
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -74,6 +90,10 @@ export default function ChallengeScreen() {
   const nudgesGiven = useNudgesGivenToday(now, id);
   const nudgesReceived = useNudgesReceivedToday(now, id);
   const members = useCircleMembers();
+  const photos = useChallengePhotos(id);
+  const photoSlot = useMyPhotoSlot(id, now);
+  const album = useAlbum(id, now);
+  const [photoSheet, setPhotoSheet] = useState(false);
   const account = useCircleStore((state) => state.account);
   const linkEndSupport = useCircleStore((state) => state.linkEndSupport);
   const createChallenge = useCircleStore((state) => state.createChallenge);
@@ -92,6 +112,7 @@ export default function ChallengeScreen() {
   const askHealth = useAskHealthToJoin();
   const { tag } = useLocale();
   const sync = useCircleSyncStatus();
+  const p = strings.photos;
 
   if (view === null) {
     return (
@@ -129,6 +150,13 @@ export default function ChallengeScreen() {
   const canNudge = linked && active;
   const canJoin = !linked && !ended;
   const duration = t.challenge.duration(challengeDays(challenge));
+  // Photos only where the challenge takes them, and only on marked days (`weekPhotos`).
+  const photosOn = challenge.photos;
+  const weekKeys = weekDayKeys(shownWeekKey(challenge, now));
+  const minePhotos = photosOn && mine !== null ? weekPhotos(photos, ME, weekKeys, mine.days) : undefined;
+  const slot = photosOn && linked ? photoSlot : null;
+  const myAlbum = photosOn && ended ? (album.find((row) => row.isMe) ?? null) : null;
+  const openPhoto = (photoId: string) => router.push({ pathname: '/circle/photo', params: { id: photoId } });
   // Why the user is in it with nothing to mark: the habit behind it was archived, or
   // someone added them when creating it — say who, and what joining costs.
   const creator = members.find((member) => member.id === challenge.createdBy)?.name ?? null;
@@ -178,7 +206,10 @@ export default function ChallengeScreen() {
   };
 
   const confirmArchive = () => {
-    Alert.alert(t.challenge.ended.archiveQuestion, t.challenge.ended.archiveMessage, [
+    // Archiving deletes the photos (ADR-0051 §13): the question says so when there are any.
+    const hasPhotos = photos.some((photo) => photo.memberId === ME);
+    const message = hasPhotos ? p.album.archiveMessage : t.challenge.ended.archiveMessage;
+    Alert.alert(t.challenge.ended.archiveQuestion, message, [
       { text: strings.common.cancel, style: 'cancel' },
       {
         text: t.challenge.ended.archiveConfirm,
@@ -201,6 +232,7 @@ export default function ChallengeScreen() {
         days: challengeDays(challenge),
         participantIds: challenge.participantIds.filter((participantId) => participantId !== ME),
         join: true,
+        photos: challenge.photos,
       },
       Date.now(),
     );
@@ -275,7 +307,9 @@ export default function ChallengeScreen() {
             days={mine.days}
             todayIndex={active ? todayIndex : null}
             labels={strings.format.weekdayInitials}
-            size="md"
+            size="lg"
+            photos={minePhotos}
+            onOpenPhoto={openPhoto}
           />
           <Stack align="center" gap="xs">
             <Text variant="heading">{t.challenge.progress(mine.done, mine.target)}</Text>
@@ -290,6 +324,32 @@ export default function ChallengeScreen() {
         </Stack>
       )}
 
+      {slot === null ? null : (
+        <ListGroup>
+          <ListRow
+            leading={
+              slot.existing === null ? (
+                <PhotoTile variant="add" />
+              ) : (
+                <PhotoTile uri={thumbUriOf(slot.existing)} muted />
+              )
+            }
+            label={
+              slot.existing === null
+                ? slot.which === 'today'
+                  ? p.row.addToday
+                  : p.row.addYesterday
+                : slot.which === 'today'
+                  ? p.row.changeToday
+                  : p.row.changeYesterday
+            }
+            description={slot.existing === null ? p.row.optional : undefined}
+            kind="action"
+            onPress={() => setPhotoSheet(true)}
+          />
+        </ListGroup>
+      )}
+
       {ended ? (
         <Section title={t.challenge.ended.title}>
           {weeks.length === 0 ? null : (
@@ -301,6 +361,25 @@ export default function ChallengeScreen() {
                 <ChallengeWeek days={weeks.map((week) => week.met)} todayIndex={null} />
               </Stack>
             </Card>
+          )}
+          {myAlbum === null || myAlbum.photos.length === 0 ? null : (
+            <Section title={p.album.title}>
+              <PhotoMosaic
+                rows={[
+                  {
+                    key: myAlbum.id,
+                    photos: myAlbum.photos.map((photo) => ({
+                      key: photo.id,
+                      uri: thumbUriOf(photo),
+                      label: photoDayNumber(photo.dayKey),
+                      accessibilityLabel: p.viewer.mineA11y(photoDayText(photo.dayKey, tag, p)),
+                      onPress: () => openPhoto(photo.id),
+                    })),
+                  },
+                ]}
+              />
+              <StatusNote text={p.album.note} />
+            </Section>
           )}
           <ListGroup>
             {/* Running it again is for someone who took part; archiving is for everyone. */}
@@ -349,6 +428,16 @@ export default function ChallengeScreen() {
       </Section>
 
       <StatusNote text={sync.reason} align="center" />
+
+      {slot === null ? null : (
+        <PhotoSourceSheet
+          visible={photoSheet}
+          onClose={() => setPhotoSheet(false)}
+          challengeId={challenge.id}
+          dayKey={slot.dayKey}
+          which={slot.which}
+        />
+      )}
     </Screen>
   );
 }

@@ -377,6 +377,7 @@ describe('folding a download into local rows', () => {
       createdBy: ANA,
       participantIds: [ME, ANA],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -418,6 +419,7 @@ describe('folding a download into local rows', () => {
       createdBy: ANA,
       participantIds: [ME, ANA],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -621,6 +623,7 @@ describe('building what goes up', () => {
       createdBy: ME,
       participantIds: [ME, 'ana'],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -646,6 +649,7 @@ describe('building what goes up', () => {
       createdBy: ME,
       participantIds: [ME, ANA, 'ana'],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -664,6 +668,7 @@ describe('building what goes up', () => {
       createdBy: ANA,
       participantIds: [ME, ANA],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -689,6 +694,7 @@ describe('building what goes up', () => {
       createdBy: ANA,
       participantIds: [ANA],
       habitId: null,
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -708,6 +714,7 @@ describe('building what goes up', () => {
       createdBy: ME,
       participantIds: [ME],
       habitId: null,
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -841,6 +848,7 @@ describe('an ended link in the fold (ADR-0049)', () => {
       createdBy: SOF,
       participantIds: [ME, SOF],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };

@@ -7,6 +7,7 @@ import {
   importBackup,
   LATEST_SCHEMA,
   LOCAL_SETTING_KEYS,
+  LOCAL_TABLES,
   payloadFromTables,
   planImport,
   readPayload,
@@ -168,6 +169,19 @@ describe('payloadFromTables', () => {
     expect(ios.tables.settings?.find((row) => row.key === 'modes_repick')?.value).toBe('["m1"]');
     expect(android.tables.settings?.some((row) => row.key === 'modes_repick')).toBe(false);
   });
+
+  it('leaves the photos of challenges out: their files are not in the backup (ADR-0051)', () => {
+    const withPhotos = {
+      ...tables,
+      challenge_photos: [{ id: 'p-1', challenge_id: 'c-1', member_id: 'me', full_file: 'p-1.jpg' }],
+    };
+
+    const built = payloadFromTables({ schema: 11, platform: 'android', createdAt: T0, tables: withPhotos });
+
+    expect(LOCAL_TABLES).toContain('challenge_photos');
+    expect(Object.keys(built.tables)).not.toContain('challenge_photos');
+    expect(Object.keys(built.tables).sort()).toEqual(['modes', 'sessions', 'settings']);
+  });
 });
 
 describe('withRepick', () => {
@@ -228,6 +242,15 @@ describe('planImport', () => {
     const plan = planImport(payload(), { platform: 'android', localPrototypeSettings: null });
 
     expect(plan.sessions?.map((row) => row.id)).toEqual(['s1']);
+  });
+
+  it('ignores photos a payload carries: they name files on another phone', () => {
+    const carrying = payload();
+    carrying.tables.challenge_photos = [{ id: 'p-1', challenge_id: 'c-1', member_id: 'me', full_file: 'p-1.jpg' }];
+
+    const plan = planImport(carrying, { platform: 'android', localPrototypeSettings: null });
+
+    expect(Object.keys(plan)).not.toContain('challenge_photos');
   });
 });
 
@@ -322,7 +345,7 @@ describe('runMigrations', () => {
 describe('exportBackup', () => {
   it('reads every table but _migrations, with the schema it was written under', () => {
     const db = freshDb();
-    db.whenSql('sqlite_master', [{ name: '_migrations' }, { name: 'modes' }, { name: 'settings' }]);
+    db.whenSql('sqlite_master', [{ name: '_migrations' }, { name: 'challenge_photos' }, { name: 'modes' }, { name: 'settings' }]);
     db.whenSql('MAX(id)', [{ id: 7 }]);
     db.whenSql('FROM "settings"', [
       { key: 'identity', value: '{"id":"me"}', updated_at: T0 },
@@ -338,14 +361,19 @@ describe('exportBackup', () => {
     expect(exported.tables.settings?.map((row) => row.key)).toEqual(['language', 'modes_repick']);
     expect(exported.tables.modes?.[0]?.selection_token).toBeNull();
     expect(indexOf(db, 'FROM "_migrations"')).toBe(-1);
+    // The photos are not even read: nothing of them can end up in the payload.
+    expect(indexOf(db, 'FROM "challenge_photos"')).toBe(-1);
   });
 });
 
 describe('importBackup', () => {
   /** A database whose tables and columns the fake reports as they are after migrating. */
-  function stubbedDb(): FakeDb {
+  function stubbedDb(extraTables: string[] = []): FakeDb {
     const db = freshDb();
-    db.whenSql('sqlite_master', [{ name: '_migrations' }, { name: 'modes' }, { name: 'sessions' }, { name: 'settings' }]);
+    db.whenSql(
+      'sqlite_master',
+      ['_migrations', ...extraTables, 'modes', 'sessions', 'settings'].map((name) => ({ name })),
+    );
     db.whenSql('table_info("modes")', [{ name: 'id' }, { name: 'name' }, { name: 'selection_token' }, { name: 'created_at' }]);
     // `started_at` exists; the payload's `outcome` does too; a column the schema lacks does not.
     db.whenSql('table_info("sessions")', [{ name: 'id' }, { name: 'outcome' }, { name: 'started_at' }]);
@@ -458,6 +486,42 @@ describe('importBackup', () => {
       notificationsAllowed: true,
       healthConnected: false,
     });
+  });
+
+  it("keeps this phone's photos across the import and ignores any the payload carries", () => {
+    const db = stubbedDb(['challenge_photos']);
+    db.whenSql('SELECT * FROM "challenge_photos"', [
+      { id: 'p-here', challenge_id: 'c-1', member_id: 'me', day_key: '2026-09-22', full_file: 'p-here.jpg' },
+    ]);
+    db.whenSql('table_info("challenge_photos")', [
+      { name: 'id' },
+      { name: 'challenge_id' },
+      { name: 'member_id' },
+      { name: 'day_key' },
+      { name: 'full_file' },
+    ]);
+    const carrying = payload();
+    carrying.tables.challenge_photos = [
+      { id: 'p-there', challenge_id: 'c-2', member_id: 'me', day_key: '2026-09-21', full_file: 'p-there.jpg' },
+    ];
+
+    importBackup(carrying, T0, 'android');
+
+    const all = sqls(db);
+    const read = indexOf(db, 'SELECT * FROM "challenge_photos"');
+    const drop = indexOf(db, 'DROP TABLE "challenge_photos"');
+    const lastMigration = all.map((sql) => sql.startsWith('INSERT INTO _migrations')).lastIndexOf(true);
+    const inserts = db.calls
+      .map((call, index) => ({ call, index }))
+      .filter(({ call }) => call.sql.startsWith('INSERT INTO "challenge_photos"'));
+    expect(read).toBeGreaterThanOrEqual(0);
+    expect(read).toBeLessThan(drop);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.call.params).toEqual(['p-here', 'c-1', 'me', '2026-09-22', 'p-here.jpg']);
+    // Into the fully migrated schema, inside the one transaction.
+    expect(inserts[0]?.index).toBeGreaterThan(lastMigration);
+    expect(inserts[0]?.index).toBeLessThan(indexOf(db, /^COMMIT$/));
+    expect(db.calls.some((call) => (call.params ?? []).includes('p-there'))).toBe(false);
   });
 
   it('rolls back and turns the foreign keys on again when SQLite refuses a row', () => {

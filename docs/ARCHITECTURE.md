@@ -10,9 +10,9 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Runtime | Expo SDK 57 + dev client | Módulos nativos: SQLite, notificaciones, Salud, widgets, Screen Time, bloqueo Android (ADR-0001, ADR-0017) |
 | Lenguaje | TypeScript 6 estricto | `strict: true`, `noUnusedLocals`, sin `any` |
 | Navegación | expo-router | Un `Stack` raíz con dos guardas (onboarding / app), cuatro pestañas de texto (`expo-router/js-tabs` con `TabBar` propio) y rutas a pantalla completa para la sesión |
-| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`006` en TypeScript |
+| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`011` en TypeScript |
 | Ids | UUID v7 propio sobre `expo-crypto` | 20 líneas. Evita `uuid` + `react-native-get-random-values` |
-| Estado | Zustand | Tres stores que cachean SQLite (`app`, `focus`, `circle`), el idioma, y borradores efímeros (modo, onboarding, duración) |
+| Estado | Zustand | Cuatro stores que cachean SQLite (`app`, `focus`, `circle`, `photos`), el idioma, y borradores efímeros (modo, onboarding, duración, la foto sin guardar) |
 | Texto | Dos diccionarios tipados (`src/i18n/es`, `en`) | Sin librería de i18n (ADR-0020) |
 | Notificaciones | expo-notifications | Plan determinista en `domain/reminders`, diff contra el SO |
 | Salud | react-native-health en iOS (con parche); `modules/vesper-health` sobre Health Connect en Android (ADR-0043) | Lectura de entrenamientos, pasos y sueño de la semana en curso. Nada se escribe |
@@ -64,11 +64,12 @@ src/
     navigation.ts         opciones del Stack: fade de 160 ms, rutas bloqueadas
     shieldPalette.ts      los tokens convertidos para el escudo de iOS
     useReduceMotion.ts
-    components/           51 componentes exportados por index.ts, más tres internos
+    components/           62 componentes exportados por index.ts, más los internos
   data/
     index.ts              los hooks que usan las pantallas. Único punto de entrada
     stores/               app.ts (modos, rutinas, ajustes, hábitos, marcas, stats por día),
-                          focus.ts (la sesión en curso), circle.ts
+                          focus.ts (la sesión en curso), circle.ts, photos.ts (las fotos
+                          de los retos y el borrador sin guardar, ADR-0051)
     seed.ts, circleSeed.ts  datos de demostración y catálogos (apps, sitios, ideas)
     modeDraft.ts, onboardingDraft.ts, modes.ts   borradores y la duración elegida
     types.ts              tipos de la superficie de producto (Mode, Schedule, Settings…)
@@ -111,7 +112,9 @@ src/
     blocking.ios.ts, blocking.android.ts (+ blockingTypes.ts, androidApps.ts,
     BlockingSelectionView.tsx, routineWindows.ts), usage.ts (+ usageReading.ts),
     orientation.ts, circle.ts (+ circleApi.ts), identity.ts,
-    backup.ts (+ backupApi.ts, backupCrypto.ts, backupPolicy.ts)
+    backup.ts (+ backupApi.ts, backupCrypto.ts, backupPolicy.ts),
+    camera.ts (cámara, galería y preparación de la foto de un reto: tamaño, miniatura y
+    metadatos fuera con lib/jpegMetadata.ts; ADR-0051)
     hooks/                useIdentitySync, useNotificationSync, usePushSync, useHealthSync,
                           useLiveActivitySync, useBlockingSync, useRoutineSync,
                           useRoutineWindowsSync, useUsageSync, useCircleSync, useBackupSync

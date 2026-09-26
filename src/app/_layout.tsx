@@ -144,6 +144,8 @@ export default function RootLayout() {
               <Stack.Screen name="circle/join" />
               <Stack.Screen name="circle/challenge" />
               <Stack.Screen name="circle/challenge-new" />
+              <Stack.Screen name="circle/photo-new" />
+              <Stack.Screen name="circle/photo" />
             </Stack.Protected>
             {/* The usage-access disclosure belongs to no world: Play requires it right
                 before the system page, and that page is asked for from the onboarding

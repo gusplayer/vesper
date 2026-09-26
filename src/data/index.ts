@@ -21,9 +21,18 @@ import { dayBounds, dayKeyOf, dayKeyStart, weekDayKeys, weekStart } from '../dom
 import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { buildLedger } from '../domain/ledger';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
+import type { AlbumRow, PhotoSlot } from '../domain/photos';
 import { elapsed } from '../domain/session';
 import { computeStreak, type StreakState } from '../domain/streak';
-import { ME, type Challenge, type Ledger, type Member, type Profile, type SharePrefs } from '../domain/types';
+import {
+  ME,
+  type Challenge,
+  type ChallengePhoto,
+  type Ledger,
+  type Member,
+  type Profile,
+  type SharePrefs,
+} from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
 import * as sessionsRepo from '../db/repositories/sessions';
@@ -31,13 +40,14 @@ import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
 import { freshInstallLocale, useLocaleStore } from '../i18n/store';
 import { forgetCircleSync } from '../platform/hooks/useCircleSync';
 import { deleteIdentityForReset, forgetIdentitySync, settleIdentity } from '../platform/hooks/useIdentitySync';
-import { myChallengeWeeks, type MyChallengeWeek } from './challenges';
+import { challengeAlbum, myChallengeWeeks, myPhotoSlot, type MyChallengeWeek, type MyPhotoSlot } from './challenges';
 import { useOnboardingDraft } from './onboardingDraft';
 import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
 import { useAppStore } from './stores/app';
 import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
+import { usePhotoDraftStore, usePhotoStore, type PhotoDraft } from './stores/photos';
 import { sharedWeekUsageMs, useUsageStore, type UsageSource } from './stores/usage';
 import type { LifetimeTotals } from '../db/queries/lifetime';
 import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
@@ -48,10 +58,22 @@ import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, We
  * behind them moved from seeded memory to SQLite (ADR-0016, ADR-0017).
  */
 
-export { useAppStore, useFocusStore, useCircleStore, useUsageStore };
+export { useAppStore, useFocusStore, useCircleStore, useUsageStore, usePhotoStore, usePhotoDraftStore };
 export { WEBSITES, HEALTH };
 export { readStreak };
-export type { ChallengeStatus, ChallengeWeek, CircleWeekRow, LifetimeTotals, MyChallengeWeek, Standing, UsageSource };
+export type {
+  AlbumRow,
+  ChallengeStatus,
+  ChallengeWeek,
+  CircleWeekRow,
+  LifetimeTotals,
+  MyChallengeWeek,
+  MyPhotoSlot,
+  PhotoDraft,
+  PhotoSlot,
+  Standing,
+  UsageSource,
+};
 
 /**
  * The catalogues with words in them (apps, activities, mode ideas) follow the current
@@ -75,13 +97,30 @@ const appsFor = perLanguage(demoApps);
 const activitiesFor = perLanguage(demoActivities);
 const modeIdeasFor = perLanguage(demoModeIdeas);
 
-/** Reads the whole database into both stores. Synchronous: op-sqlite is. */
+/** Reads the whole database into the stores. Synchronous: op-sqlite is. */
 function hydrateStores(now: number): void {
   useLocaleStore.getState().hydrate();
   useAppStore.getState().hydrate(now);
   // A session that ran out while the app was dead gets its closing once (ADR-0047 §9).
   useFocusStore.getState().hydrate(sessionsRepo.takeRecoveredClosing());
   useCircleStore.getState().hydrate(now);
+  usePhotoStore.getState().hydrate();
+  sweepPhotos();
+}
+
+/**
+ * Photos of a challenge that is not open any more go, rows and files (ADR-0051 §13).
+ * Archiving already takes them; this catches what no archive saw: a challenge a restore
+ * did not bring back (the photos stay on the phone, the backup does not carry them) and
+ * an archive that died halfway. Runs after the circle is read: at boot, after a restore
+ * and after a reset.
+ */
+function sweepPhotos(): void {
+  const open = useCircleStore
+    .getState()
+    .challenges.filter((challenge) => challenge.archivedAt === null)
+    .map((challenge) => challenge.id);
+  usePhotoStore.getState().removeOrphans(open);
 }
 
 /**
@@ -154,6 +193,9 @@ function wipeAndRehydrate(now: number): BootResult {
   // demo data is written in the language the app is showing right now (ADR-0020).
   const { preference, locale } = useLocaleStore.getState();
   const result = resetDatabase(now, stringsFor(locale).demo);
+  // The rows went with every other table; the files are only the photo store's to delete,
+  // and only now, once the rows naming them are gone (ADR-0051).
+  usePhotoStore.getState().clear();
   if (preference !== 'auto') {
     useLocaleStore.getState().setPreference(preference, now);
   }
@@ -638,4 +680,63 @@ export function useInviteCode(): string | null {
 export function getInviteCode(): string | null {
   const profile = useCircleStore.getState().profile;
   return profile === null ? null : inviteCodeFor(profile);
+}
+
+// --- Photos in challenges (ADR-0051) ------------------------------------------------
+
+/**
+ * Every photo of a challenge on this phone, drawn or not. What is drawn is decided by
+ * `weekPhotos` and `albumRows` in domain/photos: a photo on a day without a mark is kept
+ * and not shown.
+ */
+export function useChallengePhotos(challengeId: string | undefined): ChallengePhoto[] {
+  const photos = usePhotoStore((state) => state.photos);
+  return useMemo(() => photos.filter((photo) => photo.challengeId === challengeId), [photos, challengeId]);
+}
+
+export function usePhoto(id: string | undefined): ChallengePhoto | null {
+  return usePhotoStore((state) => state.photos.find((photo) => photo.id === id) ?? null);
+}
+
+/**
+ * My photo slot for today and yesterday on a challenge: which day the row offers, if any
+ * (`domain/photos.photoSlot`). Today when today is marked; otherwise yesterday when
+ * yesterday is; null when neither can take one — photos off, not joined, not running,
+ * or no mark. `existing` is the photo already on that day, which a new one replaces.
+ *
+ * Joined is the same "linked" the challenge page uses: in it, with an active habit of the
+ * user's behind it. The marks are that habit's, whatever counted them (a tap, Health or
+ * a session): a photo only ever sits on a mark, it never makes one.
+ */
+export function useMyPhotoSlot(challengeId: string | undefined, now: number): MyPhotoSlot | null {
+  const challenge = useCircleStore((state) => state.challenges.find((c) => c.id === challengeId) ?? null);
+  const habits = useAppStore((state) => state.habits);
+  const marks = useAppStore((state) => state.habitMarks);
+  const photos = usePhotoStore((state) => state.photos);
+  return useMemo(
+    () => (challenge === null ? null : myPhotoSlot(challenge, habits, marks, photos, now)),
+    [challenge, habits, marks, photos, now],
+  );
+}
+
+/**
+ * The rows for "Tu álbum" / "El álbum" (ADR-0051 §7): one per participant with photos,
+ * the user first and then the challenge's order, photos by day. Only photos on days that
+ * are marked and inside the challenge, up to today: the user's marks are the habit marks
+ * of the challenge's habit, everyone else's their challenge marks.
+ */
+export function useAlbum(challengeId: string | undefined, now: number): AlbumRow[] {
+  const challenge = useCircleStore((state) => state.challenges.find((c) => c.id === challengeId) ?? null);
+  const members = useCircleMembers();
+  const profile = useProfile();
+  const challengeMarks = useCircleStore((state) => state.challengeMarks);
+  const myMarks = useAppStore((state) => state.habitMarks);
+  const photos = usePhotoStore((state) => state.photos);
+  return useMemo(() => {
+    if (challenge === null) {
+      return [];
+    }
+    const { participants } = challengeView(challenge, members, profile, dayKeyOf(now));
+    return challengeAlbum(challenge, participants, challengeMarks, myMarks, photos, now);
+  }, [challenge, members, profile, challengeMarks, myMarks, photos, now]);
 }
