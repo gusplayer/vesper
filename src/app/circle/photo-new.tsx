@@ -1,10 +1,18 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { useAppStore, useChallenge, usePhotoDraftStore, usePhotoStore } from '../../data';
+import {
+  useAppStore,
+  useChallenge,
+  useCircleStore,
+  usePhotoAudience,
+  usePhotoDraftStore,
+  usePhotoStore,
+} from '../../data';
 import { Button, FieldRow, PageHeader, PhotoCard, Screen, StatusNote } from '../../design/components';
 import { dayKeyOf } from '../../domain/day';
 import { cleanCaption, PHOTO_CAPTION_MAX, photoSlot } from '../../domain/photos';
+import { isQueuedPhoto, usePhotoTermsAccepted } from '../../features/circle/photoSharing';
 import { fullUriOf } from '../../features/circle/photoUri';
 import { useAddPhoto } from '../../features/circle/useAddPhoto';
 import { useChallengeLink } from '../../features/circle/useChallengeLink';
@@ -16,9 +24,15 @@ const CLOCK_MS = 60_000;
 
 /**
  * The photo before it is saved (ADR-0051): in color, at the width of its card, with an
- * optional caption of one line and the promise that holds in this first step — only
- * you see it. "Guardar" pins it to the day; "Tomar otra" or "Elegir otra" (the way it
- * came) replaces it here without leaving.
+ * optional caption of one line and who will see it, by name — "La ven Ana y Luis, solo
+ * en este reto." — or "Solo la ves tú." when nobody else will (photos off, nobody else
+ * joined, or no account to send it with). Shared, the one button says where it goes,
+ * "Agregar al reto", and a line says it waits for a connection when the last sync did
+ * not reach the server or other photos are still queued; kept here, it says "Guardar".
+ * "Tomar otra" or "Elegir otra" (the way it came) replaces it here without leaving.
+ *
+ * A shared photo whose terms were never accepted (somebody joined after the row was
+ * tapped) goes through `circle/photo-terms` first and comes back here, draft intact.
  *
  * The draft lives in `usePhotoDraftStore` and its files are already written. Leaving
  * without saving — the chevron, the gesture, Android's back — deletes them when the
@@ -39,6 +53,10 @@ export default function NewPhotoScreen() {
   // Saved once: a second tap must not save again or go back twice.
   const [saved, setSaved] = useState(false);
   const adder = useAddPhoto(draft === null ? null : { challengeId: draft.challengeId, dayKey: draft.dayKey }, false);
+  const audience = usePhotoAudience(draft?.challengeId);
+  const termsAccepted = usePhotoTermsAccepted();
+  const syncFailed = useCircleStore((state) => state.syncFailed);
+  const queueWaits = usePhotoStore((state) => state.photos.some(isQueuedPhoto));
 
   // Nothing to show: this page only exists between taking a photo and saving it.
   useEffect(() => {
@@ -74,9 +92,18 @@ export default function NewPhotoScreen() {
       todayKey,
     }) === 'ok';
   const back = `/circle/challenge?id=${challenge.id}`;
+  // Who will see it: the people who joined and can open it, never whoever joins later.
+  const shared = challenge.photos && audience.length > 0;
+  const lines = shared
+    ? [t.preview.audience(audience), ...(syncFailed || queueWaits ? [t.preview.queued] : [])]
+    : [t.preview.onlyYou];
 
   const save = () => {
     if (saved) {
+      return;
+    }
+    if (shared && !termsAccepted) {
+      router.push('/circle/photo-terms');
       return;
     }
     setSaved(true);
@@ -101,7 +128,11 @@ export default function NewPhotoScreen() {
       footer={
         <>
           {canSave || saved ? null : <StatusNote text={t.preview.slotGone} align="center" live />}
-          <Button label={t.preview.save} onPress={save} disabled={!canSave || adder.busy || saved} />
+          <Button
+            label={shared ? t.preview.add : t.preview.save}
+            onPress={save}
+            disabled={!canSave || adder.busy || saved}
+          />
           {adder.preparing ? <StatusNote text={t.sheet.preparing} align="center" live /> : null}
           {adder.problem === null ? null : (
             <StatusNote
@@ -128,7 +159,7 @@ export default function NewPhotoScreen() {
         uri={fullUriOf(draft.prepared)}
         width={draft.prepared.width}
         height={draft.prepared.height}
-        lines={[t.preview.onlyYou]}
+        lines={lines}
         frame="preview"
         accessibilityLabel={t.preview.photoA11y}
       />

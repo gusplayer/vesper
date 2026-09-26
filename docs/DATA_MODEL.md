@@ -24,7 +24,9 @@ gracia y empujones, ADR-0027), `008_routine_starts.ts` (la marca de rutina pasa 
 sola a un mapa por rutina, ADR-0036), `009_challenge_mark_source.ts` (de dónde vino cada
 marca de reto, ADR-0042) y `010_member_weeks_not_shared.ts` (una métrica que alguien no
 comparte es NULL, nunca cero, ADR-0033) y `011_challenge_photos.ts` (la foto de un día
-marcado de un reto y el interruptor "Fotos del día", ADR-0051). El índice está en `src/db/migrations/index.ts`;
+marcado de un reto y el interruptor "Fotos del día", ADR-0051) y `012_shared_photos.ts`
+(lo que una foto necesita al salir cifrada: su llave, su estado de subida, cuándo la olvida
+el servidor y el pie sellado, ADR-0051 tanda 2). El índice está en `src/db/migrations/index.ts`;
 se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
@@ -395,11 +397,21 @@ Por qué tiene esta forma:
   cambia de ruta entre instalaciones y restauraciones: una ruta absoluta guardada dejaría
   de existir. `photoUri(name)` la arma cada vez. Un nombre nulo es una foto cuyo archivo
   no está en este teléfono.
-- **Fuera del respaldo.** `challenge_photos` es una tabla de esta instalación
-  (`LOCAL_TABLES` en `src/db/backup.ts`): no se exporta, se ignora si un respaldo la trae
-  y al restaurar se conservan las filas de este teléfono, cuyos archivos siguen aquí. El
-  respaldo tiene tope de 5 MB y se sube entero cada día; una fila cuyo archivo está en otro
-  teléfono sería una foto que nadie puede dibujar.
+- **El respaldo lleva filas, nunca archivos.** El respaldo tiene tope de 5 MB y se sube
+  entero cada día, así que ninguna foto viaja en él. Desde la tanda 2 (migración 012) sí
+  viajan las filas de las fotos compartidas (`remote_state` `uploaded` o `remote`) que
+  tienen `content_key`, con `full_file` y `thumb_file` en NULL: al restaurar, la llave abre
+  otra vez lo que el servidor todavía guarda y se vuelve a bajar. Las fotos que nunca
+  salieron del teléfono (`local`) no viajan: se pierden con él, y la pantalla lo dice. Al
+  importar, `mergePhotoRows` conserva las filas de este teléfono y nunca deja dos para el
+  mismo id ni para el mismo día.
+- **Compartidas (tanda 2).** `content_key` es la llave AES-256 de la foto: nace aquí
+  cuando la foto propia sale, o se abre de su envoltura cuando llega una ajena. `remote_state`
+  es `local` (nunca salió), `queued` (espera la próxima sincronía), `posted` (el servidor
+  tiene la fila y faltan los archivos), `uploaded` (propia, arriba) o `remote` (de otra
+  persona). `expires_at` es el que dice el servidor. `caption_box` es el pie sellado tal
+  como viaja. Una lápida del servidor borra fila y archivos de una foto ajena; una propia
+  con archivos vuelve a `local` y se queda hasta archivar el reto.
 - **Quién borra.** El store (`src/data/stores/photos.ts`) borra primero la fila y después
   los archivos, así una fila nunca nombra un archivo ya borrado. Archivar un reto borra
   sus fotos, también cuando se archivan todos al salir del círculo; sacar a alguien del
@@ -409,8 +421,9 @@ Por qué tiene esta forma:
   se guarda: si se cancela, sus dos archivos se borran.
 
 `photoExpiresAt` (14 días después del último día del reto, o 28 días por foto en un reto
-sin fin, siempre en una medianoche local) es para el servidor de la tanda 2: en el
-teléfono tus fotos quedan hasta que archivas el reto.
+sin fin, siempre en una medianoche local) es el cálculo local; el servidor calcula el suyo
+en la zona horaria que el teléfono mandó por `/device`, y el teléfono guarda ese. En el
+teléfono tus fotos quedan hasta que archivas el reto; las ajenas se borran al vencer.
 
 ### Racha (ADR-0027)
 
@@ -519,6 +532,13 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 | `identity_ping_at` | epoch ms | El último `POST /device` con plataforma, versión y zona horaria; como mucho uno al día. No viaja en el respaldo |
 | `backup` | JSON | El respaldo cifrado (ADR-0048 §7): `{enabled, lastAt, lastError, fingerprint, remoteAt}`. Ausente se lee como encendido y sin respaldo aún (encendido por defecto). `fingerprint` es la huella de lo último que se subió, para no subir lo mismo dos veces; `remoteAt` es la fecha de la copia del servidor que este teléfono escribió o vio, para que una subida automática nunca pise una más nueva de otro teléfono. No viaja en el respaldo |
 | `modes_repick` | JSON | Los ids de los modos cuya selección de apps quedó en otro teléfono (ADR-0048 §9): un restaurar vació su token de Screen Time y su tarjeta dice "Vuelve a elegir las apps". Sale del ajuste al guardar una selección o borrar el modo. **Sí viaja** en el respaldo: restaurar un teléfono restaurado todavía sabe qué falta. Se lee como `Mode.needsRepick`, nunca es columna |
+| `photo_terms_accepted_at` | epoch ms | Cuándo el usuario aceptó el aviso de la primera foto compartida y sus términos (ADR-0051). Ausente hasta entonces: el aviso aparece antes de la primera foto que otra persona vería |
+| `photo_hidden_members` | JSON | Ids de las personas cuyas fotos el usuario ocultó ("Ocultar las fotos de Ana"). No borra nada: las pantallas no las dibujan. Se deshace en Ajustes › Círculo › Fotos ocultas |
+| `photo_box_keys` | JSON | Las llaves públicas (X25519, base64) y su `keyId` de la gente del círculo y de los retos, tal como las devuelve `/sync` en `keys`: para quién se envuelve cada foto |
+| `photo_pending_deletes` | JSON | Fotos propias quitadas aquí que el servidor todavía no confirmó (`DELETE /media/:id`); se mandan en la próxima sincronía |
+| `photo_pending_reports` | JSON | Reportes hechos sin red, con la llave de esa foto (lo que deja al servidor comprobarla); se mandan en la próxima sincronía |
+| `photo_reported` | JSON | Ids de fotos que el usuario reportó: quedan ocultas para él aunque el servidor no las haya quitado |
+| `circle_pending_blocks` | JSON | Personas bloqueadas aquí que el servidor todavía no confirmó (`POST /block`), como las colas del ADR-0049 |
 
 Las claves de la fase 1 `last_session_config`, `birth_date`, `life_expectancy_years`,
 `weekly_focus_target_ms` y `onboarding_completed_at` **ya no existen en el código**

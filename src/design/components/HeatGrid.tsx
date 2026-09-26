@@ -18,6 +18,12 @@ export type HeatCell = {
    */
   image?: string | null;
   /**
+   * A photo is pinned to this day and is not on this phone yet (it downloads when the
+   * challenge opens): the square holds the waiting fill of `PhotoTile` until `image`
+   * arrives. It is a place held, never a dot of "new" (ADR-0051 §8).
+   */
+  waiting?: boolean;
+  /**
    * This one square opens something (the photo). Its touch area reaches 44 pt. Ignored
    * when the whole grid has an `onPress`: a tap cannot mean two things.
    */
@@ -61,8 +67,9 @@ const CELL: Record<NonNullable<HeatGridProps['size']>, number> = {
  * up one by one, in no order, when the grid appears (HeatSquare); today keeps breathing.
  *
  * On a challenge's page the week is 'lg', and a marked day with a photo holds its
- * thumbnail, quiet under the veil, and opens it (ADR-0051). The mark is still what the
- * square says: the photo only sits on top of it.
+ * thumbnail, quiet under the veil, and opens it (ADR-0051); one still on its way holds
+ * the waiting fill. The mark is still what the square says: the photo only sits on top
+ * of it.
  */
 export function HeatGrid({
   cells,
@@ -104,6 +111,7 @@ export function HeatGrid({
               radius={corner}
               reduceMotion={reduceMotion}
               image={day.image ?? null}
+              waiting={day.waiting === true}
             />
           );
           return (

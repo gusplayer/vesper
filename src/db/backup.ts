@@ -25,10 +25,12 @@ import { SETTING_KEYS } from './repositories/settings';
  *   lands on another Android intact. Every mode whose selection is emptied — at the
  *   export on iPhone, at the import anywhere but Android to Android — goes on the
  *   `modes_repick` list, so its card says to pick the apps again.
- * - The photos of challenges (`LOCAL_TABLES`, ADR-0051 §14). Their files are not in the
- *   backup — the backup has a 5 MB cap and goes up whole every day — and a row whose
- *   file is on another phone is a photo nobody can draw. A restore keeps this phone's
- *   own rows, whose files are still here, and ignores any a payload might carry.
+ * - The photos' files (ADR-0051 §14): the backup has a 5 MB cap and goes up whole every
+ *   day. Only the rows of the photos shared with a challenge travel (`sharedPhotoRows`),
+ *   with their keys and without file names: the server still has those photos, and a
+ *   restore downloads them again while they live. A photo that never left the phone
+ *   does not travel at all — its row would name a file on another phone, a photo nobody
+ *   can draw. A restore keeps this phone's own rows, files and all (`mergePhotoRows`).
  *
  * Nothing here reads `DeviceActivityReport`: nothing in the database ever came from it
  * (rule 10).
@@ -56,11 +58,14 @@ export type BackupPayload = {
 export const LATEST_SCHEMA = migrations.reduce((max, migration) => Math.max(max, migration.id), 0);
 
 /**
- * Tables that belong to this install: left out of the export, ignored in a payload, and
- * kept as they are across an import. `challenge_photos` rows name files that live only
- * in this phone's photos directory (ADR-0051).
+ * The photos' table (ADR-0051): half of it travels. Its shared rows go in the backup
+ * without file names (`sharedPhotoRows`); this phone's rows, whose files are here, are
+ * kept across an import (`mergePhotoRows`).
  */
-export const LOCAL_TABLES: readonly string[] = ['challenge_photos'];
+export const PHOTOS_TABLE = 'challenge_photos';
+
+/** The states of a photo the server holds, alive: the only ones a restore can bring back. */
+const SHARED_STATES: readonly string[] = ['uploaded', 'remote'];
 
 /** Settings that belong to this install. They are left out of the export and kept on import. */
 export const LOCAL_SETTING_KEYS: readonly string[] = [
@@ -128,6 +133,63 @@ function toRow(raw: Record<string, unknown>): BackupRow {
 }
 
 /**
+ * The photo rows that travel (ADR-0051, tanda 2): the ones shared with a challenge that
+ * the server still keeps — the user's that went up, and other people's — each with the
+ * key that opens it and **without file names** (`full_file`, `thumb_file` null). A
+ * restore downloads them again while they live, and opens them with that key: the wraps
+ * were for the old secret's key, which a restore replaces. A photo still waiting to go
+ * up, or one that stays on the phone, is left out: its file does not travel.
+ */
+export function sharedPhotoRows(rows: readonly BackupRow[]): BackupRow[] {
+  return rows
+    .filter(
+      (row) =>
+        typeof row.content_key === 'string' &&
+        row.content_key !== '' &&
+        typeof row.remote_state === 'string' &&
+        SHARED_STATES.includes(row.remote_state),
+    )
+    .map((row) => ({ ...row, full_file: null, thumb_file: null }));
+}
+
+/** The key the photos' table is unique on, besides its id. */
+function photoSlot(row: BackupRow): string {
+  return `${String(row.challenge_id)}|${String(row.member_id)}|${String(row.day_key)}`;
+}
+
+/**
+ * The photo rows an import writes: this phone's own (`kept`, whose files are here) and
+ * the backup's (`restored`, without files), never two for one id or one day of one
+ * person. This phone's row wins — it has the files — and takes the backup's key when it
+ * has none. The two lists are written apart (the backup's under its schema, this phone's
+ * after the migrations), so each comes back on its own.
+ */
+export function mergePhotoRows(
+  restored: readonly BackupRow[],
+  kept: readonly BackupRow[],
+): { restored: BackupRow[]; kept: BackupRow[] } {
+  const keptIds = new Set(kept.map((row) => row.id));
+  const keptSlots = new Set(kept.map(photoSlot));
+  const byId = new Map(restored.map((row) => [row.id, row]));
+  return {
+    restored: restored.filter((row) => !keptIds.has(row.id) && !keptSlots.has(photoSlot(row))),
+    kept: kept.map((row) => {
+      const backup = byId.get(row.id);
+      const missingKey = row.content_key === null || row.content_key === undefined || row.content_key === '';
+      return backup !== undefined && missingKey && typeof backup.content_key === 'string'
+        ? {
+            ...row,
+            content_key: backup.content_key,
+            remote_state: backup.remote_state ?? null,
+            expires_at: backup.expires_at ?? null,
+            caption_box: backup.caption_box ?? null,
+          }
+        : row;
+    }),
+  };
+}
+
+/**
  * A decrypted payload, checked before anything is dropped. Null for anything that is
  * not a backup this code wrote: a wrong format, a schema that is not a positive
  * integer, a table that is not a list of rows.
@@ -171,10 +233,10 @@ export function payloadFromTables(input: {
 }): BackupPayload {
   const tables: Record<string, BackupRow[]> = {};
   for (const [table, raw] of Object.entries(input.tables)) {
-    if (LOCAL_TABLES.includes(table)) {
-      continue;
-    }
     let rows = raw.map(toRow);
+    if (table === PHOTOS_TABLE) {
+      rows = sharedPhotoRows(rows);
+    }
     if (table === 'settings') {
       rows = rows.filter((row) => typeof row.key !== 'string' || !LOCAL_SETTING_KEYS.includes(row.key));
     }
@@ -260,8 +322,8 @@ export function withDeviceFields(backupValue: string, local: string | null): str
  * The rows a restore writes, by table: the payload with the import's rules applied.
  * This install's settings are dropped from it (they are kept, not overwritten), a
  * Screen Time token is emptied unless it goes from Android to Android, the
- * permission fields of `prototype_settings` are this phone's, and a table of this
- * install (`LOCAL_TABLES`) is ignored: its rows here are kept instead.
+ * permission fields of `prototype_settings` are this phone's, and only the shared photo
+ * rows are taken, without file names (`sharedPhotoRows`).
  */
 export function planImport(
   payload: BackupPayload,
@@ -270,10 +332,10 @@ export function planImport(
   const keepTokens = payload.platform === 'android' && device.platform === 'android';
   const plan: Record<string, BackupRow[]> = {};
   for (const [table, rows] of Object.entries(payload.tables)) {
-    if (LOCAL_TABLES.includes(table)) {
-      continue;
-    }
     let planned = rows;
+    if (table === PHOTOS_TABLE) {
+      planned = sharedPhotoRows(planned);
+    }
     if (table === 'settings') {
       planned = planned
         .filter((row) => typeof row.key !== 'string' || !LOCAL_SETTING_KEYS.includes(row.key))
@@ -384,7 +446,7 @@ export function exportBackup(now: number, platform: BackupPlatform): BackupPaylo
   const db = getDb();
   const tables: Record<string, Record<string, unknown>[]> = {};
   for (const table of listTables(db)) {
-    if (table === '_migrations' || LOCAL_TABLES.includes(table)) {
+    if (table === '_migrations') {
       continue;
     }
     tables[table] = db.executeSync(`SELECT * FROM "${table}" ORDER BY rowid`).rows;
@@ -412,16 +474,12 @@ function keptSettings(db: SqlHandle): KeptSetting[] {
   return kept;
 }
 
-/** This install's own tables, read before the drop so the import can put them back. */
-function keptTables(db: SqlHandle): Record<string, BackupRow[]> {
-  const present = new Set(listTables(db));
-  const kept: Record<string, BackupRow[]> = {};
-  for (const table of LOCAL_TABLES) {
-    if (present.has(table)) {
-      kept[table] = db.executeSync(`SELECT * FROM "${table}" ORDER BY rowid`).rows.map(toRow);
-    }
+/** This phone's photo rows, read before the drop so the import can put them back. */
+function keptPhotoRows(db: SqlHandle): BackupRow[] {
+  if (!listTables(db).includes(PHOTOS_TABLE)) {
+    return [];
   }
-  return kept;
+  return db.executeSync(`SELECT * FROM "${PHOTOS_TABLE}" ORDER BY rowid`).rows.map(toRow);
 }
 
 function localPrototypeSettings(db: SqlHandle): string | null {
@@ -465,9 +523,10 @@ function insertRows(db: SqlHandle, plan: Record<string, BackupRow[]>): void {
 /**
  * Replaces the database with a backup, in one transaction: every table dropped, the
  * schema rebuilt up to the backup's migration, its rows written, the remaining
- * migrations run over them. This install's own settings and tables (`LOCAL_TABLES`,
- * the photos) are kept as they were, and the circle's cursor goes back to 0 so the
- * next `/sync` brings everything.
+ * migrations run over them. This install's own settings are kept as they were, and the
+ * circle's cursor goes back to 0 so the next `/sync` brings everything. The photos are
+ * both: the backup's shared rows, and this phone's rows with their files
+ * (`mergePhotoRows`).
  *
  * Foreign keys are off while it runs: dropping a parent before its child, and writing
  * a child before its parent, are both normal here. SQLite only switches them outside
@@ -482,8 +541,11 @@ export function importBackup(payload: BackupPayload, now: number, platform: Back
   }
   const db = getDb();
   const kept = keptSettings(db);
-  const keptRows = keptTables(db);
   const plan = planImport(payload, { platform, localPrototypeSettings: localPrototypeSettings(db) });
+  const photos = mergePhotoRows(plan[PHOTOS_TABLE] ?? [], keptPhotoRows(db));
+  if (hasOwn(plan, PHOTOS_TABLE)) {
+    plan[PHOTOS_TABLE] = photos.restored;
+  }
 
   db.executeSync('PRAGMA foreign_keys = OFF');
   try {
@@ -496,7 +558,7 @@ export function importBackup(payload: BackupPayload, now: number, platform: Back
       insertRows(db, plan);
       runMigrations(db, { transaction: 'caller' });
       // Back into the fully migrated schema: they were written under this app's.
-      insertRows(db, keptRows);
+      insertRows(db, { [PHOTOS_TABLE]: photos.kept });
       for (const setting of kept) {
         db.executeSync(UPSERT_SETTING, [setting.key, setting.value, setting.updatedAt]);
       }

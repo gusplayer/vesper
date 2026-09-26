@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ChallengePhoto } from '../../domain/types';
+import type { StoredPhoto } from '../../domain/types';
 import { CHALLENGE_PHOTOS_SQL } from '../migrations/011_challenge_photos';
+import { SHARED_PHOTOS_SQL } from '../migrations/012_shared_photos';
 import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as photos from './photos';
 
@@ -15,7 +16,7 @@ vi.mock('../client', () => ({
 
 const T0 = 1_700_000_000_000;
 
-const photo: ChallengePhoto = {
+const photo: StoredPhoto = {
   id: 'p-1',
   challengeId: 'challenge-read',
   memberId: 'me',
@@ -29,6 +30,10 @@ const photo: ChallengePhoto = {
   takenAt: T0,
   createdAt: T0,
   updatedAt: T0 + 1,
+  contentKey: null,
+  remoteState: 'local',
+  expiresAt: null,
+  captionBox: null,
 };
 
 const photoRow = {
@@ -45,6 +50,10 @@ const photoRow = {
   taken_at: T0,
   created_at: T0,
   updated_at: T0 + 1,
+  content_key: null,
+  remote_state: 'local',
+  expires_at: null,
+  caption_box: null,
 };
 
 beforeEach(() => {
@@ -66,6 +75,21 @@ describe('reading', () => {
     fake.whenSql('FROM challenge_photos', [{ ...photoRow, origin: 'screenshot' }]);
 
     expect(photos.listPhotos()[0]?.origin).toBe('library');
+  });
+
+  it('reads a row written before 012 as a local photo that never left', () => {
+    const { content_key: _k, remote_state: _s, expires_at: _e, caption_box: _c, ...before012 } = photoRow;
+    fake.whenSql('FROM challenge_photos', [before012]);
+
+    expect(photos.listPhotos()[0]).toEqual(photo);
+  });
+
+  it('reads an unknown state as local, never as something to send', () => {
+    fake.whenSql('FROM challenge_photos', [
+      { ...photoRow, remote_state: 'sending', content_key: 'k', expires_at: 99, caption_box: '' },
+    ]);
+
+    expect(photos.listPhotos()[0]).toMatchObject({ remoteState: 'local', contentKey: 'k', expiresAt: 99, captionBox: null });
   });
 
   it('reads a missing caption or file name as null', () => {
@@ -126,6 +150,10 @@ describe('replacePhoto', () => {
       T0,
       T0,
       T0 + 1,
+      null,
+      'local',
+      null,
+      null,
     ]);
   });
 
@@ -149,10 +177,60 @@ describe('replacePhoto', () => {
 
     const call = fake.callMatching(/INSERT INTO challenge_photos/);
     const { table, columns } = insertColumns(call.sql);
-    const declared = ddlColumns(CHALLENGE_PHOTOS_SQL, table);
+    const declared = ddlColumns(`${CHALLENGE_PHOTOS_SQL}\n${SHARED_PHOTOS_SQL}`, table);
     expect(table).toBe('challenge_photos');
     expect(columns).toEqual(declared);
     expect(call.params).toHaveLength(columns.length);
+  });
+});
+
+describe('where a photo stands with the server', () => {
+  it('changes only the fields given, and when', () => {
+    photos.updateShare('p-1', { remoteState: 'posted', expiresAt: 99 }, T0 + 5);
+    photos.updateShare('p-1', {}, T0 + 6);
+
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]?.sql).toBe('UPDATE challenge_photos SET remote_state = ?, expires_at = ?, updated_at = ? WHERE id = ?');
+    expect(fake.calls[0]?.params).toEqual(['posted', 99, T0 + 5, 'p-1']);
+  });
+
+  it('writes every field of the share when asked to', () => {
+    photos.updateShare('p-1', { contentKey: 'k', remoteState: 'queued', expiresAt: null, captionBox: 'b' }, T0);
+
+    expect(fake.calls[0]?.sql).toBe(
+      'UPDATE challenge_photos SET content_key = ?, remote_state = ?, expires_at = ?, caption_box = ?, updated_at = ? WHERE id = ?',
+    );
+    expect(fake.calls[0]?.params).toEqual(['k', 'queued', null, 'b', T0, 'p-1']);
+  });
+
+  it('records a downloaded file under its column', () => {
+    photos.setPhotoFile('p-1', 'thumb', 'p-1.thumb.jpg');
+    photos.setPhotoFile('p-1', 'full', 'p-1.jpg');
+
+    expect(fake.calls.map((call) => [call.sql, call.params])).toEqual([
+      ['UPDATE challenge_photos SET thumb_file = ? WHERE id = ?', ['p-1.thumb.jpg', 'p-1']],
+      ['UPDATE challenge_photos SET full_file = ? WHERE id = ?', ['p-1.jpg', 'p-1']],
+    ]);
+  });
+
+  it('writes and deletes a sync worth of rows in one transaction each, and nothing for none', () => {
+    photos.replacePhotos([photo, { ...photo, id: 'p-2', dayKey: '2026-08-19' }]);
+    photos.deletePhotos(['p-1', 'p-2']);
+    photos.replacePhotos([]);
+    photos.deletePhotos([]);
+
+    expect(fake.calls.map((call) => call.sql.trim().split(/\s+/)[0])).toEqual([
+      'BEGIN',
+      'DELETE',
+      'INSERT',
+      'DELETE',
+      'INSERT',
+      'COMMIT',
+      'BEGIN',
+      'DELETE',
+      'DELETE',
+      'COMMIT',
+    ]);
   });
 });
 
@@ -190,6 +268,16 @@ describe('the migration', () => {
       'updated_at',
     ]);
     expect(CHALLENGE_PHOTOS_SQL).toContain('UNIQUE(challenge_id, member_id, day_key)');
+  });
+
+  it('012 adds what a shared photo needs, and every photo of tanda 1 stays local', () => {
+    expect(ddlColumns(`${CHALLENGE_PHOTOS_SQL}\n${SHARED_PHOTOS_SQL}`, 'challenge_photos').slice(-4)).toEqual([
+      'content_key',
+      'remote_state',
+      'expires_at',
+      'caption_box',
+    ]);
+    expect(SHARED_PHOTOS_SQL).toContain("remote_state TEXT NOT NULL DEFAULT 'local'");
   });
 
   it('adds "Fotos del día" to challenges, on for every challenge that already exists', () => {

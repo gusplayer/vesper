@@ -397,6 +397,52 @@ describe('ending a link here (ADR-0049)', () => {
   });
 });
 
+describe('blocking a person (ADR-0051 §18)', () => {
+  function withAccount(): void {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+  }
+
+  it('drops the person here and queues one block for the server, in place of an end', () => {
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+    useCircleStore.getState().removeFromCircle(ANA, 60);
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+
+    useCircleStore.getState().blockMember(ANA, 61);
+
+    const state = useCircleStore.getState();
+    expect(state.pendingBlocks).toEqual([ANA]);
+    expect(state.pendingEnds).toEqual([]);
+    expect(state.members).toEqual([]);
+    const writes = fake.calls
+      .filter((call) => call.sql.startsWith('INSERT INTO settings') && call.params?.[0] === 'circle_pending_blocks')
+      .map((call) => call.params?.[1]);
+    expect(writes).toEqual([JSON.stringify([ANA])]);
+  });
+
+  it('queues nothing in the demo circle, and never blocks the user', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+
+    useCircleStore.getState().blockMember(ANA, 61);
+    useCircleStore.getState().blockMember(ME, 62);
+
+    expect(useCircleStore.getState().pendingBlocks).toEqual([]);
+    expect(useCircleStore.getState().members.map((member) => member.id)).not.toContain(ANA);
+  });
+
+  it('forgets a block the server has, and every block with the account', () => {
+    withAccount();
+    useCircleStore.getState().blockMember(ANA, 61);
+    useCircleStore.getState().blockMember('luis', 62);
+
+    useCircleStore.getState().settleBlock(ANA, 63);
+    expect(useCircleStore.getState().pendingBlocks).toEqual(['luis']);
+
+    useCircleStore.getState().clearAccount(64);
+    expect(useCircleStore.getState().pendingBlocks).toEqual([]);
+  });
+});
+
 describe('photos in challenges (ADR-0051)', () => {
   const photoRow = (id: string, challengeId: string, memberId = ME) => ({
     id,
@@ -458,6 +504,19 @@ describe('photos in challenges (ADR-0051)', () => {
     useCircleStore.getState().leaveCircle(50);
 
     expect(photoDeletes('challenge_id')).toEqual([DEMO_CHALLENGE_ID, CHALLENGE]);
+  });
+
+  it("takes other people's photos of a challenge the user leaves, and keeps the user's", () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, challenges: [{ ...REMOTE_CHALLENGE, participantIds: [ANA, ME] }] });
+    fake.whenSql('WHERE challenge_id = ? ORDER BY', [photoRow('p-mine', CHALLENGE), photoRow('p-ana', CHALLENGE, ANA)]);
+
+    useCircleStore.getState().leaveChallenge(CHALLENGE, 30);
+
+    const deleted = fake.calls
+      .filter((call) => call.sql === 'DELETE FROM challenge_photos WHERE id = ?')
+      .map((call) => call.params?.[0]);
+    expect(deleted).toEqual(['p-ana']);
+    expect(photoFiles.deleted).toEqual([['p-ana.jpg', 'p-ana.thumb.jpg']]);
   });
 
   it('takes the photos of a person who leaves the circle with the rest of their rows', () => {

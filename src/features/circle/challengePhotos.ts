@@ -1,5 +1,5 @@
-import { dayKeyStart, weekKeyOf } from '../../domain/day';
-import type { Challenge, ChallengePhoto, DayKey, MarkSource } from '../../domain/types';
+import { dayKeyStart, dayStartShifted, weekKeyOf } from '../../domain/day';
+import type { Challenge, ChallengePhoto, DayKey, MarkSource, Millis } from '../../domain/types';
 import type { Strings } from '../../i18n';
 import { clockText } from '../../lib/format';
 
@@ -58,4 +58,16 @@ export function photoOriginText(
 /** How the day's mark was counted, as a line of the viewer. Null when the day has no mark. */
 export function photoMarkText(source: MarkSource | null, t: PhotoStrings): string | null {
   return source === null ? null : t.viewer.markSource[source];
+}
+
+/**
+ * The last day the photos of a challenge stay, as the fixed date of the album's line
+ * (ADR-0051 §12): '25 de octubre', 'October 25'. `expiresAt` is the midnight that ends
+ * that day (`photoExpiresAt`), so the day named is the one before it. A date, never a
+ * countdown.
+ */
+export function photosUntilText(expiresAt: Millis, tag: string): string {
+  return new Intl.DateTimeFormat(tag, { day: 'numeric', month: 'long' }).format(
+    new Date(dayStartShifted(expiresAt, -1)),
+  );
 }

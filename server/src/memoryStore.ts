@@ -7,9 +7,11 @@ import type {
   EndedLink,
   Kudos,
   Link,
+  Media,
   Nudge,
   Recovery,
   RecoveryCode,
+  Report,
   Store,
   Week,
 } from './store.ts';
@@ -33,6 +35,14 @@ export function createMemoryStore(): Store {
   const codes = new Map<string, RecoveryCode>();
   /** Keyed on the pair in a fixed order, like `ended_links` (a_id < b_id). */
   const ended = new Map<string, { a: string; b: string; endedAt: number }>();
+  const media = new Map<string, Media>();
+  const reports = new Map<string, Report>();
+  /** Keyed on `blocker|blocked`, the primary key of `blocks`. */
+  const blocks = new Map<string, { blockerId: string; blockedId: string; createdAt: number }>();
+
+  /** Copies in and out, as rows would be: nothing a caller holds is the stored row. */
+  const copyMedia = (row: Media): Media => ({ ...row, wraps: row.wraps.map((wrap) => ({ ...wrap })) });
+  const isLive = (row: Media) => row.deletedAt === null;
 
   const linkKey = (ownerId: string, memberId: string) => `${ownerId}|${memberId}`;
   const codeKey = (purpose: string, subject: string) => `${purpose}|${subject}`;
@@ -67,12 +77,20 @@ export function createMemoryStore(): Store {
           throw new ConflictError('inviteCode');
         }
       }
-      // `lastSeenAt` has one writer after the insert, `touchAccount`, as in pgStore.
+      // `lastSeenAt` has one writer after the insert, `touchAccount`, and `bannedAt` one
+      // at all, `banAccount`, as in pgStore.
       const previous = accounts.get(account.id);
       accounts.set(account.id, {
         ...account,
         lastSeenAt: previous === undefined ? account.lastSeenAt : previous.lastSeenAt,
+        bannedAt: previous === undefined ? null : previous.bannedAt,
       });
+    },
+    async banAccount(id, at) {
+      const account = accounts.get(id);
+      if (account !== undefined && account.bannedAt === null) {
+        accounts.set(id, { ...account, bannedAt: at });
+      }
     },
     async touchAccount(id, at) {
       const account = accounts.get(id);
@@ -127,6 +145,23 @@ export function createMemoryStore(): Store {
           continue;
         }
         challenge.participantIds = challenge.participantIds.filter((participant) => participant !== id);
+      }
+      // `media.owner_id` and `media.challenge_id` cascade; `blocks` cascades both ways;
+      // `reports.reporter_id` is set null, and the rest of a report stays (schema.sql).
+      for (const [key, row] of media) {
+        if (row.ownerId === id || !challenges.has(row.challengeId)) {
+          media.delete(key);
+        }
+      }
+      for (const [key, row] of blocks) {
+        if (row.blockerId === id || row.blockedId === id) {
+          blocks.delete(key);
+        }
+      }
+      for (const [key, row] of reports) {
+        if (row.reporterId === id) {
+          reports.set(key, { ...row, reporterId: null });
+        }
       }
     },
 
@@ -284,6 +319,180 @@ export function createMemoryStore(): Store {
           codes.delete(key);
         }
       }
+    },
+
+    async getMedia(id) {
+      const row = media.get(id);
+      return row === undefined ? null : copyMedia(row);
+    },
+    async putMediaReplacing(row) {
+      // The partial unique index of Postgres: one live row per (challenge, owner, day).
+      const replaced: Media[] = [];
+      for (const [key, other] of media) {
+        if (
+          key !== row.id &&
+          isLive(other) &&
+          other.challengeId === row.challengeId &&
+          other.ownerId === row.ownerId &&
+          other.dayKey === row.dayKey
+        ) {
+          replaced.push(copyMedia(other));
+          media.set(key, { ...other, deletedAt: row.updatedAt, updatedAt: row.updatedAt });
+        }
+      }
+      media.set(row.id, copyMedia(row));
+      return replaced;
+    },
+    async markMediaObject(id, variant, at) {
+      const row = media.get(id);
+      if (row === undefined || !isLive(row)) {
+        return null;
+      }
+      const next: Media = { ...row, [variant === 'thumb' ? 'thumbAt' : 'fullAt']: at };
+      if (next.state === 'pending' && next.thumbAt !== null && next.fullAt !== null) {
+        next.state = 'ready';
+        next.updatedAt = at;
+      }
+      media.set(id, next);
+      return copyMedia(next);
+    },
+    async tombstoneMedia(ids, at) {
+      const gone: Media[] = [];
+      for (const id of new Set(ids)) {
+        const row = media.get(id);
+        if (row !== undefined && isLive(row)) {
+          gone.push(copyMedia(row));
+          media.set(id, { ...row, deletedAt: at, updatedAt: at });
+        }
+      }
+      return gone;
+    },
+    async liveMedia(filter) {
+      return [...media.values()]
+        .filter(
+          (row) =>
+            isLive(row) &&
+            (filter.ownerId === undefined || row.ownerId === filter.ownerId) &&
+            (filter.challengeId === undefined || row.challengeId === filter.challengeId),
+        )
+        .map(copyMedia);
+    },
+    async mediaChangedFor(viewerId, since) {
+      return [...media.values()]
+        .filter(
+          (row) =>
+            row.updatedAt > since &&
+            (row.state === 'ready' || row.deletedAt !== null) &&
+            (row.ownerId === viewerId || row.wraps.some((wrap) => wrap.recipientId === viewerId)),
+        )
+        .map(copyMedia);
+    },
+    async expiredMedia(at) {
+      return [...media.values()].filter((row) => isLive(row) && row.expiresAt <= at).map(copyMedia);
+    },
+    async stalePendingMedia(before) {
+      return [...media.values()]
+        .filter((row) => isLive(row) && row.state === 'pending' && row.createdAt < before)
+        .map(copyMedia);
+    },
+    async deleteMediaRows(ids) {
+      for (const id of ids) {
+        media.delete(id);
+      }
+    },
+    async purgeMediaTombstones(before) {
+      let count = 0;
+      for (const [key, row] of media) {
+        if (row.deletedAt !== null && row.deletedAt < before) {
+          media.delete(key);
+          count += 1;
+        }
+      }
+      return count;
+    },
+    async liveMediaIds(ids) {
+      return new Set(ids.filter((id) => {
+        const row = media.get(id);
+        return row !== undefined && isLive(row);
+      }));
+    },
+
+    async putReport(report) {
+      // `reports_one_per_reporter` in Postgres: unique (reporter_id, media_id).
+      const twin = [...reports.values()].find(
+        (row) =>
+          row.id !== report.id &&
+          report.reporterId !== null &&
+          row.reporterId === report.reporterId &&
+          row.mediaId === report.mediaId,
+      );
+      if (twin !== undefined) {
+        return false;
+      }
+      reports.set(report.id, { ...report });
+      return true;
+    },
+    async getReport(id) {
+      const row = reports.get(id);
+      return row === undefined ? null : { ...row };
+    },
+    async findReport(reporterId, mediaId) {
+      const row = [...reports.values()].find(
+        (report) => report.reporterId === reporterId && report.mediaId === mediaId,
+      );
+      return row === undefined ? null : { ...row };
+    },
+    async listReports(limit) {
+      return [...reports.values()]
+        .sort((a, b) => {
+          const openA = a.resolvedAt === null ? 0 : 1;
+          const openB = b.resolvedAt === null ? 0 : 1;
+          return openA !== openB ? openA - openB : b.createdAt - a.createdAt || (a.id < b.id ? 1 : -1);
+        })
+        .slice(0, limit)
+        .map((row) => ({ ...row }));
+    },
+    async expiredPreservedReports(at) {
+      return [...reports.values()]
+        .filter((row) => row.preservedUntil !== null && row.preservedUntil <= at)
+        .map((row) => ({ ...row }));
+    },
+    async staleResolvedReports(before) {
+      return [...reports.values()]
+        .filter((row) => row.resolvedAt !== null && row.preservedUntil === null && row.resolvedAt < before)
+        .map((row) => ({ ...row }));
+    },
+    async deleteReports(ids) {
+      for (const id of ids) {
+        reports.delete(id);
+      }
+    },
+    async heldReportIds(ids, at) {
+      return new Set(ids.filter((id) => {
+        const row = reports.get(id);
+        return (
+          row !== undefined &&
+          (row.resolvedAt === null || (row.preservedUntil !== null && row.preservedUntil > at))
+        );
+      }));
+    },
+
+    async putBlock(blockerId, blockedId, at) {
+      const key = `${blockerId}|${blockedId}`;
+      if (!blocks.has(key)) {
+        blocks.set(key, { blockerId, blockedId, createdAt: at });
+      }
+    },
+    async blockedWith(id) {
+      const ids = new Set<string>();
+      for (const row of blocks.values()) {
+        if (row.blockerId === id) {
+          ids.add(row.blockedId);
+        } else if (row.blockedId === id) {
+          ids.add(row.blockerId);
+        }
+      }
+      return ids;
     },
   };
 }

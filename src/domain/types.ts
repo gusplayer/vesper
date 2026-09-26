@@ -320,3 +320,34 @@ export type ChallengePhoto = {
   createdAt: Millis;
   updatedAt: Millis;
 };
+
+/**
+ * Where a photo stands with the server (ADR-0051, tanda 2):
+ *
+ * - `local`: it never leaves this phone. Photos off, no circle account, nobody else in
+ *   the challenge with a published key when it was added, or the server refused it.
+ * - `queued`: the user's, waiting for the next sync to go up.
+ * - `posted`: the user's; the server has its row and not yet both of its files. The
+ *   next attempt sends the files again instead of a second row.
+ * - `uploaded`: the user's, on the server, for the people it was wrapped for.
+ * - `remote`: somebody else's, from the server.
+ */
+export type PhotoRemoteState = 'local' | 'queued' | 'posted' | 'uploaded' | 'remote';
+
+/** The photo's half that only exists once photos are shared (migration 012). */
+export type PhotoShare = {
+  /**
+   * The photo's own AES-256 key, base64, opened from its wrap (someone else's) or made
+   * here when it first went up (the user's). Null while it never left this phone, or
+   * when no wrap for this phone's key came with it: then it cannot be drawn.
+   */
+  contentKey: string | null;
+  remoteState: PhotoRemoteState;
+  /** When the server forgets it (`photoExpiresAt`, said by the server). Null while local. */
+  expiresAt: Millis | null;
+  /** The caption sealed with `contentKey`, base64, as it travels. Null without one. */
+  captionBox: string | null;
+};
+
+/** A photo as this phone keeps it: the photo and where it stands with the server. */
+export type StoredPhoto = ChallengePhoto & PhotoShare;

@@ -3,7 +3,14 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
-import { ConflictError, isPlatform, markSourceOf } from './store.ts';
+import {
+  ConflictError,
+  isMediaOrigin,
+  isPlatform,
+  isReportAction,
+  isReportReason,
+  markSourceOf,
+} from './store.ts';
 import type {
   Account,
   BackupMeta,
@@ -11,8 +18,11 @@ import type {
   CodePurpose,
   EndedLink,
   Link,
+  Media,
+  MediaWrap,
   Recovery,
   RecoveryCode,
+  Report,
   Store,
 } from './store.ts';
 
@@ -129,6 +139,9 @@ type AccountRow = {
   platform: string | null;
   app_version: string | null;
   last_seen_at: string | null;
+  box_key: string | null;
+  box_key_id: string | null;
+  banned_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -146,9 +159,137 @@ function toAccount(row: AccountRow): Account {
     platform: isPlatform(row.platform) ? row.platform : null,
     appVersion: row.app_version,
     lastSeenAt: msOrNull(row.last_seen_at),
+    boxKey: row.box_key ?? null,
+    boxKeyId: row.box_key_id ?? null,
+    bannedAt: msOrNull(row.banned_at),
     createdAt: ms(row.created_at),
     updatedAt: ms(row.updated_at),
   };
+}
+
+type MediaRow = {
+  id: string;
+  challenge_id: string;
+  owner_id: string;
+  day_key: string;
+  width: number;
+  height: number;
+  origin: string;
+  epk: string;
+  caption_box: string | null;
+  wraps: unknown;
+  thumb_size: number;
+  full_size: number;
+  state: string;
+  thumb_at: string | null;
+  full_at: string | null;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+  deleted_at: string | null;
+};
+
+/** jsonb comes back parsed; only the API writes it, but a row is read defensively. */
+function toWraps(value: unknown): MediaWrap[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.flatMap((item: unknown) => {
+    if (typeof item !== 'object' || item === null) {
+      return [];
+    }
+    const { recipientId, keyId, box } = item as Record<string, unknown>;
+    return typeof recipientId === 'string' && typeof keyId === 'string' && typeof box === 'string'
+      ? [{ recipientId, keyId, box }]
+      : [];
+  });
+}
+
+function toMedia(row: MediaRow): Media {
+  return {
+    id: row.id,
+    challengeId: row.challenge_id,
+    ownerId: row.owner_id,
+    dayKey: row.day_key,
+    width: row.width,
+    height: row.height,
+    origin: isMediaOrigin(row.origin) ? row.origin : 'library',
+    epk: row.epk,
+    captionBox: row.caption_box,
+    wraps: toWraps(row.wraps),
+    thumbSize: row.thumb_size,
+    fullSize: row.full_size,
+    state: row.state === 'ready' ? 'ready' : 'pending',
+    thumbAt: msOrNull(row.thumb_at),
+    fullAt: msOrNull(row.full_at),
+    createdAt: ms(row.created_at),
+    updatedAt: ms(row.updated_at),
+    expiresAt: ms(row.expires_at),
+    deletedAt: msOrNull(row.deleted_at),
+  };
+}
+
+type ReportRow = {
+  id: string;
+  media_id: string;
+  reporter_id: string | null;
+  owner_id: string;
+  challenge_id: string;
+  day_key: string;
+  reason: string;
+  note: string | null;
+  content_key: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  action: string | null;
+  preserved_until: string | null;
+};
+
+function toReport(row: ReportRow): Report {
+  return {
+    id: row.id,
+    mediaId: row.media_id,
+    reporterId: row.reporter_id,
+    ownerId: row.owner_id,
+    challengeId: row.challenge_id,
+    dayKey: row.day_key,
+    // The columns have checks; nothing else can be in them.
+    reason: isReportReason(row.reason) ? row.reason : 'other',
+    note: row.note,
+    contentKey: row.content_key,
+    createdAt: ms(row.created_at),
+    resolvedAt: msOrNull(row.resolved_at),
+    action: isReportAction(row.action) ? row.action : null,
+    preservedUntil: msOrNull(row.preserved_until),
+  };
+}
+
+/** The columns of `media`, in the order `putMediaReplacing` inserts them. */
+const MEDIA_COLUMNS =
+  'id, challenge_id, owner_id, day_key, width, height, origin, epk, caption_box, wraps, thumb_size, full_size, state, thumb_at, full_at, created_at, updated_at, expires_at, deleted_at';
+
+function mediaValues(media: Media): unknown[] {
+  return [
+    media.id,
+    media.challengeId,
+    media.ownerId,
+    media.dayKey,
+    media.width,
+    media.height,
+    media.origin,
+    media.epk,
+    media.captionBox,
+    JSON.stringify(media.wraps),
+    media.thumbSize,
+    media.fullSize,
+    media.state,
+    media.thumbAt,
+    media.fullAt,
+    media.createdAt,
+    media.updatedAt,
+    media.expiresAt,
+    media.deletedAt,
+  ];
 }
 
 type BackupMetaRow = {
@@ -261,13 +402,15 @@ export function createPgStore(connectionString: string): PgStore {
         // its only writer afterwards, so a write that began from an older read of the
         // row cannot move it back.
         await query(
-          `insert into accounts (id, secret_hash, name, handle, invite_code, push_token, time_zone, nudges_on, platform, app_version, last_seen_at, created_at, updated_at)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          // `banned_at` is in neither: `banAccount` is its one writer.
+          `insert into accounts (id, secret_hash, name, handle, invite_code, push_token, time_zone, nudges_on, platform, app_version, last_seen_at, created_at, updated_at, box_key, box_key_id)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
            on conflict (id) do update set
              secret_hash = excluded.secret_hash, name = excluded.name, handle = excluded.handle,
              invite_code = excluded.invite_code, push_token = excluded.push_token,
              time_zone = excluded.time_zone, nudges_on = excluded.nudges_on,
              platform = excluded.platform, app_version = excluded.app_version,
+             box_key = excluded.box_key, box_key_id = excluded.box_key_id,
              updated_at = excluded.updated_at`,
           [
             account.id,
@@ -283,6 +426,8 @@ export function createPgStore(connectionString: string): PgStore {
             account.lastSeenAt,
             account.createdAt,
             account.updatedAt,
+            account.boxKey,
+            account.boxKeyId,
           ],
         );
       } catch (error) {
@@ -301,6 +446,9 @@ export function createPgStore(connectionString: string): PgStore {
         'update accounts set last_seen_at = $2 where id = $1 and (last_seen_at is null or last_seen_at < $2)',
         [id, at],
       );
+    },
+    async banAccount(id, at) {
+      await query('update accounts set banned_at = $2 where id = $1 and banned_at is null', [id, at]);
     },
     async deleteAccount(id) {
       // The cascades take the links, weeks, marks, cheers, nudges, the backup and the
@@ -413,13 +561,13 @@ export function createPgStore(connectionString: string): PgStore {
     },
     async putChallenge(challenge) {
       await query(
-        `insert into challenges (id, created_by, name, weekly_target, start_week_key, end_day_key, participant_ids, archived_at, created_at, updated_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        `insert into challenges (id, created_by, name, weekly_target, start_week_key, end_day_key, participant_ids, archived_at, created_at, updated_at, photos)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          on conflict (id) do update set
            name = excluded.name, weekly_target = excluded.weekly_target,
            start_week_key = excluded.start_week_key, end_day_key = excluded.end_day_key,
            participant_ids = excluded.participant_ids, archived_at = excluded.archived_at,
-           updated_at = excluded.updated_at`,
+           photos = excluded.photos, updated_at = excluded.updated_at`,
         [
           challenge.id,
           challenge.createdBy,
@@ -431,6 +579,7 @@ export function createPgStore(connectionString: string): PgStore {
           challenge.archivedAt,
           challenge.createdAt,
           challenge.updatedAt,
+          challenge.photos,
         ],
       );
     },
@@ -656,6 +805,242 @@ export function createPgStore(connectionString: string): PgStore {
     async deleteExpiredRecoveryCodes(before) {
       await query('delete from recovery_codes where expires_at < $1', [before]);
     },
+
+    async getMedia(id) {
+      const rows = await query<MediaRow>('select * from media where id = $1', [id]);
+      return rows[0] === undefined ? null : toMedia(rows[0]);
+    },
+    async putMediaReplacing(media) {
+      // One transaction: the tombstone on yesterday's photo and today's row land together.
+      // Two uploads for one day in the same instant: the second insert trips the partial
+      // unique index once the first commits, and the retry tombstones what it finds.
+      for (let attempt = 0; ; attempt += 1) {
+        const client = await pool.connect();
+        try {
+          await client.query('begin');
+          const replaced = await client.query(
+            `update media set deleted_at = $5, updated_at = $5
+             where challenge_id = $1 and owner_id = $2 and day_key = $3 and id <> $4 and deleted_at is null
+             returning *`,
+            [media.challengeId, media.ownerId, media.dayKey, media.id, media.updatedAt],
+          );
+          await client.query(
+            `insert into media (${MEDIA_COLUMNS})
+             values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+             on conflict (id) do update set
+               width = excluded.width, height = excluded.height, origin = excluded.origin,
+               epk = excluded.epk, caption_box = excluded.caption_box, wraps = excluded.wraps,
+               thumb_size = excluded.thumb_size, full_size = excluded.full_size,
+               state = excluded.state, thumb_at = excluded.thumb_at, full_at = excluded.full_at,
+               updated_at = excluded.updated_at, expires_at = excluded.expires_at`,
+            mediaValues(media),
+          );
+          await client.query('commit');
+          return (replaced.rows as MediaRow[]).map((row) => {
+            // `returning *` hands the row after the update; the caller wants what it was.
+            const was = toMedia(row);
+            return { ...was, deletedAt: null };
+          });
+        } catch (error) {
+          await client.query('rollback').catch(() => undefined);
+          if (attempt === 0 && isUniqueViolation(error)) {
+            continue;
+          }
+          throw error;
+        } finally {
+          client.release();
+        }
+      }
+    },
+    async markMediaObject(id, variant, at) {
+      // One statement, so the two uploads racing each other both see the other's column:
+      // whichever lands second turns the row ready.
+      const column = variant === 'thumb' ? 'thumb_at' : 'full_at';
+      const other = variant === 'thumb' ? 'full_at' : 'thumb_at';
+      const rows = await query<MediaRow>(
+        `update media set ${column} = $2,
+           state = case when ${other} is not null then 'ready' else state end,
+           updated_at = case when state = 'pending' and ${other} is not null then $2 else updated_at end
+         where id = $1 and deleted_at is null
+         returning *`,
+        [id, at],
+      );
+      return rows[0] === undefined ? null : toMedia(rows[0]);
+    },
+    async tombstoneMedia(ids, at) {
+      if (ids.length === 0) {
+        return [];
+      }
+      const rows = await query<MediaRow>(
+        `update media set deleted_at = $2, updated_at = $2
+         where id = any($1) and deleted_at is null
+         returning *`,
+        [[...new Set(ids)], at],
+      );
+      return rows.map((row) => ({ ...toMedia(row), deletedAt: null }));
+    },
+    async liveMedia(filter) {
+      const conditions = ['deleted_at is null'];
+      const values: unknown[] = [];
+      if (filter.ownerId !== undefined) {
+        values.push(filter.ownerId);
+        conditions.push(`owner_id = $${values.length}`);
+      }
+      if (filter.challengeId !== undefined) {
+        values.push(filter.challengeId);
+        conditions.push(`challenge_id = $${values.length}`);
+      }
+      const rows = await query<MediaRow>(`select * from media where ${conditions.join(' and ')}`, values);
+      return rows.map(toMedia);
+    },
+    async mediaChangedFor(viewerId, since) {
+      const rows = await query<MediaRow>(
+        `select * from media
+         where updated_at > $2
+           and (state = 'ready' or deleted_at is not null)
+           and (owner_id = $1 or wraps @> $3::jsonb)`,
+        [viewerId, since, JSON.stringify([{ recipientId: viewerId }])],
+      );
+      return rows.map(toMedia);
+    },
+    async expiredMedia(at) {
+      const rows = await query<MediaRow>(
+        'select * from media where deleted_at is null and expires_at <= $1',
+        [at],
+      );
+      return rows.map(toMedia);
+    },
+    async stalePendingMedia(before) {
+      const rows = await query<MediaRow>(
+        `select * from media where deleted_at is null and state = 'pending' and created_at < $1`,
+        [before],
+      );
+      return rows.map(toMedia);
+    },
+    async deleteMediaRows(ids) {
+      if (ids.length === 0) {
+        return;
+      }
+      await query('delete from media where id = any($1)', [[...ids]]);
+    },
+    async purgeMediaTombstones(before) {
+      const rows = await query<{ id: string }>(
+        'delete from media where deleted_at is not null and deleted_at < $1 returning id',
+        [before],
+      );
+      return rows.length;
+    },
+    async liveMediaIds(ids) {
+      if (ids.length === 0) {
+        return new Set();
+      }
+      const rows = await query<{ id: string }>(
+        'select id from media where id = any($1) and deleted_at is null',
+        [[...ids]],
+      );
+      return new Set(rows.map((row) => row.id));
+    },
+
+    async putReport(report) {
+      // A second report by the same person on the same photo trips
+      // `reports_one_per_reporter` and writes nothing: the first one stands.
+      const rows = await query<{ id: string }>(
+        `insert into reports (id, media_id, reporter_id, owner_id, challenge_id, day_key, reason, note, content_key, created_at, resolved_at, action, preserved_until)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+         on conflict (id) do update set
+           content_key = excluded.content_key, resolved_at = excluded.resolved_at,
+           action = excluded.action, preserved_until = excluded.preserved_until
+         returning id`,
+        [
+          report.id,
+          report.mediaId,
+          report.reporterId,
+          report.ownerId,
+          report.challengeId,
+          report.dayKey,
+          report.reason,
+          report.note,
+          report.contentKey,
+          report.createdAt,
+          report.resolvedAt,
+          report.action,
+          report.preservedUntil,
+        ],
+      ).catch((error: unknown) => {
+        if (isUniqueViolation(error)) {
+          return [];
+        }
+        throw error;
+      });
+      return rows.length > 0;
+    },
+    async getReport(id) {
+      const rows = await query<ReportRow>('select * from reports where id = $1', [id]);
+      return rows[0] === undefined ? null : toReport(rows[0]);
+    },
+    async findReport(reporterId, mediaId) {
+      const rows = await query<ReportRow>(
+        'select * from reports where reporter_id = $1 and media_id = $2',
+        [reporterId, mediaId],
+      );
+      return rows[0] === undefined ? null : toReport(rows[0]);
+    },
+    async listReports(limit) {
+      const rows = await query<ReportRow>(
+        `select * from reports
+         order by (resolved_at is not null) asc, created_at desc, id desc
+         limit $1`,
+        [limit],
+      );
+      return rows.map(toReport);
+    },
+    async expiredPreservedReports(at) {
+      const rows = await query<ReportRow>(
+        'select * from reports where preserved_until is not null and preserved_until <= $1',
+        [at],
+      );
+      return rows.map(toReport);
+    },
+    async staleResolvedReports(before) {
+      const rows = await query<ReportRow>(
+        `select * from reports
+         where resolved_at is not null and preserved_until is null and resolved_at < $1`,
+        [before],
+      );
+      return rows.map(toReport);
+    },
+    async deleteReports(ids) {
+      if (ids.length === 0) {
+        return;
+      }
+      await query('delete from reports where id = any($1)', [[...ids]]);
+    },
+    async heldReportIds(ids, at) {
+      if (ids.length === 0) {
+        return new Set();
+      }
+      const rows = await query<{ id: string }>(
+        `select id from reports
+         where id = any($1) and (resolved_at is null or (preserved_until is not null and preserved_until > $2))`,
+        [[...ids], at],
+      );
+      return new Set(rows.map((row) => row.id));
+    },
+
+    async putBlock(blockerId, blockedId, at) {
+      await query(
+        `insert into blocks (blocker_id, blocked_id, created_at) values ($1,$2,$3)
+         on conflict (blocker_id, blocked_id) do nothing`,
+        [blockerId, blockedId, at],
+      );
+    },
+    async blockedWith(id) {
+      const rows = await query<{ blocker_id: string; blocked_id: string }>(
+        'select blocker_id, blocked_id from blocks where blocker_id = $1 or blocked_id = $1',
+        [id],
+      );
+      return new Set(rows.map((row) => (row.blocker_id === id ? row.blocked_id : row.blocker_id)));
+    },
   };
 }
 
@@ -668,6 +1053,7 @@ type ChallengeRow = {
   end_day_key: string | null;
   participant_ids: string[];
   archived_at: string | null;
+  photos: boolean | null;
   created_at: string;
   updated_at: string;
 };
@@ -681,6 +1067,7 @@ function toChallenge(row: ChallengeRow): Challenge {
     startWeekKey: row.start_week_key,
     endDayKey: row.end_day_key,
     participantIds: row.participant_ids,
+    photos: row.photos !== false,
     archivedAt: msOrNull(row.archived_at),
     createdAt: ms(row.created_at),
     updatedAt: ms(row.updated_at),

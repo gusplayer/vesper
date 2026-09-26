@@ -10,7 +10,7 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Runtime | Expo SDK 57 + dev client | Módulos nativos: SQLite, notificaciones, Salud, widgets, Screen Time, bloqueo Android (ADR-0001, ADR-0017) |
 | Lenguaje | TypeScript 6 estricto | `strict: true`, `noUnusedLocals`, sin `any` |
 | Navegación | expo-router | Un `Stack` raíz con dos guardas (onboarding / app), cuatro pestañas de texto (`expo-router/js-tabs` con `TabBar` propio) y rutas a pantalla completa para la sesión |
-| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`011` en TypeScript |
+| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`012` en TypeScript |
 | Ids | UUID v7 propio sobre `expo-crypto` | 20 líneas. Evita `uuid` + `react-native-get-random-values` |
 | Estado | Zustand | Cuatro stores que cachean SQLite (`app`, `focus`, `circle`, `photos`), el idioma, y borradores efímeros (modo, onboarding, duración, la foto sin guardar) |
 | Texto | Dos diccionarios tipados (`src/i18n/es`, `en`) | Sin librería de i18n (ADR-0020) |
@@ -114,7 +114,10 @@ src/
     orientation.ts, circle.ts (+ circleApi.ts), identity.ts,
     backup.ts (+ backupApi.ts, backupCrypto.ts, backupPolicy.ts),
     camera.ts (cámara, galería y preparación de la foto de un reto: tamaño, miniatura y
-    metadatos fuera con lib/jpegMetadata.ts; ADR-0051)
+    metadatos fuera con lib/jpegMetadata.ts; ADR-0051), photoCrypto.ts (X25519, HKDF y
+    AES-GCM: la llave de caja sale del secreto, una llave por foto envuelta para cada
+    participante), photoApi.ts (las rutas /media, /report, /block), photoSync.ts (la cola de
+    subida, los borrados y reportes pendientes, las bajadas cuando una pantalla las pide)
     hooks/                useIdentitySync, useNotificationSync, usePushSync, useHealthSync,
                           useLiveActivitySync, useBlockingSync, useRoutineSync,
                           useRoutineWindowsSync, useUsageSync, useCircleSync, useBackupSync

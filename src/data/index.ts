@@ -21,17 +21,18 @@ import { dayBounds, dayKeyOf, dayKeyStart, weekDayKeys, weekStart } from '../dom
 import { weeklyProgress, type HabitProgress } from '../domain/habits';
 import { buildLedger } from '../domain/ledger';
 import { weeksLived, weeksRemaining, weeksTotal } from '../domain/life';
+import { photoAudience, visiblePhotos } from '../domain/photoSharing';
 import type { AlbumRow, PhotoSlot } from '../domain/photos';
 import { elapsed } from '../domain/session';
 import { computeStreak, type StreakState } from '../domain/streak';
 import {
   ME,
   type Challenge,
-  type ChallengePhoto,
   type Ledger,
   type Member,
   type Profile,
   type SharePrefs,
+  type StoredPhoto,
 } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
@@ -47,7 +48,14 @@ import { useAppStore } from './stores/app';
 import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
-import { usePhotoDraftStore, usePhotoStore, type PhotoDraft } from './stores/photos';
+import {
+  transferKey,
+  usePhotoDraftStore,
+  usePhotoStore,
+  usePhotoTransferStore,
+  type PhotoDraft,
+  type PhotoFetchFailure,
+} from './stores/photos';
 import { sharedWeekUsageMs, useUsageStore, type UsageSource } from './stores/usage';
 import type { LifetimeTotals } from '../db/queries/lifetime';
 import type { Activity, AppInfo, AppUsage, DayStat, Mode, ModeIdea, Schedule, Website } from './types';
@@ -70,8 +78,10 @@ export type {
   MyChallengeWeek,
   MyPhotoSlot,
   PhotoDraft,
+  PhotoFetchFailure,
   PhotoSlot,
   Standing,
+  StoredPhoto,
   UsageSource,
 };
 
@@ -121,6 +131,8 @@ function sweepPhotos(): void {
     .challenges.filter((challenge) => challenge.archivedAt === null)
     .map((challenge) => challenge.id);
   usePhotoStore.getState().removeOrphans(open);
+  // Somebody else's photos the server no longer keeps go on their own (ADR-0051, tanda 2).
+  usePhotoStore.getState().expire(Date.now());
 }
 
 /**
@@ -685,17 +697,73 @@ export function getInviteCode(): string | null {
 // --- Photos in challenges (ADR-0051) ------------------------------------------------
 
 /**
- * Every photo of a challenge on this phone, drawn or not. What is drawn is decided by
- * `weekPhotos` and `albumRows` in domain/photos: a photo on a day without a mark is kept
- * and not shown.
+ * Every photo of a challenge on this phone that may be drawn: the user's, and other
+ * people's whose key this phone opened, not hidden by the user and — given `now` — not
+ * expired (`photoVisible` in domain/photoSharing; without `now`, the expired ones go at
+ * the next launch or sync). Which of them a row actually draws is `weekPhotos` and
+ * `albumRows` in domain/photos: a photo on a day without a mark is kept and not shown. A
+ * photo whose thumbnail is not here yet has `thumbFile` null: `ensureChallengeThumbs`
+ * (platform/photoSync) brings it.
  */
-export function useChallengePhotos(challengeId: string | undefined): ChallengePhoto[] {
+export function useChallengePhotos(challengeId: string | undefined, now?: number): StoredPhoto[] {
   const photos = usePhotoStore((state) => state.photos);
-  return useMemo(() => photos.filter((photo) => photo.challengeId === challengeId), [photos, challengeId]);
+  const hidden = usePhotoStore((state) => state.hiddenMembers);
+  return useMemo(
+    () =>
+      visiblePhotos(
+        photos.filter((photo) => photo.challengeId === challengeId),
+        { hidden: new Set(hidden), now: now ?? null },
+      ),
+    [photos, hidden, challengeId, now],
+  );
 }
 
-export function usePhoto(id: string | undefined): ChallengePhoto | null {
+/**
+ * One photo, whatever it is: the viewer's. Not filtered, so a photo the user just hid or
+ * reported does not vanish under the sheet that did it; the screen goes back instead.
+ */
+export function usePhoto(id: string | undefined): StoredPhoto | null {
   return usePhotoStore((state) => state.photos.find((photo) => photo.id === id) ?? null);
+}
+
+/**
+ * Who sees a new photo of the user's in a challenge (ADR-0051 §5), by name, in the
+ * challenge's order: the other participants in the circle who published a key. Empty
+ * when nobody else would — photos off, no circle account, or nobody with a key — and the
+ * photo then stays on this phone ("Solo la ves tú"). The same rule `savePhoto` queues by.
+ */
+export function usePhotoAudience(challengeId: string | undefined): string[] {
+  const challenge = useCircleStore((state) => state.challenges.find((c) => c.id === challengeId) ?? null);
+  const members = useCircleStore((state) => state.members);
+  const account = useCircleStore((state) => state.account);
+  const boxKeys = usePhotoStore((state) => state.boxKeys);
+  return useMemo(
+    () =>
+      challenge === null
+        ? []
+        : photoAudience({
+            challenge,
+            members,
+            keyHolders: new Set(Object.keys(boxKeys)),
+            sharing: account !== null,
+          }).map((member) => member.name),
+    [challenge, members, account, boxKeys],
+  );
+}
+
+/**
+ * Where the download of one file of a photo stands (`ensureChallengeThumbs`,
+ * `ensureFullPhoto` in platform/photoSync): on its way, or why the last one did not end
+ * with the file here. Both clear once the file is on this phone.
+ */
+export function usePhotoFetch(
+  id: string | undefined,
+  variant: 'full' | 'thumb',
+): { loading: boolean; failure: PhotoFetchFailure | null } {
+  const key = id === undefined ? '' : transferKey(id, variant);
+  const loading = usePhotoTransferStore((state) => state.running[key] === true);
+  const failure = usePhotoTransferStore((state) => state.failures[key] ?? null);
+  return useMemo(() => ({ loading, failure }), [loading, failure]);
 }
 
 /**
@@ -732,11 +800,13 @@ export function useAlbum(challengeId: string | undefined, now: number): AlbumRow
   const challengeMarks = useCircleStore((state) => state.challengeMarks);
   const myMarks = useAppStore((state) => state.habitMarks);
   const photos = usePhotoStore((state) => state.photos);
+  const hidden = usePhotoStore((state) => state.hiddenMembers);
   return useMemo(() => {
     if (challenge === null) {
       return [];
     }
     const { participants } = challengeView(challenge, members, profile, dayKeyOf(now));
-    return challengeAlbum(challenge, participants, challengeMarks, myMarks, photos, now);
-  }, [challenge, members, profile, challengeMarks, myMarks, photos, now]);
+    const drawn = visiblePhotos(photos, { hidden: new Set(hidden), now });
+    return challengeAlbum(challenge, participants, challengeMarks, myMarks, drawn, now);
+  }, [challenge, members, profile, challengeMarks, myMarks, photos, hidden, now]);
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
 import { motion } from '../tokens';
@@ -19,6 +19,12 @@ export type HeatSquareProps = {
    * of the mark once it has loaded; until then, or if the file is gone, the mark shows.
    */
   image?: string | null;
+  /**
+   * The photo of this day is on its way: the waiting fill (`cardMuted`, like an empty
+   * `PhotoTile`) covers the mark until `image` arrives. Nothing blinks and nothing says
+   * "new": it only holds the place.
+   */
+  waiting?: boolean;
 };
 
 /** Four levels read as levels; a continuous ramp reads as mud. Empty is an outline. */
@@ -52,7 +58,15 @@ function between(min: number, max: number): number {
  * the way, so the grid never comes on as one block. Today keeps breathing softly
  * after. Only opacity moves: nothing scales, nothing springs.
  */
-export function HeatSquare({ intensity, today, size, radius, reduceMotion, image = null }: HeatSquareProps) {
+export function HeatSquare({
+  intensity,
+  today,
+  size,
+  radius,
+  reduceMotion,
+  image = null,
+  waiting = false,
+}: HeatSquareProps) {
   const { colors } = useTheme();
   const [light] = useState(() => new Animated.Value(reduceMotion ? 1 : 0));
 
@@ -98,7 +112,7 @@ export function HeatSquare({ intensity, today, size, radius, reduceMotion, image
       style={[
         styles.slot,
         { width: size, height: size, borderRadius: radius, opacity: light },
-        image === null ? null : styles.clip,
+        image === null && !waiting ? null : styles.clip,
       ]}
     >
       <Animated.View
@@ -110,6 +124,9 @@ export function HeatSquare({ intensity, today, size, radius, reduceMotion, image
             : { backgroundColor: colors.ink, opacity },
         ]}
       />
+      {image === null && waiting ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.cardMuted }]} />
+      ) : null}
       {image === null ? null : <PhotoImage uri={image} muted fit="cover" />}
     </Animated.View>
   );

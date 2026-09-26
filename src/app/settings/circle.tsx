@@ -16,6 +16,7 @@ import {
   StatusNote,
   Toggle,
 } from '../../design/components';
+import { showMemberPhotos, useHiddenMembers } from '../../features/circle/photoSharing';
 import { useCircleSyncStatus } from '../../features/circle/useCircleSyncStatus';
 import { useStrings } from '../../i18n';
 import { cleanHandle, isValidHandle } from '../../platform/circleApi';
@@ -39,6 +40,10 @@ import {
  * shows a handle the circle does not see; without a connection it is saved here and
  * goes out with the next sync. The hint under the fields says where the name lives,
  * which changes the moment the account is born.
+ *
+ * "Fotos ocultas" appears once the user hid somebody's photos from a photo's "…"
+ * (ADR-0051 §18): one row per person, and "Mostrar" brings them back. Only for this
+ * phone, and their marks were never hidden.
  *
  * The backup key moved to Ajustes › Respaldo with ADR-0048: it is the whole account's —
  * the identity, its encrypted backup and its circle — and it brings all three back on
@@ -64,6 +69,9 @@ export default function CircleSettingsScreen() {
   const account = useCircleStore((state) => state.account);
   const linkEndSupport = useCircleStore((state) => state.linkEndSupport);
   const sync = useCircleSyncStatus();
+  const hidden = useHiddenMembers();
+  // Only people still here: someone who left, was removed or blocked has no photos to show.
+  const hiddenPeople = members.filter((member) => hidden.has(member.id));
 
   const [name, setName] = useState(profile?.name ?? '');
   const [handle, setHandle] = useState(profile?.handle ?? '');
@@ -254,6 +262,27 @@ export default function CircleSettingsScreen() {
           {usage.reason === null ? null : <StatusNote text={usage.reason} />}
         </>
       ) : null}
+
+      {hiddenPeople.length === 0 ? null : (
+        <ListGroup title={strings.photos.hiddenPeople.title} footer={strings.photos.hiddenPeople.footer}>
+          {hiddenPeople.map((member) => (
+            <ListRow
+              key={member.id}
+              label={member.name}
+              description={strings.circle.member.handle(member.handle)}
+              right={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  label={strings.photos.hiddenPeople.show}
+                  onPress={() => showMemberPhotos(member.id, Date.now())}
+                  accessibilityLabel={strings.photos.hiddenPeople.showA11y(member.name)}
+                />
+              }
+            />
+          ))}
+        </ListGroup>
+      )}
 
       {/* The key is the whole account's since ADR-0048, not the circle's: it lives in
           Ajustes › Respaldo, and this row says what it brings back. */}

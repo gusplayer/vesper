@@ -34,8 +34,9 @@ type ChallengeWeekProps = {
  * purpose — a challenge is a week of yours, like the week of focus above it.
  *
  * With photos (ADR-0051), a marked day that has one shows it in its square and opens
- * it. The grid never says where a photo came from, and a day without one looks exactly
- * like it did: a mark is a mark.
+ * it; one whose thumbnail is still on its way holds the waiting fill. The grid never
+ * says where a photo came from, and a day without one looks exactly like it did: a mark
+ * is a mark.
  */
 export function ChallengeWeek({
   days,
@@ -60,11 +61,15 @@ export function ChallengeWeek({
           return { key: String(index), intensity: done ? 1 : 0, today: index === todayIndex };
         }
         const day = photoDayText(photo.dayKey, tag, t);
+        const image = thumbUriOf(photo);
         return {
           key: String(index),
           intensity: 1,
           today: index === todayIndex,
-          image: thumbUriOf(photo),
+          image,
+          // Someone else's photo whose thumbnail has not come down yet: the square holds
+          // its place with the waiting fill, and still opens it (ADR-0051).
+          waiting: image === null,
           onPress: onOpenPhoto === undefined ? undefined : () => onOpenPhoto(photo.id),
           accessibilityLabel:
             photo.memberId === ME ? t.viewer.mineA11y(day) : t.viewer.theirsA11y(ownerName ?? '', day),

@@ -281,6 +281,40 @@ otra persona llega a un teléfono de la tienda antes de la 3.
 - **La celda de hoy no cambia** cuando falta la foto: ofrecerla le toca solo a la fila, para que una
   marca sin foto se vea igual que siempre.
 
+**Tanda 2 (compartida), 2026-09-26.**
+
+- **Una llave por foto, envuelta para cada participante (ECIES), en vez de *sender keys* con
+  época.** Cada foto lleva su llave AES-256 y un par X25519 efímero con el que se envuelve esa
+  llave para cada participante con llave publicada (HKDF-SHA256 y AES-GCM). Doce envolturas
+  ocupan menos de un kilobyte y no hay épocas que mantener: quien entra después no tiene
+  envoltura de lo anterior, y quien sale deja de recibir envolturas nuevas.
+- **El servidor no distingue invitado de unido**, porque `participantIds` incluye a quien el
+  creador agregó. El servidor exige envoltura para cada participante con llave, así que la
+  recibe también quien todavía no se unió. Su teléfono no le muestra ninguna foto hasta que se
+  une, y entonces ve el álbum del reto. Esto precisa el punto 5: se ve desde que el creador te
+  agrega, no desde que te unes.
+- **La vista previa nombra a quien está en tu círculo.** Un participante del reto que no es de
+  tu círculo recibe envoltura, pero su nombre no está en tu teléfono.
+- **Tus fotos quedan tuyas.** Una lápida del servidor (vencimiento, moderación, tu propio
+  borrado) borra fila y archivos de una foto ajena. Una tuya que tiene sus archivos vuelve a ser
+  solo local y queda hasta que archivas el reto.
+- **El vencimiento lo decide el servidor** en la zona horaria que el teléfono mandó por
+  `/device`, y el teléfono guarda ese.
+- **Restaurar abre las fotos con la llave vieja.** Antes de rotar el secreto, la restauración
+  sincroniza con las credenciales viejas y abre cada envoltura; la llave de cada foto queda en
+  su fila, y esas filas viajan en el respaldo sin sus archivos. Rotar borra la llave pública en
+  el servidor y el primer sync publica la nueva. Lo que otros suban en esos segundos no trae
+  envoltura para la llave nueva y ese teléfono no lo verá.
+- **Moderar es sacar.** Un reporte copia la foto cifrada y su llave a la evidencia en el
+  momento, y el servidor comprueba la llave abriendo la miniatura. "Remove" pone lápida a la
+  foto. "Ban" veta la cuenta, pone lápida a todas sus fotos, termina todos sus vínculos como
+  "Salir del círculo" y le impide canjear o aceptar códigos. `preserve` conserva la evidencia
+  365 días.
+- **Un bloqueo dentro del reto de un tercero** deja a los dos en el reto, pero ninguno envuelve
+  para el otro, sus fotos no bajan y los empujones entre ellos se rechazan.
+- **Sin bucket, las fotos viven en memoria** y el servidor lo dice al arrancar. En producción
+  no se encienden sin un Railway Bucket (`AWS_*` del preset "AWS SDK", ver `server/README.md`).
+
 ## Alternativas descartadas
 
 - **Historias de 24 h, reacciones y comentarios** (opción C): feed, FOMO y likes con

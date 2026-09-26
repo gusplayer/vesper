@@ -208,6 +208,12 @@ export type DeviceInput = {
   platform?: 'ios' | 'android';
   /** At most 32 printable characters (server/README.md). */
   appVersion?: string;
+  /**
+   * The identity's public box key (ADR-0051 §16), base64 of 32 bytes: what the other
+   * participants of a challenge wrap a photo's key for. It comes from the secret, so it
+   * changes when the secret does (a restore) and goes up again then.
+   */
+  boxKey?: string;
 };
 
 /** What `GET /account` says about the caller (ADR-0048 §6). Null fields were never set. */
@@ -253,6 +259,8 @@ export type ChallengeUpload = {
   /** Account ids, never 'me': the local ME is mapped out before it leaves. */
   participantIds: string[];
   archivedAt: number | null;
+  /** "Fotos del día" (ADR-0051 §6): whether a marked day can carry a photo. */
+  photos: boolean;
 };
 
 /** One day of one challenge. `marked: false` takes the mark away. */
@@ -306,6 +314,8 @@ export type RemoteChallenge = {
   endDayKey: string | null;
   participantIds: string[];
   archivedAt: number | null;
+  /** "Fotos del día". A server that predates the field says nothing, which reads as on (its default). */
+  photos: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -337,6 +347,35 @@ export type RemoteNudge = {
   updatedAt: number;
 };
 
+/**
+ * A published box key of somebody in the circle, or the caller's own (ADR-0051 §16):
+ * the X25519 public key in base64 and its id, 16 hex characters.
+ */
+export type RemoteKey = { id: string; boxKey: string; keyId: string };
+
+/**
+ * One photo of a challenge as `/sync` carries it (ADR-0051, tanda 2): who added it and
+ * where, the sealed caption, the ephemeral key of its wraps and **the caller's wrap
+ * only** (null when there is none). The bytes never come with it: they are downloaded
+ * with a URL the server signs (`photoApi.getMediaUrl`). `deletedAt` is a tombstone.
+ */
+export type RemoteMedia = {
+  id: string;
+  challengeId: string;
+  ownerId: string;
+  dayKey: string;
+  width: number;
+  height: number;
+  origin: 'camera' | 'library';
+  epk: string;
+  captionBox: string | null;
+  wrap: { keyId: string; box: string } | null;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt: number | null;
+  deletedAt: number | null;
+};
+
 export type SyncDownload = {
   /** The next cursor. Stored only when the whole call succeeded. */
   now: number;
@@ -358,6 +397,18 @@ export type SyncDownload = {
    * a sync sent with `restore: true` carries them (ADR-0048 §6); empty otherwise.
    */
   ownMarks: RemoteMark[];
+  /**
+   * Photos changed after the cursor that the caller may see (ADR-0051): theirs, and the
+   * ones wrapped for them while they are still in the challenge. Tombstones included.
+   */
+  media: RemoteMedia[];
+  /** The caller's own live photos, whatever the cursor says. Only with `restore: true`. */
+  ownMedia: RemoteMedia[];
+  /**
+   * Every published key of the caller's circle, and the caller's own. Null from a server
+   * that predates photos: then nothing is shared, and nothing stored is replaced.
+   */
+  keys: RemoteKey[] | null;
 };
 
 // --- Reading an answer ----------------------------------------------------------------
@@ -607,6 +658,9 @@ export function deviceBody(input: DeviceInput): Record<string, unknown> {
   if (input.appVersion !== undefined && input.appVersion.length > 0) {
     body.appVersion = input.appVersion.slice(0, 32);
   }
+  if (input.boxKey !== undefined && input.boxKey.length > 0) {
+    body.boxKey = input.boxKey;
+  }
   return body;
 }
 
@@ -769,7 +823,105 @@ export function readDownload(value: unknown): SyncDownload {
     rejected: stringList(body.rejected),
     ended: stringList(body.ended),
     ownMarks: isObject(body.own) ? list(body.own.marks).flatMap(readMark) : [],
+    media: readRemoteMedia(body.media),
+    ownMedia: isObject(body.own) ? readRemoteMedia(body.own.media) : [],
+    keys: readRemoteKeys(body.keys),
   };
+}
+
+/** A local day key, `YYYY-MM-DD`: the only shape a photo's day can have. */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A box key's id: the first 8 bytes of SHA-256 of the key, in lowercase hex. */
+const KEY_ID = /^[0-9a-f]{16}$/;
+
+function positive(value: unknown): number | null {
+  const n = num(value);
+  return n !== null && n > 0 ? n : null;
+}
+
+/**
+ * The `media` rows of an answer, each one checked (ADR-0051): these are written by
+ * other people's phones and read by this one's, so a row that is not the shape of a
+ * photo is dropped rather than believed. A tombstone needs only its id: it is a delete,
+ * and whatever else it carries is not read.
+ */
+export function readRemoteMedia(value: unknown): RemoteMedia[] {
+  return list(value).flatMap((row): RemoteMedia[] => {
+    if (!isObject(row)) {
+      return [];
+    }
+    const id = str(row.id);
+    if (id === null) {
+      return [];
+    }
+    const deletedAt = num(row.deletedAt);
+    const challengeId = str(row.challengeId);
+    const ownerId = str(row.ownerId);
+    const dayKey = str(row.dayKey);
+    const epk = str(row.epk);
+    const width = positive(row.width);
+    const height = positive(row.height);
+    const updatedAt = num(row.updatedAt) ?? 0;
+    const wrap =
+      isObject(row.wrap) && str(row.wrap.keyId) !== null && str(row.wrap.box) !== null
+        ? { keyId: String(row.wrap.keyId), box: String(row.wrap.box) }
+        : null;
+    const common = {
+      id,
+      captionBox: str(row.captionBox),
+      wrap,
+      createdAt: num(row.createdAt) ?? updatedAt,
+      updatedAt,
+      expiresAt: num(row.expiresAt),
+      origin: row.origin === 'camera' ? ('camera' as const) : ('library' as const),
+    };
+    if (deletedAt !== null) {
+      return [
+        {
+          ...common,
+          challengeId: challengeId ?? '',
+          ownerId: ownerId ?? '',
+          dayKey: dayKey ?? '',
+          width: width ?? 0,
+          height: height ?? 0,
+          epk: epk ?? '',
+          deletedAt,
+        },
+      ];
+    }
+    if (
+      challengeId === null ||
+      ownerId === null ||
+      dayKey === null ||
+      !DAY_KEY.test(dayKey) ||
+      epk === null ||
+      width === null ||
+      height === null
+    ) {
+      return [];
+    }
+    return [{ ...common, challengeId, ownerId, dayKey, width, height, epk, deletedAt: null }];
+  });
+}
+
+/** The `keys` of an answer, or null when the server sent none (one from before photos). */
+export function readRemoteKeys(value: unknown): RemoteKey[] | null {
+  if (!Array.isArray(value)) {
+    return null;
+  }
+  return value.flatMap((row): RemoteKey[] => {
+    if (!isObject(row)) {
+      return [];
+    }
+    const id = str(row.id);
+    const boxKey = str(row.boxKey);
+    const keyId = str(row.keyId);
+    if (id === null || boxKey === null || keyId === null || !KEY_ID.test(keyId)) {
+      return [];
+    }
+    return [{ id, boxKey, keyId }];
+  });
 }
 
 function readMember(row: unknown): RemoteMember[] {
@@ -837,6 +989,7 @@ function readChallenge(row: unknown): RemoteChallenge[] {
       endDayKey: str(row.endDayKey),
       participantIds: stringList(row.participantIds),
       archivedAt: num(row.archivedAt),
+      photos: row.photos !== false,
       createdAt: num(row.createdAt) ?? 0,
       updatedAt: num(row.updatedAt) ?? 0,
     },
@@ -1036,9 +1189,8 @@ export function foldDownload(
       createdBy: localId(row.createdBy, accountId),
       participantIds,
       habitId: existing?.habitId ?? null,
-      // The server does not carry the switch until the photos are shared (ADR-0051,
-      // batch 2): keep what this phone has, and on for a challenge it has never seen.
-      photos: existing?.photos ?? true,
+      // "Fotos del día" is the maker's choice, and the server carries it (ADR-0051 §6).
+      photos: row.photos,
       createdAt: existing?.createdAt ?? row.createdAt ?? now,
       archivedAt: row.archivedAt,
     };
@@ -1143,6 +1295,7 @@ export function buildUpload(local: LocalUpload): SyncUpload {
       .map((id) => (id === ME ? local.accountId : id))
       .filter((id) => isUuidV7(id)),
     archivedAt: challenge.archivedAt,
+    photos: challenge.photos,
   }));
 
   const marks: MarkUpload[] = [];

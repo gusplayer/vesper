@@ -879,7 +879,31 @@ elección). Las mismas siete áreas lo implementaron.
   parche funciona, conserva el perfil de color y borra los archivos anteriores.
 - **Sin verificar:** la cámara (el simulador no tiene), Android, un teléfono físico, el cierre de un
   reto con "Tu álbum" (cubierto por tests) y el español en pantalla (cubierto por `tsc`).
-- **Producción:** el primer arranque de esta prueba, antes de apuntar la app al servidor local, dejó
-  una identidad en la base de producción (`01a0de94…`, sin alias). Está pendiente de borrarse con
-  permiso del dueño.
+- **Tanda 2 (compartida, cifrada), en la rama.** Servidor: `media`, `reports`, `blocks`,
+  `accounts.box_key`/`banned_at`, `challenges.photos`; `POST /media`, `PUT /media/:id/thumb|full`,
+  `GET /media/:id/url`, `DELETE /media/:id`, `POST /report`, `POST /block`, `/admin/*` con
+  `ADMIN_TOKEN`; `ObjectStore` en memoria o S3 (`aws4fetch`, Railway Buckets); barrido cada hora.
+  Teléfono: `platform/photoCrypto` (X25519 de `@noble/curves` 2.4.0, HKDF de `@noble/hashes`
+  2.4.0, AES-GCM de `expo-crypto`), `photoApi`, `photoSync`, migración 012, reportar, ocultar y
+  bloquear, el aviso de la primera foto con los términos, "El álbum" al cierre. `tsc`, lint,
+  **1525 tests** de la app y **214** del servidor, también `test:dst`; los vectores del RFC 7748
+  pasan en el Hermes de la app.
+- **Verificado de punta a punta en dos simuladores iPhone 17 Pro contra el servidor local en
+  memoria:** Gus crea su perfil y su código; Ana lo canjea con el link; Gus acepta, crea "Read"
+  con Ana y "Photos of the day"; Ana ve "People share photos in this challenge. Yours are
+  optional." y se une. La primera foto de Gus abre "Before your first photo" y, tras "Got it",
+  la hoja sola; la vista previa dice a quién le llega y "Add to the challenge". En el teléfono de
+  Ana la celda del viernes de Gus trae la miniatura, y el visor abre la foto completa y el pie
+  descifrados. Ana la reporta ("Reported. You no longer see it, and we will review it."); con
+  el token, `/admin/reports` no dice quién reportó y `/admin/reports/:id/photo` devuelve la foto
+  descifrada con la llave del reporte. Resuelto como "remove": Gus conserva su foto local y el
+  teléfono de Ana borra la suya con sus archivos.
+- **Sin verificar:** Android; un teléfono físico; un bucket real (la firma reproduce el ejemplo de
+  AWS, no se probó contra Tigris); restaurar con fotos; bloquear y ocultar en pantalla (cubiertos
+  por tests); el español en pantalla (cubierto por `tsc`). En la pantalla Invitar, escribir un
+  código ajeno y tocar "Ask to join their circle" no envió el pedido en esta prueba; por el link
+  sí. Es anterior a esta rama y queda por revisar.
+- **Producción:** el primer arranque de la tanda 1, antes de apuntar la app al servidor local,
+  dejó una identidad en la base de producción (`01a0de94…`, sin alias). Está pendiente de
+  borrarse con permiso del dueño. Nada de esta rama está desplegado.
 

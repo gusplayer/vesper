@@ -36,6 +36,7 @@ import {
   type InviteAttempt,
 } from '../../features/circle/inviteAttempt';
 import { codeFieldText, invitePageLinkFor } from '../../features/circle/inviteLink';
+import { useBlockMember } from '../../features/circle/photoSharing';
 import { useIsDemoCircle } from '../../features/circle/useCircleSyncStatus';
 import { useStrings } from '../../i18n';
 import {
@@ -72,6 +73,9 @@ type AcceptLine = 'full' | 'queued' | 'gone';
  *
  * What goes out is the invitation page (ADR-0034), not the app's own scheme: it opens
  * on a phone without Vesper, and a messenger makes it tappable.
+ *
+ * Next to "Quitar", "Bloquear" (ADR-0051 §18): the same end of the link, and the person
+ * cannot ask to come back. It asks first, and nobody is told.
  */
 export default function InviteScreen() {
   const router = useRouter();
@@ -89,6 +93,7 @@ export default function InviteScreen() {
   const linkEndSupport = useCircleStore((state) => state.linkEndSupport);
   const regenerateInviteCode = useCircleStore((state) => state.regenerateInviteCode);
   const demo = useIsDemoCircle();
+  const block = useBlockMember();
 
   const [codeText, setCodeText] = useState('');
   const [result, setResult] = useState<InviteAttempt | null>(null);
@@ -414,19 +419,30 @@ export default function InviteScreen() {
                     : t.circle.member.handle(member.handle)
                 }
                 right={
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    tone="danger"
-                    label={copy.remove}
-                    onPress={() => confirmRemove(member)}
-                    accessibilityLabel={copy.removeA11y(member.name)}
-                  />
+                  <Stack direction="row" gap="sm">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      tone="danger"
+                      label={copy.remove}
+                      onPress={() => confirmRemove(member)}
+                      accessibilityLabel={copy.removeA11y(member.name)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      tone="danger"
+                      label={t.photos.block.label}
+                      onPress={() => block.confirmBlock({ id: member.id, name: member.name })}
+                      accessibilityLabel={t.photos.block.a11y(member.name)}
+                    />
+                  </Stack>
                 }
               />
             ))}
           </ListGroup>
         )}
+        {block.line === null ? null : <StatusNote text={block.line} live />}
         <StatusNote text={copy.deliveryNote} />
       </Section>
     </Screen>

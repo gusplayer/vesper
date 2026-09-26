@@ -454,6 +454,60 @@ export function photoUri(file: string | null): string | null {
   }
 }
 
+/**
+ * The two file names of a photo, the same for every photo on this phone: `<id>.jpg` and
+ * `<id>.thumb.jpg` (ADR-0051). A photo that arrives from somebody else is written under
+ * them too, once opened.
+ */
+export function photoFileNames(id: string): { fullFile: string; thumbFile: string } {
+  return { fullFile: `${id}${FULL_SUFFIX}`, thumbFile: `${id}${THUMB_SUFFIX}` };
+}
+
+/**
+ * Writes an opened photo (ADR-0051, tanda 2) to the photos directory under `name`,
+ * replacing a file of that name. False when it could not be written, or when the name
+ * is not one this directory takes. The bytes are a JPEG someone else's phone made and
+ * stripped; this phone only opened them.
+ */
+export function writePhotoFile(name: string, bytes: Uint8Array): boolean {
+  if (!isSafeName(name)) {
+    return false;
+  }
+  const fs = fileSystem();
+  if (fs === null) {
+    return false;
+  }
+  try {
+    photosDirectory(fs).create({ intermediates: true, idempotent: true });
+    new fs.File(photosDirectory(fs), name).write(bytes);
+    return true;
+  } catch (error) {
+    report('writePhotoFile', error);
+    return false;
+  }
+}
+
+/**
+ * The bytes of a file in the photos directory, for sealing it before it goes up. Null
+ * when there is no such file, or it cannot be read.
+ */
+export function readPhotoFile(name: string | null): Uint8Array | null {
+  if (name === null || !isSafeName(name)) {
+    return null;
+  }
+  const fs = fileSystem();
+  if (fs === null) {
+    return null;
+  }
+  try {
+    const handle = new fs.File(photosDirectory(fs), name);
+    return handle.exists ? handle.bytesSync() : null;
+  } catch (error) {
+    report('readPhotoFile', error);
+    return null;
+  }
+}
+
 /** Deletes these files from the photos directory. Null names and missing files are skipped. */
 export function deletePhotoFiles(files: readonly (string | null)[]): void {
   const fs = fileSystem();
