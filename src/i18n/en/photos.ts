@@ -148,4 +148,24 @@ export const photos: typeof shape = {
     toggle: 'Photos of the day',
     toggleHint: 'Everyone can add a photo to their mark. It is never required.',
   },
+  share: {
+    albumRow: 'Share your album',
+    title: 'Share your album',
+    button: 'Share',
+    preparing: 'Preparing the image…',
+    onlyYours: "Only your photos go, with no one else's name.",
+    previewA11y: (name) => `The image you are about to share: your album of ${name}`,
+    cardLine: (days) =>
+      days === 7
+        ? 'A one-week challenge.'
+        : days % 7 === 0 && days !== 21
+          ? `A ${days / 7}-week challenge.`
+          : `A ${days}-day challenge.`,
+    wordmark: 'Vesper',
+    saveOrShare: 'Save or share',
+    unavailable: 'This phone has nothing to share with.',
+    cardUnavailable: 'This build of Vesper cannot prepare the image.',
+    failed: 'The image could not be prepared. Try again.',
+    shareFailed: 'The share sheet could not open. Try again.',
+  },
 };

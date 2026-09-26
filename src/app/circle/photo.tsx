@@ -15,6 +15,8 @@ import {
 import {
   Button,
   IconCircle,
+  ListGroup,
+  ListRow,
   NoticeCard,
   PageHeader,
   PhotoCard,
@@ -36,9 +38,11 @@ import {
   useHiddenMembers,
 } from '../../features/circle/photoSharing';
 import { fullUriOf, thumbUriOf } from '../../features/circle/photoUri';
+import { useShareFile } from '../../features/circle/useShareFile';
 import { useLocale, useStrings } from '../../i18n';
 import { BACK_FALLBACK, goBack } from '../../lib/goBack';
 import { useNow } from '../../lib/useNow';
+import { status as shareStatus } from '../../platform/share';
 
 const CLOCK_MS = 60_000;
 
@@ -66,7 +70,9 @@ type Left =
  *
  * **Your own** says who sees it: "Solo la ves tú." while it stays here, the names once
  * it goes out, and that it waits for a connection while it is queued. Removing it asks
- * first, and once it went out the question says it is deleted for everyone.
+ * first, and once it went out the question says it is deleted for everyone. "Guardar o
+ * compartir" hands the photo to the system's sheet, where "Guardar imagen" puts it in
+ * the phone's photos (ADR-0051 §13): only on your own, never on someone else's.
  */
 export default function PhotoScreen() {
   const router = useRouter();
@@ -86,6 +92,7 @@ export default function PhotoScreen() {
   const hidden = useHiddenMembers();
   const full = useFullPhoto(photo);
   const block = useBlockMember();
+  const sharing = useShareFile();
   const [options, setOptions] = useState(false);
   // Once the photo left the page from here, the page says why instead of "ya no está".
   const [left, setLeft] = useState<Left | null>(null);
@@ -139,7 +146,10 @@ export default function PhotoScreen() {
     }
   }
   // While the full photo comes down, the thumbnail holds the frame.
-  const uri = fullUriOf(photo) ?? thumbUriOf(photo);
+  const fullUri = fullUriOf(photo);
+  const uri = fullUri ?? thumbUriOf(photo);
+  // Your own photo, whole, to the system's sheet: the JPEG this phone keeps, without its metadata.
+  const shareSheet = mine ? shareStatus() : null;
   // The cheer goes to someone still in the circle, once a day (ADR-0021 §5).
   const cheerTo = member !== null && member.status === 'member' ? member : null;
   const cheered = cheerTo !== null && kudosGiven.has(cheerTo.id);
@@ -202,6 +212,27 @@ export default function PhotoScreen() {
         lines={lines}
         accessibilityLabel={mine ? t.viewer.mineA11y(day) : t.viewer.theirsA11y(name, day)}
       />
+      {shareSheet === null ? null : (
+        <>
+          <ListGroup>
+            <ListRow
+              icon="share"
+              label={t.share.saveOrShare}
+              kind="action"
+              disabled={!shareSheet.available || fullUri === null || sharing.open}
+              onPress={() => {
+                if (fullUri !== null) {
+                  void sharing.share(fullUri, 'image/jpeg');
+                }
+              }}
+            />
+          </ListGroup>
+          {shareSheet.available || shareSheet.reason === null ? null : (
+            <StatusNote text={shareSheet.reason} icon="info" />
+          )}
+          {sharing.problem === null ? null : <StatusNote text={sharing.problem} tone="danger" live />}
+        </>
+      )}
       {full.downloading ? <StatusNote text={t.viewer.downloading} live /> : null}
       {full.failure === null ? null : <StatusNote text={t.viewer.downloadProblem[full.failure]} live />}
       {cheerTo === null ? null : <CheerButton member={cheerTo} given={cheered} />}

@@ -903,7 +903,31 @@ elección). Las mismas siete áreas lo implementaron.
   por tests); el español en pantalla (cubierto por `tsc`). En la pantalla Invitar, escribir un
   código ajeno y tocar "Ask to join their circle" no envió el pedido en esta prueba; por el link
   sí. Es anterior a esta rama y queda por revisar.
+- **Tanda 3 (tiendas y ley), en la rama:** privacidad y términos en `web/` (es y en),
+  `docs/MODERATION.md` (el proceso de 24 horas con `/admin` y NCMEC), `docs/APP_REVIEW.md`
+  (notas para el revisor, clasificación por edad, App Privacy), Data safety y la ficha al día.
+  Marcado `[REVISAR]` lo que el dueño o un abogado tienen que confirmar. `web/` no está desplegado.
+- **Fase 4 (tu álbum hacia afuera), en la rama:** `platform/share`, `AlbumCard`, `Mark`,
+  "Compartir tu álbum" al cierre y "Guardar o compartir" en tu foto; `expo-sharing` y
+  `react-native-view-shot` 5.1.1. **1536 tests.**
+- **Verificado en el simulador iPhone 17 Pro (build nuevo, con prebuild):** "Save or share" abre
+  la hoja con el JPEG de 514 KB; "Save Image" pide el permiso con "Vesper saves to your photos
+  only what you choose to save.", la foto llega a la fototeca y la app sigue abierta. Con el
+  reto terminado a mano en la base, el cierre muestra "Your album" y "Share your album"; la
+  tarjeta se ve en la hoja y la captura es un PNG de 1080×1920 con contenido (107 KB). El
+  objeto de Acerca de se ve igual con `Mark`.
+- **Verificado en el emulador Pixel 6 (API 34), build nuevo:** la app solo declara `CAMERA` (sin
+  almacenamiento, sin `READ_MEDIA_*`, sin micrófono). "Take a photo" pide la cámara en ese
+  momento, la cámara virtual toma la foto y la vista previa la muestra derecha (960×1280, sin
+  EXIF). El Photo Picker del sistema elige sin permiso, y la foto con GPS queda sin EXIF, sin GPS
+  y sin la marca de la cámara; el reemplazo borra los archivos anteriores. "Save or share" abre la
+  hoja de Android y "Share your album" captura 1080×1920.
+- **Por afinar:** en un reto corto la grilla de la tarjeta queda pequeña en el centro. En la
+  pantalla Invitar, el primer toque en "Ask to join their circle" con el teclado abierto no envió
+  el pedido (probablemente cierra el teclado); por el link sí. Es anterior a esta rama.
+- **Sin verificar:** un teléfono físico; un bucket real; restaurar con fotos; bloquear y ocultar
+  en pantalla (cubiertos por tests).
 - **Producción:** el primer arranque de la tanda 1, antes de apuntar la app al servidor local,
   dejó una identidad en la base de producción (`01a0de94…`, sin alias). Está pendiente de
-  borrarse con permiso del dueño. Nada de esta rama está desplegado.
+  borrarse con permiso del dueño. Nada de esta rama está desplegado: ni el servidor, ni `web/`.
 

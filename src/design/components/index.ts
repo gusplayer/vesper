@@ -59,6 +59,7 @@ export { HeatGrid, type HeatCell } from './HeatGrid';
 export { PhotoTile } from './PhotoTile';
 export { PhotoCard } from './PhotoCard';
 export { PhotoMosaic, type PhotoMosaicItem, type PhotoMosaicRow } from './PhotoMosaic';
+export { AlbumCard, type AlbumCardDay } from './AlbumCard';
 export { ScheduleCard } from './ScheduleCard';
 export { HoldButton } from './HoldButton';
 export { QrCode } from './QrCode';

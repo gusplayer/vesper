@@ -315,6 +315,18 @@ otra persona llega a un teléfono de la tienda antes de la 3.
 - **Sin bucket, las fotos viven en memoria** y el servidor lo dice al arrancar. En producción
   no se encienden sin un Railway Bucket (`AWS_*` del preset "AWS SDK", ver `server/README.md`).
 
+**Fase 4 (tu álbum hacia afuera), 2026-09-26.**
+
+- **"Compartir tu álbum"** captura una tarjeta 9:16 en tinta (`AlbumCard`) con tus fotos en su
+  día, el nombre del reto, cuánto duró y la marca de Vesper, sin URL, sin QR y sin nadie más.
+  Usa la maquinaria que proponía el ADR-0030: `react-native-view-shot` fijada a 5.1.1 y
+  `expo-sharing`. La captura se monta con opacidad 0 bajo la hoja (su plan B), y la grilla 4×4
+  pasó a un componente `Mark` que comparten `HeroObject` y `BootReveal`.
+- **"Guardar o compartir"** en el visor de tu propia foto entrega el JPEG a la hoja del sistema;
+  guardar en Fotos pasa por ahí. En la foto de otra persona no existe.
+- **iOS pide `NSPhotoLibraryAddUsageDescription`** para "Guardar imagen" desde la hoja, o la app
+  se cierra: está en `app.json` y en `locales/`. El ADR-0030 decía que `app.json` no cambiaba.
+
 ## Alternativas descartadas
 
 - **Historias de 24 h, reacciones y comentarios** (opción C): feed, FOMO y likes con

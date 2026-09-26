@@ -4,8 +4,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { dissolveLayers } from '../../lib/dissolve';
 import { useTheme } from '../theme';
-import { colors as palette, layout, motion, radius } from '../tokens';
+import { colors as palette, layout, motion } from '../tokens';
 import { readReduceMotion } from '../useReduceMotion';
+import { Mark } from './Mark';
 
 export type BootRevealPhase =
   /** The ink sheet is on screen, seamless with the native splash: the caller drops the splash. */
@@ -21,10 +22,6 @@ type BootRevealProps = {
   onPhase: (phase: BootRevealPhase) => void;
 };
 
-const COLUMNS = 4;
-const CELLS = COLUMNS * COLUMNS;
-/** The cells the icon draws in ink: the lived part of the grid, as in HeroObject. */
-const LIVED = 9;
 /** A frame this long or shorter means the UI thread is drawing at its normal pace again. */
 const STEADY_FRAME_MS = 40;
 const STEADY_FRAMES = 2;
@@ -201,8 +198,6 @@ export function BootReveal({ ready, onPhase }: BootRevealProps) {
   useEffect(() => () => armDissolve.current?.(), []);
 
   const count = layers.length;
-  const { cell, gap } = layout.mark;
-  const gridWidth = COLUMNS * cell + (COLUMNS - 1) * gap;
   // Same seam as InkFlood: a solid sheet covers the dots while the field is (nearly) full.
   const sheetOpacity = progress.interpolate({
     inputRange: [0, 0.85, 1],
@@ -217,17 +212,7 @@ export function BootReveal({ ready, onPhase }: BootRevealProps) {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <View style={[styles.grid, { width: gridWidth, gap }]}>
-        {Array.from({ length: CELLS }, (_, i) => (
-          <View
-            key={i}
-            style={[
-              styles.cell,
-              { width: cell, height: cell, backgroundColor: i < LIVED ? colors.ink : colors.inkTertiary },
-            ]}
-          />
-        ))}
-      </View>
+      <Mark cell={layout.mark.cell} gap={layout.mark.gap} />
       {layersMounted ? (
         <View style={styles.fill} onLayout={layersReady}>
           {layers.map((layer, index) => (
@@ -267,12 +252,5 @@ const styles = StyleSheet.create({
   center: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  cell: {
-    borderRadius: radius.sm / 4,
   },
 });

@@ -1,5 +1,5 @@
 import { dayKeyStart, dayStartShifted, shiftDayKey } from './day';
-import type { Challenge, ChallengePhoto, DayKey, Millis } from './types';
+import { ME, type Challenge, type ChallengePhoto, type DayKey, type Millis } from './types';
 
 /**
  * Photos in challenges (ADR-0051): the rules a photo lives by, pure. A photo is pinned to
@@ -164,4 +164,33 @@ export function albumRows(
     }
   }
   return rows;
+}
+
+export type AlbumDay = { dayKey: DayKey; photo: ChallengePhoto | null };
+
+/**
+ * The days of the image "Compartir tu álbum" makes (ADR-0051 §13): every day of a
+ * challenge with an end, from its first Monday to its last day, each with the user's
+ * photo of that day or null. Only the user's: a photo of anyone else is left out here,
+ * whatever the caller passes, because the group's album never leaves the app. A photo
+ * outside the challenge's days is left out too. Empty for a challenge with no end, which
+ * never closes and so has no album to take out.
+ *
+ * `photos` are the ones "Tu álbum" draws (`albumRows`: on marked days), so a photo kept
+ * on a day that was unmarked does not go out either.
+ */
+export function albumDays(
+  challenge: Pick<Challenge, 'startWeekKey' | 'endDayKey'>,
+  photos: readonly ChallengePhoto[],
+): AlbumDay[] {
+  const { startWeekKey, endDayKey } = challenge;
+  if (endDayKey === null || endDayKey < startWeekKey) {
+    return [];
+  }
+  const mine = photos.filter((photo) => photo.memberId === ME);
+  const days: AlbumDay[] = [];
+  for (let dayKey = startWeekKey; dayKey <= endDayKey; dayKey = shiftDayKey(dayKey, 1)) {
+    days.push({ dayKey, photo: mine.find((photo) => photo.dayKey === dayKey) ?? null });
+  }
+  return days;
 }

@@ -13,6 +13,12 @@ type SheetProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /**
+   * Mounted with the sheet but under it and its dimmed page, never seen: the hidden
+   * card a capture reads (AlbumCard with `purpose="capture"`), which has to live in the
+   * sheet's window while the sheet is up.
+   */
+  under?: ReactNode;
 };
 
 /**
@@ -27,13 +33,14 @@ type SheetProps = {
  * modal is not resized for the keyboard (seen on Android 14), so the view makes the
  * room itself, as `Screen` does.
  */
-export function Sheet({ visible, title, onClose, children }: SheetProps) {
+export function Sheet({ visible, title, onClose, children, under }: SheetProps) {
   const { colors } = useTheme();
   const { close } = useChrome();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      {under}
       <KeyboardAvoidingView style={styles.frame} behavior="padding">
         <Pressable
           style={[styles.backdrop, { backgroundColor: colors.scrim }]}

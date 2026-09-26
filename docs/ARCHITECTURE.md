@@ -117,7 +117,10 @@ src/
     metadatos fuera con lib/jpegMetadata.ts; ADR-0051), photoCrypto.ts (X25519, HKDF y
     AES-GCM: la llave de caja sale del secreto, una llave por foto envuelta para cada
     participante), photoApi.ts (las rutas /media, /report, /block), photoSync.ts (la cola de
-    subida, los borrados y reportes pendientes, las bajadas cuando una pantalla las pide)
+    subida, los borrados y reportes pendientes, las bajadas cuando una pantalla las pide),
+    share.ts (la hoja del sistema con expo-sharing y la captura de una vista con
+    react-native-view-shot fijado a 5.1.1: guardar o compartir tus fotos y "Compartir tu
+    álbum"; ADR-0051 §13, ADR-0030)
     hooks/                useIdentitySync, useNotificationSync, usePushSync, useHealthSync,
                           useLiveActivitySync, useBlockingSync, useRoutineSync,
                           useRoutineWindowsSync, useUsageSync, useCircleSync, useBackupSync

@@ -12,20 +12,31 @@ type PhotoImageProps = {
   muted: boolean;
   /** Fills a square cell ('cover') or shows the whole photo in a frame ('contain'). */
   fit: 'cover' | 'contain';
+  /**
+   * Drawn at once, with no fade of ours and none of Android's: an image that is going to
+   * be captured (AlbumCard) must be whole the moment it has loaded.
+   */
+  still?: boolean;
+  /** Once the image has loaded, or failed to: a capture waits for every one. */
+  onSettle?: () => void;
 };
 
 /**
  * A photo that fills its parent: the image, and in a grid the veil over it. It fades
  * in once it has loaded, in the route's 160 ms, so a thumbnail never pops; with
  * "reduce motion" it is simply there. Only opacity moves (rule 6). Internal: PhotoTile,
- * PhotoCard and HeatSquare draw with it, and it is not exported.
+ * PhotoCard, HeatSquare and AlbumCard draw with it, and it is not exported.
  */
-export function PhotoImage({ uri, muted, fit }: PhotoImageProps) {
+export function PhotoImage({ uri, muted, fit, still = false, onSettle }: PhotoImageProps) {
   const { colors } = useTheme();
   const reduceMotion = useReduceMotion();
-  const [shown] = useState(() => new Animated.Value(0));
+  const [shown] = useState(() => new Animated.Value(still ? 1 : 0));
 
   const onLoad = () => {
+    onSettle?.();
+    if (still) {
+      return;
+    }
     if (reduceMotion) {
       shown.setValue(1);
       return;
@@ -45,6 +56,9 @@ export function PhotoImage({ uri, muted, fit }: PhotoImageProps) {
         style={StyleSheet.absoluteFill}
         resizeMode={fit}
         onLoad={onLoad}
+        onError={onSettle}
+        // Android fades a new image in on its own (300 ms); a still one is whole at once.
+        fadeDuration={still ? 0 : undefined}
         // A photo is the one thing Smart Invert must leave alone.
         accessibilityIgnoresInvertColors
         accessible={false}

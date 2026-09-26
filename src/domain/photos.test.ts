@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { dayKeyOf, dayKeyStart, weekDayKeys } from './day';
 import {
+  albumDays,
   albumRows,
   cleanCaption,
   PHOTO_CAPTION_MAX,
@@ -345,5 +346,47 @@ describe('albumRows', () => {
     const rows = albumRows(reversed, photos, marked({ [ME]: ['2026-08-18'], ana: ['2026-08-18'] }));
 
     expect(rows.map((row) => row.id)).toEqual(['ana', ME]);
+  });
+});
+
+describe('albumDays', () => {
+  it('gives every day of the challenge, Monday first, with your photo of that day', () => {
+    const photos = [photo({ dayKey: '2026-08-17' }), photo({ dayKey: '2026-08-26' })];
+
+    const days = albumDays(challenge(), photos);
+
+    expect(days).toHaveLength(14);
+    expect(days[0]).toEqual({ dayKey: '2026-08-17', photo: photos[0] });
+    expect(days[9]).toEqual({ dayKey: '2026-08-26', photo: photos[1] });
+    expect(days[13]?.dayKey).toBe('2026-08-30');
+    expect(days.filter((day) => day.photo !== null)).toHaveLength(2);
+  });
+
+  it('never carries anyone else\'s photo, even when it is passed in', () => {
+    const days = albumDays(challenge(), [photo({ memberId: 'ana', dayKey: '2026-08-18' }), photo({ dayKey: '2026-08-19' })]);
+
+    expect(days.map((day) => day.photo?.memberId ?? null).filter((id) => id !== null)).toEqual([ME]);
+    expect(days[1]?.photo).toBeNull();
+  });
+
+  it('leaves out a photo outside the challenge days', () => {
+    const days = albumDays(challenge(), [photo({ dayKey: '2026-08-16' }), photo({ dayKey: '2026-08-31' })]);
+
+    expect(days.every((day) => day.photo === null)).toBe(true);
+  });
+
+  it('is empty for a challenge with no end, or one that ends before it starts', () => {
+    expect(albumDays(challenge({ endDayKey: null }), [photo()])).toEqual([]);
+    expect(albumDays(challenge({ endDayKey: '2026-08-16' }), [photo()])).toEqual([]);
+  });
+
+  it('crosses a month and a DST change day by day', () => {
+    // Four weeks from Monday the 19th of October 2026: Europe and Chile move their clocks inside it.
+    const days = albumDays(challenge({ startWeekKey: '2026-10-19', endDayKey: '2026-11-15' }), []);
+
+    expect(days).toHaveLength(28);
+    expect(days[12]?.dayKey).toBe('2026-10-31');
+    expect(days[13]?.dayKey).toBe('2026-11-01');
+    expect(new Set(days.map((day) => day.dayKey)).size).toBe(28);
   });
 });

@@ -200,6 +200,41 @@ export const layout = {
    * share of the window, so the lines under it stay on screen.
    */
   photo: { cell: 36, thumb: 52, gap: 6, dash: 1.5, maxHeight: 0.58, previewMaxHeight: 0.44 },
+  /**
+   * The image "Compartir tu álbum" makes (ADR-0030, ADR-0051 §13), AlbumCard. Every
+   * measure but `preview` is in pixels of the 1080 × 1920 story it becomes, and the card
+   * scales them all to the size it is drawn at, so the preview in its sheet and the
+   * capture are the same picture. `safeTop`–`safeBottom` is the centered square a feed's
+   * 4:5 or 1:1 crop keeps, and everything drawn stays inside it; above and below it is
+   * only the page, where a story's own buttons sit. `margin` is each side of the grid,
+   * `columns` its days per row (a week), `cellGap` and `cellCorner` (a share of the side)
+   * its squares. `title`, `line` and `word` are the challenge's name, the line under the
+   * grid and the wordmark, each with its line height; `gap` the room between the three
+   * blocks. The mark is `markCell` cells with `markGap` between them, `markSpace` from
+   * the wordmark. `preview` is the tallest the preview may be, as a share of the window,
+   * so the sheet's one button stays on screen.
+   */
+  share: {
+    width: 1080,
+    height: 1920,
+    safeTop: 420,
+    safeBottom: 1500,
+    margin: 108,
+    columns: 7,
+    cellGap: 12,
+    cellCorner: 0.18,
+    title: 56,
+    titleLine: 68,
+    line: 36,
+    lineLine: 48,
+    word: 38,
+    wordLine: 48,
+    gap: 48,
+    markCell: 10,
+    markGap: 3,
+    markSpace: 16,
+    preview: 0.5,
+  },
 } as const;
 
 /** Opacity roles. A disabled control fades as a whole, on top of its muted colors. */

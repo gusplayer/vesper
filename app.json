@@ -13,7 +13,8 @@
       "supportsTablet": false,
       "infoPlist": {
         "NSSupportsLiveActivities": true,
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "NSPhotoLibraryAddUsageDescription": "Vesper guarda en tus fotos solo lo que eliges guardar."
       },
       "appleTeamId": "2D3R79CT8F"
     },

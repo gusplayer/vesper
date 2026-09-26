@@ -40,6 +40,7 @@ import { isMarkedByHealth } from '../../domain/habits';
 import { thumbsToFetch, visiblePhotos as drawnPhotos } from '../../domain/photoSharing';
 import { photoExpiresAt, weekPhotos } from '../../domain/photos';
 import { ME } from '../../domain/types';
+import { AlbumShareSheet } from '../../features/circle/AlbumShareSheet';
 import { challengeStatusText, challengeSummaryText } from '../../features/circle/ChallengeCard';
 import { useChallengeLink } from '../../features/circle/useChallengeLink';
 import { ChallengeWeek } from '../../features/circle/ChallengeWeek';
@@ -63,6 +64,7 @@ import { StandingsList } from '../../features/circle/StandingsList';
 import { healthMissingReason, useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
 import { useCircleSyncStatus } from '../../features/circle/useCircleSyncStatus';
 import { leaveCircleChallenge } from '../../platform/hooks/useCircleSync';
+import { cardStatus as shareCardStatus } from '../../platform/share';
 import { useLocale, useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 
@@ -97,7 +99,9 @@ const CLOCK_MS = 60_000;
  * `circle/photo-terms` once. Someone invited sees the weeks without photos and one line
  * over "Unirme". A finished challenge adds the album: everyone's, with the date the
  * photos stay until, when they went out; yours alone otherwise. Your photos stay on this
- * phone until the challenge is archived, and archiving says it deletes them.
+ * phone until the challenge is archived, and archiving says it deletes them. When you
+ * have photos in it, "Compartir tu álbum" opens the sheet that makes an image of yours
+ * alone and hands it to the system (ADR-0051 §13); the group's album never leaves.
  */
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -119,6 +123,7 @@ export default function ChallengeScreen() {
   const hidden = useHiddenMembers();
   const termsAccepted = usePhotoTermsAccepted();
   const [photoSheet, setPhotoSheet] = useState(false);
+  const [albumSheet, setAlbumSheet] = useState(false);
   // The terms page was opened from here to add a photo: once it is accepted and the
   // page is back in view, the sheet opens as if the row had been tapped just now.
   const awaitingTerms = useRef(false);
@@ -228,6 +233,9 @@ export default function ChallengeScreen() {
   const albumRows =
     photosOn && ended ? album.filter((row) => row.isMe || (othersPhotos && !hidden.has(row.id))) : [];
   const groupAlbum = albumRows.some((row) => !row.isMe);
+  // "Compartir tu álbum" takes out your photos alone, never the group's (ADR-0051 §13).
+  const myAlbum = albumRows.find((row) => row.isMe) ?? null;
+  const shareCard = myAlbum === null ? null : shareCardStatus();
   const albumShared = groupAlbum || photos.some((photo) => photo.memberId === ME && isSharedPhoto(photo));
   // The server keeps them until a fixed date, said as a date; past it, only yours are
   // left, on this phone, until you archive it.
@@ -461,6 +469,22 @@ export default function ChallengeScreen() {
               <StatusNote
                 text={albumLive && albumUntil !== null ? p.album.until(photosUntilText(albumUntil, tag)) : p.album.note}
               />
+              {shareCard === null ? null : (
+                <>
+                  <ListGroup>
+                    <ListRow
+                      icon="share"
+                      label={p.share.albumRow}
+                      kind="action"
+                      disabled={!shareCard.available}
+                      onPress={() => setAlbumSheet(true)}
+                    />
+                  </ListGroup>
+                  {shareCard.available || shareCard.reason === null ? null : (
+                    <StatusNote text={shareCard.reason} icon="info" />
+                  )}
+                </>
+              )}
             </Section>
           )}
           <ListGroup>
@@ -518,6 +542,15 @@ export default function ChallengeScreen() {
       </Section>
 
       <StatusNote text={sync.reason} align="center" />
+
+      {myAlbum === null ? null : (
+        <AlbumShareSheet
+          visible={albumSheet}
+          onClose={() => setAlbumSheet(false)}
+          challenge={challenge}
+          photos={myAlbum.photos}
+        />
+      )}
 
       {slot === null ? null : (
         <PhotoSourceSheet

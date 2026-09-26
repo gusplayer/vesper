@@ -3,6 +3,7 @@
     "NSHealthShareUsageDescription": "Vesper lee entrenamientos, pasos y sueño para marcar solos los hábitos verificados. Las lecturas se quedan en el teléfono; los días cumplidos solo salen cifrados en tu respaldo, o a tu círculo si son de un reto.",
     "NSHealthUpdateUsageDescription": "Vesper no escribe datos de salud.",
     "NSCameraUsageDescription": "Vesper usa la cámara solo cuando decides agregar una foto a un día de un reto.",
-    "NSPhotoLibraryUsageDescription": "Vesper solo usa la foto que eliges para un día de un reto."
+    "NSPhotoLibraryUsageDescription": "Vesper solo usa la foto que eliges para un día de un reto.",
+    "NSPhotoLibraryAddUsageDescription": "Vesper guarda en tus fotos solo lo que eliges guardar."
   }
 }

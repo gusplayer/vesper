@@ -202,4 +202,43 @@ export const photos = {
     toggle: 'Fotos del día',
     toggleHint: 'Cada quien puede agregar una foto a su marca. Nunca es obligatoria.',
   },
+  /**
+   * Taking your own photos out (ADR-0051 §13, ADR-0030): the system's share sheet, where
+   * the person saves to their photos or sends it. Only yours, never the group's album.
+   * Nothing here asks for it, and nothing counts how often it happens.
+   */
+  share: {
+    /** The row under the album of a finished challenge, when you have photos in it. */
+    albumRow: 'Compartir tu álbum',
+    /** The sheet with the preview of the image. */
+    title: 'Compartir tu álbum',
+    button: 'Compartir',
+    /** While the image is being made. */
+    preparing: 'Preparando la imagen…',
+    /** Under the preview: what goes in the image. */
+    onlyYours: 'Solo van tus fotos, sin nombres de nadie más.',
+    /** VoiceOver, on the preview. */
+    previewA11y: (name: string) => `La imagen que vas a compartir: tu álbum de ${name}`,
+    /**
+     * The line under the grid of the image, impersonal like everything in it (ADR-0030):
+     * '1 semana', '2 semanas', '21 días', '4 semanas', as the durations are written.
+     */
+    cardLine: (days: number) =>
+      days === 7
+        ? 'Un reto de una semana.'
+        : days % 7 === 0 && days !== 21
+          ? `Un reto de ${days / 7} semanas.`
+          : `Un reto de ${days} días.`,
+    /** Next to the mark, at the foot of the image. */
+    wordmark: 'Vesper',
+    /** circle/photo, on your own photo: the system's sheet has "Guardar imagen". */
+    saveOrShare: 'Guardar o compartir',
+    /** `platform/share` reasons (rule 8): no share sheet, or no way to make the image. */
+    unavailable: 'Este teléfono no tiene con qué compartir.',
+    cardUnavailable: 'Esta versión de Vesper no puede preparar la imagen.',
+    /** The capture failed. */
+    failed: 'No se pudo preparar la imagen. Inténtalo de nuevo.',
+    /** The system's sheet did not open. */
+    shareFailed: 'No se pudo abrir la hoja para compartir. Inténtalo de nuevo.',
+  },
 };
