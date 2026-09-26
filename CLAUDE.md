@@ -54,6 +54,8 @@ sigue vigente y cuál fue superado.
     sin posiciones, ánimo y empujón una vez al día, y cada métrica se comparte solo si el
     usuario lo elige. Un reto ocupa un hábito (regla 4). Notifica solo lo que otra persona
     hizo, con interruptor, y **nunca durante una sesión** (ADR-0021, enmendado por ADR-0027).
+    Una foto vive pegada a la marca de un día de un reto y a nada más: es opcional, no
+    verifica la marca, no notifica, no se reacciona y no se comenta (ADR-0051).
 12. **Nada que muestre el sistema con la app cerrada depende de un temporizador de JS.**
     Relojes nativos en la Live Activity y en la notificación de Android. Ver ADR-0023.
 
@@ -150,6 +152,8 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   ADR-0027 (10 minutos de foco, tres días de gracia al mes), un número sin fuego ni
   animación; la meta semanal sigue siendo la métrica. En el círculo tampoco hay contador
   de ánimos ni de empujones.
+- No agregues historias, video, comentarios ni reacciones por foto, y nunca pidas una foto
+  para contar una marca (ADR-0051). Ninguna ruta de sesión abre la cámara.
 - Fuera de una sesión, máximo dos avisos al día además de los de sesión y rutina, y nada
   entre 22:00 y 8:00. Durante una sesión o una pausa solo existen fin de sesión y fin de
   pausa (ADR-0027).

@@ -158,6 +158,8 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   JSON con 150 apps). Arreglarlo exige paginar o servir el icono por paquete, o sea
   cambiar la forma de la API del módulo.
 - ADR-0024 (sonido y vibración) sigue en propuesta, sin implementar.
+- ADR-0051 (fotos en los retos) está aceptada y se construye en la rama
+  `feat/challenge-photos`, una tanda por commit.
 - El cierre del domingo no tendrá pantalla (ADR-0026): es el aviso más Actividad › Semanal.
 
 ## Deuda conocida
@@ -849,3 +851,13 @@ elección). Las mismas siete áreas lo implementaron.
 - **No verificado:** un envío real por Resend; el caso del iPad en un iPad de verdad con la
   misma cuenta de Apple; "Traerlo aquí" en pantalla (la restauración es la misma ya
   probada).
+
+## Fotos en los retos (2026-09-26, ADR-0051)
+
+- **Solo análisis, sin código.** Tres informes en `docs/research/photos-in-challenges/`:
+  mercado (30 apps y 72 fuentes), viabilidad (Expo 57, almacenamiento y costos, cifrado,
+  tiendas, CSAM y Ley 1581) y producto (encaje con las reglas, tres conceptos, wireframes
+  y copy). ADR-0051 propone la grilla del reto como álbum: una foto opcional por persona,
+  reto y día, cifrada de extremo a extremo, sin avisos, reacciones ni comentarios.
+- El mismo día el dueño la aceptó con las recomendaciones (cifrado de extremo a extremo,
+  la tanda local primero, 14 días) y pidió construirla entera en `feat/challenge-photos`.
