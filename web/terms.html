@@ -6,13 +6,18 @@
     <title>Términos · Vesper</title>
     <meta name="description" content="Qué es Vesper, cómo se usa y qué no promete." />
     <!--
-      BORRADOR (2026-09-24). Escrito contra el código de este commit: ADR-0025 (ritual de
-      salida y desbloqueo de emergencia), ADR-0033 y ADR-0044 (la cuenta del círculo),
-      ADR-0043 (Salud) y docs/PLAY_DECLARATIONS.md (18+, el límite del bloqueo).
-      El correo de contacto es el que decidió el dueño (ADR-0047 §13). Antes de publicarlo:
-      poner quién responde por la app ([TITULAR]), la fecha de vigencia y la ley aplicable,
-      y que lo lea alguien con criterio legal. Cada vez que cambie lo que la app hace, esta página cambia en el
-      mismo commit.
+      BORRADOR (2026-09-26). Escrito contra el código de este commit: ADR-0025 (ritual de
+      salida y desbloqueo de emergencia), ADR-0033, 0044 y 0048 (la cuenta, que desde el 0048
+      es la identidad sin login), ADR-0043 (Salud), ADR-0049 (terminar un vínculo), ADR-0051
+      (las fotos de un reto: tolerancia cero, reportar, ocultar y bloquear, respuesta en 24
+      horas) y docs/PLAY_DECLARATIONS.md (18+, el límite del bloqueo). El proceso que respalda
+      la promesa de 24 horas está en docs/MODERATION.md. La app enlaza las fotos a
+      /terms#fotos (es) y /terms?lang=en#photos (en). El correo de contacto es el que decidió
+      el dueño (ADR-0047 §13). Antes de publicarlo: poner quién responde por la app
+      ([TITULAR]), la fecha de vigencia y la ley aplicable, un correo propio de seguridad
+      infantil, y que lo lea alguien con criterio legal; los puntos que más lo necesitan
+      llevan un comentario [REVISAR] al lado. Cada vez que cambie lo que la app hace, esta
+      página cambia en el mismo commit.
     -->
     <link rel="stylesheet" href="/style.css" />
     <link rel="preload" href="/fonts/Outfit_400Regular.ttf" as="font" type="font/ttf" crossorigin />
@@ -34,7 +39,7 @@
             Una app de foco. Eliges qué apps se bloquean, empiezas una sesión y Vesper las cubre
             mientras dura. Tus modos, rutinas, hábitos, sesiones y tu meta semanal viven en tu
             teléfono. Si lo enciendes, compartes tu semana con un círculo de hasta doce personas
-            que tú invitas.
+            que tú invitas, y en un reto, si quieres, una foto del día que marcaste.
           </p>
           <p>
             Hoy la app no cobra nada y no tiene compras dentro. Si algún día cambia, se dice antes
@@ -73,7 +78,7 @@
           <h2>Se usa tal como está</h2>
           <p>
             Vesper se entrega tal como está, con lo que hace hoy. Puede fallar, y lo que vive en tu
-            teléfono se pierde si el teléfono se pierde: no hay copia de lo tuyo en ningún servidor.
+            teléfono se pierde si el teléfono se pierde y no tienes tu respaldo cifrado o su clave.
             Hasta donde la ley lo permita, [TITULAR] no responde por lo que pase por usarla, ni por
             lo que dejes de hacer confiando en que un bloqueo se sostendría.
           </p>
@@ -89,20 +94,24 @@
         </div>
 
         <div class="card">
-          <h2>La cuenta del círculo</h2>
+          <h2>Tu cuenta</h2>
           <p>
-            El círculo es opcional y la cuenta nace tarde: la primera vez que invitas a alguien o
-            usas un código de invitación. Si nunca invitas a nadie, no hay cuenta en ningún lado.
+            No hay registro. La primera vez que abres Vesper, tu teléfono crea una cuenta sin
+            nombre, sin correo y sin contraseña: un identificador y una clave. Esa clave abre tu
+            respaldo y tu círculo en otro teléfono. Puede llegar sola por el llavero de iCloud o
+            por Block Store de Google, la puedes copiar en Ajustes › Respaldo y, si quieres,
+            dejarla en custodia con un correo de recuperación. Si la pierdes, no llegó sola y no
+            diste un correo, nadie puede devolvértela.
           </p>
           <p>
-            No tiene correo ni contraseña. Tu teléfono guarda un identificador y una clave, y esa
-            clave es la única forma de recuperar tu círculo en otro teléfono. Si la pierdes
-            —reinstalar sin haberla copiado— el círculo se pierde y nadie puede devolvértelo.
-            Ajustes › Círculo la muestra para copiarla.
+            El círculo es opcional: tu nombre y tu alias solo se suben cuando invitas a alguien o
+            usas un código de invitación.
           </p>
           <p>
-            Puedes borrar la cuenta desde Ajustes › Círculo cuando quieras: tus filas se borran del
-            servidor en el acto y sin copia. La app sigue funcionando entera sin ella.
+            Puedes borrar la cuenta cuando quieras, en Ajustes › Círculo › Borrar la cuenta o con
+            Ajustes › Borrar todo y reiniciar: tu respaldo, tu círculo y tus fotos se borran del
+            servidor en el acto y sin copia, salvo lo que la ley obligue a conservar (abajo). La
+            app sigue funcionando entera, con una cuenta nueva.
           </p>
         </div>
 
@@ -111,13 +120,103 @@
           <p>
             Se entra por invitación y tú decides quién. No hay feed, no hay seguidores y no hay
             ranking: la semana de cada quien, un ánimo y un empujón al día como mucho. Puedes quitar
-            a alguien cuando quieras y deja de ver tus números en ese momento.
+            o bloquear a alguien cuando quieras, y deja de ver tus números en ese momento.
           </p>
           <p>
             Usa tu nombre, no el de otra persona. Una cuenta que suplante a alguien, que moleste a
-            otras personas o que use el servidor para algo que no sea la app —pedirle datos ajenos,
-            automatizar peticiones, intentar entrar a otra cuenta— se puede cerrar.
+            otras personas, que suba fotos que rompen las reglas de abajo o que use el servidor para
+            algo que no sea la app —pedirle datos ajenos, automatizar peticiones, intentar entrar a
+            otra cuenta— se puede cerrar.
           </p>
+        </div>
+
+        <div class="card" id="fotos">
+          <h2>Las fotos de un reto: tolerancia cero</h2>
+          <p>
+            En un reto con fotos puedes agregar una foto al día que marcaste. La ven solo las
+            personas del reto, y aun así hay cosas que no se suben nunca. Antes de tu primera foto,
+            la app te muestra un aviso con estas reglas; al tocar «Entendido» las aceptas, y sin
+            aceptarlas no sale ninguna foto de tu teléfono.
+          </p>
+          <p>
+            Tolerancia cero quiere decir que no hay advertencia previa. No subas, ni en la foto ni
+            en su pie:
+          </p>
+          <ul>
+            <li>Nada sexual: desnudos, actos sexuales o contenido que sexualice a alguien.</li>
+            <li>Nada que ponga a un menor en una situación inapropiada: desnudo, sexualizado, en
+              peligro o humillado. Nunca y por ninguna razón. Y en general, no subas fotos en las
+              que se reconozca a un niño, una niña o un adolescente, salvo que seas quien lo
+              cuida.</li>
+            <li>Nada violento: heridas, sangre, maltrato, autolesiones o armas usadas para
+              amenazar.</li>
+            <li>Nada de odio contra alguien por su origen, etnia, color de piel, religión, sexo,
+              género, orientación sexual, discapacidad o edad.</li>
+            <li>Nada de acoso: amenazas, burlas, humillaciones o fotos pensadas para molestar a
+              alguien.</li>
+            <li>Nada de otra persona sin su permiso: su cara, su cuerpo, su casa, sus documentos o
+              su pantalla. Si alguien sale en tu foto, pregúntale antes.</li>
+            <li>Nada ilegal ni nada que no tengas derecho a compartir.</li>
+          </ul>
+          <p>
+            Eres responsable de lo que subes. Una foto que rompe estas reglas se quita, y la cuenta
+            que la subió puede perder las fotos en Vesper (abajo).
+          </p>
+          <!-- [REVISAR] La regla sobre fotos de menores ("salvo que seas quien lo cuida") es una
+               decisión de producto que un abogado debe leer contra el art. 7 de la Ley 1581 de
+               2012 y la Ley 2489 de 2025. -->
+        </div>
+
+        <div class="card">
+          <h2>Reportar, ocultar y bloquear</h2>
+          <p>En la foto de otra persona, el botón «…» tiene tres opciones:</p>
+          <ul>
+            <li><strong>Reportar la foto</strong>, con un motivo y una nota si quieres. Deja de
+              verse en tu teléfono en el acto, y a quien la subió nunca se le dice quién la
+              reportó. Tu teléfono nos manda la llave de esa foto, y de ninguna otra, para que
+              podamos verla: sin un reporte no podemos, porque las fotos viajan cifradas.</li>
+            <li><strong>Ocultar las fotos</strong> de esa persona, solo para ti. Se deshace en
+              Ajustes › Círculo.</li>
+            <li><strong>Bloquear</strong> a esa persona: sale de tu círculo y de tus retos, y no
+              puede volver a pedir entrar. No se le avisa. También puedes bloquear a alguien desde
+              la lista de tu círculo, junto a «Quitar».</li>
+          </ul>
+          <p>
+            <strong>Qué hacemos con un reporte.</strong> Lo revisamos en menos de 24 horas. Si la
+            foto rompe estos términos:
+          </p>
+          <ul>
+            <li>La quitamos, para todos.</li>
+            <li>Si es sexual, violenta, de odio, de acoso, ilegal o expone a un menor, además
+              vetamos la cuenta que la subió: se borran todas sus fotos y no puede subir más. Lo
+              mismo si una cuenta insiste después de que le quitamos una foto. Si la falta es grave
+              o se repite, cerramos la cuenta.</li>
+            <li>Si muestra el abuso o la explotación sexual de un menor, además guardamos la foto y
+              lo que la acompaña, con acceso restringido, y la reportamos al CyberTipline del
+              National Center for Missing &amp; Exploited Children (NCMEC) y a las autoridades de
+              Colombia, como la Policía Nacional. Colaboramos con una autoridad que nos lo pida por
+              los canales de la ley.</li>
+          </ul>
+          <!-- [REVISAR] "Cerramos la cuenta" no tiene todavía una ruta de moderación en el
+               servidor (docs/MODERATION.md lo dice). Qué obliga a reportar a un responsable en
+               Colombia (Ley 679 de 2001, art. 8) y si 18 U.S.C. §2258A lo alcanza. -->
+          <p>
+            Si la foto no rompe estos términos, se queda, y para quien la reportó sigue oculta. Si
+            crees que quitamos algo por error, escríbenos y lo miramos otra vez.
+          </p>
+          <p>
+            No revisamos fotos que nadie reportó: no podemos, porque solo las abren las personas del
+            reto.
+          </p>
+          <p>
+            <strong>Fuera de la app.</strong> Para reportar algo o pedir que quitemos una foto en la
+            que sales, escribe a
+            <a href="mailto:gusmoreno.dev@gmail.com">gusmoreno.dev@gmail.com</a>. Si es sobre un
+            menor, pon «Seguridad infantil» en el asunto. Si alguien está en peligro ahora, llama al
+            123 en Colombia o a la línea 141 del ICBF.
+          </p>
+          <!-- [REVISAR] Reemplazar por un correo propio de seguridad infantil cuando exista
+               (docs/MODERATION.md, "Una sola vez"). -->
         </div>
 
         <div class="card">
@@ -149,7 +248,7 @@
             A focus app. You pick which apps are blocked, you start a session and Vesper covers them
             while it lasts. Your modes, routines, habits, sessions and weekly goal live on your
             phone. If you turn it on, you share your week with a circle of up to twelve people you
-            invite.
+            invite and, in a challenge, if you want, a photo of the day you marked.
           </p>
           <p>
             Today the app costs nothing and has no purchases inside. If that ever changes, it is
@@ -187,8 +286,8 @@
           <h2>It is used as it is</h2>
           <p>
             Vesper is given to you as it is, with what it does today. It can fail, and what lives on
-            your phone is lost if the phone is lost: there is no copy of your own data on any server.
-            As far as the law allows, [TITULAR] is not liable for what happens from using it, or for
+            your phone is lost if the phone is lost and you have neither your encrypted backup nor
+            its key. As far as the law allows, [TITULAR] is not liable for what happens from using it, or for
             what you stop doing trusting that a block would hold.
           </p>
         </div>
@@ -203,20 +302,24 @@
         </div>
 
         <div class="card">
-          <h2>The circle account</h2>
+          <h2>Your account</h2>
           <p>
-            The circle is optional and the account is born late: the first time you invite someone
-            or use an invitation code. If you never invite anyone, there is no account anywhere.
+            There is no sign-up. The first time you open Vesper, your phone creates an account with
+            no name, no email and no password: an id and a key. That key opens your backup and your
+            circle on another phone. It can arrive by itself through iCloud Keychain or Google's
+            Block Store, you can copy it in Settings › Backup and, if you want, leave it in custody
+            with a recovery email. If you lose it, it did not arrive by itself and you gave no
+            email, nobody can give it back.
           </p>
           <p>
-            It has no email and no password. Your phone keeps an id and a key, and that key is the
-            only way to recover your circle on another phone. If you lose it —reinstalling without
-            having copied it— the circle is lost and nobody can give it back. Settings › Circle
-            shows it so you can copy it.
+            The circle is optional: your name and handle only go up when you invite someone or use
+            an invitation code.
           </p>
           <p>
-            You can delete the account from Settings › Circle whenever you want: your rows are
-            deleted from the server at once, with no copy. The app keeps working in full without it.
+            You can delete the account whenever you want, in Settings › Circle › Delete the account
+            or with Settings › Delete everything and start over: your backup, your circle and your
+            photos are deleted from the server at once and with no copy, except what the law
+            requires us to keep (below). The app keeps working in full, with a new account.
           </p>
         </div>
 
@@ -224,14 +327,94 @@
           <h2>How a circle works between people</h2>
           <p>
             You get in by invitation and you decide who. There is no feed, no followers and no
-            ranking: each person's week, one cheer and at most one nudge a day. You can remove
-            someone whenever you want and they stop seeing your numbers from then on.
+            ranking: each person's week, one cheer and at most one nudge a day. You can remove or
+            block someone whenever you want, and they stop seeing your numbers from then on.
           </p>
           <p>
             Use your own name, not someone else's. An account that impersonates someone, that
-            bothers other people, or that uses the server for anything but the app —asking it for
-            other people's data, automating requests, trying to get into another account— can be
-            closed.
+            bothers other people, that adds photos that break the rules below, or that uses the
+            server for anything but the app —asking it for other people's data, automating
+            requests, trying to get into another account— can be closed.
+          </p>
+        </div>
+
+        <div class="card" id="photos">
+          <h2>Photos in a challenge: zero tolerance</h2>
+          <p>
+            In a challenge with photos you can add a photo to a day you marked. Only the people in
+            the challenge see it, and even so some things are never added. Before your first photo,
+            the app shows you a notice with these rules; tapping "Got it" accepts them, and without
+            accepting them no photo leaves your phone.
+          </p>
+          <p>
+            Zero tolerance means there is no warning first. Do not add, in the photo or in its
+            caption:
+          </p>
+          <ul>
+            <li>Anything sexual: nudity, sexual acts or content that sexualizes someone.</li>
+            <li>Anything that puts a minor in an inappropriate situation: naked, sexualized, in
+              danger or humiliated. Never, for any reason. And in general, do not add photos where a
+              child or a teenager can be recognized unless you are the one who looks after
+              them.</li>
+            <li>Anything violent: wounds, blood, abuse, self-harm or weapons used to threaten.</li>
+            <li>Anything hateful toward someone because of their origin, ethnicity, skin color,
+              religion, sex, gender, sexual orientation, disability or age.</li>
+            <li>Harassment: threats, mockery, humiliation or photos meant to upset someone.</li>
+            <li>Anything of another person without their permission: their face, their body, their
+              home, their documents or their screen. If someone is in your photo, ask them
+              first.</li>
+            <li>Anything illegal, or anything you have no right to share.</li>
+          </ul>
+          <p>
+            You are responsible for what you add. A photo that breaks these rules is removed, and
+            the account that added it can lose photos in Vesper (below).
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>Report, hide and block</h2>
+          <p>On someone else's photo, the "…" button has three options:</p>
+          <ul>
+            <li><strong>Report the photo</strong>, with a reason and a note if you want. It stops
+              showing on your phone at once, and the person who added it is never told who
+              reported it. Your phone sends us the key to that photo, and no other, so we can see
+              it: without a report we cannot, because photos travel encrypted.</li>
+            <li><strong>Hide the photos</strong> of that person, only for you. It is undone in
+              Settings › Circle.</li>
+            <li><strong>Block</strong> that person: they leave your circle and your challenges, and
+              cannot ask to join again. They are not told. You can also block someone from your
+              circle's list, next to "Remove".</li>
+          </ul>
+          <p>
+            <strong>What we do with a report.</strong> We review it within 24 hours. If the photo
+            breaks these terms:
+          </p>
+          <ul>
+            <li>We remove it, for everyone.</li>
+            <li>If it is sexual, violent, hateful, harassing, illegal or exposes a minor, we also ban
+              the account that added it: all its photos are deleted and it cannot add more. The
+              same if an account keeps at it after we removed one of its photos. If the breach is
+              serious or repeated, we close the account.</li>
+            <li>If it shows the sexual abuse or exploitation of a minor, we also keep the photo and
+              what comes with it, with restricted access, and report it to the CyberTipline of the
+              National Center for Missing &amp; Exploited Children (NCMEC) and to the Colombian
+              authorities, such as the National Police. We cooperate with an authority that asks us
+              through legal channels.</li>
+          </ul>
+          <p>
+            If the photo does not break these terms, it stays, and it stays hidden for the person
+            who reported it. If you think we removed something by mistake, write to us and we will
+            look again.
+          </p>
+          <p>
+            We do not review photos nobody reported: we cannot, because only the people in the
+            challenge can open them.
+          </p>
+          <p>
+            <strong>Outside the app.</strong> To report something or ask us to remove a photo you
+            are in, write to <a href="mailto:gusmoreno.dev@gmail.com">gusmoreno.dev@gmail.com</a>.
+            If it is about a minor, put "Child safety" in the subject. If someone is in danger right
+            now, call 123 in Colombia or the ICBF's 141 line.
           </p>
         </div>
 
