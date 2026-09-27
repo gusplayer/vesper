@@ -55,9 +55,13 @@ de borrador en el `<head>` de cada página.
 Antes de publicarlos hace falta:
 
 - `[TITULAR]`: quién responde por la app (solo en Términos).
-- `[CONTACTO]`: el correo al que se escribe, en las dos páginas.
+- ~~`[CONTACTO]`~~: decidido en ADR-0047 §13 y ya puesto en las dos páginas.
 - La fecha de vigencia y la ley aplicable, que Términos hoy no nombra.
 - La revisión legal de arriba.
+
+**Y antes que todo eso: `web/` no está desplegado.** La app ya enlaza a `/terms` y
+`/privacy` desde Acerca de y desde la bienvenida, así que hoy esos dos enlaces dan 404.
+Está anotado en `docs/STATUS.md` › "Qué falta".
 
 Cada vez que cambie qué sale del teléfono, las dos páginas cambian en el mismo commit.
 Play las exige en la ficha y en la declaración de Health Connect

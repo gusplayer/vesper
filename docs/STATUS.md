@@ -132,10 +132,20 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   los hábitos. Y en un teléfono con Play y Android 9 a 13: instalar Health Connect desde
   "Instalar Health Connect" y que al volver la pantalla ofrezca conectar.
 - **Play**: declaración de Health Connect y publicar la política de privacidad
-  (`web/privacy.html` es un borrador: falta el correo de contacto, la fecha y la
-  revisión; `PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
+  (`web/privacy.html` es un borrador: el correo ya está, faltan la fecha, el titular y la
+  revisión legal, arriba; `PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
   video y poner la URL en `PLAY_DECLARATIONS.md`; verificar el manifiesto fusionado del
   build de release.
+- **Publicar los textos legales, que hoy bloquean la ficha y mienten en la app.** Acerca
+  de y la bienvenida enlazan a `/terms` y `/privacy`, y **`web/` no está desplegado: los
+  dos dan 404**. Eso es lo primero. Además, para que dejen de ser borrador faltan cuatro
+  datos que solo puede dar el dueño, ninguno de criterio técnico:
+  - **`[TITULAR]`** — quién responde legalmente por la app (aparece cinco veces en
+    `web/terms.html`). El correo de contacto ya se decidió en ADR-0047 §13.
+  - **La fecha de vigencia** y **la ley aplicable**, que Términos hoy no nombra.
+  - **La revisión legal.** Los dos textos los escribió quien conoce el código y describen
+    lo que el código hace; ADR-0046 pide que alguien con criterio legal los lea antes de
+    publicarlos, y eso sigue sin pasar.
 - **Android 16**: el emulador API 36 no promueve la notificación aunque la pide; verificar en un Pixel real con Android 16.
 - **Toque en la notificación de Android** y en el aviso de rutina de iOS: no se pueden
   entregar desde adb/idb; confirmar en teléfono.
@@ -177,8 +187,9 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   `ios/` viejo puede no traer `ExpoWidgetsTarget`: `--clean` lo arregla.
 - Los restos de la fase 1 (`repositories/sessionConfig.ts`, `queries/week.ts`, cinco
   claves viejas de `settings`) se borraron en la revisión del 2026-09-17 (ADR-0026).
-- Círculo sin servidor: escribir un código ajeno responde "todavía no hay servidor"; solo
-  la invitación sembrada (Mateo) se puede aceptar. Es lo honesto hasta el backend (ADR-0021).
+- ~~Círculo sin servidor~~: desde ADR-0044 la app habla con el servidor —`circle.status()`
+  ya devuelve `available: true` con cuenta— y el ciclo completo se verificó contra el
+  despliegue el 2026-09-25.
 - Términos y Privacidad están enlazados (Acerca de y la bienvenida) pero `web/` no está desplegado: `/terms` y `/privacy` dan 404. Desde ADR-0047 §13 los dos llevan el correo de contacto (gusmoreno.dev@gmail.com); siguen en borrador: falta la fecha, el titular (`[TITULAR]` en `web/terms.html`) y la revisión del dueño.
 - En español la hora va en frases "a las ${hora}", que entre la 1:00 y la 1:59 dicen "a las 1:05" en vez de "a la 1:05". Falta un ayudante de frase de hora en `lib/format`.
 - Riesgo de desarrollo: Fast Refresh sobre un módulo del que depende `stores/app.ts` crea un store con los ajustes por defecto y la primera escritura los guarda. Tras editar el dominio, relanzar la app. Visto otra vez el 2026-09-25 con otra sesión editando `src/platform/`: Focus decía "Sin modos" con las filas en la base; relanzar en frío las trajo de vuelta.
