@@ -279,7 +279,9 @@ export const resumePlan: ResumePlan = (plan, timing) => {
     return;
   }
   const end = timing !== undefined && Number.isFinite(timing.endsAt) ? timing.endsAt : null;
-  void safeAsync(() => mod.resumePlan(end)).then((resumed) => {
+  // The next break's unlock is counted by the service from the break's end until
+  // the plan carries it (ADR-0053).
+  void safeAsync(() => mod.resumePlan(end, null)).then((resumed) => {
     if (!resumed) {
       applyPlan(plan, timing);
     }
