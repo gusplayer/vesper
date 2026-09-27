@@ -47,7 +47,10 @@ sigue vigente y cuál fue superado.
    abrir y los borra 14 días después del cierre. Nada viaja en claro. Si el
    usuario lo da, un **correo de recuperación** (ADR-0050) con una copia de su clave cifrada
    con una llave del servidor: es opcional y la pantalla dice su precio. Una identidad es un
-   dispositivo activo a la vez. No agregues backend sin ADR.
+   dispositivo activo a la vez. Desde ADR-0052, al abrir, la app le pregunta a EAS Update si
+   hay una versión nueva del JS. La consulta no lleva datos del usuario: plataforma,
+   runtime, canal, un id de instalación de Expo y, solo si la app se cayó al abrir, el
+   texto del error. No agregues backend sin ADR.
 8. **Cada permiso se pide en su flujo y donde no existe, la pantalla lo dice.** Nunca un
    permiso "concedido" con un flag: `status().reason` de `src/platform/` explica por qué
    no (ADR-0017). El onboarding puede pedirlos, pero nunca los exige (ADR-0026).
@@ -78,6 +81,8 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Fotos de los retos (ADR-0051): `expo-image-picker` y `expo-image-manipulator` (este, desde el
   fuente en iOS con un parche en `patches/`); cifrado de extremo a extremo con `@noble/curves`
   (X25519) y `@noble/hashes` (HKDF) sobre el AES-GCM de `expo-crypto`, en `platform/photoCrypto.ts`
+- Actualizaciones por el aire (ADR-0052): `expo-updates` con EAS Update, runtime por
+  `fingerprint`, canales `preview` y `production`. Solo viaja JS y assets: lo nativo pide build
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
 - `src/app/`: rutas de expo-router. `src/features/<área>/`: piezas compartidas por varias
   pantallas de un área. `src/dev/`: `DevJump` y las banderas de `route.ts`, solo en dev

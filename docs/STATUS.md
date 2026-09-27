@@ -146,6 +146,10 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   - **La revisión legal.** Los dos textos los escribió quien conoce el código y describen
     lo que el código hace; ADR-0046 pide que alguien con criterio legal los lea antes de
     publicarlos, y eso sigue sin pasar.
+- **Una actualización por el aire, de punta a punta** (ADR-0052): un build `preview` con su
+  canal, `eas update --channel preview` con un cambio visible, y ver que el segundo arranque
+  en frío lo muestre, y que sin red la app abra igual. Hasta entonces `expo-updates` está
+  verificado solo en la configuración nativa que genera prebuild.
 - **Android 16**: el emulador API 36 no promueve la notificación aunque la pide; verificar en un Pixel real con Android 16.
 - **Toque en la notificación de Android** y en el aviso de rutina de iOS: no se pueden
   entregar desde adb/idb; confirmar en teléfono.
@@ -244,6 +248,9 @@ en los documentos de plataforma.
 - **2026-09-17 · Revisión de QA y documentación (ADR-0026).** Cierre de los ADR 0011,
   0012, 0013, 0015 y las cifras de 0022; restos de la fase 1 borrados; todos los docs
   contrastados con el código.
+- **2026-09-27 · Actualizaciones por el aire (ADR-0052).** `expo-updates` con EAS Update,
+  runtime por `fingerprint`, canales `preview` y `production`; la privacidad y las
+  declaraciones de las tiendas nombran la consulta. Detalle al final.
 
 ## Racha diaria, avisos que traen de vuelta y empujones (2026-09-17, ADR-0027)
 
@@ -985,3 +992,40 @@ elección). Las mismas siete áreas lo implementaron.
   `docs/MODERATION.md`. `web/` sigue sin desplegar, así que los textos nuevos de privacidad y
   términos no están publicados.
 
+
+## Actualizaciones por el aire (2026-09-27, ADR-0052)
+
+- **Qué cambió:** `expo-updates` (`~57.0.23`) en `package.json`; en `app.json`,
+  `runtimeVersion: { policy: "fingerprint" }` y `updates` con la URL del proyecto EAS,
+  `checkAutomatically: ON_LOAD` y `fallbackToCacheTimeout: 0`; en `eas.json`, `channel` en
+  `preview` y `production`. Ningún cambio en `src/`: la app no llama a la API de updates.
+- **Verificado en el worktree, sin simulador ni emulador:**
+  - `npx expo prebuild --clean` escribe en `Expo.plist` `EXUpdatesURL`,
+    `EXUpdatesRuntimeVersion = file:fingerprint`, `EXUpdatesLaunchWaitMs = 0` y
+    `EXUpdatesCheckOnLaunch = ALWAYS`, y en el `AndroidManifest.xml` los mismos seis
+    `expo.modules.updates.*`.
+  - El fingerprint de iOS no se mueve con un cambio en `src/widgets/FocusActivity.tsx` ni en
+    `src/i18n/es/focus.ts` (`53ddf5d…` antes y después), y sí con uno en
+    `modules/vesper-identity/ios/` (`1d80951…`). Incluye `patches/`, `plugins/`, los
+    `expo-target.config.js` y la versión de cada paquete autolinkeado.
+  - `targets/` no se puede editar a mano: el plugin de `react-native-device-activity`
+    (`withCopyTargetFolder`) lo reescribe desde sus plantillas cada vez que se evalúa la
+    configuración. Una prueba en `ShieldActionExtension.swift` desapareció al calcular el
+    fingerprint. Por eso no hace falta `fingerprint.config.js`.
+  - `npx expo export --platform all`: bundles Hermes de 4,6 MB (iOS) y 4,7 MB (Android), que
+    es lo que sube `eas update`.
+  - Lo que manda la consulta se leyó en `FileDownloader.swift` y `FileDownloader.kt` de SDK 57:
+    plataforma, runtime, canal, ids de la actualización en curso y de la embebida,
+    `EAS-Client-ID` (UUID al azar en `UserDefaults`/`SharedPreferences`) y, tras una caída en
+    los 10 s siguientes a abrir, `Expo-Fatal-Error` con hasta 1024 caracteres.
+  - `npx tsc --noEmit` limpio, `npm run lint` sin avisos, `npx vitest run` con 1538 tests en
+    101 archivos en verde. `npx expo-doctor` falla en tres chequeos que ya fallaban en `main`
+    (parches de SDK atrasados, `@expo/fingerprint` duplicado por `react-native-health`,
+    paquetes sin metadatos de React Native Directory); `expo-updates` no agrega ninguno.
+- **Textos:** `web/privacy.html` tiene "Las actualizaciones de la app" / "App updates";
+  `docs/APP_REVIEW.md` declara Device ID y Crash Data (no vinculados, sin rastreo), y
+  `docs/PLAY_DECLARATIONS.md` agrega Device or other IDs y Crash logs. `CLAUDE.md` regla 7
+  lo nombra.
+- **No verificado:** ninguna actualización publicada ni recibida (hace falta un build con
+  canal); el dev client instalado en el simulador y el emulador no trae `expo-updates` y hay
+  que compilarlo de nuevo tras `prebuild --clean`.

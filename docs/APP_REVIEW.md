@@ -161,6 +161,18 @@ etiqueta más larga, y declarar de menos la vuelve falsa. **[REVISAR]**
 | Identifiers › User ID | El id anónimo | Sin cambio: la lista de destinatarios de una foto son ids | Sí | No | App Functionality, Analytics |
 | Health & Fitness · Contact Info › Name · Contact Info › Email Address | Como estaban (`docs/PLAY_DECLARATIONS.md`, pendientes) | Sin cambio | Sí | No | Como estaban |
 
+**Actualizaciones por el aire (ADR-0052).** EAS Update es un *third-party partner*: recibe
+la consulta de cada arranque y no sabemos cuánto la guarda, así que se declara lo que lleva,
+aunque Vesper no lo reciba nunca.
+
+| Tipo de dato de Apple | Qué es | Vinculado | Rastreo | Propósito |
+|---|---|---|---|---|
+| Identifiers › Device ID | `EAS-Client-ID`: un UUID al azar por instalación que crea `expo-eas-client`. No se cruza con la identidad de Vesper | No | No | App Functionality |
+| Diagnostics › Crash Data | El texto de una caída en los diez segundos siguientes a abrir, hasta 1024 caracteres, que viaja en la consulta siguiente | No | No | App Functionality |
+
+**[REVISAR]** si Apple cuenta un id por instalación que no es de hardware como *Device ID* o
+como *Other Data*. Declararlo de más solo alarga la etiqueta.
+
 La URL de privacidad en App Store Connect es https://vesper-azure.vercel.app/privacy, que desde
 esta tanda tiene la sección de fotos.
 
@@ -185,7 +197,7 @@ módulo la declara.
 5. **El responsable del tratamiento** (`[TITULAR]`) y lo que el Decreto 1377 de 2013 pide en
    una política de tratamiento: identificación, domicilio, canal y fecha de vigencia.
 6. **Encargados y transmisión internacional**: Railway (servidor y fotos), Neon (base, en
-   EE. UU.), Resend (correo) y Expo (avisos). La privacidad nombra a Railway, Resend y Expo,
+   EE. UU.), Resend (correo) y Expo (avisos y actualizaciones, ADR-0052). La privacidad nombra a Railway, Resend y Expo,
    no a Neon.
 7. **La frase "No abrimos fotos por ese camino"** del precio del correo de recuperación,
    frente a una orden de una autoridad.

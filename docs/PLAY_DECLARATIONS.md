@@ -221,9 +221,9 @@ día aparece, es un error del build.
 ## c) Seguridad de datos (Data safety)
 
 Play define "recopilar" como *"Transmitting data from your app off a user's device"*. Desde
-ADR-0048, ADR-0050 y ADR-0051 salen cinco cosas, y todas se declaran. **Se actualizó el
-2026-09-25**, cuando dejó de ser cierto que nada salía, y **el 2026-09-26** con las fotos de
-un reto.
+ADR-0048, ADR-0050, ADR-0051 y ADR-0052 salen seis cosas, y todas se declaran. **Se actualizó el
+2026-09-25**, cuando dejó de ser cierto que nada salía, **el 2026-09-26** con las fotos de
+un reto y **el 2026-09-27** con la consulta de actualizaciones a EAS Update.
 
 **Las fotos y la exención del cifrado de extremo a extremo.** La
 [ayuda de Data safety](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en)
@@ -244,7 +244,7 @@ lo declarado es lo reportado y lo que la custodia del correo podría abrir. **[R
 
 | Pregunta del formulario | Respuesta | Por qué |
 |---|---|---|
-| Does your app collect or share any of the required user data types? | **Sí** | Identidad anónima, respaldo cifrado, círculo (opcional), correo de recuperación (opcional) y fotos de un reto (opcionales) |
+| Does your app collect or share any of the required user data types? | **Sí** | Identidad anónima, respaldo cifrado, círculo (opcional), correo de recuperación (opcional), fotos de un reto (opcionales) y la consulta de actualizaciones |
 | Is all of the user data collected by your app encrypted in transit? | **Sí** | Solo HTTPS al servidor; las fotos además van cifradas de extremo a extremo |
 | Do you provide a way for users to request that their data is deleted? | **Sí** | En la app: Ajustes › Respaldo (apagarlo borra la copia), Ajustes › Círculo › "Borrar la cuenta", "Borrar todo y reiniciar", y «Quitar la foto» en el visor. Fuera de la app: ver pendientes |
 | Independent security review | No | — |
@@ -259,6 +259,8 @@ Tipos de datos, uno por fila del formulario:
 | Personal info › Name | Nombre y alias del círculo | Opcional (solo con círculo) | App functionality |
 | Personal info › Email address | Correo de recuperación, verificado con un código | Opcional | Account management |
 | Device or other IDs | Token de push para los avisos del círculo | Opcional (solo con círculo y permiso) | App functionality |
+| Device or other IDs | El id de instalación de EAS Update (`EAS-Client-ID`): un UUID al azar que no se cruza con la identidad y va a Expo con la consulta de actualizaciones (ADR-0052) | Obligatorio (cada arranque con red) | App functionality |
+| App info and performance › Crash logs | El texto de una caída en los diez segundos siguientes a abrir, hasta 1024 caracteres, que `expo-updates` manda a Expo en la consulta siguiente (ADR-0052) | Obligatorio (solo si la app se cae al abrir) | App functionality |
 | Photos and videos › Photos | La foto de un día de un reto, **cifrada de extremo a extremo**. Se declara por lo que Vesper sí puede leer: una foto reportada (y, si es abuso de un menor, conservada hasta 365 días) y, en principio, las de quien dio un correo de recuperación | Opcional (solo si el reto lleva fotos y la persona agrega una) | App functionality; Fraud prevention, security, and compliance (moderar lo reportado y cumplir la ley) |
 | App activity › Other user-generated content | El pie de la foto, cifrado igual que la foto y declarado por la misma razón | Opcional | App functionality; Fraud prevention, security, and compliance |
 | App activity › Other actions | Lo que el círculo sube en claro: la semana por métrica, las marcas de un reto y cómo se contó cada día, ánimos y empujones, y los datos de cada foto (quién la subió, reto, día, destinatarios, medidas, peso, cámara o galería, fechas). También los reportes y los bloqueos | Opcional (solo con círculo) | App functionality; Fraud prevention, security, and compliance (reportes y bloqueos) |
@@ -279,7 +281,7 @@ Lo que la app toca **y no sale**, para que el revisor no encuentre sorpresas:
 | Las fotos de la galería | El selector del sistema le da a Vesper solo la foto elegida |
 | App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara y se descarta; Actividad pregunta al sistema y suelta la respuesta. Sin historial propio (ADR-0029) |
 | Lecturas de Health Connect (pasos, entrenamientos, sueño) | Se leen para marcar hábitos y se sueltan; solo el día cumplido se guarda |
-| Diagnóstico / crashes | No se envía |
+| Diagnóstico / crashes | No hay SDK de diagnóstico. Solo sale el texto de una caída al abrir, a Expo, y se declara arriba (ADR-0052) |
 
 Health Connect (ADR-0043) sigue pidiendo declarar **Health and fitness** y llenar su
 declaración aparte (sección f): las lecturas quedan en el teléfono y solo el día cumplido
