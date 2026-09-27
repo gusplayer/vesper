@@ -3,6 +3,7 @@ import type * as DeviceActivity from 'react-native-device-activity';
 import { SHIELD_ICON, shieldPalette } from '../design/shieldPalette';
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { ACTIVITY_PREFIX, routineIdFromActivityName, routineIdsFromActivityNames, windowIntervals } from '../domain/routineWindows';
+import type { ShieldEvent } from '../domain/types';
 import { getStrings } from '../i18n';
 import type { BlockingStatus, PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, isDevice, type CapabilityStatus } from './capabilities';
@@ -465,6 +466,15 @@ function errorMessage(error: unknown): string {
 // break, so pausing is releasing and resuming is applying. The shared hook calls
 // these on both platforms and never learns which one answered.
 // ---------------------------------------------------------------------------------
+
+/**
+ * What the shield saw since the last call (ADR-0053). Empty on iOS for now: the
+ * ShieldAction extension will queue its taps in the app group once the Family Controls
+ * entitlement lets anything run there, and this will drain them.
+ */
+export function takeShieldEvents(): ShieldEvent[] {
+  return [];
+}
 
 /** Takes the shield down for the break. `_untilMs` is Android's; iOS waits for resumePlan. */
 export const pausePlan: PausePlan = (_untilMs) => {

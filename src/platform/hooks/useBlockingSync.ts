@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useAppStore } from '../../data/stores/app';
 import { useFocusStore } from '../../data/stores/focus';
 import { blockPlan, isEmptyPlan, type BlockPlan } from '../../domain/blocking';
-import { breakEndsAt, plannedEndAt } from '../../domain/session';
+import { allowsBreaks, breakEndsAt, breakUnlocksAt, plannedEndAt } from '../../domain/session';
 import type { Session } from '../../domain/types';
 import { applyPlan, configureShield, pausePlan, release, resumePlan, status } from '../blocking';
 import type { PlanTiming } from '../blockingTypes';
@@ -38,11 +38,14 @@ export function useBlockingSync(): void {
     };
 
     // The end is never null outside a break; for an open session it is the cap, which
-    // the Android service still honours while the notification counts up instead.
+    // the Android service still honours while the notification counts up instead. When
+    // the next break unlocks is read now: focus runs with the clock until then (ADR-0053).
     const timingOf = (session: Session): PlanTiming => ({
       startedAt: session.startedAt,
       endsAt: plannedEndAt(session) ?? session.startedAt + session.plannedMs,
       open: session.open,
+      breakUnlocksAt: breakUnlocksAt(session, Date.now()),
+      deep: !allowsBreaks(session.depth),
     });
 
     /** `replacing`: another session was running a moment ago, so its shield may still be up. */
