@@ -728,8 +728,9 @@ elección). Las mismas siete áreas lo implementaron.
   **Hábitos esta semana (§7)** en la vista Semanal; De por vida guarda el resumen.
 - **Terminar un vínculo (§5, ADR-0049).** `POST /link/end` y `POST /challenge/leave` en el
   servidor, con la tabla `ended_links` y `ended` en `/sync`. Rechazar, Quitar, Salir del
-  círculo y Salir del reto los usan; la app guarda la cola y, mientras el servidor
-  desplegado responda 404, dice que solo cambió este teléfono. **Sin desplegar.**
+  círculo y Salir del reto los usan; la app guarda la cola y, sin conexión o con un
+  servidor que conteste 404, dice que solo cambió este teléfono. Desplegado el
+  2026-09-25 con `d5d126c` (ver la entrada de ADR-0048 más abajo).
 - **Lo demás.** Sin modo estricto (§6). El salvavidas se queda (§8). `session/complete` se
   muestra una vez tras una sesión que venció con la app cerrada (§9,
   `sessionsRepo.takeRecoveredClosing`). Intención opcional en la hoja de duración (§10).
