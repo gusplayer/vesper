@@ -72,7 +72,7 @@ con un recordatorio a pantalla completa hasta que termina la sesión.*
 
 **2. Describe the functionality**
 
-> Vesper is a self-imposed focus timer. The user picks, per focus mode, which of their installed apps should wait while they focus. When the user starts a session (a tap on "Enfocarme 25 min", or a deliberate long press when the mode is deep) or a routine they scheduled opens its window, `BlockingService` starts as a foreground service. While the screen is on it reads `UsageStatsManager.queryEvents` about once per second and, when an app from the user's list comes to the foreground, it shows a full-screen overlay window (`SYSTEM_ALERT_WINDOW`) with the session name, the time it lifts, and one button, "Volver" (Go back), which returns to the launcher. The service stops when the user ends the session in Vesper or the session's end time passes. Between sessions the service does nothing. The same permission has a second, separate use with no service running: when the user opens the Activity tab, the app asks the system how long each app they chose in a mode was in the foreground today and this week, and shows that breakdown (a floor, never an exact figure). That answer is rendered and dropped — the app writes no usage history of its own, to its database or anywhere else. It never reads the content of other apps, never blocks the launcher, Settings, the dialer or system UI.
+> Vesper is a self-imposed focus timer. The user picks, per focus mode, which of their installed apps should wait while they focus. When the user starts a session (a tap on "Enfocarme 25 min", or a deliberate long press when the mode is deep) or a routine they scheduled opens its window, `BlockingService` starts as a foreground service. While the screen is on it reads `UsageStatsManager.queryEvents` about once per second and, when an app from the user's list comes to the foreground, it shows a full-screen overlay window (`SYSTEM_ALERT_WINDOW`) with the app's name, the session name, the time it lifts, how many times today the overlay covered that app, a button "Volver al foco" (Back to focus) that returns to the launcher and, once the session allows a break, buttons that pause the session for 5, 10 or 15 minutes. Each time the overlay covers an app, and each tap on it, is written to the app's own database on the phone (the package name and the time), so the user can see how many times they tried to open each app during their sessions; that record leaves the phone only inside the user's end-to-end encrypted backup, which our server cannot read. The service stops when the user ends the session in Vesper or the session's end time passes. Between sessions the service does nothing. The same permission has a second, separate use with no service running: when the user opens the Activity tab, the app asks the system how long each app they chose in a mode was in the foreground today and this week, and shows that breakdown (a floor, never an exact figure). That answer is rendered and dropped — the app keeps no record of how long any app was used. It never reads the content of other apps, never blocks the launcher, Settings, the dialer or system UI.
 
 *Vesper es un temporizador de foco autoimpuesto. El usuario elige, por modo, qué apps
 instaladas esperan mientras se enfoca. Al iniciar una sesión (un toque en "Enfocarme 25 min",
@@ -80,10 +80,14 @@ o una pulsación larga deliberada si el modo es profundo) o cuando abre la venta
 usuario programó, `BlockingService` arranca en primer plano. Con la pantalla encendida
 lee `UsageStatsManager.queryEvents` una vez por segundo y, cuando una app de la lista
 pasa al frente, muestra una ventana superpuesta a pantalla completa con el nombre de la
-sesión, la hora a la que se libera y un solo botón, "Volver", que lleva al inicio. El servicio se detiene cuando el
+app, el de la sesión, la hora a la que se libera, cuántas veces la cubrió hoy, un botón
+"Volver al foco" que lleva al inicio y, cuando la sesión ya permite una pausa, botones para
+pausarla 5, 10 o 15 minutos (ADR-0053). Cada vez que cubre una app, y cada toque, se anota
+en la base de la app en el teléfono (el paquete y la hora), para que el usuario vea cuántas
+veces intentó abrirla; eso solo sale dentro del respaldo cifrado. El servicio se detiene cuando el
 usuario termina la sesión en Vesper o vence su hora de fin. Entre sesiones no hace nada.
 Nunca lee el contenido de otras apps, nunca bloquea el launcher, Ajustes, el marcador ni
-la interfaz del sistema, y no guarda historial de las apps que ve.*
+la interfaz del sistema, y no guarda cuánto tiempo se usa ninguna app.*
 
 **3. User-facing impact**
 
@@ -132,9 +136,9 @@ enlace y pegar la URL. Los fotogramas clave están en `docs/media/android-*.png`
   que piden el permiso: el paso de onboarding y "Apps" dentro de un modo. En iOS no
   se muestra.
 
-  > **Vesper needs Usage access.** Vesper uses it for two things: during a focus session it checks which app is on screen, so it can show the reminder when you open one of the apps you chose; and in the Activity tab it shows how long each of those apps was in front today and this week. Both are processed on your phone and never leave it. Vesper stores no history of the apps you use: it asks the system each time and shows the answer.
+  > **Vesper needs Usage access.** Vesper uses it for two things: during a focus session it checks which app is on screen, so it can show the reminder when you open one of the apps you chose, and notes each time it did, so it can show you how many times you tried; and in the Activity tab it shows how long each of those apps was in front today and this week. Both are processed on your phone. Vesper keeps no record of how long you use any app: it asks the system each time and shows the answer. All it notes is each time the reminder covered an app you chose, and that only leaves encrypted, in your backup.
 
-  > **Vesper necesita el acceso a datos de uso.** Durante una sesión: Vesper mira qué app está al frente para cubrirla con el recordatorio cuando abres una de las que elegiste; la compara con tu lista y la suelta. En la pestaña Actividad: con la app abierta y sin sesión corriendo, Vesper le pregunta al sistema cuánto estuvo al frente hoy y esta semana cada app que elegiste, y te muestra el desglose. Nada de esto sale de tu teléfono y no va a ningún servidor. Vesper tampoco guarda historial de las apps que usas: se lo pregunta al sistema cada vez y muestra la respuesta.
+  > **Vesper necesita el acceso a datos de uso.** Durante una sesión: Vesper mira qué app está al frente para cubrirla con el recordatorio cuando abres una de las que elegiste, y anota que la cubrió, para mostrarte cuántas veces lo intentaste. En la pestaña Actividad: con la app abierta y sin sesión corriendo, Vesper le pregunta al sistema cuánto estuvo al frente hoy y esta semana cada app que elegiste, y te muestra el desglose. Todo se procesa en tu teléfono. Vesper no guarda cuánto tiempo usas ninguna app: se lo pregunta al sistema cada vez y muestra la respuesta. Lo único que anota son las veces que el recordatorio cubrió una app que elegiste, y eso solo sale cifrado, en tu respaldo.
 
   (Es el texto que la pantalla muestra de verdad, en `modes.usageAccess` de los dos diccionarios.)
 
@@ -279,7 +283,8 @@ Lo que la app toca **y no sale**, para que el revisor no encuentre sorpresas:
 | Metadatos de una foto (Exif, XMP, IPTC: ubicación, fecha, cámara) | Se borran en el teléfono antes de guardar la foto (`lib/jpegMetadata.ts`, con test). Nunca se leen |
 | Una foto cuando nadie más en el reto puede recibirla, o sin perfil del círculo | Se queda en el teléfono. No entra en el respaldo |
 | Las fotos de la galería | El selector del sistema le da a Vesper solo la foto elegida |
-| App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara y se descarta; Actividad pregunta al sistema y suelta la respuesta. Sin historial propio (ADR-0029) |
+| App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara y se descarta; Actividad pregunta al sistema y suelta la respuesta. Nunca se guarda cuánto tiempo se usó una app (ADR-0029) |
+| Veces que el escudo cubrió una app de la sesión, y los toques en él | Se anotan en la base del teléfono (paquete y hora, `usage_events`, ADR-0053) para mostrar los intentos; salen solo dentro del respaldo cifrado |
 | Lecturas de Health Connect (pasos, entrenamientos, sueño) | Se leen para marcar hábitos y se sueltan; solo el día cumplido se guarda |
 | Diagnóstico / crashes | No hay SDK de diagnóstico. Solo sale el texto de una caída al abrir, a Expo, y se declara arriba (ADR-0052) |
 

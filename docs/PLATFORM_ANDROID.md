@@ -457,3 +457,55 @@ notas de la sesión (`android/`).
 - **Android 16**: en el emulador API 36 la notificación pide la promoción y cuenta,
   pero el sistema no la promovió (sin `FLAG_PROMOTED_ONGOING`, sin chip). Hace falta
   un Pixel real con Android 16 para saber si el emulador es el límite.
+
+## El escudo pregunta y cuenta (ADR-0053)
+
+### Qué existe
+
+- **El escudo** (`Shield.kt`, y `ShieldActivity` con la misma vista) muestra, de arriba
+  abajo: el nombre de la app que cubre (`getApplicationLabel`, visible por los `<queries>`
+  de lanzador), "Vesper · <modo>", "Se libera a las …", la cuenta de hoy para esa app
+  ("Hoy: 4 intentos · 1 pausa, 1 min"), el primario "Volver al foco" y la fila de pausa.
+- **La fila de pausa** sale del `BreakPolicy` del plan, que JS calcula con el dominio
+  (`breakUnlocksAt`) y el escudo lee sin JS:
+  - ofrece 5, 10 y 15 min si la pausa ya se habilitó y la sesión no terminó;
+  - dice "Tu próxima pausa en N min" si todavía no;
+  - dice "Profundo · solo el reloj termina" en profundo;
+  - no dice nada si la próxima pausa llegaría después del fin, o si el plan es de una
+    ventana de rutina, que no trae las palabras.
+- **Pausar desde el escudo** anota el evento, llama a `BlockingService.pause(until, app)`
+  y deja la app a la vista. La pausa recuerda su app. Al terminar, por JS, por el
+  servicio, tras un reinicio o con `release()`, lo que tomó se suma a la cuenta de esa
+  app y la próxima pausa se habilita un intervalo después. Si JS pide la misma pausa al
+  enterarse, se conserva su inicio.
+- **`ShieldLedger`** guarda en `vesper_shield` una cola de eventos (tope de 2000) y la
+  cuenta de hoy por app. JS la vacía con `takeShieldEvents()` al arrancar (antes de
+  `recoverOrphans`), en cada chequeo de `SessionGate` (antes de `settleNow`) y al volver
+  al primer plano (`useShieldSync`). JS escribe `usage_events` y `breaks`; Kotlin nunca
+  toca SQLite.
+- **Un intento** es el escudo subiendo sobre una app. Si ya estaba arriba sobre esa
+  misma app, no cuenta otra vez. Si sube otra app desde recientes, esa cuenta aparte,
+  con su nombre.
+
+### Qué se probó (emulador Pixel 6, API 34, 2026-09-27)
+
+- Modo firme "No socials" con Chrome y Reloj reales, sesión de 50 min:
+  - Chrome dio "Chrome / Vesper · No socials / Se libera a las 12:10 PM / Hoy: 1
+    intento / Volver al foco / Tu próxima pausa en 25 min".
+  - "Volver al foco" llevó al inicio. Al reabrir Chrome: "Hoy: 2 intentos".
+- **Pausa desde el escudo:**
+  1. Con el reloj del emulador 26 min adelante (`adb root`, `auto_time 0`, `date`), el
+     escudo ofreció "Pausar el foco · 5 min · 10 min · 15 min".
+  2. "5 min" bajó el escudo y dejó Chrome a la vista (`paused until …`).
+  3. Al abrir Vesper, la sesión estaba en "Pausa 4:16 · Vuelves a las 11:52". JS
+     ingirió la pausa al instante del toque y la pidió de nuevo al servicio con la misma
+     hora de fin.
+  4. "Volver ahora", y otra vez en Chrome: "Hoy: 4 intentos · 1 pausa, 1 min", "Se
+     libera a las 12:11 PM" (el fin se corrió lo que duró la pausa) y sin fila de pausa,
+     porque la próxima llegaría después del fin.
+- **La base** (`sqlite3` sobre `vesper.db`) tenía tres `shield_hit`, un `backed_off` y un
+  `unlock_granted` de 300000 ms, todos con su sesión, y en `breaks` una fila `shield`
+  de Chrome con 300000 ms elegidos y 58 s reales.
+- **Sin probar:** la línea de profundo, la `ShieldActivity` (Ajustes y otras apps que
+  esconden superposiciones), la pausa desde el escudo con el proceso muerto y un
+  teléfono real.

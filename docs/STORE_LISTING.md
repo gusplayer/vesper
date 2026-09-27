@@ -41,7 +41,8 @@ Volver. Tú pusiste el bloqueo; tú lo puedes quitar.
 **Qué necesita y por qué**
 
 - *Acceso de uso*: para saber qué app está en pantalla durante una sesión y mostrar el
-  recordatorio. Se lee en tu teléfono y no se guarda historial.
+  recordatorio. Se lee en tu teléfono. Vesper solo anota cuántas veces el recordatorio cubrió
+  cada app, para mostrártelo; nunca guarda cuánto tiempo usas una app.
 - *Mostrar sobre otras apps*: para dibujar el recordatorio encima de la app que elegiste
   pausar. Nunca aparece fuera de una sesión.
 - *Notificaciones*: para avisarte cuando termina una sesión o empieza una rutina, y para
@@ -91,7 +92,8 @@ back. You set the block; you can lift it.
 **What it needs and why**
 
 - *Usage access*: to know which app is on screen during a session and show the reminder.
-  It is read on your phone and no history is kept.
+  It is read on your phone. Vesper only notes how many times the reminder covered each app,
+  to show you; it never keeps how long you use an app.
 - *Display over other apps*: to draw the reminder on top of the app you chose to pause.
   It never appears outside a session.
 - *Notifications*: to tell you when a session ends or a routine starts, and to show that

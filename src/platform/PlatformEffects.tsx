@@ -8,6 +8,7 @@ import { useNotificationSync } from './hooks/useNotificationSync';
 import { usePushSync } from './hooks/usePushSync';
 import { useRoutineSync } from './hooks/useRoutineSync';
 import { useRoutineWindowsSync } from './hooks/useRoutineWindowsSync';
+import { useShieldSync } from './hooks/useShieldSync';
 import { useUsageSync } from './hooks/useUsageSync';
 
 /**
@@ -22,6 +23,7 @@ export function PlatformEffects() {
   useHealthSync();
   useLiveActivitySync();
   useBlockingSync();
+  useShieldSync();
   useRoutineSync();
   useRoutineWindowsSync();
   useUsageSync();

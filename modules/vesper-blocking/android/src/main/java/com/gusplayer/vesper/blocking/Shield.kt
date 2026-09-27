@@ -3,6 +3,7 @@ package com.gusplayer.vesper.blocking
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -24,11 +25,18 @@ import java.text.DateFormat
 import java.util.Date
 
 /**
- * The full-screen dark view that covers a blocked app: a title, one line under it,
- * the time the plan releases when it has one ("Se libera a las 18:00", ADR-0023) and
- * a single pill button that sends the user home. Shown as a TYPE_APPLICATION_OVERLAY
- * window; when the window manager refuses (no overlay permission, or an app that keeps
- * overlays out) the same view opens inside ShieldActivity.
+ * The full-screen dark view that covers a blocked app (ADR-0053): the app's name, the
+ * session under it ("Vesper · Trabajo profundo"), the time the plan releases when it has
+ * one ("Se libera a las 18:00", ADR-0023), today's count for this app ("Hoy: 4 intentos
+ * · 2 pausas, 20 min"), the pill that sends the user home ("Volver al foco") and, under
+ * it, the pause row: the lengths when a break is unlocked, when the next one unlocks
+ * when it is not yet, deep's line when breaks never come, nothing otherwise. Shown as a
+ * TYPE_APPLICATION_OVERLAY window; when the window manager refuses (no overlay
+ * permission, or an app that keeps overlays out) the same view opens inside
+ * ShieldActivity.
+ *
+ * Every time the shield goes up over an app it is an attempt, counted in ShieldLedger
+ * before the view is built, so the count it shows includes this one.
  *
  * Everything runs on the main thread. The service and the activity both talk to this
  * singleton, so `isShowing` is the one truth the JS `isShielding()` reads.
@@ -41,6 +49,7 @@ object Shield {
   private const val HIDE_OVERLAYS_PERMISSION = "android.permission.HIDE_NON_SYSTEM_OVERLAY_WINDOWS"
   /** What JS leaves in the release template for the formatted time. */
   private const val TIME_PLACEHOLDER = "{time}"
+  private const val TALLY_SEPARATOR = " · "
   private val OVERLAY_HIDERS = setOf(
     "com.android.settings",
     "com.android.permissioncontroller",
@@ -58,12 +67,12 @@ object Shield {
   var isShowing: Boolean = false
     private set
 
-  /**
-   * Covers `blockedPackage`, the app now in front, with `copy` and, when the plan has
-   * an end, `releaseLine` under the subtitle.
-   */
-  fun show(context: Context, copy: ShieldCopy, releaseLine: String?, blockedPackage: String) {
-    main.post { showNow(context.applicationContext, copy, releaseLine, blockedPackage) }
+  /** The app the shield is covering right now, so another app coming up counts again. */
+  private var shownPackage: String? = null
+
+  /** Covers `blockedPackage`, the app now in front, with what `plan` says. */
+  fun show(context: Context, plan: Plan, blockedPackage: String) {
+    main.post { showNow(context.applicationContext, plan, blockedPackage) }
   }
 
   /**
@@ -80,22 +89,29 @@ object Shield {
     main.post { hideNow() }
   }
 
-  private fun showNow(context: Context, copy: ShieldCopy, releaseLine: String?, blockedPackage: String) {
-    if (isShowing) {
+  private fun showNow(context: Context, plan: Plan, blockedPackage: String) {
+    if (isShowing && shownPackage == blockedPackage) {
       return
     }
+    if (isShowing) {
+      // Another app of the session came up under the shield (from recents): it is its
+      // own attempt, with its own name and count.
+      hideNow()
+    }
     isShowing = true
+    shownPackage = blockedPackage
+    ShieldLedger.recordAttempt(context, blockedPackage, System.currentTimeMillis())
     if (hidesOverlays(context, blockedPackage)) {
       // addView would succeed and the window would be silently kept off screen
       // (mForceHideNonSystemOverlayWindow); the activity is the only shield that shows.
       Log.i(TAG, "$blockedPackage hides overlays; using ShieldActivity")
       // Nothing is up if the start was refused: `isShowing` has to say so, or every
       // later tick returns early and the session runs with no shield at all.
-      isShowing = ShieldActivity.open(context, copy, releaseLine)
+      isShowing = ShieldActivity.open(context, blockedPackage)
       return
     }
     val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-    val view = build(context, copy, releaseLine) { goHome(context) }
+    val view = build(context, plan, blockedPackage)
     try {
       wm.addView(view, overlayParams())
       overlay = view
@@ -106,7 +122,7 @@ object Shield {
       // WindowManager.BadTokenException without the permission, SecurityException on
       // some OEMs. The activity is the fallback; it looks the same.
       Log.w(TAG, "overlay refused (${error.javaClass.simpleName}); falling back to ShieldActivity")
-      isShowing = ShieldActivity.open(context, copy, releaseLine)
+      isShowing = ShieldActivity.open(context, blockedPackage)
     }
   }
 
@@ -142,6 +158,7 @@ object Shield {
       return
     }
     isShowing = false
+    shownPackage = null
     main.removeCallbacks(letScreenSleep)
     overlay?.let { view ->
       runCatching { windowManager?.removeViewImmediate(view) }
@@ -167,14 +184,91 @@ object Shield {
     }.getOrDefault(false)
   }
 
-  /** Home, then the shield goes away: the blocked app is no longer in front. */
-  private fun goHome(context: Context) {
+  /** "Volver al foco": counted, then home, then the shield goes away. */
+  fun backToFocus(context: Context, blockedPackage: String) {
+    ShieldLedger.recordBack(context, blockedPackage, System.currentTimeMillis())
     val home = Intent(Intent.ACTION_MAIN)
       .addCategory(Intent.CATEGORY_HOME)
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     runCatching { context.startActivity(home) }
     hideNow()
   }
+
+  /**
+   * A break of `lengthMs` from the shield: counted, then the service pauses the plan,
+   * which takes the shield down and leaves the app in front. JS learns of it from the
+   * queue and takes the same break into the session at this instant.
+   */
+  fun pauseFocus(context: Context, blockedPackage: String, lengthMs: Long) {
+    val now = System.currentTimeMillis()
+    ShieldLedger.recordBreak(context, blockedPackage, now, lengthMs)
+    BlockingService.pause(context, now + lengthMs, blockedPackage)
+    hideNow()
+  }
+
+  /** What the pause row shows right now (ADR-0053). */
+  private sealed class PauseRow {
+    data class Offer(val choicesMs: List<Long>) : PauseRow()
+    data class Locked(val minutes: Long) : PauseRow()
+    data class Note(val text: String) : PauseRow()
+    object None : PauseRow()
+  }
+
+  /**
+   * From the plan's break policy and the clock: offered once unlocked and before the
+   * end, locked with the minutes left before that, deep's line when breaks never come,
+   * and nothing for a plan that never offers them (a routine window's) or a break that
+   * would only unlock after the end.
+   */
+  private fun pauseRow(plan: Plan, now: Long): PauseRow {
+    val asks = plan.shield.asks
+    if (asks.pauseLabel.isEmpty()) {
+      return PauseRow.None
+    }
+    val policy = plan.breaks
+    if (policy.everyMs <= 0L) {
+      return if (asks.noBreak.isEmpty()) PauseRow.None else PauseRow.Note(asks.noBreak)
+    }
+    val unlocksAt = policy.unlocksAt ?: return PauseRow.None
+    val endsAt = plan.endsAt
+    if ((endsAt != null && unlocksAt >= endsAt) || policy.choicesMs.isEmpty()) {
+      return PauseRow.None
+    }
+    if (now >= unlocksAt) {
+      return PauseRow.Offer(policy.choicesMs)
+    }
+    return PauseRow.Locked(((unlocksAt - now + MINUTE_MS - 1) / MINUTE_MS).coerceAtLeast(1L))
+  }
+
+  /** "Hoy: 4 intentos · 2 pausas, 20 min", or null before JS gave the words. */
+  private fun todayLine(context: Context, plan: Plan, blockedPackage: String, now: Long): String? {
+    val asks = plan.shield.asks
+    if (asks.today.isEmpty()) {
+      return null
+    }
+    val tally = ShieldLedger.today(context, blockedPackage, now)
+    val parts = mutableListOf<String>()
+    if (tally.attempts > 0) {
+      val template = if (tally.attempts == 1) asks.attemptOne else asks.attemptOther
+      parts.add(template.replace("{n}", tally.attempts.toString()))
+    }
+    if (tally.breaks > 0) {
+      val template = if (tally.breaks == 1) asks.breakOne else asks.breakOther
+      val minutes = (tally.breakMs + MINUTE_MS / 2) / MINUTE_MS
+      parts.add(template.replace("{n}", tally.breaks.toString()).replace("{min}", minutes.toString()))
+    }
+    if (parts.isEmpty()) {
+      return null
+    }
+    return asks.today.replace("{items}", parts.joinToString(TALLY_SEPARATOR))
+  }
+
+  /** The app's own name, as the launcher shows it; the session's title when it cannot be read. */
+  private fun appLabel(context: Context, packageName: String, fallback: String): String =
+    runCatching {
+      val pm = context.packageManager
+      pm.getApplicationLabel(pm.getApplicationInfo(packageName, 0)).toString()
+    }.getOrNull()?.takeIf { it.isNotBlank() } ?: fallback
 
   /**
    * FLAG_KEEP_SCREEN_ON is here only for the first [AWAKE_MS]; [letScreenSleepNow]
@@ -208,12 +302,16 @@ object Shield {
    * session's ink from res/values/colors.xml (a copy of src/design/tokens.ts), with the
    * same roles the iOS shield takes in src/design/shieldPalette.ts: the light scheme's
    * ink as the ground, the dark scheme's ink for the text, and the button in paper. The
-   * root eats the back key: leaving the shield means pressing its button.
+   * lengths of the pause row are outlined in the dark scheme's line, secondary to the
+   * one filled button (rule 2). The root eats the back key: leaving the shield means
+   * pressing one of its buttons.
    */
-  fun build(context: Context, copy: ShieldCopy, releaseLine: String?, onBack: () -> Unit): View {
+  fun build(context: Context, plan: Plan, blockedPackage: String): View {
+    val now = System.currentTimeMillis()
     val bg = ContextCompat.getColor(context, R.color.vesper_light_ink)
     val ink = ContextCompat.getColor(context, R.color.vesper_dark_ink)
     val inkSecondary = ContextCompat.getColor(context, R.color.vesper_dark_ink_secondary)
+    val line = ContextCompat.getColor(context, R.color.vesper_dark_line)
     val buttonBg = ContextCompat.getColor(context, R.color.vesper_light_on_ink)
     val buttonInk = ContextCompat.getColor(context, R.color.vesper_light_ink)
 
@@ -233,67 +331,96 @@ object Shield {
       val pad = dp(context, 32f)
       setPadding(pad, pad, pad, pad)
     }
-
-    val title = TextView(context).apply {
-      text = copy.title
-      setTextColor(ink)
-      setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-      typeface = mediumTypeface()
-      gravity = Gravity.CENTER
+    fun add(view: View, topMargin: Float = 0f) {
+      column.addView(
+        view,
+        LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+          this.topMargin = dp(context, topMargin)
+        },
+      )
     }
-    val subtitle = TextView(context).apply {
-      text = copy.subtitle
-      setTextColor(inkSecondary)
-      setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+    fun text(value: String, color: Int, sp: Float, medium: Boolean = false): TextView = TextView(context).apply {
+      text = value
+      setTextColor(color)
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
       gravity = Gravity.CENTER
-      setPadding(0, dp(context, 8f), 0, 0)
-    }
-    val release = releaseLine?.let { line ->
-      TextView(context).apply {
-        text = line
-        setTextColor(inkSecondary)
-        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        gravity = Gravity.CENTER
-        setPadding(0, dp(context, 4f), 0, 0)
+      if (medium) {
+        typeface = mediumTypeface()
       }
     }
-    val button = TextView(context).apply {
-      text = copy.button
-      setTextColor(buttonInk)
-      setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-      typeface = mediumTypeface()
-      gravity = Gravity.CENTER
-      minHeight = dp(context, 52f)
-      val horizontal = dp(context, 28f)
-      setPadding(horizontal, 0, horizontal, 0)
-      background = GradientDrawable().apply {
-        shape = GradientDrawable.RECTANGLE
-        cornerRadius = dp(context, 999f).toFloat()
-        setColor(buttonBg)
+
+    add(text(appLabel(context, blockedPackage, plan.shield.title), ink, 22f, medium = true))
+    add(text(plan.shield.title, inkSecondary, 16f), topMargin = 8f)
+    releaseLine(plan)?.let { add(text(it, inkSecondary, 16f), topMargin = 4f) }
+    todayLine(context, plan, blockedPackage, now)?.let { add(text(it, inkSecondary, 16f), topMargin = 16f) }
+
+    val back = pill(context, plan.shield.button, fill = buttonBg, stroke = null, color = buttonInk) {
+      backToFocus(context, blockedPackage)
+    }
+    add(back, topMargin = 32f)
+
+    when (val row = pauseRow(plan, now)) {
+      is PauseRow.Offer -> {
+        add(text(plan.shield.asks.pauseLabel, inkSecondary, 14f), topMargin = 28f)
+        val choices = LinearLayout(context).apply {
+          orientation = LinearLayout.HORIZONTAL
+          gravity = Gravity.CENTER
+        }
+        row.choicesMs.forEachIndexed { index, lengthMs ->
+          val label = plan.shield.asks.minutes.replace("{n}", (lengthMs / MINUTE_MS).toString())
+          val chip = pill(context, label, fill = null, stroke = line, color = ink) {
+            pauseFocus(context, blockedPackage, lengthMs)
+          }
+          choices.addView(
+            chip,
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+              if (index > 0) {
+                marginStart = dp(context, 8f)
+              }
+            },
+          )
+        }
+        add(choices, topMargin = 10f)
       }
-      isClickable = true
-      isFocusable = true
-      contentDescription = copy.button
-      setOnClickListener { onBack() }
+      is PauseRow.Locked -> {
+        val template = plan.shield.asks.nextBreak
+        if (template.isNotEmpty()) {
+          add(text(template.replace("{n}", row.minutes.toString()), inkSecondary, 14f), topMargin = 28f)
+        }
+      }
+      is PauseRow.Note -> add(text(row.text, inkSecondary, 14f), topMargin = 28f)
+      PauseRow.None -> Unit
     }
 
-    column.addView(title, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    column.addView(subtitle, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    release?.let {
-      column.addView(it, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-    }
-    column.addView(
-      button,
-      LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-        topMargin = dp(context, 32f)
-      },
-    )
     root.addView(
       column,
       FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER),
     )
     return root
   }
+
+  /** A pill: filled for the one primary button, outlined for the lengths. */
+  private fun pill(context: Context, label: String, fill: Int?, stroke: Int?, color: Int, onTap: () -> Unit): TextView =
+    TextView(context).apply {
+      text = label
+      setTextColor(color)
+      setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+      typeface = mediumTypeface()
+      gravity = Gravity.CENTER
+      minHeight = dp(context, if (fill != null) 52f else 44f)
+      val horizontal = dp(context, if (fill != null) 28f else 18f)
+      setPadding(horizontal, 0, horizontal, 0)
+      background = GradientDrawable().apply {
+        shape = GradientDrawable.RECTANGLE
+        cornerRadius = dp(context, 999f).toFloat()
+        setColor(fill ?: Color.TRANSPARENT)
+        stroke?.let { setStroke(dp(context, 1f), it) }
+      }
+      isClickable = true
+      isFocusable = true
+      contentDescription = label
+      setOnClickListener { onTap() }
+    }
 
   private fun mediumTypeface(): Typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
     Typeface.create(Typeface.DEFAULT, 500, false)
@@ -306,4 +433,5 @@ object Shield {
 
   /** How long the shield keeps the screen awake after it goes up. */
   private const val AWAKE_MS = 30_000L
+  private const val MINUTE_MS = 60_000L
 }

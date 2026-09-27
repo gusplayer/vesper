@@ -7,7 +7,7 @@ import { getStrings } from '../i18n';
 import type { NativeCopy, NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
 import type { BlockingStatus, PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, type CapabilityStatus } from './capabilities';
-import { breakPolicy, parseShieldEvents } from './shieldAsk';
+import { askCopy, breakPolicy, parseShieldEvents } from './shieldAsk';
 
 /**
  * blocking on Android: the local Kotlin module in modules/vesper-blocking behind the
@@ -249,7 +249,7 @@ export function applyPlan(plan: BlockPlan, timing?: PlanTiming): void {
       ...nativeCopy(),
       // The pause row only exists for a session's plan: without timing there is no
       // session to pause, and the shield only counts (ADR-0053).
-      ...(timing !== undefined ? breakPolicy(timing) : {}),
+      ...(timing !== undefined ? { ...breakPolicy(timing), ...askCopy(getStrings().session) } : {}),
     }),
   );
 }

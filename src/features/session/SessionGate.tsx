@@ -4,6 +4,7 @@ import { AppState } from 'react-native';
 
 import { useAppStore, useFocusStore } from '../../data';
 import { breakEndsAt, plannedEndAt } from '../../domain/session';
+import { takeShieldEvents } from '../../platform/blocking';
 
 const SESSION_PREFIX = '/session';
 const COMPLETE_PATH = '/session/complete';
@@ -27,8 +28,10 @@ const READY_POLL_MS = 50;
  *   closing is shown once, on this open (ADR-0047 §9): the store marks it owed.
  *
  * The exact moments are scheduled once; on foreground the clock is read again
- * because timers sleep in the background. Renders nothing. Mounted once, under the
- * root layout.
+ * because timers sleep in the background. Every check first takes what the shield
+ * queued (ADR-0053): a break taken from the shield moves the session's end, and the
+ * session must not close at the end it had before. Renders nothing. Mounted once,
+ * under the root layout.
  *
  * Until onboarding is done it navigates nowhere: the session routes sit behind the
  * `onboardingDone` guard, so a push there would bounce back to the onboarding on every
@@ -127,7 +130,10 @@ export function SessionGate() {
         return;
       }
       // One verdict for boot and foreground (ADR-0026): the store settles the break
-      // past its length and the session past its end, at that end, not at now.
+      // past its length and the session past its end, at that end, not at now. The
+      // shield's breaks go in first, or a session one of them pushed back would close
+      // at its old end (ADR-0053).
+      useFocusStore.getState().ingestShield(takeShieldEvents());
       const settled = settleNow(Date.now());
       if (settled === null || settled.outcome === 'running' || !onboardingDone) {
         return;

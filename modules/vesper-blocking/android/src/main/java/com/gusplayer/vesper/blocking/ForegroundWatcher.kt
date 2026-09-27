@@ -95,7 +95,7 @@ class ForegroundWatcher(private val context: Context, private val plan: Plan) {
     when (verdict(packageName, latestClass)) {
       Verdict.BLOCK -> {
         Log.i(TAG, "blocked app in front: $packageName")
-        Shield.show(context, plan.shield, Shield.releaseLine(plan), packageName)
+        Shield.show(context, plan, packageName)
       }
       Verdict.CLEAR -> Shield.hide()
       Verdict.IGNORE -> Unit
