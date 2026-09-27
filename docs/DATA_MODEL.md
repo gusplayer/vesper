@@ -425,6 +425,56 @@ sin fin, siempre en una medianoche local) es el cálculo local; el servidor calc
 en la zona horaria que el teléfono mandó por `/device`, y el teléfono guarda ese. En el
 teléfono tus fotos quedan hasta que archivas el reto; las ajenas se borran al vencer.
 
+### El escudo pregunta y cuenta (ADR-0053)
+
+`013_shield_events_breaks.ts` crea las dos tablas del escudo y una columna en `sessions`:
+
+```sql
+-- Lo que pasó en el escudo, un evento por fila. 'shield_hit' solo en Android (el
+-- escudo de iOS se dibuja sin avisar); 'backed_off' y 'unlock_granted' en los dos.
+CREATE TABLE usage_events (
+  id          TEXT PRIMARY KEY,
+  platform    TEXT NOT NULL,              -- 'ios' | 'android'
+  kind        TEXT NOT NULL,              -- 'shield_hit' | 'backed_off' | 'unlock_granted'
+  token       TEXT NOT NULL,              -- paquete (Android) o ApplicationToken codificado (iOS)
+  duration_ms INTEGER,                    -- el largo elegido, solo en 'unlock_granted'
+  session_id  TEXT REFERENCES sessions(id), -- la sesión que corría; NULL si ninguna
+  fired_at    INTEGER NOT NULL
+);
+
+-- Cada pausa, desde el botón de la sesión ('session', sin token) o desde el escudo
+-- sobre una app ('shield', con su token). ended_at es NULL mientras corre.
+CREATE TABLE breaks (
+  id          TEXT PRIMARY KEY,
+  session_id  TEXT NOT NULL REFERENCES sessions(id),
+  started_at  INTEGER NOT NULL,
+  ended_at    INTEGER,
+  length_ms   INTEGER NOT NULL,
+  source      TEXT NOT NULL,
+  token       TEXT
+);
+
+-- El largo elegido de la pausa en curso (o la última): 5, 10 o 15 min desde el escudo,
+-- 15 desde la sesión. Antes de esta migración todas eran de 15.
+ALTER TABLE sessions ADD COLUMN break_length_ms INTEGER NOT NULL DEFAULT 900000;
+```
+
+`sessions.break_ms` sigue guardando el total que el reloj necesita; `breaks` guarda
+cuántas fueron, cuánto duró cada una y desde qué app. Las escribe `breaksRepo.follow`,
+que mira la sesión antes y después de cada cambio: abre la fila cuando empieza una
+pausa y la cierra donde el dominio la terminó, aunque la app se entere tarde.
+
+Lo nativo no escribe SQLite. El servicio de Android (y, cuando llegue el entitlement,
+`ShieldAction` en iOS) deja cada evento en una cola; `data/shieldIngest.ts` la vacía
+**antes** de que nada asiente la sesión (al arrancar, antes de `recoverOrphans`; en
+primer plano, antes de `settleNow`), porque una pausa desde el escudo corre el fin de
+la sesión. Los conteos por día, por semana, por sesión y por app no se guardan: los
+deriva `db/queries/shieldSummary.ts` con `domain/shieldTally.ts`. En iOS un intento
+solo se sabe por un toque, así que ahí el conteo es un piso.
+
+**Nota crítica:** `usage_events` nunca contiene datos provenientes de
+`DeviceActivityReport` (regla 10, ADR-0004).
+
 ### Racha (ADR-0027)
 
 La racha **no se guarda**: `src/db/queries/streak.ts` pliega `sessions` por día local
@@ -454,9 +504,9 @@ número son los días con foco, y la gracia solo evita que el caminado se deteng
 (ADR-0039). La tabla se vacía con
 "Borrar todo y reiniciar".
 
-### Previsto y sin migración: salud, bloqueo y uso
+### Previsto y sin migración: salud y bloqueo
 
-Las tres tablas que siguen **no existen** en `src/db/migrations/`. Quedan como diseño
+Las tablas que siguen **no existen** en `src/db/migrations/`. Quedan como diseño
 para cuando hagan falta. Hoy Salud no guarda muestras: `useHealthSync` lee la semana de
 HealthKit y `domain/healthMarks` la convierte en `habit_marks` con `source = 'health'`
 (ids deterministas `hm-<hábito>-<día>`, reemplazadas enteras en cada lectura). Y el
@@ -482,7 +532,7 @@ CREATE INDEX idx_health_started ON health_samples(started_at);
 `external_id` con `UNIQUE` es lo que hace idempotente el sync incremental.
 
 ```sql
--- No existen. Diseño previsto para perfiles de bloqueo y eventos de uso (fase 3).
+-- No existen. Diseño previsto para perfiles de bloqueo.
 CREATE TABLE block_profiles (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -498,24 +548,9 @@ CREATE TABLE blocked_apps (
   user_label   TEXT,                      -- nombre que el usuario le puso. Ver ADR-0004
   created_at   INTEGER NOT NULL
 );
-
-CREATE TABLE usage_events (
-  id           TEXT PRIMARY KEY,
-  platform     TEXT NOT NULL,
-  kind         TEXT NOT NULL,             -- 'threshold' | 'shield_hit' | 'unlock_requested'
-                                          -- 'unlock_granted' | 'backed_off' | 'foreground'
-  token        TEXT,
-  minute_mark  INTEGER,                   -- solo para 'threshold' en iOS
-  duration_ms  INTEGER,                   -- solo para 'foreground' en Android
-  session_id   TEXT REFERENCES sessions(id),
-  fired_at     INTEGER NOT NULL
-);
-CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 ```
 
-**Nota crítica:** `usage_events` nunca contiene datos provenientes de
-`DeviceActivityReport`. Solo eventos de `DeviceActivityMonitor`,
-`ShieldActionExtension` y `UsageStatsManager`. Ver ADR-0004.
+`usage_events` dejó de ser diseño: existe desde la migración 013 (arriba, ADR-0053).
 
 ## Settings conocidos
 
