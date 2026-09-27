@@ -122,6 +122,12 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
 
 ## Qué falta
 
+- **Fotos en los retos en producción (ADR-0051):** están en `main` y desplegadas, pero
+  apagadas (`/media` responde 503) hasta que haya un Railway Bucket conectado a
+  `circle-api` y `ADMIN_TOKEN`. Además: el registro en NCMEC, `web/` desplegado con los
+  textos nuevos, la revisión legal, y probar en un teléfono físico, contra un bucket real y
+  restaurando con fotos. Los dev clients necesitan `prebuild --clean` y recompilar desde
+  ADR-0052 (`expo-updates`).
 - **Entitlement de Family Controls** (distribución) en el portal de Apple, y con él
   probar en un iPhone real: escudo en sesión, ventanas de rutina, pausa que baja y sube
   el escudo.

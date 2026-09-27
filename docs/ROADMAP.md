@@ -87,6 +87,23 @@ En iOS "tiempo consumido" y "redes" siguen siendo el estimado de demostración (
 Hasta que exista el cliente, `platform/circle.status()` sigue diciendo que nada viaja y
 el círculo de la app es demostración.
 
+## Fotos en los retos (ADR-0051) — en `main`, apagadas en producción
+
+- [x] Tanda 1: la foto en tu marca, en el teléfono (cámara, galería, sin metadatos)
+- [x] Tanda 2: compartida con el reto, cifrada de extremo a extremo; reportar, ocultar,
+      bloquear y moderación (`/admin`)
+- [x] Tanda 3: privacidad, términos, `MODERATION.md`, `APP_REVIEW.md`, Data safety
+- [x] Fase 4: "Compartir tu álbum" y "Guardar o compartir"
+- [x] Verificado en simulador iOS y emulador Android, cruzado entre los dos, en los dos idiomas
+- [ ] Railway Bucket conectado a `circle-api` (preset "AWS SDK") y `ADMIN_TOKEN`: hasta
+      entonces `/media` responde 503 y las fotos esperan en la cola del teléfono
+- [ ] Registro en NCMEC, correo de seguridad infantil y revisión legal (Ley 1581, menores)
+- [ ] `web/` desplegado con los textos nuevos
+- [ ] Un teléfono físico, un bucket real y restaurar con fotos
+
+**Criterio de salida:** un reto de 21 días entre amigos con fotos, y la entrevista de
+cierre del ADR-0051 dice que nadie sacó el teléfono en mitad de la actividad por la foto.
+
 ## Fuera de roadmap hasta nuevo aviso
 
 Cuenta de usuario fuera del círculo, sync general, leaderboards, modo oscuro como ajuste,

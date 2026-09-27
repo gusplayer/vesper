@@ -212,6 +212,13 @@ a eso, con la condición de no convertirse en lo que combate:
 - **Ánimo, no likes.** Un gesto de persona a persona, una vez al día, sin contador.
 - **Retos**: un hábito con testigos. Nombre, veces por semana, 1, 2 o 4 semanas, quiénes.
   Unirse vincula (o crea) un hábito tuyo, y el máximo de 5 sigue valiendo.
+- **Fotos en los retos (ADR-0051).** Una foto opcional por persona, por reto y por día,
+  pegada a un día marcado: testimonio, nunca verificación (una marca sin foto cuenta
+  igual). La ven solo quienes están en ese reto, cifrada de extremo a extremo, y el
+  servidor la olvida 14 días después del cierre. La grilla del reto es el álbum; al
+  cierre, "El álbum", y tus fotos se pueden guardar o compartir afuera solo como tuyas.
+  Sin feed, sin avisos por foto, sin reacciones ni comentarios; reportar, ocultar y
+  bloquear existen desde el primer día.
 
 El perfil vive en el teléfono; el backend y la identidad real son un ADR posterior. En
 el prototipo el círculo es de demostración y las pantallas lo dicen.
@@ -223,6 +230,8 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 - Gráficos y estadísticas complejas más allá de las vistas de Actividad
 - Badges, leaderboards, feed, seguidores (la racha diaria y los avisos del círculo
   entraron con ADR-0027)
+- Historias, video, comentarios y reacciones por foto; una foto como condición para
+  contar una marca (ADR-0051)
 - Modo oscuro como ajuste (la sesión es oscura por diseño; la app no)
 - Tablet / iPad
 - Widget de pantalla de inicio (la Live Activity sí existe)

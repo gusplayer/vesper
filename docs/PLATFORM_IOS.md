@@ -417,3 +417,36 @@ Límites honestos:
   evalúa en la extensión, pero los componentes que usa se compilan con ella.
 - La aritmética (qué intervalo cuenta cada fase, qué texto lleva) está en
   `src/platform/liveActivityProps.ts` y tiene tests en `liveActivityProps.test.ts`.
+
+## Fotos en los retos (ADR-0051)
+
+- **Galería:** `expo-image-picker` abre el PHPicker del sistema, que no pide permiso de
+  fotos. Se pide la representación **compatible** (`preferredAssetRepresentationMode`):
+  un JPEG que transcodifica el sistema, no el archivo original de la fototeca.
+- **Cámara:** `launchCameraAsync` rechaza si el permiso no está concedido de antes, así
+  que `takePhoto()` lo pide primero, al tocar "Tomar una foto" (regla 8). El simulador no
+  tiene cámara, y abrir `UIImagePickerController` sin cámara cierra la app: la fila se
+  deshabilita con la razón de `cameraStatus()` y nunca se abre.
+- **HDR y gama amplia:** iOS decodifica esas fotos (casi toda foto de un iPhone reciente, y
+  la HEIC en Display P3 del simulador) en un espacio de color de rango extendido. El paso
+  con que `expo-image-manipulator` endereza la imagen dibujaba en un contexto de 8 bits
+  con ese espacio y CoreGraphics lo rechazaba ("requires floating point or CIF10 bitmap
+  context"), así que la foto fallaba entera. `patches/expo-image-manipulator+57.0.20.patch`
+  dibuja en Display P3 de 8 bits, y `package.json` › `expo.autolinking.ios.buildFromSource`
+  compila el pod desde el fuente, porque el XCFramework precompilado no lleva el parche.
+  Tras un `pod install`, `ImageFixOrientationTransformer.swift` tiene que estar en
+  `Pods.xcodeproj`, y `CGColorSpaceUsesExtendedRange` en `Vesper.debug.dylib`.
+- **Metadatos:** recodificar quita "casi todo" el EXIF; `lib/jpegMetadata.ts` quita APP1,
+  APP13 y COM, y la foto se rechaza si no se puede recorrer. Verificado con Pillow: una
+  foto con GPS queda sin EXIF ni GPS.
+- **Guardar en Fotos:** "Guardar imagen" desde la hoja de compartir escribe en la
+  fototeca, e iOS exige `NSPhotoLibraryAddUsageDescription` o cierra la app. Está en
+  `app.json` y traducido en `locales/*.json`.
+- **Captura del álbum:** `react-native-view-shot` 5.1.1 (la 5.1.0 falla en bridgeless)
+  devuelve en iOS una ruta sin `file://`, y `expo-sharing` la rechaza así: `platform/share`
+  la agrega. En iOS `width`/`height` son puntos, así que no se pasan.
+- **Cómo probar:** `xcrun simctl addmedia <udid> foto.jpg` pone una foto (con GPS, si se
+  quiere probar el borrado) en la fototeca. `idb ui text` no teclea letras con tilde: se
+  copian con `xcrun simctl pbcopy <udid>` y se pegan manteniendo el campo. Dos simuladores
+  contra el servidor local (`DEV_CIRCLE_API_URL`), nunca contra producción.
+
