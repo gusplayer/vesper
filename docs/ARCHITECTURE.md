@@ -10,7 +10,7 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Runtime | Expo SDK 57 + dev client | Módulos nativos: SQLite, notificaciones, Salud, widgets, Screen Time, bloqueo Android (ADR-0001, ADR-0017) |
 | Lenguaje | TypeScript 6 estricto | `strict: true`, `noUnusedLocals`, sin `any` |
 | Navegación | expo-router | Un `Stack` raíz con dos guardas (onboarding / app), cuatro pestañas de texto (`expo-router/js-tabs` con `TabBar` propio) y rutas a pantalla completa para la sesión |
-| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`012` en TypeScript |
+| Persistencia | op-sqlite | Síncrono, sin ORM. Migraciones `001`–`013` en TypeScript |
 | Ids | UUID v7 propio sobre `expo-crypto` | 20 líneas. Evita `uuid` + `react-native-get-random-values` |
 | Estado | Zustand | Cuatro stores que cachean SQLite (`app`, `focus`, `circle`, `photos`), el idioma, y borradores efímeros (modo, onboarding, duración, la foto sin guardar) |
 | Texto | Dos diccionarios tipados (`src/i18n/es`, `en`) | Sin librería de i18n (ADR-0020) |

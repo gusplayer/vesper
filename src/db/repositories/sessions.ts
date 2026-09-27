@@ -18,6 +18,7 @@ type SessionRow = {
   open: number;
   break_ms: number;
   break_started_at: number | null;
+  break_length_ms: number;
   next_break_at_ms: number;
 };
 
@@ -38,6 +39,7 @@ function toSession(row: SessionRow): Session {
     open: row.open === 1,
     breakMs: row.break_ms,
     breakStartedAt: row.break_started_at,
+    breakLengthMs: row.break_length_ms,
     nextBreakAtMs: row.next_break_at_ms,
   };
 }
@@ -54,8 +56,8 @@ export function insert(session: Session): void {
     `INSERT INTO sessions
        (id, activity_id, planned_ms, actual_ms, outcome, depth, block_profile,
         intention, exit_reason, interruptions, started_at, ended_at,
-        open, break_ms, break_started_at, next_break_at_ms)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        open, break_ms, break_started_at, break_length_ms, next_break_at_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       session.id,
       session.activityId,
@@ -72,6 +74,7 @@ export function insert(session: Session): void {
       session.open ? 1 : 0,
       session.breakMs,
       session.breakStartedAt,
+      session.breakLengthMs,
       session.nextBreakAtMs,
     ],
   );
@@ -82,7 +85,8 @@ export function update(session: Session): void {
   getDb().executeSync(
     `UPDATE sessions
         SET actual_ms = ?, outcome = ?, exit_reason = ?, interruptions = ?, ended_at = ?,
-            intention = ?, break_ms = ?, break_started_at = ?, next_break_at_ms = ?
+            intention = ?, break_ms = ?, break_started_at = ?, break_length_ms = ?,
+            next_break_at_ms = ?
       WHERE id = ?`,
     [
       session.actualMs,
@@ -93,6 +97,7 @@ export function update(session: Session): void {
       session.intention,
       session.breakMs,
       session.breakStartedAt,
+      session.breakLengthMs,
       session.nextBreakAtMs,
       session.id,
     ],

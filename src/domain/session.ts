@@ -26,6 +26,12 @@ export const OPEN_SESSION_CAP_MS = 12 * HOUR;
 /** A break is this long at most; it ends by itself when the time is up. */
 export const BREAK_MS = 15 * MINUTE;
 
+/** The lengths the shield offers when it pauses the focus (ADR-0053). None above BREAK_MS. */
+export const BREAK_CHOICES_MS = [5 * MINUTE, 10 * MINUTE, 15 * MINUTE] as const;
+
+/** The shortest break a length can ask for. Anything shorter is a tap, not a break. */
+const BREAK_MIN_MS = MINUTE;
+
 /** Focus time that has to pass, since the start or the last break, to unlock a break. */
 export const BREAK_EVERY_MS = 25 * MINUTE;
 
@@ -86,6 +92,7 @@ export function createSession(id: string, config: SessionConfig, now: Millis): S
     open,
     breakMs: 0,
     breakStartedAt: null,
+    breakLengthMs: BREAK_MS,
     nextBreakAtMs: BREAK_EVERY_MS,
     blockProfile: config.blockProfile,
     // Written on the session screen, where it is also displayed. Never part of config.
@@ -102,7 +109,15 @@ export function breakElapsed(session: Session, now: Millis): number {
   if (session.breakStartedAt === null) {
     return 0;
   }
-  return Math.min(Math.max(0, now - session.breakStartedAt), BREAK_MS);
+  return Math.min(Math.max(0, now - session.breakStartedAt), session.breakLengthMs);
+}
+
+/** A break length the domain accepts: whole ms between a minute and BREAK_MS. */
+export function clampBreakLength(lengthMs: number): number {
+  if (!Number.isFinite(lengthMs)) {
+    return BREAK_MS;
+  }
+  return Math.min(BREAK_MS, Math.max(BREAK_MIN_MS, Math.round(lengthMs)));
 }
 
 /**
@@ -200,16 +215,44 @@ export function canTakeBreak(session: Session, now: Millis): boolean {
   );
 }
 
-export function startBreak(session: Session, now: Millis): Session {
+/**
+ * Starts a break of `lengthMs` (BREAK_MS by default, clamped to it). The session's own
+ * button always asks for BREAK_MS; the shield asks for one of BREAK_CHOICES_MS.
+ */
+export function startBreak(session: Session, now: Millis, lengthMs: number = BREAK_MS): Session {
   if (!canTakeBreak(session, now)) {
     throw new Error(`session ${session.id} cannot take a break now`);
   }
-  return { ...session, breakStartedAt: now };
+  return { ...session, breakStartedAt: now, breakLengthMs: clampBreakLength(lengthMs) };
+}
+
+/**
+ * A break the shield already started, told to JS afterwards (ADR-0053): at `at`, the
+ * instant the user tapped, which may be well before now. Taken only if the domain would
+ * have allowed it then; otherwise the same object comes back and nothing is owed. What
+ * happened after `at` (the break ending, the session running out) is settle()'s.
+ */
+export function startBreakAt(session: Session, at: Millis, lengthMs: number): Session {
+  return canTakeBreak(session, at) ? startBreak(session, at, lengthMs) : session;
+}
+
+/**
+ * The wall-clock instant the next break unlocks, for a shield that has to decide with
+ * no JS awake (ADR-0053). Focus runs with the clock outside a break, so the instant is
+ * `now` plus the focus still owed. Null when no break is coming in this session: deep,
+ * a session too short to reach it, one that is due, or one already on a break (the
+ * shield is down then).
+ */
+export function breakUnlocksAt(session: Session, now: Millis): Millis | null {
+  if (session.breakStartedAt !== null || !breakReachable(session, now)) {
+    return null;
+  }
+  return now + breakAvailableIn(session, now);
 }
 
 /** When the running break ends by itself. Null outside a break. */
 export function breakEndsAt(session: Session): Millis | null {
-  return session.breakStartedAt === null ? null : session.breakStartedAt + BREAK_MS;
+  return session.breakStartedAt === null ? null : session.breakStartedAt + session.breakLengthMs;
 }
 
 export function isBreakOver(session: Session, now: Millis): boolean {

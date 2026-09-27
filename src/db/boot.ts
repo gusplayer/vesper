@@ -135,6 +135,8 @@ const TABLES_IN_DELETE_ORDER = [
   'member_weeks',
   'circle_members',
   'habit_marks',
+  'usage_events',
+  'breaks',
   'sessions',
   'habits',
   'schedules',

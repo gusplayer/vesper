@@ -10,6 +10,7 @@ import { CHALLENGE_MARK_SOURCE_SQL } from './009_challenge_mark_source';
 import { MEMBER_WEEKS_NOT_SHARED_SQL } from './010_member_weeks_not_shared';
 import { CHALLENGE_PHOTOS_SQL } from './011_challenge_photos';
 import { SHARED_PHOTOS_SQL } from './012_shared_photos';
+import { SHIELD_EVENTS_BREAKS_SQL } from './013_shield_events_breaks';
 
 export type Migration = {
   /** Monotonic. Recorded in _migrations so it is applied exactly once. */
@@ -32,4 +33,5 @@ export const migrations: Migration[] = [
   { id: 10, name: 'member_weeks_not_shared', sql: MEMBER_WEEKS_NOT_SHARED_SQL },
   { id: 11, name: 'challenge_photos', sql: CHALLENGE_PHOTOS_SQL },
   { id: 12, name: 'shared_photos', sql: SHARED_PHOTOS_SQL },
+  { id: 13, name: 'shield_events_breaks', sql: SHIELD_EVENTS_BREAKS_SQL },
 ];

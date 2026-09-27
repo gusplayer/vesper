@@ -5,6 +5,7 @@ import { BREAK_EVERY_MS, BREAK_MS } from '../../domain/session';
 import { HOUR, MINUTE } from '../../domain/time';
 import { INIT_SQL } from '../migrations/001_init';
 import { OPEN_SESSIONS_BREAKS_SQL } from '../migrations/005_open_sessions_breaks';
+import { SHIELD_EVENTS_BREAKS_SQL } from '../migrations/013_shield_events_breaks';
 import { createFakeDb, ddlColumns, insertColumns, type FakeRows } from '../testing/fakeDb';
 import * as sessions from './sessions';
 
@@ -13,6 +14,10 @@ let fake = createFakeDb();
 vi.mock('../client', () => ({
   getDb: () => fake,
   rowsAs: (result: { rows: FakeRows }) => result.rows,
+}));
+
+vi.mock('../../lib/uuid', () => ({
+  uuidv7: (at: number) => `id-${at}`,
 }));
 
 function runningRow(id: string, startedAt: number, plannedMs: number, extra: Record<string, unknown> = {}) {
@@ -32,6 +37,7 @@ function runningRow(id: string, startedAt: number, plannedMs: number, extra: Rec
     open: 0,
     break_ms: 0,
     break_started_at: null,
+    break_length_ms: BREAK_MS,
     next_break_at_ms: BREAK_EVERY_MS,
     ...extra,
   };
@@ -56,7 +62,7 @@ describe('insert', () => {
     expect(fake.calls[0]?.sql).toContain('INSERT INTO sessions');
   });
 
-  it('writes the 16 params in column order', () => {
+  it('writes the 17 params in column order', () => {
     const session = aRunningSession({ intention: 'leer', blockProfile: null });
 
     sessions.insert(session);
@@ -78,6 +84,7 @@ describe('insert', () => {
       'open',
       'break_ms',
       'break_started_at',
+      'break_length_ms',
       'next_break_at_ms',
     ]);
     expect(call.params).toEqual([
@@ -96,9 +103,10 @@ describe('insert', () => {
       0,
       0,
       null,
+      BREAK_MS,
       BREAK_EVERY_MS,
     ]);
-    expect(call.params).toHaveLength(16);
+    expect(call.params).toHaveLength(17);
   });
 });
 
@@ -118,7 +126,7 @@ describe('update', () => {
 
     const call = fake.callMatching(/UPDATE sessions/);
     expect(call.sql).toMatch(
-      /SET actual_ms = \?, outcome = \?, exit_reason = \?, interruptions = \?, ended_at = \?,\s+intention = \?, break_ms = \?, break_started_at = \?, next_break_at_ms = \?/,
+      /SET actual_ms = \?, outcome = \?, exit_reason = \?, interruptions = \?, ended_at = \?,\s+intention = \?, break_ms = \?, break_started_at = \?, break_length_ms = \?,\s+next_break_at_ms = \?/,
     );
     expect(call.params).toEqual([
       HOUR / 2,
@@ -129,6 +137,7 @@ describe('update', () => {
       'leer',
       10 * MINUTE,
       null,
+      BREAK_MS,
       55 * MINUTE,
       'session-1',
     ]);
@@ -173,6 +182,7 @@ describe('findRunning', () => {
       open: false,
       breakMs: 0,
       breakStartedAt: null,
+      breakLengthMs: BREAK_MS,
       nextBreakAtMs: BREAK_EVERY_MS,
     });
   });
@@ -203,8 +213,8 @@ describe('recoverOrphans', () => {
 
     const updates = fake.calls.filter((call) => call.sql.includes('UPDATE sessions'));
     expect(updates).toHaveLength(2);
-    expect(updates[0]?.params).toEqual([HOUR, 'completed', null, 2, T0 + HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-1']);
-    expect(updates[1]?.params).toEqual([2 * HOUR, 'completed', null, 2, T0 + 3 * HOUR, 'leer', 0, null, BREAK_EVERY_MS, 's-2']);
+    expect(updates[0]?.params).toEqual([HOUR, 'completed', null, 2, T0 + HOUR, 'leer', 0, null, BREAK_MS, BREAK_EVERY_MS, 's-1']);
+    expect(updates[1]?.params).toEqual([2 * HOUR, 'completed', null, 2, T0 + 3 * HOUR, 'leer', 0, null, BREAK_MS, BREAK_EVERY_MS, 's-2']);
   });
 
   it('expires an open orphan at its 12 h cap: the one case that earns expired', () => {
@@ -250,7 +260,7 @@ describe('recoverOrphans', () => {
     expect(expired).toBe(0);
     const update = fake.callMatching(/UPDATE sessions/);
     // Ended at its own end: 15 min on record, the clock frozen at 30 min of focus.
-    expect(update.params).toEqual([0, 'running', null, 2, null, 'leer', BREAK_MS, null, 30 * MINUTE + BREAK_EVERY_MS, 's-1']);
+    expect(update.params).toEqual([0, 'running', null, 2, null, 'leer', BREAK_MS, null, BREAK_MS, 30 * MINUTE + BREAK_EVERY_MS, 's-1']);
   });
 
   it('writes nothing when there is no orphan', () => {
@@ -266,7 +276,7 @@ describe('schema', () => {
 
     const { table, columns } = insertColumns(fake.callMatching(/INSERT/).sql);
     expect(table).toBe('sessions');
-    const declared = ddlColumns(INIT_SQL + OPEN_SESSIONS_BREAKS_SQL, table);
+    const declared = ddlColumns(INIT_SQL + OPEN_SESSIONS_BREAKS_SQL + SHIELD_EVENTS_BREAKS_SQL, table);
     for (const column of columns) {
       expect(declared).toContain(column);
     }

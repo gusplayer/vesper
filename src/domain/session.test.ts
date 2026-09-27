@@ -3,12 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { aDoneSession, aRunningSession, T0 } from './fixtures';
 import {
   allowsBreaks,
+  BREAK_CHOICES_MS,
   BREAK_MS,
   breakAvailableIn,
   breakEndsAt,
   breakReachable,
+  breakUnlocksAt,
   canGiveUp,
   canTakeBreak,
+  clampBreakLength,
   close,
   closeDue,
   createSession,
@@ -31,6 +34,7 @@ import {
   sessionProgress,
   settle,
   startBreak,
+  startBreakAt,
   type SessionConfig,
 } from './session';
 import { HOUR, MINUTE } from './time';
@@ -385,6 +389,69 @@ describe('breaks (ADR-0022)', () => {
     const paused = startBreak(running({ plannedMs: HOUR, depth: 'firm' }), at(30));
 
     expect(interrupt(paused)).toBe(paused);
+  });
+});
+
+describe('breaks of a chosen length (ADR-0053)', () => {
+  const at = (minutes: number) => T0 + minutes * MINUTE;
+
+  it('offers 5, 10 and 15 minutes, none above the ceiling', () => {
+    expect(BREAK_CHOICES_MS).toEqual([5 * MINUTE, 10 * MINUTE, 15 * MINUTE]);
+    expect(Math.max(...BREAK_CHOICES_MS)).toBe(BREAK_MS);
+  });
+
+  it('clamps a length to a minute and to BREAK_MS; garbage asks for the default', () => {
+    expect(clampBreakLength(10 * MINUTE)).toBe(10 * MINUTE);
+    expect(clampBreakLength(2 * HOUR)).toBe(BREAK_MS);
+    expect(clampBreakLength(5_000)).toBe(MINUTE);
+    expect(clampBreakLength(Number.NaN)).toBe(BREAK_MS);
+  });
+
+  it('end at their own length, and only that much joins breakMs', () => {
+    const paused = startBreak(running({ plannedMs: HOUR }), at(30), 5 * MINUTE);
+
+    expect(paused.breakLengthMs).toBe(5 * MINUTE);
+    expect(breakEndsAt(paused)).toBe(at(35));
+    expect(isBreakOver(paused, at(35))).toBe(true);
+    // Noticed late, the clock runs again from minute 35.
+    expect(elapsed(paused, at(45))).toBe(40 * MINUTE);
+    const settled = settle(paused, at(45));
+    expect(settled.breakMs).toBe(5 * MINUTE);
+    expect(plannedEndAt(settled)).toBe(at(65));
+  });
+
+  it("keep BREAK_MS for the session's own button", () => {
+    expect(startBreak(running({ plannedMs: HOUR }), at(30)).breakLengthMs).toBe(BREAK_MS);
+  });
+
+  it('are taken late at the instant of the tap, when the domain allowed them then', () => {
+    const session = running({ plannedMs: HOUR });
+
+    const taken = startBreakAt(session, at(30), 10 * MINUTE);
+    expect(taken.breakStartedAt).toBe(at(30));
+    expect(taken.breakLengthMs).toBe(10 * MINUTE);
+    // Too early, deep, or on a break already: the same object, nothing owed.
+    expect(startBreakAt(session, at(10), 10 * MINUTE)).toBe(session);
+    const deep = running({ plannedMs: HOUR, depth: 'deep' });
+    expect(startBreakAt(deep, at(30), 10 * MINUTE)).toBe(deep);
+    expect(startBreakAt(taken, at(32), 5 * MINUTE)).toBe(taken);
+  });
+
+  it('unlock at a wall-clock instant the shield can wait for', () => {
+    const session = running({ plannedMs: HOUR });
+
+    expect(breakUnlocksAt(session, at(10))).toBe(at(25));
+    expect(breakUnlocksAt(session, at(30))).toBe(at(30));
+    // After a break, 25 minutes of focus from where it ended.
+    const resumed = endBreak(startBreak(session, at(30), 5 * MINUTE), at(35));
+    expect(breakUnlocksAt(resumed, at(40))).toBe(at(60));
+  });
+
+  it('never unlock in deep, in a session too short, on a break, or once due', () => {
+    expect(breakUnlocksAt(running({ plannedMs: HOUR, depth: 'deep' }), at(10))).toBeNull();
+    expect(breakUnlocksAt(running({ plannedMs: 20 * MINUTE }), at(10))).toBeNull();
+    expect(breakUnlocksAt(startBreak(running({ plannedMs: HOUR }), at(30)), at(31))).toBeNull();
+    expect(breakUnlocksAt(running({ plannedMs: HOUR }), at(60))).toBeNull();
   });
 });
 

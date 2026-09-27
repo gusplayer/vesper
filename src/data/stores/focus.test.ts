@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeDb, type FakeRows } from '../../db/testing/fakeDb';
 import { useSchemeStore } from '../../design/theme';
 import { aDoneSession, T0 } from '../../domain/fixtures';
-import { BREAK_EVERY_MS, OPEN_SESSION_CAP_MS } from '../../domain/session';
+import { BREAK_EVERY_MS, BREAK_MS, OPEN_SESSION_CAP_MS } from '../../domain/session';
 import { HOUR, MINUTE } from '../../domain/time';
 import { useAppStore } from './app';
 import { useFocusStore } from './focus';
@@ -42,6 +42,7 @@ function runningRow(startedAt: number, plannedMs: number, extra: Record<string, 
     open: 0,
     break_ms: 0,
     break_started_at: null,
+    break_length_ms: BREAK_MS,
     next_break_at_ms: BREAK_EVERY_MS,
     ...extra,
   };
@@ -149,6 +150,7 @@ describe('breaks', () => {
     useFocusStore.getState().resume(T0 + 31 * MINUTE);
     expect(updates()).toHaveLength(2);
   });
+
 });
 
 describe('finish', () => {
