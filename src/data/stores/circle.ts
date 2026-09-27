@@ -32,6 +32,7 @@ import type { CircleAccount } from '../types';
 import { DEMO_CHALLENGE_ID, DEMO_MEMBER_IDS } from '../circleSeed';
 import { readIdentity, useIdentityStore } from '../identity';
 import { useAppStore } from './app';
+import { usePhotoStore } from './photos';
 
 /**
  * The circle (ADR-0021), cached in memory from SQLite. Screens read it through the
@@ -67,6 +68,8 @@ import { useAppStore } from './app';
  * - `profileDirty`: a rename saved while the server could not be reached.
  * - `pendingEnds` / `pendingLeaves`: links ended and challenges left here (ADR-0049)
  *   that the server has not confirmed. `EVERYONE` stands for "Salir del círculo".
+ * - `pendingBlocks`: people blocked here (ADR-0051 §18) whose block has not reached the
+ *   server. A block ends the link too, so a person in it is not in `pendingEnds`.
  * - `linkEndSupport`: whether the deployed server has the call that ends a link. A
  *   server from before ADR-0049 answers 404, and until it has the call the screens say
  *   what really happens: the other person still sees the user's week.
@@ -77,6 +80,7 @@ const ACCOUNT_KEYS = {
   profileDirty: 'circle_profile_dirty',
   pendingEnds: 'circle_pending_ends',
   pendingLeaves: 'circle_pending_leaves',
+  pendingBlocks: 'circle_pending_blocks',
   linkEndSupport: 'circle_link_end_support',
 } as const;
 
@@ -122,6 +126,11 @@ type ChallengeInput = {
   participantIds: string[];
   /** Whether the user takes part from the start, which links or creates a habit. */
   join: boolean;
+  /**
+   * "Fotos del día" (ADR-0051 §6). On when left out; a suggestion brings its own value
+   * (data/challenges.ts) and "Repetir" the value of the challenge it repeats.
+   */
+  photos?: boolean;
 };
 
 type CircleState = {
@@ -145,6 +154,8 @@ type CircleState = {
   pendingEnds: string[];
   /** Challenges left here, not yet confirmed by the server. */
   pendingLeaves: string[];
+  /** People blocked here, not yet confirmed by the server (ADR-0051 §18). */
+  pendingBlocks: string[];
   linkEndSupport: LinkEndSupport;
   members: Member[];
   memberWeeks: MemberWeek[];
@@ -175,6 +186,8 @@ type CircleState = {
   /** The server ended that link (or the target was never the server's): stop sending it. */
   settleEnd: (target: string, now: number) => void;
   settleLeave: (challengeId: string, now: number) => void;
+  /** The server has the block (or the target was never the server's): stop sending it. */
+  settleBlock: (memberId: string, now: number) => void;
   setLinkEndSupport: (support: LinkEndSupport, now: number) => void;
   /**
    * Writes what the server sent. Rows arrive already folded into domain rows
@@ -229,6 +242,12 @@ type CircleState = {
    */
   removeFromCircle: (memberId: string, now: number) => void;
   /**
+   * "Bloquear a Ana" (ADR-0051 §18): the local half of Quitar, and the block queued for
+   * the server, which ends the link and keeps that person from asking to come back. The
+   * other person is not told. `blockCircleMember` in useCircleSync sends it.
+   */
+  blockMember: (memberId: string, now: number) => void;
+  /**
    * The local half only, with nothing sent: drops their weeks, kudos, nudges and marks,
    * and takes them out of every challenge. For the demo seed, a request the server no
    * longer has, and a link the other person ended.
@@ -251,11 +270,13 @@ type CircleState = {
   joinChallenge: (id: string, now: number) => JoinResult;
   /** Takes the user out; the habit stays, it is theirs. Queued for the server (ADR-0049). */
   leaveChallenge: (id: string, now: number) => void;
+  /** Archived, never deleted: its marks are history. Its photos go, rows and files (ADR-0051). */
   archiveChallenge: (id: string, now: number) => void;
 
   /**
-   * Deletes every person and their rows and archives every challenge. Profile and share
-   * stay. With an account, every link's end is queued for the server (ADR-0049).
+   * Deletes every person and their rows and archives every challenge, whose photos go
+   * with it. Profile and share stay. With an account, every link's end is queued for the
+   * server (ADR-0049).
    */
   leaveCircle: (now: number) => void;
 };
@@ -348,7 +369,7 @@ function retireDemoCircle(now: number): void {
 
 export const useCircleStore = create<CircleState>((set, get) => {
   /** Adds to a persisted queue, once. */
-  const enqueue = (key: 'pendingEnds' | 'pendingLeaves', value: string, now: number): void => {
+  const enqueue = (key: 'pendingEnds' | 'pendingLeaves' | 'pendingBlocks', value: string, now: number): void => {
     const current = get()[key];
     if (current.includes(value)) {
       return;
@@ -358,7 +379,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
     set({ [key]: next } as Pick<CircleState, typeof key>);
   };
 
-  const dequeue = (key: 'pendingEnds' | 'pendingLeaves', value: string, now: number): void => {
+  const dequeue = (key: 'pendingEnds' | 'pendingLeaves' | 'pendingBlocks', value: string, now: number): void => {
     const current = get()[key];
     if (!current.includes(value)) {
       return;
@@ -373,6 +394,27 @@ export const useCircleStore = create<CircleState>((set, get) => {
    * archived here, because its maker is no longer someone the user shares a circle with
    * (the server takes the user out of it too, ADR-0049). The user's habit stays.
    */
+  /**
+   * A challenge whose maker left the user's circle ends here (ADR-0049). Archiving it
+   * deletes its photos, but the user's own stay until *they* archive it (ADR-0051 §13):
+   * with a photo of theirs in it, it ends today instead of being archived, so the close
+   * shows how it went and their album, and the archive is theirs to make. Without one, it
+   * is archived as before.
+   */
+  const endWithoutMaker = (challenge: Challenge, now: number): void => {
+    const mine = usePhotoStore
+      .getState()
+      .photos.some((photo) => photo.challengeId === challenge.id && photo.memberId === ME);
+    if (!mine) {
+      get().archiveChallenge(challenge.id, now);
+      return;
+    }
+    const today = dayKeyOf(now);
+    const endDayKey = challenge.endDayKey !== null && challenge.endDayKey < today ? challenge.endDayKey : today;
+    saveChallenge({ ...challenge, endDayKey });
+    usePhotoStore.getState().removeOthersPhotos(challenge.id);
+  };
+
   const dropPerson = (memberId: string, now: number): void => {
     if (get().pendingAccepts.includes(memberId)) {
       get().settleAccept(memberId, now);
@@ -380,7 +422,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
     get().removeMember(memberId);
     for (const challenge of get().challenges) {
       if (challenge.createdBy === memberId && challenge.archivedAt === null) {
-        get().archiveChallenge(challenge.id, now);
+        endWithoutMaker(challenge, now);
       }
     }
   };
@@ -411,6 +453,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
     profileDirty: false,
     pendingEnds: [],
     pendingLeaves: [],
+    pendingBlocks: [],
     linkEndSupport: 'unknown',
     members: [],
     memberWeeks: [],
@@ -432,6 +475,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         profileDirty: settingsRepo.getJson<unknown>(ACCOUNT_KEYS.profileDirty) === true,
         pendingEnds: readIds(settingsRepo.getJson<unknown>(ACCOUNT_KEYS.pendingEnds)),
         pendingLeaves: readIds(settingsRepo.getJson<unknown>(ACCOUNT_KEYS.pendingLeaves)),
+        pendingBlocks: readIds(settingsRepo.getJson<unknown>(ACCOUNT_KEYS.pendingBlocks)),
         linkEndSupport: readSupport(settingsRepo.getJson<unknown>(ACCOUNT_KEYS.linkEndSupport)),
         members: circleRepo.listMembers(),
         memberWeeks: circleRepo.listMemberWeeks(),
@@ -461,6 +505,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
       settingsRepo.setJson(ACCOUNT_KEYS.profileDirty, false, now);
       settingsRepo.setJson(ACCOUNT_KEYS.pendingEnds, [], now);
       settingsRepo.setJson(ACCOUNT_KEYS.pendingLeaves, [], now);
+      settingsRepo.setJson(ACCOUNT_KEYS.pendingBlocks, [], now);
       set({
         account: null,
         syncedAt: null,
@@ -471,7 +516,10 @@ export const useCircleStore = create<CircleState>((set, get) => {
         profileDirty: false,
         pendingEnds: [],
         pendingLeaves: [],
+        pendingBlocks: [],
       });
+      // The photos' queues and the circle's keys were that account's (ADR-0051).
+      usePhotoStore.getState().forgetSharing(now);
       // Deleting the account deletes its rows on the server (ADR-0033 §6); keeping
       // the copies here would leave a circle that answers to nobody. The profile and
       // the habits stay: the app goes back to being local and keeps working whole.
@@ -507,6 +555,10 @@ export const useCircleStore = create<CircleState>((set, get) => {
 
     settleLeave: (challengeId, now) => {
       dequeue('pendingLeaves', challengeId, now);
+    },
+
+    settleBlock: (memberId, now) => {
+      dequeue('pendingBlocks', memberId, now);
     },
 
     setLinkEndSupport: (support, now) => {
@@ -690,6 +742,18 @@ export const useCircleStore = create<CircleState>((set, get) => {
       dropPerson(memberId, now);
     },
 
+    blockMember: (memberId, now) => {
+      if (memberId === ME) {
+        return;
+      }
+      if (get().account !== null) {
+        // The block ends the link on the server as well; one call, not two.
+        dequeue('pendingEnds', memberId, now);
+        enqueue('pendingBlocks', memberId, now);
+      }
+      dropPerson(memberId, now);
+    },
+
     removeMember: (memberId) => {
       // Someone accepted here and removed before the "yes" went out: it must not go out.
       if (get().pendingAccepts.includes(memberId)) {
@@ -705,6 +769,9 @@ export const useCircleStore = create<CircleState>((set, get) => {
         return without;
       });
       circleRepo.removeMemberEverywhere(memberId, dropped);
+      // Their photos are rows of theirs too (ADR-0051). None exist before the shared
+      // tanda brings other people's, and then they must not outlive the person.
+      usePhotoStore.getState().removeMemberPhotos(memberId);
       set((state) => ({
         members: state.members.filter((m) => m.id !== memberId),
         memberWeeks: state.memberWeeks.filter((w) => w.memberId !== memberId),
@@ -767,6 +834,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
         createdBy: ME,
         participantIds: input.join ? [ME, ...others] : others,
         habitId,
+        photos: input.photos ?? true,
         createdAt: now,
         archivedAt: null,
       };
@@ -806,6 +874,9 @@ export const useCircleStore = create<CircleState>((set, get) => {
         habitId: null,
         participantIds: challenge.participantIds.filter((pid) => pid !== ME),
       });
+      // Other people's photos were for a participant (ADR-0051 §5); the user's own stay
+      // until the archive, like after the challenge ends.
+      usePhotoStore.getState().removeOthersPhotos(id);
     },
 
     archiveChallenge: (id, now) => {
@@ -813,6 +884,8 @@ export const useCircleStore = create<CircleState>((set, get) => {
       set((state) => ({
         challenges: state.challenges.map((c) => (c.id === id ? { ...c, archivedAt: now } : c)),
       }));
+      // Archiving is when "tus fotos se quedan en este teléfono" ends (ADR-0051 §13).
+      usePhotoStore.getState().removeChallengePhotos(id);
     },
 
     leaveCircle: (now) => {
@@ -827,6 +900,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
           get().settleAccept(memberId, now);
         }
       }
+      const open = get().challenges.filter((c) => c.archivedAt === null).map((c) => c.id);
       circleRepo.clearAll();
       circleRepo.archiveAllChallenges(now);
       set((state) => ({
@@ -837,6 +911,10 @@ export const useCircleStore = create<CircleState>((set, get) => {
         challengeMarks: [],
         challenges: state.challenges.map((c) => (c.archivedAt === null ? { ...c, archivedAt: now } : c)),
       }));
+      // Archived here, so their photos go like with any archive (ADR-0051 §13).
+      for (const id of open) {
+        usePhotoStore.getState().removeChallengePhotos(id);
+      }
     },
   };
 });

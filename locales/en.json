@@ -1,6 +1,9 @@
 {
   "ios": {
     "NSHealthShareUsageDescription": "Vesper reads workouts, steps and sleep to mark your verified habits on their own. The readings stay on your phone; the days met only leave encrypted in your backup, or to your circle when they belong to a challenge.",
-    "NSHealthUpdateUsageDescription": "Vesper does not write health data."
+    "NSHealthUpdateUsageDescription": "Vesper does not write health data.",
+    "NSCameraUsageDescription": "Vesper uses the camera only when you choose to add a photo to a day of a challenge.",
+    "NSPhotoLibraryUsageDescription": "Vesper only uses the photo you choose for a day of a challenge.",
+    "NSPhotoLibraryAddUsageDescription": "Vesper saves to your photos only what you choose to save."
   }
 }

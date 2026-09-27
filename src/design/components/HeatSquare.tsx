@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '../theme';
 import { motion } from '../tokens';
+import { PhotoImage } from './PhotoImage';
 
 export type HeatSquareProps = {
   /** 0 = nothing, 1 = a full day. Quantized into four levels when drawn. */
@@ -13,6 +14,17 @@ export type HeatSquareProps = {
   radius: number;
   /** The system asked for less motion: fully lit at once, no breathing. */
   reduceMotion: boolean;
+  /**
+   * A thumbnail drawn inside the square, under the veil (ADR-0051). It covers the ink
+   * of the mark once it has loaded; until then, or if the file is gone, the mark shows.
+   */
+  image?: string | null;
+  /**
+   * The photo of this day is on its way: the waiting fill (`cardMuted`, like an empty
+   * `PhotoTile`) covers the mark until `image` arrives. Nothing blinks and nothing says
+   * "new": it only holds the place.
+   */
+  waiting?: boolean;
 };
 
 /** Four levels read as levels; a continuous ramp reads as mud. Empty is an outline. */
@@ -46,7 +58,15 @@ function between(min: number, max: number): number {
  * the way, so the grid never comes on as one block. Today keeps breathing softly
  * after. Only opacity moves: nothing scales, nothing springs.
  */
-export function HeatSquare({ intensity, today, size, radius, reduceMotion }: HeatSquareProps) {
+export function HeatSquare({
+  intensity,
+  today,
+  size,
+  radius,
+  reduceMotion,
+  image = null,
+  waiting = false,
+}: HeatSquareProps) {
   const { colors } = useTheme();
   const [light] = useState(() => new Animated.Value(reduceMotion ? 1 : 0));
 
@@ -88,7 +108,13 @@ export function HeatSquare({ intensity, today, size, radius, reduceMotion }: Hea
 
   const opacity = levelOpacity(intensity);
   return (
-    <Animated.View style={[styles.slot, { width: size, height: size, borderRadius: radius, opacity: light }]}>
+    <Animated.View
+      style={[
+        styles.slot,
+        { width: size, height: size, borderRadius: radius, opacity: light },
+        image === null && !waiting ? null : styles.clip,
+      ]}
+    >
       <Animated.View
         style={[
           styles.fill,
@@ -98,6 +124,10 @@ export function HeatSquare({ intensity, today, size, radius, reduceMotion }: Hea
             : { backgroundColor: colors.ink, opacity },
         ]}
       />
+      {image === null && waiting ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.cardMuted }]} />
+      ) : null}
+      {image === null ? null : <PhotoImage uri={image} muted fit="cover" />}
     </Animated.View>
   );
 }
@@ -108,5 +138,8 @@ const styles = StyleSheet.create({
   },
   fill: {
     flex: 1,
+  },
+  clip: {
+    overflow: 'hidden',
   },
 });

@@ -1,0 +1,29 @@
+diff --git a/node_modules/expo-image-manipulator/ios/Transformers/ImageFixOrientationTransformer.swift b/node_modules/expo-image-manipulator/ios/Transformers/ImageFixOrientationTransformer.swift
+index c3e3b66..4153169 100644
+--- a/node_modules/expo-image-manipulator/ios/Transformers/ImageFixOrientationTransformer.swift
++++ b/node_modules/expo-image-manipulator/ios/Transformers/ImageFixOrientationTransformer.swift
+@@ -13,7 +13,14 @@ internal struct ImageFixOrientationTransformer: ImageTransformer {
+       // That should never happen as `colorSpace` is empty only when the image is a mask.
+       throw ImageColorSpaceNotFoundException()
+     }
+-    if !colorSpace.supportsOutput {
++    // Vesper (ADR-0051): iOS decodes wide-gamut and HDR photos into an extended-range
++    // space, which cannot back an 8-bit integer context ("requires floating point or
++    // CIF10 bitmap context"), and the whole render failed as "Image context has been
++    // lost". Draw those into Display P3 at 8 bits: the gamut stays, the JPEG is ordinary.
++    let extendedRange = CGColorSpaceUsesExtendedRange(colorSpace)
++    if extendedRange {
++      colorSpace = CGColorSpace(name: CGColorSpace.displayP3) ?? CGColorSpaceCreateDeviceRGB()
++    } else if !colorSpace.supportsOutput {
+       colorSpace = CGColorSpaceCreateDeviceRGB()
+     }
+ 
+@@ -48,7 +55,7 @@ internal struct ImageFixOrientationTransformer: ImageTransformer {
+       data: nil,
+       width: Int(image.size.width),
+       height: Int(image.size.height),
+-      bitsPerComponent: cgImage.bitsPerComponent,
++      bitsPerComponent: extendedRange ? 8 : cgImage.bitsPerComponent,
+       bytesPerRow: 0,
+       space: colorSpace,
+       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue

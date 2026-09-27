@@ -236,3 +236,99 @@ create table if not exists recovery_codes (
 
 create index if not exists recovery_codes_account on recovery_codes (account_id);
 create index if not exists recovery_codes_expires on recovery_codes (expires_at);
+
+-- Photos in challenges (ADR-0051), end to end encrypted. Everything below is idempotent:
+-- `add column if not exists` with no constraint riding on it (see the note on `accounts`
+-- above), and `create … if not exists` for the rest, so it runs clean on every boot.
+
+-- The public half of each identity's box key: X25519, 32 bytes in base64, derived on the
+-- phone from the secret with a label of its own. The server keeps an unlabelled hash of
+-- the secret, so it cannot derive the private half. `box_key_id` is the first 8 bytes of
+-- SHA-256 of the key in hex, which is how a wrap names the key it was made for.
+alter table accounts add column if not exists box_key text;
+alter table accounts add column if not exists box_key_id text;
+-- A moderator's ban over a report: the account uploads no photo from then on.
+alter table accounts add column if not exists banned_at bigint;
+
+-- "Fotos del día", set by the maker. A challenge written before this column is on, which
+-- is what the phones assumed until the switch travelled.
+alter table challenges add column if not exists photos boolean not null default true;
+
+-- One photo of a challenge. The two objects live in the bucket, never here
+-- (`m/<owner_id>/<id>/thumb` and `/full`): Postgres would carry them in its WAL and its
+-- branches at thirty times the price (ADR-0051, "Guardar las fotos en Postgres").
+--
+-- `wraps` is `[{ recipientId, keyId, box }]`: the photo's key sealed for each person who
+-- may see it, the owner included. The server cannot open one.
+--
+-- Born 'pending'; 'ready' when both objects arrived, which is when it enters the other
+-- participants' sync. Deleting it leaves a tombstone (`deleted_at`) for 60 days, because a
+-- cursor over `updated_at` never sees a row that is gone (ADR-0049).
+create table if not exists media (
+  id            text    primary key,
+  challenge_id  text    not null references challenges (id) on delete cascade,
+  owner_id      text    not null references accounts (id) on delete cascade,
+  day_key       text    not null,
+  width         int     not null,
+  height        int     not null,
+  origin        text    not null check (origin in ('camera', 'library')),
+  epk           text    not null,
+  caption_box   text,
+  wraps         jsonb   not null,
+  thumb_size    int     not null,
+  full_size     int     not null,
+  state         text    not null check (state in ('pending', 'ready')),
+  thumb_at      bigint,
+  full_at       bigint,
+  created_at    bigint  not null,
+  updated_at    bigint  not null,
+  expires_at    bigint  not null,
+  deleted_at    bigint
+);
+
+-- One live photo per person, challenge and day; a new one tombstones the last.
+create unique index if not exists media_one_a_day
+  on media (challenge_id, owner_id, day_key) where deleted_at is null;
+create index if not exists media_updated on media (updated_at);
+create index if not exists media_owner on media (owner_id);
+-- "Carries a wrap for me": `wraps @> '[{"recipientId": "<id>"}]'`.
+create index if not exists media_wraps on media using gin (wraps jsonb_path_ops);
+create index if not exists media_expires on media (expires_at) where deleted_at is null;
+create index if not exists media_deleted on media (deleted_at) where deleted_at is not null;
+
+-- A report on one photo. It outlives the photo and the owner's account on purpose: what
+-- was reported to NCMEC is kept a year (REPORT Act), so `media_id` and `owner_id` carry no
+-- cascade. The evidence is in the bucket under `r/<id>/`, copied when the report landed;
+-- `content_key` is the photo's key the reporter handed over, cleared when the report is
+-- resolved without preserving. The reporter is kept only to answer a second report from
+-- the same person alike, is shown to nobody, and goes with their account.
+create table if not exists reports (
+  id               text    primary key,
+  media_id         text    not null,
+  reporter_id      text    references accounts (id) on delete set null,
+  owner_id         text    not null,
+  challenge_id     text    not null,
+  day_key          text    not null,
+  reason           text    not null check (reason in ('unwanted', 'consent', 'minor', 'other')),
+  note             text,
+  content_key      text,
+  created_at       bigint  not null,
+  resolved_at      bigint,
+  action           text    check (action in ('dismiss', 'remove', 'ban')),
+  preserved_until  bigint
+);
+
+-- Nulls are distinct, so reports whose reporter left never collide.
+create unique index if not exists reports_one_per_reporter on reports (reporter_id, media_id);
+create index if not exists reports_open on reports (resolved_at, created_at);
+
+-- "Bloquear a Ana": the link ends (ADR-0049) and, from then on, a code between the two
+-- answers like one that does not exist. It works both ways and goes with either account.
+create table if not exists blocks (
+  blocker_id  text    not null references accounts (id) on delete cascade,
+  blocked_id  text    not null references accounts (id) on delete cascade,
+  created_at  bigint  not null,
+  primary key (blocker_id, blocked_id)
+);
+
+create index if not exists blocks_blocked on blocks (blocked_id);

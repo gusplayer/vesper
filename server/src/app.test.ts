@@ -1156,6 +1156,9 @@ describe('the invite code belongs to one account', () => {
       platform: null,
       appVersion: null,
       lastSeenAt: null,
+      boxKey: null,
+      boxKeyId: null,
+      bannedAt: null,
       createdAt: T0,
       updatedAt: T0,
     };

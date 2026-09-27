@@ -40,6 +40,7 @@ Dos esquemas con la misma paleta de roles. Nunca negro ni blanco puros.
 | `danger` | `#C0392B` | `#E06B5E` | acciones destructivas |
 | `shadow` | tinta | negro | color de las sombras de tarjeta y del objeto |
 | `scrim` | tinta al 45 % | fondo al 60 % | la página atenuada detrás de una hoja |
+| `photoVeil` | papel (`card`) al 42 % | fondo al 38 % | el velo que apaga una miniatura en la grilla y en el álbum (ADR-0051): la foto a color solo aparece al abrirla |
 
 **Superficie.** Un control con relleno "apagado" (`Chip`, `DayPicker`, el riel de
 `SegmentedControl`, `Button size="sm" variant="secondary"`) toma su relleno de lo que
@@ -93,8 +94,16 @@ promedio de `BarChart`; `PeriodStrip` pone en mayúsculas sus propias opciones (
 - `layout`: margen de página 20, objetivo táctil 44, barra de pestañas 56, iconos
   16/20/24 (18 en filas), objeto central 132, icono de app 24/40/56, QR 168; también las
   medidas de `BarChart` (`layout.chart`), `DotGrid` (`layout.dotGrid`), el círculo de
-  `DayPicker` (40, con área táctil de 44), el indicador de pestañas y el tope de alto de
-  `Sheet` (85 % de la ventana). Ningún componente escribe un número de tamaño propio.
+  `DayPicker` (40, con área táctil de 44), el indicador de pestañas, el tope de alto de
+  `Sheet` (85 % de la ventana), los cuadros de `HeatGrid` (`layout.heatGrid`: 28 y 16, con
+  su hueco y su esquina) y las fotos (`layout.photo`: la celda de 36 del tamaño `lg`, que
+  también encabeza una fila, la miniatura del álbum, el borde punteado de "agregar" y el
+  alto máximo de una foto en su tarjeta, 58 % de la ventana) y la imagen de "Compartir tu
+  álbum" (`layout.share`: la historia de 1080 × 1920 en píxeles, con el cuadrado central
+  de 420 a 1500 que sobrevive al recorte 4:5 o 1:1, la grilla de siete días, los tamaños
+  de texto y la marca; `AlbumCard` los escala al tamaño en que se dibuja, y la vista
+  previa ocupa hasta el 50 % de la ventana). Ningún componente escribe un número de
+  tamaño propio.
 - **Objetivo táctil.** Todo lo tocable llega a 44 pt: `Tappable` mide a sus hijos y
   extiende el área con `hitSlop` sin mover nada; los glifos sueltos (la x de `Banner`
   y de `SearchField`) y los círculos de `DayPicker` hacen lo mismo.
@@ -117,19 +126,24 @@ promedio de `BarChart`; `PeriodStrip` pone en mayúsculas sus propias opciones (
   - `BreathingObject` enciende sus 16 celdas de abajo hacia arriba al inhalar y las
     apaga de arriba hacia abajo al exhalar, solo con el dedo puesto.
   - `FlipDigit` cae en dos mitades en 340 ms, lineal, sin rebote.
+  - Una foto (`PhotoTile`, `PhotoCard`, la celda de `HeatGrid`) aparece con un fade de
+    160 ms cuando termina de cargar. El visor no desliza ni hace zoom (ADR-0051).
   - Con "Reducir movimiento" activo (`useReduceMotion`) la grilla y la respiración
     saltan a su estado final.
 
 ## Componentes
 
-Lo que exporta `src/design/components/index.ts` (59 componentes y el hook `useTooltip`). `HeatSquare` (una celda de `HeatGrid`) y `FlipDigit` (una carta de `FlipClock`)
+Lo que exporta `src/design/components/index.ts` (63 componentes y el hook `useTooltip`). `HeatSquare` (una celda de `HeatGrid`), `FlipDigit` (una carta de `FlipClock`),
+`PhotoImage` (la imagen con su velo y su fade, que dibujan `PhotoTile`, `PhotoCard`,
+`HeatSquare` y `AlbumCard`; `still` la dibuja entera y sin fade para una captura) y `Mark`
+(la grilla 4×4 del icono, quieta, que dibujan `HeroObject`, `BootReveal` y `AlbumCard`)
 existen pero no se exportan: son internos.
 
 | Componente | Qué es |
 |---|---|
 | `Screen` | Fondo, safe area, márgenes, scroll opcional, `footer` pinneado, `inTabs`; `avoidKeyboard` sube contenido y pie sobre el teclado; `scrollResetKey` vuelve arriba al cambiar |
 | `Stack`, `Section`, `SectionTitle`, `Spacer`, `Divider`, `Columns` | Layout: gaps, título + contenido (un solo estilo de título, encabezado para VoiceOver), empuje, hairline, columnas iguales |
-| `Text` | Todo el texto: `variant` × `tone` (incluye `onInkSecondary`) × `weight`; `live`, `selectable` |
+| `Text` | Todo el texto: `variant` × `tone` (incluye `onInkSecondary`) × `weight`; `live`, `selectable`; `allowFontScaling={false}` solo en texto dibujado a tamaño fijo como imagen (`AlbumCard`) |
 | `PageHeader` | `onBack` (chevron) en toda ruta empujada; `onClose` (x) solo en una ruta que entra desde fuera (`circle/join`). Título centrado de hasta dos líneas, acción derecha, o `progress` (puntos) cuando no hay título |
 | `DropdownTitle` | Texto centrado con chevron que abre un selector: título de Actividad (`size="body"`), el modo en Focus (`heading`), la duración (`label`, `tone="secondary"`) |
 | `PeriodStrip` | Fila de opciones pequeñas bajo un título ('SEMANA PASADA · ESTA SEMANA'); las pone en mayúsculas ella misma |
@@ -151,7 +165,7 @@ existen pero no se exportan: son internos.
 | `FieldRow` | "Nombre …… valor" con input a la derecha; `multiline` pone la etiqueta arriba; `autoCorrect`, `spellCheck`, `returnKeyType`, `decimal-pad`, `characters` |
 | `SearchField` | Buscador en pastilla con cancelar |
 | `DayPicker` | Siete círculos, lunes a domingo, casillas para VoiceOver |
-| `Sheet` | Hoja inferior con título y cerrar, sobre el `scrim`; hasta el 85 % de la ventana, y lo que no cabe se desplaza. Con un campo, sube sobre el teclado en las dos plataformas (un modal de Android de borde a borde no se redimensiona solo) |
+| `Sheet` | Hoja inferior con título y cerrar, sobre el `scrim`; hasta el 85 % de la ventana, y lo que no cabe se desplaza. Con un campo, sube sobre el teclado en las dos plataformas (un modal de Android de borde a borde no se redimensiona solo). `under` monta algo en la ventana de la hoja, debajo de todo y sin verse: la tarjeta que se captura |
 | `Banner`, `Tooltip`, `useTooltip` | Aviso oscuro arriba; burbuja que explica un no (`overlay` flota sin empujar la lista); el hook que la muestra, la anuncia en iOS y la quita |
 | `ExplainerBlock` | Icono en círculo, encabezado y párrafo: las páginas de permiso apilan tres |
 | `ProgressDots`, `ProgressBar` | Puntos del onboarding; barra fina, con segmentos. Las dos son barras de progreso para VoiceOver, con valor |
@@ -160,7 +174,11 @@ existen pero no se exportan: son internos.
 | `HeroObject` | El objeto central: tile con la grilla de semanas |
 | `BreathingObject` | El tile que respira con el dedo (ADR-0025) |
 | `BootReveal` | El arranque: la tinta del splash se disuelve de los bordes al centro hasta dejar la marca, que se funde con la app (ADR-0028) |
-| `HeatGrid` | La grilla de los últimos días en Focus, cuatro niveles, se enciende al aparecer |
+| `HeatGrid` | La grilla de los últimos días en Focus, cuatro niveles, se enciende al aparecer. `size`: `md` (Focus), `sm` (una semana junto a texto) y `lg` (las semanas de un reto con fotos, la tuya y, si estás dentro, la de cada persona, ADR-0051); cada `HeatCell` puede llevar `image` (la miniatura, apagada bajo el velo, encima de la marca), `waiting` (la foto de ese día todavía no está en el teléfono: el relleno de espera de `PhotoTile` sobre la marca, nunca un punto de "nuevo") y `onPress` con su etiqueta, con área táctil de 44 |
+| `PhotoTile` | Una foto como cuadro pequeño con el radio del sistema: `size` `cell` (36, encabeza una fila) o `thumb` (el álbum); `muted` la pone bajo el velo; `variant="add"` es el cuadro punteado con "+" (nunca un llamado relleno: una marca sin foto cuenta igual); sin `uri`, el relleno de espera. Con `onPress`, tocable a 44 |
+| `PhotoCard` | La foto a color a lo ancho de su tarjeta, con su forma hasta el 58 % de la ventana (más alta, entera dentro del marco, nunca recortada), y debajo `title` ("Tú · martes 24"), `caption` y `lines` en voz baja. La vista previa y el visor |
+| `PhotoMosaic` | El álbum al cierre de un reto: filas (`label` opcional) de miniaturas apagadas en orden de días, con el día debajo, que abren la foto. Sin cuántas tiene cada quien |
+| `AlbumCard` | La imagen de "Compartir tu álbum" (ADR-0051 §13, ADR-0030): siempre en tinta (`ForcedTheme` oscuro, no `ThemeScope`), historia 9:16 con todo dentro del cuadrado central. Arriba el nombre del reto; la grilla de sus días, una semana por fila, con tu foto a color (sin velo) en su día y un cuadro apagado en los demás; una línea ("Un reto de 21 días."); al pie la marca y "Vesper". Nada de nadie más, sin URL ni QR. `purpose="preview"` es la vista previa de la hoja (una imagen para VoiceOver); `purpose="capture"` es la misma tarjeta a 1080 píxeles de ancho físicos, opaca, `collapsable={false}`, texto sin escalar, dentro de un padre con opacidad 0 que se monta en `Sheet.under`, con `ref` y `onReady` cuando cargaron sus fotos |
 | `FlipClock` | Reloj split-flap de la sesión; `scale` para el modo horizontal |
 | `StippleCanvas` | El lienzo del arte de foco: los primeros N puntos como un path SVG |
 | `InkFlood` | La inundación punteada desde un origen: `ink` para entrar, `paper` para salir |

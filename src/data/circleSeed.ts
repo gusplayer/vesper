@@ -129,6 +129,8 @@ export function demoChallenge(now: number, t: DemoStrings): Challenge {
     createdBy: 'ana',
     participantIds: [ME, 'ana', 'luis'],
     habitId: 'habit-read',
+    // Reading is a challenge a photo fits (ADR-0051 §6): the demo shows the row to add one.
+    photos: true,
     createdAt: weekStart(now),
     archivedAt: null,
   };

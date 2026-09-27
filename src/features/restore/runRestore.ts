@@ -11,6 +11,7 @@ import {
 import { holdCircleSync, restoreCircleSync, syncCircle } from '../../platform/hooks/useCircleSync';
 import { exclusive } from '../../platform/hooks/useIdentitySync';
 import { identityStorageAvailable, readStoredCredential, saveIdentity } from '../../platform/identity';
+import { restorePhotoKeys } from '../../platform/photoSync';
 import {
   accountFailureResult,
   afterBackup,
@@ -29,14 +30,19 @@ import {
  * 2. The backup is downloaded and opened with that key (src/platform/backup.ts). It
  *    was sealed with the old secret, so this has to happen before the secret changes;
  *    a newer backup or a failed download ends the restore here, with nothing rotated.
- * 3. `POST /account/secret`: a new secret, and the phone that was lost or sold is shut
- *    out. The new key is written to both copies before the identity is recorded.
- * 4. The identity this install had before, if any, leaves the server: this phone is
+ * 3. The keys of the photos shared in the challenges (ADR-0051 §16), opened with the old
+ *    secret's key while it still is the account's: the backup carries the ones it knew,
+ *    and this brings the ones that came after it. Best effort — without a connection,
+ *    only the photos since the last backup cannot be opened here.
+ * 4. `POST /account/secret`: a new secret, and the phone that was lost or sold is shut
+ *    out. The new key is written to both copies before the identity is recorded. The
+ *    photo key the new secret makes goes up with the first sync after it.
+ * 5. The identity this install had before, if any, leaves the server: this phone is
  *    the restored Vesper now.
- * 5. The circle comes back from the server: the profile, the marker, the cursor at zero,
+ * 6. The circle comes back from the server: the profile, the marker, the cursor at zero,
  *    a sync with `restore: true`, and the user's own challenge marks folded into their
  *    habits — recreating a challenge's habit where rule 4 leaves room.
- * 6. The backup goes up again under the new key.
+ * 7. The backup goes up again under the new key.
  *
  * It runs as one identity step (`exclusive`), so a registration or a start-over cannot
  * write a key in the middle of it. Never throws.
@@ -79,6 +85,9 @@ async function restore(target: Credentials, now: number): Promise<RestoreResult>
   if ('stop' in backup) {
     return backup.stop;
   }
+
+  // Before the secret changes: the wraps of the photos open only with the key it makes.
+  await restorePhotoKeys(target, now);
 
   // A rotation that cannot go out now is not a reason to fail a restore whose backup is
   // already on the phone: the old key is kept and the identity sync rotates it later.

@@ -12,8 +12,8 @@ segundo, no la impide, y quien lo pone es quien lo puede quitar.
 
 ## Descripción breve (≤ 80)
 
-- ES: `Sesiones de foco que pausan las apps que tú eliges. Sin cuenta ni nube.`
-- EN: `Focus sessions that pause the apps you choose. No account, no cloud.`
+- ES: `Sesiones de foco que pausan las apps que tú eliges. Sin registro ni anuncios.`
+- EN: `Focus sessions that pause the apps you choose. No sign-up, no ads.`
 
 ## Descripción completa — español
 
@@ -33,6 +33,10 @@ Volver. Tú pusiste el bloqueo; tú lo puedes quitar.
 - Un libro mayor del día con tres monedas que nunca se suman: tiempo invertido, tiempo
   verificado y tiempo consumido.
 - Las semanas de vida que te quedan, si decides escribir tu fecha de nacimiento.
+- Retos con tu círculo, de hasta doce personas que tú invitas. Si el reto lo permite,
+  puedes agregar una foto al día que marcaste: la ven solo quienes están en ese reto, viaja
+  cifrada de extremo a extremo y se borra del servidor dos semanas después de que el reto
+  termina. Nunca es obligatoria.
 
 **Qué necesita y por qué**
 
@@ -42,15 +46,19 @@ Volver. Tú pusiste el bloqueo; tú lo puedes quitar.
   pausar. Nunca aparece fuera de una sesión.
 - *Notificaciones*: para avisarte cuando termina una sesión o empieza una rutina, y para
   mostrar que hay una sesión en marcha.
+- *Cámara*: solo si decides tomar una foto para un día de un reto. Las fotos de tu galería
+  se eligen con el selector del sistema, que no le da a Vesper nada más.
 
-Los dos primeros se piden solo cuando eliges apps reales en un modo, y la app funciona
-sin ellos.
+Los dos primeros se piden solo cuando eliges apps reales en un modo, y la cámara solo al
+tocar «Tomar una foto». La app funciona sin ellos.
 
 **Qué no hace nunca**
 
-- No hay cuenta. No hay nube. Todo vive en tu teléfono y se borra desde Ajustes.
-- No vende ni comparte datos. No hay anuncios ni analítica.
-- No es control parental. No vigila a otras personas ni reporta a nadie.
+- Sin registro, sin correo ni contraseña. Lo tuyo vive en tu teléfono; al servidor sube un
+  respaldo cifrado, que se apaga en Ajustes, y lo que eliges compartir con tu círculo. Todo
+  se borra desde Ajustes.
+- No vende ni comparte datos. No hay anuncios ni SDKs de terceros para analítica.
+- No es control parental: no vigila a otras personas, y lo que ve tu círculo lo eliges tú.
 - No usa servicios de accesibilidad ni lee el contenido de otras apps.
 - No impide abrir una app: la cubre en menos de un segundo. La decisión sigue siendo tuya.
 
@@ -75,6 +83,10 @@ back. You set the block; you can lift it.
 - A ledger of the day with three currencies that are never added together: time
   invested, time verified and time consumed.
 - The weeks of life you have left, if you choose to enter your birth date.
+- Challenges with your circle, up to twelve people you invite. If a challenge allows it,
+  you can add a photo to a day you marked: only the people in that challenge see it, it
+  travels end-to-end encrypted and it leaves the server two weeks after the challenge
+  ends. It is never required.
 
 **What it needs and why**
 
@@ -84,15 +96,20 @@ back. You set the block; you can lift it.
   It never appears outside a session.
 - *Notifications*: to tell you when a session ends or a routine starts, and to show that
   a session is running.
+- *Camera*: only if you choose to take a photo for a day of a challenge. Photos from your
+  library are picked with the system picker, which gives Vesper nothing else.
 
-The first two are only requested when you pick real apps in a mode, and the app works
-without them.
+The first two are only requested when you pick real apps in a mode, and the camera only
+when you tap "Take a photo". The app works without them.
 
 **What it never does**
 
-- No account. No cloud. Everything lives on your phone and can be erased from Settings.
-- No selling or sharing data. No ads, no analytics.
-- Not parental control. It does not watch other people and reports to no one.
+- No sign-up, no email, no password. Your data lives on your phone; the server gets an
+  encrypted backup, which you can turn off in Settings, and what you choose to share with
+  your circle. Everything can be erased from Settings.
+- No selling or sharing data. No ads, no third-party analytics SDKs.
+- Not parental control: it does not watch other people, and you choose what your circle
+  sees.
 - No accessibility services, and it never reads the content of other apps.
 - It does not prevent an app from opening: it covers it within a second. The decision is
   still yours.
@@ -102,8 +119,16 @@ is not information but friction. One screen, one button, and the time you chose.
 
 ## Notas
 
-- Categoría: Productividad. Clasificación: utilidad, sin contenido generado por usuarios.
+- Categoría: Productividad. Clasificación: utilidad, **con contenido generado por usuarios**
+  desde ADR-0051: una foto opcional en el día marcado de un reto, visible solo para quienes
+  están en él. Las respuestas del cuestionario están en `docs/APP_REVIEW.md` §3.
 - Público objetivo: 18 años o más. No es una app para familias.
 - Capturas: Focus con el modo, el selector "Apps reales", la sesión, el escudo sobre otra
   app y la salida consciente. Los fotogramas de `docs/media/` sirven de punto de partida.
-- Las declaraciones de permisos y de seguridad de datos están en `docs/PLAY_DECLARATIONS.md`.
+- Las declaraciones de permisos y de seguridad de datos están en `docs/PLAY_DECLARATIONS.md`;
+  las notas para el revisor sobre las fotos, en `docs/APP_REVIEW.md`, y el proceso de
+  moderación, en `docs/MODERATION.md`.
+- Capturas con fotos: si una captura muestra un reto con fotos, las fotos son de la semilla
+  de ejemplo o tomadas para la ficha, nunca de una persona real sin su permiso.
+- **Se actualizó el 2026-09-26:** la descripción breve y "Qué no hace nunca" decían "sin
+  cuenta ni nube", y dejó de ser cierto con la identidad y el respaldo (ADR-0048).

@@ -78,7 +78,7 @@ export const settings: typeof shape = {
     resetCaption: 'Deletes everything and starts from zero, with no sample data.',
     resetConfirmTitle: 'Delete everything and start over?',
     resetConfirmMessage:
-      'Everything on this phone is deleted: modes, routines, sessions, habits, Life, your settings and your circle profile, and on the server your account and your backup. Vesper goes back to the welcome screen and starts empty, with no sample data. There is no way back.',
+      'Everything on this phone is deleted: modes, routines, sessions, habits, the photos of your challenges, Life, your settings and your circle profile, and on the server your account and your backup. Vesper goes back to the welcome screen and starts empty, with no sample data. There is no way back.',
     resetConfirm: 'Delete everything',
     removeDemo: 'Remove the sample data',
     removeDemoCaption: 'Keeps only what you made.',

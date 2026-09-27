@@ -132,10 +132,20 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   los hábitos. Y en un teléfono con Play y Android 9 a 13: instalar Health Connect desde
   "Instalar Health Connect" y que al volver la pantalla ofrezca conectar.
 - **Play**: declaración de Health Connect y publicar la política de privacidad
-  (`web/privacy.html` es un borrador: falta el correo de contacto, la fecha y la
-  revisión; `PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
+  (`web/privacy.html` es un borrador: el correo ya está, faltan la fecha, el titular y la
+  revisión legal, arriba; `PLAY_DECLARATIONS.md` §f); pantalla de divulgación destacada antes de pedir el acceso de uso; subir el
   video y poner la URL en `PLAY_DECLARATIONS.md`; verificar el manifiesto fusionado del
   build de release.
+- **Publicar los textos legales, que hoy bloquean la ficha y mienten en la app.** Acerca
+  de y la bienvenida enlazan a `/terms` y `/privacy`, y **`web/` no está desplegado: los
+  dos dan 404**. Eso es lo primero. Además, para que dejen de ser borrador faltan cuatro
+  datos que solo puede dar el dueño, ninguno de criterio técnico:
+  - **`[TITULAR]`** — quién responde legalmente por la app (aparece cinco veces en
+    `web/terms.html`). El correo de contacto ya se decidió en ADR-0047 §13.
+  - **La fecha de vigencia** y **la ley aplicable**, que Términos hoy no nombra.
+  - **La revisión legal.** Los dos textos los escribió quien conoce el código y describen
+    lo que el código hace; ADR-0046 pide que alguien con criterio legal los lea antes de
+    publicarlos, y eso sigue sin pasar.
 - **Android 16**: el emulador API 36 no promueve la notificación aunque la pide; verificar en un Pixel real con Android 16.
 - **Toque en la notificación de Android** y en el aviso de rutina de iOS: no se pueden
   entregar desde adb/idb; confirmar en teléfono.
@@ -158,6 +168,8 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   JSON con 150 apps). Arreglarlo exige paginar o servir el icono por paquete, o sea
   cambiar la forma de la API del módulo.
 - ADR-0024 (sonido y vibración) sigue en propuesta, sin implementar.
+- ADR-0051 (fotos en los retos) está aceptada y se construye en la rama
+  `feat/challenge-photos`, una tanda por commit.
 - El cierre del domingo no tendrá pantalla (ADR-0026): es el aviso más Actividad › Semanal.
 
 ## Deuda conocida
@@ -175,8 +187,9 @@ funcionar. Para probar algo que vence con la app cerrada, el emulador acepta `ad
   `ios/` viejo puede no traer `ExpoWidgetsTarget`: `--clean` lo arregla.
 - Los restos de la fase 1 (`repositories/sessionConfig.ts`, `queries/week.ts`, cinco
   claves viejas de `settings`) se borraron en la revisión del 2026-09-17 (ADR-0026).
-- Círculo sin servidor: escribir un código ajeno responde "todavía no hay servidor"; solo
-  la invitación sembrada (Mateo) se puede aceptar. Es lo honesto hasta el backend (ADR-0021).
+- ~~Círculo sin servidor~~: desde ADR-0044 la app habla con el servidor —`circle.status()`
+  ya devuelve `available: true` con cuenta— y el ciclo completo se verificó contra el
+  despliegue el 2026-09-25.
 - Términos y Privacidad están enlazados (Acerca de y la bienvenida) pero `web/` no está desplegado: `/terms` y `/privacy` dan 404. Desde ADR-0047 §13 los dos llevan el correo de contacto (gusmoreno.dev@gmail.com); siguen en borrador: falta la fecha, el titular (`[TITULAR]` en `web/terms.html`) y la revisión del dueño.
 - En español la hora va en frases "a las ${hora}", que entre la 1:00 y la 1:59 dicen "a las 1:05" en vez de "a la 1:05". Falta un ayudante de frase de hora en `lib/format`.
 - Riesgo de desarrollo: Fast Refresh sobre un módulo del que depende `stores/app.ts` crea un store con los ajustes por defecto y la primera escritura los guarda. Tras editar el dominio, relanzar la app. Visto otra vez el 2026-09-25 con otra sesión editando `src/platform/`: Focus decía "Sin modos" con las filas en la base; relanzar en frío las trajo de vuelta.
@@ -728,8 +741,9 @@ elección). Las mismas siete áreas lo implementaron.
   **Hábitos esta semana (§7)** en la vista Semanal; De por vida guarda el resumen.
 - **Terminar un vínculo (§5, ADR-0049).** `POST /link/end` y `POST /challenge/leave` en el
   servidor, con la tabla `ended_links` y `ended` en `/sync`. Rechazar, Quitar, Salir del
-  círculo y Salir del reto los usan; la app guarda la cola y, mientras el servidor
-  desplegado responda 404, dice que solo cambió este teléfono. **Sin desplegar.**
+  círculo y Salir del reto los usan; la app guarda la cola y, sin conexión o con un
+  servidor que conteste 404, dice que solo cambió este teléfono. Desplegado el
+  2026-09-25 con `d5d126c` (ver la entrada de ADR-0048 más abajo).
 - **Lo demás.** Sin modo estricto (§6). El salvavidas se queda (§8). `session/complete` se
   muestra una vez tras una sesión que venció con la app cerrada (§9,
   `sessionsRepo.takeRecoveredClosing`). Intención opcional en la hoja de duración (§10).
@@ -849,3 +863,112 @@ elección). Las mismas siete áreas lo implementaron.
 - **No verificado:** un envío real por Resend; el caso del iPad en un iPad de verdad con la
   misma cuenta de Apple; "Traerlo aquí" en pantalla (la restauración es la misma ya
   probada).
+
+## Fotos en los retos (2026-09-26, ADR-0051)
+
+- **Solo análisis, sin código.** Tres informes en `docs/research/photos-in-challenges/`:
+  mercado (30 apps y 72 fuentes), viabilidad (Expo 57, almacenamiento y costos, cifrado,
+  tiendas, CSAM y Ley 1581) y producto (encaje con las reglas, tres conceptos, wireframes
+  y copy). ADR-0051 propone la grilla del reto como álbum: una foto opcional por persona,
+  reto y día, cifrada de extremo a extremo, sin avisos, reacciones ni comentarios.
+- El mismo día el dueño la aceptó con las recomendaciones (cifrado de extremo a extremo,
+  la tanda local primero, 14 días) y pidió construirla entera en `feat/challenge-photos`.
+- **Tanda 1 (local), en la rama.** La foto opcional en tu marca de un día de un reto, solo en el
+  teléfono: `platform/camera` (galería y cámara, 1280 px + miniatura de 320 px, JPEG 0,7, metadatos
+  fuera con `lib/jpegMetadata`), migración 011 (`challenge_photos`, `challenges.photos`),
+  `domain/photos`, store `photos` con borrador, `PhotoTile`/`PhotoCard`/`PhotoMosaic` y `HeatGrid` con
+  imagen, rutas `circle/photo-new` y `circle/photo`, "Fotos del día" al crear un reto y "Tu álbum" al
+  cierre. Dependencias: `expo-image-picker`, `expo-image-manipulator` (desde el fuente en iOS, con un
+  parche; ver ADR-0051) y `expo-file-system` declarada.
+- **Verificado en el simulador iPhone 17 Pro (iOS 26), en inglés:** marcar hoy hace aparecer "Add
+  today's photo"; la hoja muestra la cámara deshabilitada con "The camera is not available on this
+  device." y la galería del sistema sin pedir permiso; una foto de prueba con GPS en su EXIF queda en
+  `Documents/photos/` a 960×1280 (116 KB) y 240×320 (18 KB) **sin EXIF, sin GPS y sin la marca de la
+  cámara** (leído con Pillow); el pie se guarda; la celda del sábado muestra la miniatura apagada y
+  abre el visor ("You · Saturday, September 26", el pie, "From the library", "Marked by hand", "Only
+  you see it."); desmarcar oculta la foto y volver a marcar la trae, también tras recargar; cambiar la
+  foto por la HEIC en Display P3 de la fototeca **fallaba** ("Image context has been lost") y con el
+  parche funciona, conserva el perfil de color y borra los archivos anteriores.
+- **Sin verificar:** la cámara (el simulador no tiene), Android, un teléfono físico, el cierre de un
+  reto con "Tu álbum" (cubierto por tests) y el español en pantalla (cubierto por `tsc`).
+- **Tanda 2 (compartida, cifrada), en la rama.** Servidor: `media`, `reports`, `blocks`,
+  `accounts.box_key`/`banned_at`, `challenges.photos`; `POST /media`, `PUT /media/:id/thumb|full`,
+  `GET /media/:id/url`, `DELETE /media/:id`, `POST /report`, `POST /block`, `/admin/*` con
+  `ADMIN_TOKEN`; `ObjectStore` en memoria o S3 (`aws4fetch`, Railway Buckets); barrido cada hora.
+  Teléfono: `platform/photoCrypto` (X25519 de `@noble/curves` 2.4.0, HKDF de `@noble/hashes`
+  2.4.0, AES-GCM de `expo-crypto`), `photoApi`, `photoSync`, migración 012, reportar, ocultar y
+  bloquear, el aviso de la primera foto con los términos, "El álbum" al cierre. `tsc`, lint,
+  **1525 tests** de la app y **214** del servidor, también `test:dst`; los vectores del RFC 7748
+  pasan en el Hermes de la app.
+- **Verificado de punta a punta en dos simuladores iPhone 17 Pro contra el servidor local en
+  memoria:** Gus crea su perfil y su código; Ana lo canjea con el link; Gus acepta, crea "Read"
+  con Ana y "Photos of the day"; Ana ve "People share photos in this challenge. Yours are
+  optional." y se une. La primera foto de Gus abre "Before your first photo" y, tras "Got it",
+  la hoja sola; la vista previa dice a quién le llega y "Add to the challenge". En el teléfono de
+  Ana la celda del viernes de Gus trae la miniatura, y el visor abre la foto completa y el pie
+  descifrados. Ana la reporta ("Reported. You no longer see it, and we will review it."); con
+  el token, `/admin/reports` no dice quién reportó y `/admin/reports/:id/photo` devuelve la foto
+  descifrada con la llave del reporte. Resuelto como "remove": Gus conserva su foto local y el
+  teléfono de Ana borra la suya con sus archivos.
+- **Sin verificar:** Android; un teléfono físico; un bucket real (la firma reproduce el ejemplo de
+  AWS, no se probó contra Tigris); restaurar con fotos; bloquear y ocultar en pantalla (cubiertos
+  por tests); el español en pantalla (cubierto por `tsc`). En la pantalla Invitar, escribir un
+  código ajeno y tocar "Ask to join their circle" no envió el pedido en esta prueba; por el link
+  sí. Es anterior a esta rama y queda por revisar.
+- **Tanda 3 (tiendas y ley), en la rama:** privacidad y términos en `web/` (es y en),
+  `docs/MODERATION.md` (el proceso de 24 horas con `/admin` y NCMEC), `docs/APP_REVIEW.md`
+  (notas para el revisor, clasificación por edad, App Privacy), Data safety y la ficha al día.
+  Marcado `[REVISAR]` lo que el dueño o un abogado tienen que confirmar. `web/` no está desplegado.
+- **Fase 4 (tu álbum hacia afuera), en la rama:** `platform/share`, `AlbumCard`, `Mark`,
+  "Compartir tu álbum" al cierre y "Guardar o compartir" en tu foto; `expo-sharing` y
+  `react-native-view-shot` 5.1.1. **1536 tests.**
+- **Verificado en el simulador iPhone 17 Pro (build nuevo, con prebuild):** "Save or share" abre
+  la hoja con el JPEG de 514 KB; "Save Image" pide el permiso con "Vesper saves to your photos
+  only what you choose to save.", la foto llega a la fototeca y la app sigue abierta. Con el
+  reto terminado a mano en la base, el cierre muestra "Your album" y "Share your album"; la
+  tarjeta se ve en la hoja y la captura es un PNG de 1080×1920 con contenido (107 KB). El
+  objeto de Acerca de se ve igual con `Mark`.
+- **Verificado en el emulador Pixel 6 (API 34), build nuevo:** la app solo declara `CAMERA` (sin
+  almacenamiento, sin `READ_MEDIA_*`, sin micrófono). "Take a photo" pide la cámara en ese
+  momento, la cámara virtual toma la foto y la vista previa la muestra derecha (960×1280, sin
+  EXIF). El Photo Picker del sistema elige sin permiso, y la foto con GPS queda sin EXIF, sin GPS
+  y sin la marca de la cámara; el reemplazo borra los archivos anteriores. "Save or share" abre la
+  hoja de Android y "Share your album" captura 1080×1920.
+- **Por afinar:** en un reto corto la grilla de la tarjeta queda pequeña en el centro. En la
+  pantalla Invitar, el primer toque en "Ask to join their circle" con el teclado abierto no envió
+  el pedido (probablemente cierra el teclado); por el link sí. Es anterior a esta rama.
+- **Sin verificar:** un teléfono físico; un bucket real; restaurar con fotos; bloquear y ocultar
+  en pantalla (cubiertos por tests).
+- **Producción:** el primer arranque de la tanda 1, antes de apuntar la app al servidor local,
+  dejó una identidad en la base de producción (`01a0de94…`, sin alias). Está pendiente de
+  borrarse con permiso del dueño. Nada de esta rama está desplegado: ni el servidor, ni `web/`.
+- **2026-09-27 · Verificado entre plataformas y en español (Android).** Emulador Pixel 6 (API 34)
+  como Luis, en español (Ajustes › Idioma), y el iPhone 17 Pro de Gus, contra el servidor local:
+  - Luis abre el link de Gus sin perfil ("Primero crea tu perfil."), lo crea, pide entrar; Gus
+    acepta; Gus crea "Move" con Luis y fotos; Luis ve "En este reto se comparten fotos. Las tuyas
+    son opcionales." y se une.
+  - "Antes de tu primera foto" en español; "Términos de uso" abre
+    `terms?lang=es#fotos`. "Tomar una foto" con la cámara del emulador; "La ve Gus, solo en este
+    reto." y "Agregar al reto".
+  - **Cifrado cruzado:** la foto que Luis cifró en Android se abre en el iPhone de Gus ("Luis ·
+    Sunday, September 27", "Caminata al parque", "With the camera · 8:25 AM") y la que Gus cifró
+    en iOS, con un pie con tildes pegado del portapapeles, se abre en Android ("Gus · domingo 27",
+    "Caminé 5 km con música", "De la galería"). "Dar ánimo" dice "Sent".
+  - "Ocultar las fotos de Gus" deja su marca y quita su foto; Ajustes › Círculo lista "Fotos
+    ocultas" con "Mostrar", y la foto vuelve. "Bloquear a Gus" con su confirmación: Gus sale del
+    círculo y del reto en los dos teléfonos, y el código de Gus responde a Luis "Ese código no
+    existe o ya no funciona."
+  - **Dos errores encontrados y corregidos:** bloquear al creador de un reto borraba tu propia
+    foto (ahora el reto se termina hoy y la foto se queda, verificado con Ana bloqueando a Gus:
+    "Stretch · Last day · just you" con su foto), y en Android la miniatura de "Cambiar la foto de
+    hoy" quedaba gris (el fundido pasó a JS; verificado en Android después de guardar).
+  - **No explicado:** una sesión de 25 min ("No socials") arrancó sola en el iPhone de Gus a las
+    08:18:04, mientras solo se tocaba el emulador y un minuto después de que Metro recargara en
+    caliente `src/dev/route.ts`. No la arrancó una rutina (`routineStarts` vacío) ni `DevJump`
+    (habría empezado 3 min antes); su forma es la del botón de Focus. Repetir la recarga con Focus
+    en pantalla no la reprodujo. Ninguna de las otras dos sesiones de Claude del repo tocó ese
+    simulador (una de ellas hizo el commit `ead7dac` a las 08:18:57, en esta rama, sin usar
+    `simctl` ni `idb`). Una rutina queda descartada: `markOpenWindows` nunca borra una marca y
+    `routineStarts` estaba vacío. Queda un toque en el botón o un error de la app que arranca una
+    sesión sola. Si vuelve a pasar, es lo primero que hay que mirar.
+

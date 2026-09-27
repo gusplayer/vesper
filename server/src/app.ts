@@ -1,3 +1,5 @@
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 
@@ -11,6 +13,24 @@ import {
 } from './auth.ts';
 import { derivesFrom, normalizeInviteCode } from './invite.ts';
 import { localeOf, type Mailer } from './mailer.ts';
+import {
+  base64Bytes,
+  isChallengeDay,
+  isRecentDay,
+  keyIdOf,
+  MAX_FULL_BYTES,
+  MAX_THUMB_BYTES,
+  mediaExpiresAt,
+  mediaObjectKey,
+  mediaPrefix,
+  openPhoto,
+  parseMediaUpload,
+  parsePublicKey,
+  remoteMediaFor,
+  reportPrefix,
+  URL_TTL_MS,
+} from './media.ts';
+import { createMemoryObjectStore, LOCAL_MEDIA_PATH, type ObjectStore } from './objectStore.ts';
 import type { Push } from './push.ts';
 import { createRateLimiter } from './rateLimit.ts';
 import {
@@ -26,7 +46,7 @@ import {
   openSecret,
   sealSecret,
 } from './recovery.ts';
-import { ConflictError, isPlatform } from './store.ts';
+import { ConflictError, isMediaVariant, isPlatform, isReportAction, isReportReason } from './store.ts';
 import {
   markSourceOf,
   type Account,
@@ -34,6 +54,8 @@ import {
   type ChallengeMark,
   type CodePurpose,
   type Kudos,
+  type Media,
+  type MediaVariant,
   type Nudge,
   type RecoveryCode,
   type Store,
@@ -57,6 +79,10 @@ import {
  *
  * Since ADR-0050 it may also keep a recovery email, and with it a copy of the account's
  * secret sealed under a key that is not in the database (`/recovery/*`, recovery.ts).
+ *
+ * Since ADR-0051 it carries the photos of a challenge, end to end encrypted: rows here,
+ * bytes in a bucket (`/media*`), both unreadable to the server. It opens one photo only
+ * when a participant reports it and hands over that photo's key (`/report`, `/admin/*`).
  */
 
 export type Deps = {
@@ -76,6 +102,24 @@ export type Deps = {
    * needs this alone, not the mailer.
    */
   recoveryKey: Uint8Array | null;
+  /**
+   * The bucket the photos' bytes live in (ADR-0051 §17). The memory one when absent,
+   * which serves its own five-minute URLs at `GET /media-local/:token`.
+   */
+  objects?: ObjectStore;
+  /**
+   * False when the photos have nowhere durable to live: a real database and no bucket
+   * (index.ts). Then `POST /media`, the uploads and the download URLs answer
+   * `503 photos not configured` instead of keeping bytes in memory that the next restart
+   * would lose under rows that still say `ready`. The phone keeps the photo queued and
+   * sends it once the bucket exists. True when absent.
+   */
+  photosEnabled?: boolean;
+  /**
+   * `ADMIN_TOKEN`: what the moderation routes (`/admin/*`) take as `Bearer`. Null, absent
+   * or shorter than 32 characters and those routes answer 404, as if they did not exist.
+   */
+  adminToken?: string | null;
 };
 
 type Authed = {
@@ -168,6 +212,22 @@ const LIMITS = {
    * fill someone's inbox, and it caps guessing at ten codes a day for one email.
    */
   mailPerEmail: { limit: 10, windowMs: DAY },
+  /**
+   * Photos (ADR-0051). One per challenge and day, replaceable: five challenges and a few
+   * second thoughts are well under sixty. Each has two uploads.
+   */
+  mediaPerAccount: { limit: 60, windowMs: HOUR },
+  mediaPutPerAccount: { limit: 120, windowMs: HOUR },
+  /**
+   * Download URLs, one per object. The album of a finished challenge of twelve people
+   * over three weeks is some 250 thumbnails, opened once and cached on the phone.
+   */
+  mediaUrlPerAccount: { limit: 1200, windowMs: HOUR },
+  mediaDeletePerAccount: { limit: 60, windowMs: HOUR },
+  /** Reports are expected to be zero (ADR-0051); twenty an hour is not a person. */
+  reportPerAccount: { limit: 20, windowMs: HOUR },
+  /** Wrong admin tokens from one address. The token is long; this keeps it that way. */
+  adminFailPerIp: { limit: 20, windowMs: HOUR },
 };
 
 /** Lengths. Nothing a caller writes reaches the database without one. */
@@ -188,6 +248,14 @@ const MAX_BACKUP_BYTES = 5 * 1024 * 1024;
 const SEEN_EVERY_MS = HOUR;
 /** How long an expired code still answers 410 before it is swept away. */
 const EXPIRED_CODE_KEPT_MS = DAY;
+/** How long a moderator's preserved report is kept: a year, what the REPORT Act asks. */
+export const PRESERVE_MS = 365 * DAY;
+/** A report's note, the reporter's words. */
+const MAX_REPORT_NOTE = 200;
+/** An admin token shorter than this is a mistake, and is treated as none. */
+const MIN_ADMIN_TOKEN = 32;
+/** Reports one listing hands back; open ones come first. */
+const ADMIN_LIST_LIMIT = 200;
 
 /** The routes nobody signs in to call. Everything else needs `Authorization`. */
 const PUBLIC = new Set(['POST /account', 'POST /recovery/start', 'POST /recovery/finish']);
@@ -286,8 +354,18 @@ function positiveIntHeader(value: string | undefined): number | null {
   return value !== undefined && POSITIVE_INT.test(value.trim()) ? Number(value.trim()) : null;
 }
 
+/** An error's message for a log line, never its stack or its payload. */
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : 'unknown';
+}
+
 export function createApp(deps: Deps) {
   const { store, push, now } = deps;
+  const objects = deps.objects ?? createMemoryObjectStore(now);
+  const photosEnabled = deps.photosEnabled !== false;
+  const photosOff = (c: Context) => c.json({ error: 'photos not configured' }, 503);
+  const adminToken =
+    typeof deps.adminToken === 'string' && deps.adminToken.length >= MIN_ADMIN_TOKEN ? deps.adminToken : null;
   const app = new Hono<{ Variables: Authed; Bindings: Bindings }>();
   const limiter = createRateLimiter(now);
 
@@ -319,6 +397,82 @@ export function createApp(deps: Deps) {
   const handleRequired = (c: Context<{ Variables: Authed; Bindings: Bindings }>) =>
     c.json({ error: 'handle required' }, 409);
 
+  /**
+   * Deletes the two objects of each photo. A failure is logged and not raised: the row is
+   * what the phones see, and the weekly reconciliation deletes any object left without a
+   * live row.
+   */
+  const dropObjects = async (rows: readonly Media[]): Promise<void> => {
+    if (rows.length === 0) {
+      return;
+    }
+    const keys = rows.flatMap((row) => [mediaObjectKey(row, 'thumb'), mediaObjectKey(row, 'full')]);
+    try {
+      await objects.delete(keys);
+    } catch (error) {
+      console.warn(`photo objects not deleted, the reconciliation will: ${messageOf(error)}`);
+    }
+  };
+
+  /** Tombstones the live photos among `ids` and deletes their objects. How many went. */
+  const tombstone = async (ids: readonly string[], at: number): Promise<number> => {
+    const gone = await store.tombstoneMedia(ids, at);
+    await dropObjects(gone);
+    return gone.length;
+  };
+
+  /** The live photos of these people in one challenge, as tombstones (ADR-0051). */
+  const tombstonePhotosOf = async (
+    challengeId: string,
+    ownerIds: readonly string[],
+    at: number,
+  ): Promise<void> => {
+    const owners = new Set(ownerIds);
+    const rows = await store.liveMedia({ challengeId });
+    await tombstone(
+      rows.filter((row) => owners.has(row.ownerId)).map((row) => row.id),
+      at,
+    );
+  };
+
+  /**
+   * Ending links (ADR-0049), shared by `/link/end` and `/block`: both directions go, and
+   * each person leaves the challenges the other one made, their photos in them with them
+   * (ADR-0051). Challenges a third person made keep both. `record` writes the end for the
+   * other phone to learn; a block between two people with no link writes none, since an
+   * end recorded for a stranger would hand them the caller's id.
+   */
+  const endLinksWith = async (
+    meId: string,
+    others: readonly string[],
+    at: number,
+    record: boolean,
+  ): Promise<void> => {
+    if (record) {
+      for (const otherId of others) {
+        await store.endLink(meId, otherId, at);
+      }
+    }
+    const gone = new Set(others);
+    for (const challenge of await store.challengesOf(meId, 0)) {
+      const leaving =
+        challenge.createdBy === meId
+          ? challenge.participantIds.filter((participant) => gone.has(participant))
+          : gone.has(challenge.createdBy)
+            ? [meId]
+            : [];
+      if (leaving.length === 0) {
+        continue;
+      }
+      const participantIds = challenge.participantIds.filter((participant) => !leaving.includes(participant));
+      if (participantIds.length !== challenge.participantIds.length) {
+        await store.putChallenge({ ...challenge, participantIds, updatedAt: at });
+      }
+      // Whether or not they were still listed: a retry after a lost answer finishes this.
+      await tombstonePhotosOf(challenge.id, leaving, at);
+    }
+  };
+
   /** Everything but `POST /account` needs a device that proves it owns its id. */
   const authenticate = async (header: string | undefined): Promise<Account | null> => {
     const credentials = credentialsFrom(header);
@@ -333,7 +487,14 @@ export function createApp(deps: Deps) {
   };
 
   app.use('*', async (c, next) => {
-    if (PUBLIC.has(`${c.req.method} ${c.req.path}`) || c.req.path === '/health') {
+    // The moderation routes check their own token, and a local media URL is its own
+    // credential, like a presigned one: neither carries an account.
+    if (
+      PUBLIC.has(`${c.req.method} ${c.req.path}`) ||
+      c.req.path === '/health' ||
+      c.req.path.startsWith('/admin/') ||
+      c.req.path.startsWith(LOCAL_MEDIA_PATH)
+    ) {
       return next();
     }
     const account = await authenticate(c.req.header('Authorization'));
@@ -412,6 +573,9 @@ export function createApp(deps: Deps) {
           platform: null,
           appVersion: null,
           lastSeenAt: at,
+          boxKey: null,
+          boxKeyId: null,
+          bannedAt: null,
           createdAt: at,
           updatedAt: at,
         });
@@ -509,6 +673,9 @@ export function createApp(deps: Deps) {
         platform: null,
         appVersion: null,
         lastSeenAt: at,
+        boxKey: null,
+        boxKeyId: null,
+        bannedAt: null,
         createdAt: at,
         updatedAt: at,
       });
@@ -565,10 +732,15 @@ export function createApp(deps: Deps) {
       return over(c, LIMITS.rotatePerAccount);
     }
     const secret = newSecret();
+    // The box key goes too (ADR-0051): it was derived from the old secret, which the lost
+    // phone still holds. Nobody wraps a new photo for it; the new phone publishes its own
+    // through `POST /device` right after, having opened what it could with the old one.
     await store.putAccount({
       ...account,
       secretHash: hashSecret(secret),
       pushToken: null,
+      boxKey: null,
+      boxKeyId: null,
       updatedAt: now(),
     });
     // The recovery copy follows the secret (ADR-0050 §2), or it would hand back one that
@@ -593,9 +765,25 @@ export function createApp(deps: Deps) {
   /**
    * Leaving for good: the account and every row of it, its backup and its recovery email
    * too. No soft delete.
+   *
+   * And its photos (ADR-0051): everything under `m/<id>/` in the bucket, and the photos
+   * other people shared in the challenges it made, whose rows go with those challenges.
+   * Other phones are not told: each one expires its copies on its own. A report on one of
+   * its photos stays, evidence and all, until a moderator resolves it.
    */
   app.delete('/account', async (c) => {
-    await store.deleteAccount(c.get('account').id);
+    const me = c.get('account');
+    try {
+      const made = (await store.challengesOf(me.id, 0)).filter((challenge) => challenge.createdBy === me.id);
+      for (const challenge of made) {
+        await dropObjects(await store.liveMedia({ challengeId: challenge.id }));
+      }
+      await objects.deletePrefix(mediaPrefix(me.id));
+    } catch (error) {
+      // The rows go regardless; the weekly reconciliation finds objects left without one.
+      console.warn(`photos of a deleted account left in the bucket: ${messageOf(error)}`);
+    }
+    await store.deleteAccount(me.id);
     return c.body(null, 204);
   });
 
@@ -962,6 +1150,18 @@ export function createApp(deps: Deps) {
     if (body.appVersion !== undefined && (version === null || !APP_VERSION.test(version))) {
       return c.json({ error: 'appVersion is 1 to 32 printable characters' }, 400);
     }
+    // The public half of the box key (ADR-0051): what the others wrap a photo's key for.
+    // Absent keeps it; null withdraws it; anything else is exactly 32 bytes of base64.
+    let boxKey = account.boxKey;
+    let boxKeyId = account.boxKeyId;
+    if (body.boxKey !== undefined) {
+      const parsed = body.boxKey === null ? null : parsePublicKey(body.boxKey);
+      if (body.boxKey !== null && parsed === null) {
+        return c.json({ error: 'boxKey is 32 bytes of base64' }, 400);
+      }
+      boxKey = parsed;
+      boxKeyId = parsed === null ? null : keyIdOf(parsed);
+    }
     await store.putAccount({
       ...account,
       pushToken: body.pushToken === undefined ? account.pushToken : token,
@@ -969,6 +1169,8 @@ export function createApp(deps: Deps) {
       nudgesOn: typeof body.nudgesOn === 'boolean' ? body.nudgesOn : account.nudgesOn,
       platform: isPlatform(body.platform) ? body.platform : account.platform,
       appVersion: version ?? account.appVersion,
+      boxKey,
+      boxKeyId,
       updatedAt: now(),
     });
     return c.json({ ok: true });
@@ -983,6 +1185,9 @@ export function createApp(deps: Deps) {
     const me = c.get('account');
     if (me.handle === null) {
       return handleRequired(c);
+    }
+    if (me.bannedAt !== null) {
+      return c.json({ error: 'banned' }, 403);
     }
     // Guessing is what this endpoint is exposed to, so it is counted twice: the account
     // is what a guess is made with, the address is what accounts are made from.
@@ -999,7 +1204,9 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'code is six symbols of [A-HJ-NP-Z2-9]' }, 400);
     }
     const owner = await store.getAccountByInviteCode(code);
-    if (owner === null) {
+    // A block works both ways, and it answers like a code nobody has: the blocked person
+    // is not told they were blocked (ADR-0051 §18).
+    if (owner === null || (await store.blockedWith(me.id)).has(owner.id)) {
       return c.json({ error: 'unknown code' }, 404);
     }
     if (owner.id === me.id) {
@@ -1032,6 +1239,9 @@ export function createApp(deps: Deps) {
     const me = c.get('account');
     if (me.handle === null) {
       return handleRequired(c);
+    }
+    if (me.bannedAt !== null) {
+      return c.json({ error: 'banned' }, 403);
     }
     if (!fits(`accept:${me.id}`, LIMITS.acceptPerAccount)) {
       return over(c, LIMITS.acceptPerAccount);
@@ -1136,22 +1346,7 @@ export function createApp(deps: Deps) {
     if (others.length === 0) {
       return c.json({ ok: true, ended: 0 });
     }
-    const at = now();
-    for (const otherId of others) {
-      await store.endLink(me.id, otherId, at);
-    }
-    const gone = new Set(others);
-    for (const challenge of await store.challengesOf(me.id, 0)) {
-      const participantIds =
-        challenge.createdBy === me.id
-          ? challenge.participantIds.filter((participant) => !gone.has(participant))
-          : gone.has(challenge.createdBy)
-            ? challenge.participantIds.filter((participant) => participant !== me.id)
-            : challenge.participantIds;
-      if (participantIds.length !== challenge.participantIds.length) {
-        await store.putChallenge({ ...challenge, participantIds, updatedAt: at });
-      }
-    }
+    await endLinksWith(me.id, others, now(), true);
     return c.json({ ok: true, ended: others.length });
   });
 
@@ -1175,12 +1370,18 @@ export function createApp(deps: Deps) {
       return c.json({ error: 'challengeId must be a UUID v7' }, 400);
     }
     const challenge = await store.getChallenge(challengeId);
+    const at = now();
     if (challenge !== null && challenge.participantIds.includes(me.id)) {
       await store.putChallenge({
         ...challenge,
         participantIds: challenge.participantIds.filter((participant) => participant !== me.id),
-        updatedAt: now(),
+        updatedAt: at,
       });
+    }
+    // Their photos in it go too, as tombstones the others' phones learn at their next
+    // sync (ADR-0051). Outside the `if`, so a retry after a lost answer finishes the job.
+    if (challenge !== null) {
+      await tombstonePhotosOf(challenge.id, [me.id], at);
     }
     return c.json({ ok: true });
   });
@@ -1275,6 +1476,9 @@ export function createApp(deps: Deps) {
         startWeekKey,
         endDayKey: dateKey(row.endDayKey),
         participantIds,
+        // "Fotos del día" (ADR-0051 §6). A phone that does not send it (an older app)
+        // leaves it as it was; a challenge nobody said anything about is on.
+        photos: typeof row.photos === 'boolean' ? row.photos : (existing?.photos ?? true),
         archivedAt: num(row.archivedAt),
         createdAt: existing?.createdAt ?? at,
         updatedAt: at,
@@ -1330,6 +1534,10 @@ export function createApp(deps: Deps) {
       await store.putKudos(kudos);
     }
 
+    // A block works both ways (ADR-0051 §18): two people in a third person's challenge
+    // stay in it, and neither can nudge the other.
+    const blocked = await store.blockedWith(me.id);
+
     for (const row of rowsOf('nudges')) {
       if (!isObject(row)) {
         continue;
@@ -1352,7 +1560,8 @@ export function createApp(deps: Deps) {
       if (
         challenge === null ||
         !challenge.participantIds.includes(me.id) ||
-        !challenge.participantIds.includes(toId)
+        !challenge.participantIds.includes(toId) ||
+        blocked.has(toId)
       ) {
         rejected.push(nudgeId);
         continue;
@@ -1412,10 +1621,19 @@ export function createApp(deps: Deps) {
       }
     }
 
+    /** One read per account in this answer, shared by `members` and `keys`. */
+    const accountCache = new Map<string, Account | null>([[me.id, me]]);
+    const accountOf = async (accountId: string): Promise<Account | null> => {
+      if (!accountCache.has(accountId)) {
+        accountCache.set(accountId, await store.getAccount(accountId));
+      }
+      return accountCache.get(accountId) ?? null;
+    };
+
     const members = [];
     const circleIds: string[] = [];
     for (const [otherId, folded] of byPerson) {
-      const other = await store.getAccount(otherId);
+      const other = await accountOf(otherId);
       // A bare identity is nobody's member (ADR-0048): no link reaches one through the
       // API, and should a row ever say otherwise, a person without a handle is not shown.
       if (other === null || other.handle === null) {
@@ -1446,14 +1664,62 @@ export function createApp(deps: Deps) {
     // each one was synced to its witnesses, so a restore asks for them back — all of
     // them, whatever the cursor says. An ordinary sync never does: the phone that wrote
     // a mark already has it.
+    //
+    // The same for photos (ADR-0051): the caller's own live ones, with their own wrap, so a
+    // restoring phone can open their keys with the old secret before it rotates.
     const own =
       body.restore === true
         ? {
             marks: (await store.marksOf(everyChallenge.map((challenge) => challenge.id), 0)).filter(
               (mark) => mark.accountId === me.id,
             ),
+            media: (await store.liveMedia({ ownerId: me.id }))
+              .filter((row) => row.state === 'ready')
+              .map((row) => remoteMediaFor(row, me.id)),
           }
         : undefined;
+
+    // Photos changed after the cursor (ADR-0051): the caller's own, and the ones wrapped
+    // for them while they are still in that challenge and no block stands between them and
+    // the owner. Tombstones go to everyone who held a wrap, in or out: they only say
+    // "gone", and they are how a phone learns to delete its copy.
+    const joined = new Set(
+      everyChallenge
+        .filter((challenge) => challenge.participantIds.includes(me.id))
+        .map((challenge) => challenge.id),
+    );
+    const media = (await store.mediaChangedFor(me.id, since))
+      .filter(
+        (row) =>
+          row.ownerId === me.id ||
+          row.deletedAt !== null ||
+          (joined.has(row.challengeId) && !blocked.has(row.ownerId)),
+      )
+      .map((row) => remoteMediaFor(row, me.id));
+
+    // Every box key the caller may need to wrap for, always whole: their own, their
+    // circle's, and everyone's in the challenges they are in — a challenge can join two
+    // people who are each in the maker's circle and not in each other's.
+    const keyHolders = new Set<string>([me.id, ...circleIds]);
+    for (const challenge of everyChallenge) {
+      if (challenge.archivedAt === null && challenge.participantIds.includes(me.id)) {
+        for (const participant of challenge.participantIds) {
+          keyHolders.add(participant);
+        }
+      }
+    }
+    const keys = [];
+    for (const holderId of keyHolders) {
+      const holder = await accountOf(holderId);
+      if (
+        holder !== null &&
+        holder.boxKey !== null &&
+        holder.boxKeyId !== null &&
+        (holder.id === me.id || holder.handle !== null)
+      ) {
+        keys.push({ id: holder.id, boxKey: holder.boxKey, keyId: holder.boxKeyId });
+      }
+    }
 
     return c.json({
       now: at,
@@ -1467,8 +1733,578 @@ export function createApp(deps: Deps) {
       // The people whose link with the caller ended after the cursor (ADR-0049). A row
       // that is gone never comes back on its own, so this is how the other phone learns.
       ended: (await store.endedLinksOf(me.id, since)).map((row) => row.otherId),
+      media,
+      keys,
       ...(own === undefined ? {} : { own }),
     });
+  });
+
+  // --- Photos (ADR-0051) ---------------------------------------------------------------
+  //
+  // End to end encrypted: the phone seals each photo with a key of its own and wraps that
+  // key for every participant with a box key. What arrives here is a row of metadata, the
+  // wraps, and two objects of ciphertext; nothing the server holds opens either.
+
+  /** Where this server answers, for the memory store's URLs. Railway's edge says https. */
+  const originOf = (c: Context<{ Variables: Authed; Bindings: Bindings }>): string => {
+    const url = new URL(c.req.url);
+    const proto = c.req.header('x-forwarded-proto')?.split(',')[0]?.trim();
+    return `${proto === 'https' || proto === 'http' ? proto : url.protocol.replace(':', '')}://${url.host}`;
+  };
+
+  /** A box key as `/sync` and a 409 hand it: the account, the key, the key's id. */
+  const keyOf = (account: Account) =>
+    account.boxKey === null || account.boxKeyId === null
+      ? null
+      : { id: account.id, boxKey: account.boxKey, keyId: account.boxKeyId };
+
+  /**
+   * One photo for one marked day (ADR-0051 §3): the metadata and the wraps, before the
+   * bytes. The row is born `pending` and enters nobody's sync until both objects arrive.
+   *
+   * The wraps must cover every participant who has a box key, each with the key they have
+   * now, the owner included; otherwise `409 stale keys` hands back the keys to wrap for,
+   * and the phone wraps again. A participant blocked either way with the owner is not
+   * required, and a wrap for them — or for anyone outside the challenge — is dropped.
+   *
+   * The same id again (an answer the phone lost) rewrites a pending row and leaves a ready
+   * one as it is. Another photo of the same day replaces the one before, whose objects go.
+   */
+  app.post('/media', async (c) => {
+    if (!photosEnabled) {
+      return photosOff(c);
+    }
+    const me = c.get('account');
+    if (me.handle === null) {
+      return handleRequired(c);
+    }
+    if (me.bannedAt !== null) {
+      return c.json({ error: 'banned' }, 403);
+    }
+    if (!fits(`media:${me.id}`, LIMITS.mediaPerAccount)) {
+      return over(c, LIMITS.mediaPerAccount);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const upload = parseMediaUpload(body);
+    if ('error' in upload) {
+      return c.json({ error: upload.error }, 400);
+    }
+    const at = now();
+    const challenge = await store.getChallenge(upload.challengeId);
+    if (challenge === null) {
+      return c.json({ error: 'unknown challenge' }, 404);
+    }
+    if (!challenge.participantIds.includes(me.id)) {
+      return c.json({ error: 'not in that challenge' }, 403);
+    }
+    if (!challenge.photos) {
+      return c.json({ error: 'photos off' }, 409);
+    }
+    if (challenge.archivedAt !== null || !isChallengeDay(challenge, upload.dayKey)) {
+      return c.json({ error: 'not a day of that challenge' }, 409);
+    }
+    if (!isRecentDay(upload.dayKey, at)) {
+      return c.json({ error: 'dayKey is not today or yesterday' }, 400);
+    }
+
+    const existing = await store.getMedia(upload.id);
+    if (existing !== null) {
+      if (
+        existing.ownerId !== me.id ||
+        existing.challengeId !== upload.challengeId ||
+        existing.dayKey !== upload.dayKey
+      ) {
+        return c.json({ error: 'id taken' }, 409);
+      }
+      if (existing.deletedAt !== null) {
+        return c.json({ error: 'media deleted' }, 410);
+      }
+      if (existing.state === 'ready') {
+        return c.json({ id: existing.id, expiresAt: existing.expiresAt });
+      }
+    }
+
+    if (me.boxKey === null || me.boxKeyId === null) {
+      return c.json({ error: 'box key required' }, 409);
+    }
+    const blocked = await store.blockedWith(me.id);
+    const audience: Account[] = [me];
+    for (const participantId of challenge.participantIds) {
+      if (participantId === me.id || blocked.has(participantId)) {
+        continue;
+      }
+      const participant = await store.getAccount(participantId);
+      if (participant !== null && participant.handle !== null && participant.boxKeyId !== null) {
+        audience.push(participant);
+      }
+    }
+    const byRecipient = new Map(upload.wraps.map((wrap) => [wrap.recipientId, wrap]));
+    const stale = audience.some((person) => byRecipient.get(person.id)?.keyId !== person.boxKeyId);
+    if (stale) {
+      return c.json(
+        { error: 'stale keys', keys: audience.map(keyOf).filter((key) => key !== null) },
+        409,
+      );
+    }
+    const covered = new Set(audience.map((person) => person.id));
+
+    const expiresAt = mediaExpiresAt(challenge, at, me.timeZone);
+    const replaced = await store.putMediaReplacing({
+      id: upload.id,
+      challengeId: upload.challengeId,
+      ownerId: me.id,
+      dayKey: upload.dayKey,
+      width: upload.width,
+      height: upload.height,
+      origin: upload.origin,
+      epk: upload.epk,
+      captionBox: upload.captionBox,
+      wraps: upload.wraps.filter((wrap) => covered.has(wrap.recipientId)),
+      thumbSize: upload.thumbSize,
+      fullSize: upload.fullSize,
+      state: 'pending',
+      thumbAt: null,
+      fullAt: null,
+      createdAt: existing?.createdAt ?? at,
+      updatedAt: at,
+      expiresAt,
+      deletedAt: null,
+    });
+    await dropObjects(replaced);
+    return c.json({ id: upload.id, expiresAt }, existing === null ? 201 : 200);
+  });
+
+  /**
+   * The bytes of one object, sealed on the phone: raw `application/octet-stream`, exactly
+   * the size `POST /media` announced, capped like the backup is — by the header first and
+   * then by counting. Only the owner. When both are in, the row turns ready.
+   */
+  const putObject = (variant: MediaVariant) =>
+    async (c: Context<{ Variables: Authed; Bindings: Bindings }>) => {
+      if (!photosEnabled) {
+        return photosOff(c);
+      }
+      const me = c.get('account');
+      if (me.handle === null) {
+        return handleRequired(c);
+      }
+      if (me.bannedAt !== null) {
+        return c.json({ error: 'banned' }, 403);
+      }
+      if (!fits(`media:put:${me.id}`, LIMITS.mediaPutPerAccount)) {
+        return over(c, LIMITS.mediaPutPerAccount);
+      }
+      const mediaId = id(c.req.param('id'));
+      if (mediaId === null) {
+        return c.json({ error: 'id must be a UUID v7' }, 400);
+      }
+      const media = await store.getMedia(mediaId);
+      if (media === null) {
+        return c.json({ error: 'unknown media' }, 404);
+      }
+      if (media.ownerId !== me.id) {
+        return c.json({ error: 'not yours' }, 403);
+      }
+      if (media.deletedAt !== null) {
+        return c.json({ error: 'media deleted' }, 410);
+      }
+      const cap = variant === 'thumb' ? MAX_THUMB_BYTES : MAX_FULL_BYTES;
+      const declared = c.req.header('Content-Length');
+      if (declared !== undefined && Number(declared) > cap) {
+        return c.json({ error: `${variant} too large` }, 413);
+      }
+      const bytes = await readCapped(c.req.raw, cap);
+      if (bytes === 'too large') {
+        return c.json({ error: `${variant} too large` }, 413);
+      }
+      if (bytes.byteLength === 0) {
+        return c.json({ error: `empty ${variant}` }, 400);
+      }
+      const expected = variant === 'thumb' ? media.thumbSize : media.fullSize;
+      if (bytes.byteLength !== expected) {
+        return c.json({ error: 'size mismatch', expected }, 400);
+      }
+      const key = mediaObjectKey(media, variant);
+      await objects.put(key, bytes);
+      const marked = await store.markMediaObject(mediaId, variant, now());
+      if (marked === null) {
+        // Replaced or deleted while the bytes were on their way.
+        await objects.delete([key]).catch(() => undefined);
+        return c.json({ error: 'media deleted' }, 410);
+      }
+      return c.json({ id: mediaId, state: marked.state });
+    };
+
+  app.put('/media/:id/thumb', putObject('thumb'));
+  app.put('/media/:id/full', putObject('full'));
+
+  /**
+   * A URL to download one object, for five minutes (ADR-0051 §17): straight from the
+   * bucket, in JSON and never as a redirect — `fetch` may carry `Authorization` across a
+   * 302, and S3 refuses a request signed twice. Only the owner, or someone the photo was
+   * wrapped for who is still in the challenge and not blocked either way with the owner.
+   */
+  app.get('/media/:id/url', async (c) => {
+    if (!photosEnabled) {
+      return photosOff(c);
+    }
+    const me = c.get('account');
+    if (me.handle === null) {
+      return handleRequired(c);
+    }
+    if (!fits(`media:url:${me.id}`, LIMITS.mediaUrlPerAccount)) {
+      return over(c, LIMITS.mediaUrlPerAccount);
+    }
+    const variant = c.req.query('variant');
+    const mediaId = id(c.req.param('id'));
+    if (mediaId === null || !isMediaVariant(variant)) {
+      return c.json({ error: "id must be a UUID v7 and variant 'thumb' or 'full'" }, 400);
+    }
+    const media = await store.getMedia(mediaId);
+    if (media === null) {
+      return c.json({ error: 'unknown media' }, 404);
+    }
+    const at = now();
+    if (media.deletedAt !== null || media.expiresAt <= at) {
+      return c.json({ error: 'media deleted' }, 410);
+    }
+    if (media.ownerId !== me.id) {
+      const wrapped = media.wraps.some((wrap) => wrap.recipientId === me.id);
+      const challenge = wrapped ? await store.getChallenge(media.challengeId) : null;
+      const inside = challenge !== null && challenge.participantIds.includes(me.id);
+      if (!inside || (await store.blockedWith(me.id)).has(media.ownerId)) {
+        return c.json({ error: 'not allowed' }, 403);
+      }
+    }
+    if (media.state !== 'ready') {
+      return c.json({ error: 'not ready' }, 409);
+    }
+    const signed = await objects.presign(mediaObjectKey(media, variant), URL_TTL_MS, originOf(c));
+    return c.json({ url: signed.url, expiresAt: signed.expiresAt });
+  });
+
+  /**
+   * Deleting one's own photo: a tombstone the others learn at their next sync, and the
+   * objects go now. 200 whether or not there was one, so a retry is the same request.
+   */
+  app.delete('/media/:id', async (c) => {
+    const me = c.get('account');
+    if (!fits(`media:delete:${me.id}`, LIMITS.mediaDeletePerAccount)) {
+      return over(c, LIMITS.mediaDeletePerAccount);
+    }
+    const mediaId = id(c.req.param('id'));
+    if (mediaId === null) {
+      return c.json({ error: 'id must be a UUID v7' }, 400);
+    }
+    const media = await store.getMedia(mediaId);
+    if (media === null || media.deletedAt !== null) {
+      return c.json({ ok: true });
+    }
+    if (media.ownerId !== me.id) {
+      return c.json({ error: 'not yours' }, 403);
+    }
+    await tombstone([mediaId], now());
+    return c.json({ ok: true });
+  });
+
+  /** The memory store's "signed" URLs: the token is the credential, like a presigned one. */
+  app.get(`${LOCAL_MEDIA_PATH}:token`, (c) => {
+    const bytes = objects.readLocal?.(c.req.param('token')) ?? null;
+    if (bytes === null) {
+      return c.json({ error: 'expired or unknown' }, 404);
+    }
+    return c.body(new Uint8Array(bytes), 200, {
+      'Content-Type': 'application/octet-stream',
+      'Cache-Control': 'no-store',
+    });
+  });
+
+  /**
+   * Reporting a photo (ADR-0051 §18). The reporter sends that photo's key — only that
+   * one — and the server checks it opens the thumbnail the owner uploaded: the GCM tag
+   * proves both the key and who the bytes came from. The objects are copied to `r/<id>/`
+   * right away, so the owner deleting the photo, or its expiry, does not take the
+   * evidence before a moderator looks. Nobody is told who reported, and the answer is the
+   * same for a second report of the same photo.
+   */
+  app.post('/report', async (c) => {
+    const me = c.get('account');
+    if (me.handle === null) {
+      return handleRequired(c);
+    }
+    if (!fits(`report:${me.id}`, LIMITS.reportPerAccount)) {
+      return over(c, LIMITS.reportPerAccount);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const mediaId = isObject(body) ? id(body.mediaId) : null;
+    const reason = isObject(body) ? body.reason : undefined;
+    const contentKey = isObject(body) ? base64Bytes(body.contentKey, 32) : null;
+    const rawNote = isObject(body) ? body.note : undefined;
+    const note = typeof rawNote === 'string' ? rawNote.trim() : null;
+    if (
+      mediaId === null ||
+      !isReportReason(reason) ||
+      contentKey === null ||
+      (rawNote !== undefined && rawNote !== null && typeof rawNote !== 'string') ||
+      (note !== null && note.length > MAX_REPORT_NOTE)
+    ) {
+      return c.json(
+        {
+          error:
+            "mediaId is a UUID v7, reason 'unwanted', 'consent', 'minor' or 'other', note at most 200 characters, contentKey 32 bytes of base64",
+        },
+        400,
+      );
+    }
+    const media = await store.getMedia(mediaId);
+    if (media === null || media.ownerId === me.id || !media.wraps.some((wrap) => wrap.recipientId === me.id)) {
+      return c.json({ error: 'unknown media' }, 404);
+    }
+    if (await store.findReport(me.id, mediaId)) {
+      return c.json({ ok: true });
+    }
+    if (media.deletedAt !== null || media.state !== 'ready') {
+      return c.json({ error: 'media deleted' }, 410);
+    }
+    const thumb = await objects.get(mediaObjectKey(media, 'thumb'));
+    if (thumb === null) {
+      return c.json({ error: 'media deleted' }, 410);
+    }
+    if (openPhoto(contentKey, mediaId, 'thumb', thumb) === null) {
+      return c.json({ error: 'wrong key' }, 400);
+    }
+    const reportId = randomUUID();
+    const written = await store.putReport({
+      id: reportId,
+      mediaId,
+      reporterId: me.id,
+      ownerId: media.ownerId,
+      challengeId: media.challengeId,
+      dayKey: media.dayKey,
+      reason,
+      note: note === '' ? null : note,
+      contentKey: contentKey.toString('base64'),
+      createdAt: now(),
+      resolvedAt: null,
+      action: null,
+      preservedUntil: null,
+    });
+    if (written) {
+      // The row first, then the copies: the reconciliation keeps what an open report holds.
+      for (const variant of ['thumb', 'full'] as const) {
+        await objects.copy(mediaObjectKey(media, variant), `${reportPrefix(reportId)}${variant}`);
+      }
+      // A line a moderator can watch for; nothing in it says who reported or what is in it.
+      console.log(`report ${reportId} on a photo (${reason}): /admin/reports`);
+    }
+    return c.json({ ok: true });
+  });
+
+  /**
+   * "Bloquear a Ana" (ADR-0051 §18): the link ends like `/link/end` — both directions,
+   * and each leaves the other's challenges with their photos — and from then on a code
+   * between the two answers like one nobody has. The other person is not told. 200 for
+   * any well-formed body, a stranger's id included, and the same again.
+   */
+  app.post('/block', async (c) => {
+    const me = c.get('account');
+    if (me.handle === null) {
+      return handleRequired(c);
+    }
+    if (!fits(`end:${me.id}`, LIMITS.endPerAccount)) {
+      return over(c, LIMITS.endPerAccount);
+    }
+    const body: unknown = await c.req.json().catch(() => null);
+    const memberId = isObject(body) ? id(body.memberId) : null;
+    if (memberId === null || memberId === me.id) {
+      return c.json({ error: 'memberId must be a UUID v7 other than yours' }, 400);
+    }
+    const other = await store.getAccount(memberId);
+    if (other === null) {
+      return c.json({ ok: true });
+    }
+    const linked =
+      (await store.getLink(me.id, memberId)) !== null || (await store.getLink(memberId, me.id)) !== null;
+    const at = now();
+    await endLinksWith(me.id, [memberId], at, linked);
+    await store.putBlock(me.id, memberId, at);
+    return c.json({ ok: true });
+  });
+
+  // --- Moderation (ADR-0051 §19) --------------------------------------------------------
+  //
+  // Behind `ADMIN_TOKEN`, as `Authorization: Bearer <token>`. Without one configured,
+  // and with a wrong one, every route answers 404 like a route that does not exist. The
+  // process a person follows is in server/README.md, "Moderar un reporte".
+
+  const adminDigest = adminToken === null ? null : createHash('sha256').update(adminToken).digest();
+
+  /** True for the right token. Compared as digests, in constant time. */
+  const isAdmin = (c: Context<{ Variables: Authed; Bindings: Bindings }>): boolean => {
+    if (adminDigest === null) {
+      return false;
+    }
+    const header = c.req.header('Authorization') ?? '';
+    const given = createHash('sha256')
+      .update(header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '')
+      .digest();
+    return timingSafeEqual(given, adminDigest);
+  };
+
+  app.use('/admin/*', async (c, next) => {
+    if (adminDigest === null) {
+      return c.notFound();
+    }
+    const ip = clientIp(c);
+    if (!isAdmin(c)) {
+      if (!fits(`admin:fail:${ip}`, LIMITS.adminFailPerIp)) {
+        return over(c, LIMITS.adminFailPerIp);
+      }
+      return c.notFound();
+    }
+    return next();
+  });
+
+  /** Reports, open ones first. Never who reported. */
+  app.get('/admin/reports', async (c) => {
+    const reports = await store.listReports(ADMIN_LIST_LIMIT);
+    const rows = [];
+    for (const report of reports) {
+      const owner = await store.getAccount(report.ownerId);
+      const media = await store.getMedia(report.mediaId);
+      rows.push({
+        id: report.id,
+        reason: report.reason,
+        note: report.note,
+        createdAt: report.createdAt,
+        mediaId: report.mediaId,
+        challengeId: report.challengeId,
+        dayKey: report.dayKey,
+        ownerId: report.ownerId,
+        ownerHandle: owner?.handle ?? null,
+        ownerBanned: owner !== null && owner.bannedAt !== null,
+        // 'live' still shows in the challenge; 'deleted' is a tombstone; 'gone' has no row.
+        photo: media === null ? 'gone' : media.deletedAt === null ? 'live' : 'deleted',
+        evidence: report.contentKey !== null,
+        resolvedAt: report.resolvedAt,
+        action: report.action,
+        preservedUntil: report.preservedUntil,
+      });
+    }
+    return c.json({ reports: rows });
+  });
+
+  /**
+   * The reported photo, decrypted with the key the reporter handed over, as `image/jpeg`:
+   * the full photo, or `?variant=thumb`. From the evidence copied when the report landed.
+   */
+  app.get('/admin/reports/:id/photo', async (c) => {
+    const variant = c.req.query('variant') ?? 'full';
+    if (!isMediaVariant(variant)) {
+      return c.json({ error: "variant is 'thumb' or 'full'" }, 400);
+    }
+    const report = await store.getReport(c.req.param('id'));
+    if (report === null) {
+      return c.json({ error: 'unknown report' }, 404);
+    }
+    const key = report.contentKey === null ? null : base64Bytes(report.contentKey, 32);
+    if (key === null) {
+      return c.json({ error: 'evidence released' }, 410);
+    }
+    const sealed = await objects.get(`${reportPrefix(report.id)}${variant}`);
+    if (sealed === null) {
+      return c.json({ error: 'evidence missing' }, 410);
+    }
+    const jpeg = openPhoto(key, report.mediaId, variant, sealed);
+    if (jpeg === null) {
+      return c.json({ error: 'evidence does not open' }, 500);
+    }
+    return c.body(new Uint8Array(jpeg), 200, { 'Content-Type': 'image/jpeg', 'Cache-Control': 'no-store' });
+  });
+
+  /**
+   * Acting on a report, within 24 hours (ADR-0051 §19):
+   *
+   * - `dismiss`: nothing happens to the photo.
+   * - `remove`: the photo becomes a tombstone and its objects go; every phone deletes it.
+   * - `ban`: that, and the owner is banned — no more photos — and every live photo of theirs
+   *   goes the same way.
+   *
+   * With `preserve: true` the evidence stays under `r/<id>/` for 365 days, the key and a
+   * note of what it is beside it, for what the law asks to keep of a report to NCMEC.
+   * Without it, the evidence and the key go now. A report is resolved once.
+   */
+  app.post('/admin/reports/:id/resolve', async (c) => {
+    const body: unknown = await c.req.json().catch(() => null);
+    const action = isObject(body) ? body.action : undefined;
+    const preserve = isObject(body) && body.preserve === true;
+    if (!isReportAction(action) || (isObject(body) && body.preserve !== undefined && typeof body.preserve !== 'boolean')) {
+      return c.json({ error: "action is 'dismiss', 'remove' or 'ban'; preserve is a boolean" }, 400);
+    }
+    const report = await store.getReport(c.req.param('id'));
+    if (report === null) {
+      return c.json({ error: 'unknown report' }, 404);
+    }
+    if (report.resolvedAt !== null) {
+      return c.json({ error: 'already resolved', action: report.action }, 409);
+    }
+    const at = now();
+    let removed = 0;
+    if (action === 'remove' || action === 'ban') {
+      removed += await tombstone([report.mediaId], at);
+    }
+    if (action === 'ban') {
+      await store.banAccount(report.ownerId, at);
+      const theirs = await store.liveMedia({ ownerId: report.ownerId });
+      removed += await tombstone(theirs.map((row) => row.id), at);
+      // The terms say whoever breaks the rule leaves: a ban ends every link of the
+      // account, as "Salir del círculo" would, and every phone learns it at its next sync
+      // (ADR-0049). The banned account cannot redeem or accept its way back in.
+      const links = await store.linksOf(report.ownerId);
+      const others = [...new Set(links.map((link) => (link.ownerId === report.ownerId ? link.memberId : link.ownerId)))];
+      if (others.length > 0) {
+        await endLinksWith(report.ownerId, others, at, true);
+      }
+    }
+    const prefix = reportPrefix(report.id);
+    let preservedUntil: number | null = null;
+    let contentKey = report.contentKey;
+    if (preserve && contentKey !== null) {
+      preservedUntil = at + PRESERVE_MS;
+      const owner = await store.getAccount(report.ownerId);
+      const encoder = new TextEncoder();
+      await objects.put(`${prefix}key`, encoder.encode(contentKey));
+      await objects.put(
+        `${prefix}meta.json`,
+        encoder.encode(
+          JSON.stringify(
+            {
+              reportId: report.id,
+              mediaId: report.mediaId,
+              ownerId: report.ownerId,
+              ownerHandle: owner?.handle ?? null,
+              challengeId: report.challengeId,
+              dayKey: report.dayKey,
+              reason: report.reason,
+              note: report.note,
+              reportedAt: new Date(report.createdAt).toISOString(),
+              resolvedAt: new Date(at).toISOString(),
+              action,
+              preservedUntil: new Date(preservedUntil).toISOString(),
+              sealed:
+                'thumb and full: AES-256-GCM, nonce(12) | ciphertext | tag(16), key = base64 in "key", aad = utf8("vesper-photo-v1|<mediaId>|<thumb|full>")',
+            },
+            null,
+            2,
+          ),
+        ),
+      );
+    } else {
+      await objects.deletePrefix(prefix);
+      contentKey = null;
+    }
+    await store.putReport({ ...report, resolvedAt: at, action, preservedUntil, contentKey });
+    return c.json({ id: report.id, action, resolvedAt: at, preservedUntil, removed });
   });
 
   return app;

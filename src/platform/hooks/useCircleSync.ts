@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 import { useAppStore } from '../../data/stores/app';
 import { EVERYONE, useCircleStore } from '../../data/stores/circle';
+import { usePhotoStore } from '../../data/stores/photos';
 import { sharedWeekUsageMs, useUsageStore } from '../../data/stores/usage';
 import { weekDayKeys, weekKeyOf } from '../../domain/circle';
 import { dayKeyOf, weekStart } from '../../domain/day';
@@ -29,6 +30,8 @@ import {
   type RemoteMark,
   type SyncUpload,
 } from '../circleApi';
+import { blockMember } from '../photoApi';
+import { forgetPhotoSync, ingestPhotoDownload, runPhotoQueue } from '../photoSync';
 import { ensureIdentityRegistered, rebirthIdentity } from './useIdentitySync';
 
 /**
@@ -108,6 +111,7 @@ export function forgetCircleSync(): void {
   memory.rejected.clear();
   inFlight.clear();
   claimInFlight = null;
+  forgetPhotoSync();
 }
 
 // --- The account ----------------------------------------------------------------------
@@ -513,6 +517,49 @@ export function endEveryLink(): Promise<EndOutcome> {
   return endCircleLink(EVERYONE);
 }
 
+async function sendBlock(credentials: Credentials, memberId: string): Promise<EndOutcome> {
+  if (!isUuidV7(memberId)) {
+    useCircleStore.getState().settleBlock(memberId, Date.now());
+    return 'local';
+  }
+  const result = await blockMember(credentials, memberId);
+  if (result.ok) {
+    useCircleStore.getState().settleBlock(memberId, Date.now());
+    return 'ended';
+  }
+  switch (result.failure.kind) {
+    case 'notFound':
+      // A server from before blocks: it stays queued, and the fold keeps the person out.
+      return 'unsupported';
+    case 'rejected':
+      useCircleStore.getState().settleBlock(memberId, Date.now());
+      return 'local';
+    default:
+      return 'queued';
+  }
+}
+
+/**
+ * "Bloquear a Ana" (ADR-0051 §18), past the local write (`blockMember` in the store,
+ * which already dropped the person and queued the block). `POST /block` ends the link
+ * like Quitar and keeps that person from asking to come back; they are not told. Never
+ * throws; without a connection it stays queued and goes with the next sync.
+ */
+export async function blockCircleMember(memberId: string): Promise<EndOutcome> {
+  const store = useCircleStore.getState();
+  if (store.account === null || store.profile === null) {
+    return 'local';
+  }
+  if (!store.pendingBlocks.includes(memberId)) {
+    return 'ended';
+  }
+  const credentials = await loadCredentials(store.profile.id);
+  if (credentials === null) {
+    return 'queued';
+  }
+  return sendBlock(credentials, memberId);
+}
+
 /** Salir del reto, past the local write (`leaveChallenge` in the store). Never throws. */
 export async function leaveCircleChallenge(challengeId: string): Promise<EndOutcome> {
   const store = useCircleStore.getState();
@@ -766,6 +813,9 @@ async function runSync(accountId: string, restore = false): Promise<RemoteMark[]
   for (const challengeId of [...useCircleStore.getState().pendingLeaves]) {
     await sendLeave(credentials, challengeId);
   }
+  for (const memberId of [...useCircleStore.getState().pendingBlocks]) {
+    await sendBlock(credentials, memberId);
+  }
 
   const at = Date.now();
   const upload: SyncUpload = restore
@@ -792,7 +842,7 @@ async function runSync(accountId: string, restore = false): Promise<RemoteMark[]
     challenges: after.challenges,
     nudgeIds: new Set(after.nudges.map((nudge) => nudge.id)),
     endedHere: {
-      people: new Set(after.pendingEnds.filter((target) => target !== EVERYONE)),
+      people: new Set([...after.pendingEnds.filter((target) => target !== EVERYONE), ...after.pendingBlocks]),
       everyone: after.pendingEnds.includes(EVERYONE),
       challenges: new Set(after.pendingLeaves),
     },
@@ -810,6 +860,10 @@ async function runSync(accountId: string, restore = false): Promise<RemoteMark[]
   memory.lastSyncAt = Date.now();
   useCircleStore.getState().markSynced(download.now, memory.lastSyncAt);
 
+  // The photos that came with it (ADR-0051), landed with their keys opened, and the
+  // circle's keys kept. The files wait until a screen asks for them.
+  await ingestPhotoDownload(download, credentials, Date.now());
+
   // What `/sync` cannot say, said with the calls that can: every acceptance still
   // queued (plus any the download itself shows as unanswered), the challenges joined
   // offline, and a rename saved without a connection. Whatever fails is still true
@@ -823,6 +877,11 @@ async function runSync(accountId: string, restore = false): Promise<RemoteMark[]
   }
   if (useCircleStore.getState().profileDirty) {
     await sendPendingRename(credentials);
+  }
+  // Last, with the participants and the keys this sync just brought: this phone's key
+  // if the server does not have it, then the photos' deletes, reports and uploads.
+  if (useCircleStore.getState().account?.id === accountId) {
+    await runPhotoQueue(credentials, download.keys);
   }
   return download.ownMarks;
 }
@@ -865,6 +924,25 @@ export function useCircleSync(): void {
       }
     });
 
+    // A photo saved to be shared, one taken back or one reported goes up right away too
+    // (ADR-0051). Only what the user just did: a photo the queue itself sends back to
+    // waiting is not a new one, and asking for a sync then could go round forever.
+    const unsubscribePhotos = usePhotoStore.subscribe((state, previous) => {
+      if (useCircleStore.getState().account === null) {
+        return;
+      }
+      const newlyQueued = state.photos.some(
+        (photo) => photo.remoteState === 'queued' && !previous.photos.some((before) => before.id === photo.id),
+      );
+      if (
+        newlyQueued ||
+        state.pendingDeletes.length > previous.pendingDeletes.length ||
+        state.pendingReports.length > previous.pendingReports.length
+      ) {
+        void syncCircle(true);
+      }
+    });
+
     const timer = setInterval(() => {
       void syncCircle();
     }, SYNC_INTERVAL_MS);
@@ -872,6 +950,7 @@ export function useCircleSync(): void {
     return () => {
       appState.remove();
       unsubscribe();
+      unsubscribePhotos();
       clearInterval(timer);
     };
   }, []);

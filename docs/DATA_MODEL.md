@@ -15,7 +15,7 @@ columnas de fecha en texto.
 Vive en `src/db/migrations/`, como template literals de TypeScript: Metro no
 empaqueta `.sql` sin configurar el resolver, y mantener las dos cosas sería tener dos
 fuentes de verdad. Una migración publicada no se edita: se agrega la siguiente.
-Hoy hay diez: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
+Hoy hay once: `001_init.ts` (fase 1), `002_modes_schedules.ts` (ADR-0017),
 `003_routines.ts` (duración de rutinas, ADR-0019), `004_circle.ts` (ADR-0021),
 `005_open_sessions_breaks.ts` (sesiones sin límite y pausas, ADR-0022),
 `006_schedule_stamps.ts` (`schedules.updated_at`: una ventana ya abierta al guardar o
@@ -23,7 +23,10 @@ encender la rutina no arranca sesión, ADR-0026), `007_streak_nudges.ts` (racha,
 gracia y empujones, ADR-0027), `008_routine_starts.ts` (la marca de rutina pasa de una
 sola a un mapa por rutina, ADR-0036), `009_challenge_mark_source.ts` (de dónde vino cada
 marca de reto, ADR-0042) y `010_member_weeks_not_shared.ts` (una métrica que alguien no
-comparte es NULL, nunca cero, ADR-0033). El índice está en `src/db/migrations/index.ts`;
+comparte es NULL, nunca cero, ADR-0033) y `011_challenge_photos.ts` (la foto de un día
+marcado de un reto y el interruptor "Fotos del día", ADR-0051) y `012_shared_photos.ts`
+(lo que una foto necesita al salir cifrada: su llave, su estado de subida, cuándo la olvida
+el servidor y el pie sellado, ADR-0051 tanda 2). El índice está en `src/db/migrations/index.ts`;
 se aplican en orden y solo se agrega al final.
 
 Al abrir la base, `src/db/client.ts` fija dos pragmas antes de migrar:
@@ -194,7 +197,11 @@ ALTER TABLE sessions ADD COLUMN next_break_at_ms INTEGER NOT NULL DEFAULT 150000
   círculo de ejemplo; lo que el usuario creó se queda, y el modo activo pasa al primero
   que quede. "Borrar todo y reiniciar" (`resetDatabase`) vacía todas las tablas —el
   esquema queda—, siembra solo las actividades, escribe `demo_seeded_at` para que nada
-  de ejemplo vuelva, y los stores se rehidratan: termina vacía.
+  de ejemplo vuelva, y los stores se rehidratan: termina vacía. Las fotos de los retos
+  (ADR-0051) son la única cosa que no vive entera en la base: sus filas se van con las
+  demás tablas y sus archivos los borra después el store de fotos
+  (`usePhotoStore.clear`). Quitar los datos de ejemplo borra también las fotos del reto
+  de ejemplo.
 
 ### Círculo (ADR-0021)
 
@@ -299,6 +306,13 @@ ALTER TABLE member_weeks ADD COLUMN habits_done_shared INTEGER;
 ALTER TABLE member_weeks ADD COLUMN habits_target_shared INTEGER;
 UPDATE member_weeks SET focus_ms_shared = focus_ms, habits_done_shared = habits_done, habits_target_shared = habits_target;
 
+-- 011_challenge_photos.ts (ADR-0051)
+
+-- "Fotos del día": 1 o 0, elegido al crear el reto. Los retos que ya existían quedan
+-- encendidos; los dos sugeridos que chocan con una cámara ("Sin teléfono en la mesa",
+-- "Dormir sin pantalla") nacen apagados solo desde aquí (data/challenges.ts).
+ALTER TABLE challenges ADD COLUMN photos INTEGER NOT NULL DEFAULT 1;
+
 -- 009_challenge_mark_source.ts (ADR-0042)
 
 -- Cómo se contó la marca en el teléfono de esa persona: 'health', 'session' o 'manual',
@@ -337,6 +351,79 @@ El perfil propio y qué se comparte no son tablas: son dos claves JSON en `setti
 flujo. Todo lo demás del círculo (cuatro personas, dos semanas, dos kudos, un reto de
 21 días, un empujón de hoy y una invitación pendiente) se siembra con el resto y se
 borra con "Borrar todo y reiniciar".
+
+### Fotos en los retos (ADR-0051)
+
+Una foto opcional pegada a un día **marcado** de un reto, una por persona, reto y día,
+reemplazable, solo hoy y ayer (`domain/photos.photoSlot`). En la tanda 1 vive solo en este
+teléfono y solo hay fotos propias (`member_id = 'me'`), pero la tabla ya tiene la forma de
+la tanda compartida: `member_id` es `'me'` o un id de `circle_members`, como en el resto del
+círculo, y sin foreign keys por la misma razón.
+
+```sql
+-- 011_challenge_photos.ts
+
+-- UNIQUE(challenge_id, member_id, day_key) es la regla de "una por persona y día" y
+-- también el índice con el que se leen las fotos de un reto (su primera columna).
+-- Reemplazar una foto es una fila nueva con id nuevo (repositories/photos.replacePhoto:
+-- DELETE del día y INSERT en una transacción) y archivos nuevos; los viejos se borran.
+CREATE TABLE challenge_photos (
+  id           TEXT PRIMARY KEY,         -- UUID v7; también el nombre de sus archivos
+  challenge_id TEXT NOT NULL,
+  member_id    TEXT NOT NULL,            -- 'me' o un id de circle_members
+  day_key      TEXT NOT NULL,            -- 'YYYY-MM-DD' local, como habit_marks.day_key
+  origin       TEXT NOT NULL,            -- 'camera' | 'library'
+  caption      TEXT,                     -- una línea, hasta 80 caracteres, o NULL
+  width        INTEGER NOT NULL,         -- de la imagen completa, en píxeles
+  height       INTEGER NOT NULL,
+  full_file    TEXT,                     -- nombre de archivo, nunca ruta; NULL si no está aquí
+  thumb_file   TEXT,
+  taken_at     INTEGER NOT NULL,         -- cuándo se agregó
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  UNIQUE(challenge_id, member_id, day_key)
+);
+```
+
+Por qué tiene esta forma:
+
+- **Una foto sin marca no se dibuja.** La fila no apunta a una marca y nunca la toca: no
+  cambia `habit_marks.source`, no suma y no verifica nada (regla 9, ADR-0005). Si el
+  usuario desmarca el día, la foto queda guardada y oculta (`weekPhotos` y `albumRows`
+  solo dibujan días marcados); si lo vuelve a marcar, reaparece. Nada se borra al
+  desmarcar.
+- **Solo nombres de archivo, nunca rutas.** Los archivos viven en `Paths.document/photos/`
+  (`<id>.jpg` y `<id>.thumb.jpg`, `platform/camera`) y el contenedor de la app en iOS
+  cambia de ruta entre instalaciones y restauraciones: una ruta absoluta guardada dejaría
+  de existir. `photoUri(name)` la arma cada vez. Un nombre nulo es una foto cuyo archivo
+  no está en este teléfono.
+- **El respaldo lleva filas, nunca archivos.** El respaldo tiene tope de 5 MB y se sube
+  entero cada día, así que ninguna foto viaja en él. Desde la tanda 2 (migración 012) sí
+  viajan las filas de las fotos compartidas (`remote_state` `uploaded` o `remote`) que
+  tienen `content_key`, con `full_file` y `thumb_file` en NULL: al restaurar, la llave abre
+  otra vez lo que el servidor todavía guarda y se vuelve a bajar. Las fotos que nunca
+  salieron del teléfono (`local`) no viajan: se pierden con él, y la pantalla lo dice. Al
+  importar, `mergePhotoRows` conserva las filas de este teléfono y nunca deja dos para el
+  mismo id ni para el mismo día.
+- **Compartidas (tanda 2).** `content_key` es la llave AES-256 de la foto: nace aquí
+  cuando la foto propia sale, o se abre de su envoltura cuando llega una ajena. `remote_state`
+  es `local` (nunca salió), `queued` (espera la próxima sincronía), `posted` (el servidor
+  tiene la fila y faltan los archivos), `uploaded` (propia, arriba) o `remote` (de otra
+  persona). `expires_at` es el que dice el servidor. `caption_box` es el pie sellado tal
+  como viaja. Una lápida del servidor borra fila y archivos de una foto ajena; una propia
+  con archivos vuelve a `local` y se queda hasta archivar el reto.
+- **Quién borra.** El store (`src/data/stores/photos.ts`) borra primero la fila y después
+  los archivos, así una fila nunca nombra un archivo ya borrado. Archivar un reto borra
+  sus fotos, también cuando se archivan todos al salir del círculo; sacar a alguien del
+  círculo borra las suyas; "Borrar todo y reiniciar" borra la tabla y la carpeta entera.
+  Quitar los datos de ejemplo borra las del reto de ejemplo. Al arrancar y después de
+  restaurar, las fotos de un reto que ya no está abierto se barren (`removeOrphans`). El borrador (`usePhotoDraftStore`) no
+  se guarda: si se cancela, sus dos archivos se borran.
+
+`photoExpiresAt` (14 días después del último día del reto, o 28 días por foto en un reto
+sin fin, siempre en una medianoche local) es el cálculo local; el servidor calcula el suyo
+en la zona horaria que el teléfono mandó por `/device`, y el teléfono guarda ese. En el
+teléfono tus fotos quedan hasta que archivas el reto; las ajenas se borran al vencer.
 
 ### Racha (ADR-0027)
 
@@ -445,6 +532,13 @@ CREATE INDEX idx_usage_fired ON usage_events(fired_at);
 | `identity_ping_at` | epoch ms | El último `POST /device` con plataforma, versión y zona horaria; como mucho uno al día. No viaja en el respaldo |
 | `backup` | JSON | El respaldo cifrado (ADR-0048 §7): `{enabled, lastAt, lastError, fingerprint, remoteAt}`. Ausente se lee como encendido y sin respaldo aún (encendido por defecto). `fingerprint` es la huella de lo último que se subió, para no subir lo mismo dos veces; `remoteAt` es la fecha de la copia del servidor que este teléfono escribió o vio, para que una subida automática nunca pise una más nueva de otro teléfono. No viaja en el respaldo |
 | `modes_repick` | JSON | Los ids de los modos cuya selección de apps quedó en otro teléfono (ADR-0048 §9): un restaurar vació su token de Screen Time y su tarjeta dice "Vuelve a elegir las apps". Sale del ajuste al guardar una selección o borrar el modo. **Sí viaja** en el respaldo: restaurar un teléfono restaurado todavía sabe qué falta. Se lee como `Mode.needsRepick`, nunca es columna |
+| `photo_terms_accepted_at` | epoch ms | Cuándo el usuario aceptó el aviso de la primera foto compartida y sus términos (ADR-0051). Ausente hasta entonces: el aviso aparece antes de la primera foto que otra persona vería |
+| `photo_hidden_members` | JSON | Ids de las personas cuyas fotos el usuario ocultó ("Ocultar las fotos de Ana"). No borra nada: las pantallas no las dibujan. Se deshace en Ajustes › Círculo › Fotos ocultas |
+| `photo_box_keys` | JSON | Las llaves públicas (X25519, base64) y su `keyId` de la gente del círculo y de los retos, tal como las devuelve `/sync` en `keys`: para quién se envuelve cada foto |
+| `photo_pending_deletes` | JSON | Fotos propias quitadas aquí que el servidor todavía no confirmó (`DELETE /media/:id`); se mandan en la próxima sincronía |
+| `photo_pending_reports` | JSON | Reportes hechos sin red, con la llave de esa foto (lo que deja al servidor comprobarla); se mandan en la próxima sincronía |
+| `photo_reported` | JSON | Ids de fotos que el usuario reportó: quedan ocultas para él aunque el servidor no las haya quitado |
+| `circle_pending_blocks` | JSON | Personas bloqueadas aquí que el servidor todavía no confirmó (`POST /block`), como las colas del ADR-0049 |
 
 Las claves de la fase 1 `last_session_config`, `birth_date`, `life_expectancy_years`,
 `weekly_focus_target_ms` y `onboarding_completed_at` **ya no existen en el código**

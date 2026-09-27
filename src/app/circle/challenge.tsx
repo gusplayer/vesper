@@ -1,20 +1,24 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { BACK_FALLBACK, goBack } from '../../lib/goBack';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 
 import {
+  useAlbum,
   useAppStore,
   useSettings,
   useChallenge,
+  useChallengePhotos,
   useChallengeStandings,
   useChallengeWeeks,
   useCircleMembers,
   useCircleStore,
   useMyChallengeWeeks,
+  useMyPhotoSlot,
   useNudgesGivenToday,
   useNudgesReceivedToday,
+  usePhotoAudience,
 } from '../../data';
 import {
   Button,
@@ -23,23 +27,44 @@ import {
   ListRow,
   NoticeCard,
   PageHeader,
+  PhotoMosaic,
+  PhotoTile,
   Screen,
   Section,
   Stack,
   StatusNote,
   Text,
 } from '../../design/components';
-import { challengeDays, challengeWeeksMet, weekdayIndex } from '../../domain/circle';
+import { challengeDays, challengeWeeksMet, weekDayKeys, weekdayIndex } from '../../domain/circle';
 import { isMarkedByHealth } from '../../domain/habits';
+import { thumbsToFetch, visiblePhotos as drawnPhotos } from '../../domain/photoSharing';
+import { photoExpiresAt, weekPhotos } from '../../domain/photos';
 import { ME } from '../../domain/types';
+import { AlbumShareSheet } from '../../features/circle/AlbumShareSheet';
 import { challengeStatusText, challengeSummaryText } from '../../features/circle/ChallengeCard';
 import { useChallengeLink } from '../../features/circle/useChallengeLink';
 import { ChallengeWeek } from '../../features/circle/ChallengeWeek';
+import {
+  photoDayNumber,
+  photoDayText,
+  photosUntilText,
+  shownWeekKey,
+} from '../../features/circle/challengePhotos';
 import { challengeConsentText, challengeOutlookText } from '../../features/circle/challengeText';
+import { PhotoSourceSheet } from '../../features/circle/PhotoSourceSheet';
+import {
+  isSharedPhoto,
+  photoTermsAccepted,
+  useChallengeThumbs,
+  useHiddenMembers,
+  usePhotoTermsAccepted,
+} from '../../features/circle/photoSharing';
+import { thumbUriOf } from '../../features/circle/photoUri';
 import { StandingsList } from '../../features/circle/StandingsList';
 import { healthMissingReason, useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
 import { useCircleSyncStatus } from '../../features/circle/useCircleSyncStatus';
 import { leaveCircleChallenge } from '../../platform/hooks/useCircleSync';
+import { cardStatus as shareCardStatus } from '../../platform/share';
 import { useLocale, useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 
@@ -60,6 +85,23 @@ const CLOCK_MS = 60_000;
  *   exist, the line says the user marks it.
  * Leaving keeps the habit. A challenge that ran out has no button: it has how it went,
  * the offer to run it again (if you took part), and the way to archive it.
+ *
+ * Photos (ADR-0051), where the challenge has "Fotos del día": your week is drawn large
+ * and a marked day with a photo shows it and opens it. Under the week, a row offers the
+ * photo of today (or of yesterday, if today is not marked and yesterday is) once the
+ * day is marked, and replaces it once there is one; "Marcar hoy" stays the one button.
+ *
+ * Since the second step the photos go, encrypted, to the people who joined: while you
+ * are in it, everyone's week is drawn large too, with their photos, and the page brings
+ * down the thumbnails it is missing when it opens (never before, never in the
+ * background); one still on its way holds its place. Nothing says "new" and nothing
+ * counts them. The first photo that would leave the phone goes through
+ * `circle/photo-terms` once. Someone invited sees the weeks without photos and one line
+ * over "Unirme". A finished challenge adds the album: everyone's, with the date the
+ * photos stay until, when they went out; yours alone otherwise. Your photos stay on this
+ * phone until the challenge is archived, and archiving says it deletes them. When you
+ * have photos in it, "Compartir tu álbum" opens the sheet that makes an image of yours
+ * alone and hands it to the system (ADR-0051 §13); the group's album never leaves.
  */
 export default function ChallengeScreen() {
   const router = useRouter();
@@ -74,6 +116,17 @@ export default function ChallengeScreen() {
   const nudgesGiven = useNudgesGivenToday(now, id);
   const nudgesReceived = useNudgesReceivedToday(now, id);
   const members = useCircleMembers();
+  const photos = useChallengePhotos(id);
+  const photoSlot = useMyPhotoSlot(id, now);
+  const album = useAlbum(id, now);
+  const audience = usePhotoAudience(id);
+  const hidden = useHiddenMembers();
+  const termsAccepted = usePhotoTermsAccepted();
+  const [photoSheet, setPhotoSheet] = useState(false);
+  const [albumSheet, setAlbumSheet] = useState(false);
+  // The terms page was opened from here to add a photo: once it is accepted and the
+  // page is back in view, the sheet opens as if the row had been tapped just now.
+  const awaitingTerms = useRef(false);
   const account = useCircleStore((state) => state.account);
   const linkEndSupport = useCircleStore((state) => state.linkEndSupport);
   const createChallenge = useCircleStore((state) => state.createChallenge);
@@ -92,6 +145,32 @@ export default function ChallengeScreen() {
   const askHealth = useAskHealthToJoin();
   const { tag } = useLocale();
   const sync = useCircleSyncStatus();
+  const p = strings.photos;
+
+  // The photos whose thumbnail is not on this phone yet (drawn, openable, on the server):
+  // the page brings them down when it opens, and again when new ones arrive.
+  const waitingKey =
+    id === undefined
+      ? ''
+      : thumbsToFetch(photos, id, { hidden, now })
+          .map((photo) => photo.id)
+          .join(',');
+  useChallengeThumbs(
+    view !== null && view.challenge.photos && view.joined && view.challenge.habitId !== null ? id : undefined,
+    waitingKey,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!awaitingTerms.current) {
+        return;
+      }
+      awaitingTerms.current = false;
+      if (photoTermsAccepted()) {
+        setPhotoSheet(true);
+      }
+    }, [setPhotoSheet]),
+  );
 
   if (view === null) {
     return (
@@ -129,6 +208,39 @@ export default function ChallengeScreen() {
   const canNudge = linked && active;
   const canJoin = !linked && !ended;
   const duration = t.challenge.duration(challengeDays(challenge));
+  // Photos only where the challenge takes them, and only on marked days (`weekPhotos`).
+  const photosOn = challenge.photos;
+  const weekKeys = weekDayKeys(shownWeekKey(challenge, now));
+  const minePhotos = photosOn && mine !== null ? weekPhotos(photos, ME, weekKeys, mine.days) : undefined;
+  const slot = photosOn && linked ? photoSlot : null;
+  const openPhoto = (photoId: string) => router.push({ pathname: '/circle/photo', params: { id: photoId } });
+  // Everyone's photos, for someone who joined it (a habit of theirs is or was behind it);
+  // never for someone only invited (ADR-0051 §5), and hidden people's never (only for you).
+  const joinedOnce = view.joined && challenge.habitId !== null;
+  const visiblePhotos = drawnPhotos(photos, { hidden, now });
+  const othersPhotos = photosOn && joinedOnce;
+  // A photo that leaves the phone asks for the terms first, once (ADR-0051 §19).
+  const needsTerms = photosOn && audience.length > 0 && !termsAccepted;
+  const addPhoto = () => {
+    if (needsTerms) {
+      awaitingTerms.current = true;
+      router.push('/circle/photo-terms');
+      return;
+    }
+    setPhotoSheet(true);
+  };
+  // The album at the close: everyone's once there is more than yours, yours alone before.
+  const albumRows =
+    photosOn && ended ? album.filter((row) => row.isMe || (othersPhotos && !hidden.has(row.id))) : [];
+  const groupAlbum = albumRows.some((row) => !row.isMe);
+  // "Compartir tu álbum" takes out your photos alone, never the group's (ADR-0051 §13).
+  const myAlbum = albumRows.find((row) => row.isMe) ?? null;
+  const shareCard = myAlbum === null ? null : shareCardStatus();
+  const albumShared = groupAlbum || photos.some((photo) => photo.memberId === ME && isSharedPhoto(photo));
+  // The server keeps them until a fixed date, said as a date; past it, only yours are
+  // left, on this phone, until you archive it.
+  const albumUntil = ended ? photoExpiresAt(challenge, now) : null;
+  const albumLive = albumShared && albumUntil !== null && now < albumUntil;
   // Why the user is in it with nothing to mark: the habit behind it was archived, or
   // someone added them when creating it — say who, and what joining costs.
   const creator = members.find((member) => member.id === challenge.createdBy)?.name ?? null;
@@ -178,7 +290,10 @@ export default function ChallengeScreen() {
   };
 
   const confirmArchive = () => {
-    Alert.alert(t.challenge.ended.archiveQuestion, t.challenge.ended.archiveMessage, [
+    // Archiving deletes the photos (ADR-0051 §13): the question says so when there are any.
+    const hasPhotos = photos.some((photo) => photo.memberId === ME);
+    const message = hasPhotos ? p.album.archiveMessage : t.challenge.ended.archiveMessage;
+    Alert.alert(t.challenge.ended.archiveQuestion, message, [
       { text: strings.common.cancel, style: 'cancel' },
       {
         text: t.challenge.ended.archiveConfirm,
@@ -201,6 +316,7 @@ export default function ChallengeScreen() {
         days: challengeDays(challenge),
         participantIds: challenge.participantIds.filter((participantId) => participantId !== ME),
         join: true,
+        photos: challenge.photos,
       },
       Date.now(),
     );
@@ -228,6 +344,8 @@ export default function ChallengeScreen() {
   ) : canJoin ? (
     <>
       {consent === null ? null : <StatusNote text={consent} align="center" />}
+      {/* Said before joining, never as bait: no "join to see" (ADR-0051 §5). */}
+      {photosOn ? <StatusNote text={p.invited} align="center" /> : null}
       <Button label={t.challenge.join} onPress={() => void join()} busy={joining} />
     </>
   ) : null;
@@ -275,7 +393,9 @@ export default function ChallengeScreen() {
             days={mine.days}
             todayIndex={active ? todayIndex : null}
             labels={strings.format.weekdayInitials}
-            size="md"
+            size="lg"
+            photos={minePhotos}
+            onOpenPhoto={openPhoto}
           />
           <Stack align="center" gap="xs">
             <Text variant="heading">{t.challenge.progress(mine.done, mine.target)}</Text>
@@ -290,6 +410,32 @@ export default function ChallengeScreen() {
         </Stack>
       )}
 
+      {slot === null ? null : (
+        <ListGroup>
+          <ListRow
+            leading={
+              slot.existing === null ? (
+                <PhotoTile variant="add" />
+              ) : (
+                <PhotoTile uri={thumbUriOf(slot.existing)} muted />
+              )
+            }
+            label={
+              slot.existing === null
+                ? slot.which === 'today'
+                  ? p.row.addToday
+                  : p.row.addYesterday
+                : slot.which === 'today'
+                  ? p.row.changeToday
+                  : p.row.changeYesterday
+            }
+            description={slot.existing === null ? p.row.optional : undefined}
+            kind="action"
+            onPress={addPhoto}
+          />
+        </ListGroup>
+      )}
+
       {ended ? (
         <Section title={t.challenge.ended.title}>
           {weeks.length === 0 ? null : (
@@ -301,6 +447,45 @@ export default function ChallengeScreen() {
                 <ChallengeWeek days={weeks.map((week) => week.met)} todayIndex={null} />
               </Stack>
             </Card>
+          )}
+          {albumRows.length === 0 ? null : (
+            <Section title={groupAlbum ? p.album.groupTitle : p.album.title}>
+              <PhotoMosaic
+                rows={albumRows.map((row) => ({
+                  key: row.id,
+                  // Whose row, once there is more than one person's; no counts, no order but theirs.
+                  label: groupAlbum ? (row.isMe ? t.member.me : row.name) : undefined,
+                  photos: row.photos.map((photo) => ({
+                    key: photo.id,
+                    uri: thumbUriOf(photo),
+                    label: photoDayNumber(photo.dayKey),
+                    accessibilityLabel: row.isMe
+                      ? p.viewer.mineA11y(photoDayText(photo.dayKey, tag, p))
+                      : p.viewer.theirsA11y(row.name, photoDayText(photo.dayKey, tag, p)),
+                    onPress: () => openPhoto(photo.id),
+                  })),
+                }))}
+              />
+              <StatusNote
+                text={albumLive && albumUntil !== null ? p.album.until(photosUntilText(albumUntil, tag)) : p.album.note}
+              />
+              {shareCard === null ? null : (
+                <>
+                  <ListGroup>
+                    <ListRow
+                      icon="share"
+                      label={p.share.albumRow}
+                      kind="action"
+                      disabled={!shareCard.available}
+                      onPress={() => setAlbumSheet(true)}
+                    />
+                  </ListGroup>
+                  {shareCard.available || shareCard.reason === null ? null : (
+                    <StatusNote text={shareCard.reason} icon="info" />
+                  )}
+                </>
+              )}
+            </Section>
           )}
           <ListGroup>
             {/* Running it again is for someone who took part; archiving is for everyone. */}
@@ -340,6 +525,14 @@ export default function ChallengeScreen() {
                 ? { todayIndex, givenTo: nudgesGiven, onNudge: (toId) => nudge(toId, challenge.id, Date.now()) }
                 : undefined
             }
+            photos={
+              othersPhotos
+                ? {
+                    of: (standing) => weekPhotos(visiblePhotos, standing.id, weekKeys, standing.days),
+                    onOpen: openPhoto,
+                  }
+                : undefined
+            }
           />
         )}
         {canNudge && others.length > 0 ? <StatusNote text={t.challenge.nudgeHint} /> : null}
@@ -349,6 +542,25 @@ export default function ChallengeScreen() {
       </Section>
 
       <StatusNote text={sync.reason} align="center" />
+
+      {myAlbum === null ? null : (
+        <AlbumShareSheet
+          visible={albumSheet}
+          onClose={() => setAlbumSheet(false)}
+          challenge={challenge}
+          photos={myAlbum.photos}
+        />
+      )}
+
+      {slot === null ? null : (
+        <PhotoSourceSheet
+          visible={photoSheet}
+          onClose={() => setPhotoSheet(false)}
+          challengeId={challenge.id}
+          dayKey={slot.dayKey}
+          which={slot.which}
+        />
+      )}
     </Screen>
   );
 }

@@ -1,4 +1,4 @@
-# Declaraciones de Google Play — bloqueo y Health Connect en Android
+# Declaraciones de Google Play — bloqueo, Health Connect y fotos en Android
 
 Fase 3 de ADR-0019. Todo lo que hay que pegar en Play Console para publicar el módulo
 `vesper-blocking`. Los textos que Play exige en inglés van en inglés, con su traducción
@@ -19,12 +19,21 @@ Lo que el build declara hoy y viene de Vesper:
 | `<queries>` MAIN/LAUNCHER y MAIN/HOME | `modules/vesper-blocking` | Listar apps con lanzador; reconocer el launcher |
 | `health.READ_STEPS`, `health.READ_EXERCISE`, `health.READ_SLEEP` | `modules/vesper-health` | Leer de Health Connect la semana en curso para marcar solos los hábitos verificados (ADR-0043). Solo lectura; nada se escribe |
 | `<queries>` `com.google.android.apps.healthdata`, `PermissionsRationaleActivity` y su alias `VIEW_PERMISSION_USAGE` | `modules/vesper-health` | Saber si Health Connect está instalado; la pantalla que Health Connect abre para explicar por qué pedimos cada permiso |
-| `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `VIBRATE` | plantilla de Expo / RN | La app de producción no hace ninguna llamada de red |
+| `CAMERA` | `expo-image-picker` | Tomar la foto de un día de un reto, solo al tocar «Tomar una foto» (ADR-0051). Si se niega, queda el selector de fotos |
+| `<queries>` `IMAGE_CAPTURE` y `ACTION_VIDEO_CAPTURE`, el servicio `ModuleDependencies` (`photopicker_activity`) | `expo-image-picker` | Encontrar la app de cámara del sistema; pedirle a Google Play services el selector de fotos en Android 12 o anterior. Vesper nunca graba video |
+| `INTERNET`, `ACCESS_NETWORK_STATE`, `WAKE_LOCK`, `VIBRATE` | plantilla de Expo / RN | La identidad, el respaldo cifrado, el círculo y las fotos de un reto hablan por HTTPS con el servidor (ADR-0044, 0048, 0051) |
 
 **No declarado, y no se declarará:** `QUERY_ALL_PACKAGES`, ningún `AccessibilityService`,
 ningún `NotificationListenerService` (fuera de la fase 1), `READ_PHONE_STATE`, ubicación,
-cámara, micrófono, contactos. `USE_EXACT_ALARM` tampoco: Vesper pide `SCHEDULE_EXACT_ALARM`,
+micrófono (`RECORD_AUDIO` está en `android.blockedPermissions`), contactos,
+`READ_MEDIA_IMAGES` ni `READ_MEDIA_VIDEO` (las fotos entran por el selector del sistema), y
+`READ_EXTERNAL_STORAGE` y `WRITE_EXTERNAL_STORAGE`, que `expo-image-picker` declara hasta la
+API 32 y `app.json` bloquea. `USE_EXACT_ALARM` tampoco: Vesper pide `SCHEDULE_EXACT_ALARM`,
 el que concede el usuario, y funciona con alarmas inexactas si lo niega.
+
+La tabla sale del código y de los manifiestos de los módulos; **el último manifiesto
+fusionado que hay en `android/app/build/` es del 2026-09-24, anterior a las fotos**, así que
+`CAMERA` y lo del selector hay que confirmarlos en el del próximo build.
 
 Políticas que aplican (URLs oficiales; `docs/PLATFORM_ANDROID.md` no cita ninguna, así
 que estas hay que verificarlas al pegar):
@@ -40,6 +49,11 @@ que estas hay que verificarlas al pegar):
 - Abuso de dispositivos y redes: https://support.google.com/googleplay/android-developer/answer/9888379
 - Familias: https://support.google.com/googleplay/android-developer/answer/9893335
 - Apps de salud: https://support.google.com/googleplay/android-developer/answer/12261419
+- Contenido generado por usuarios: https://support.google.com/googleplay/android-developer/answer/9876937
+- Permisos y APIs que acceden a información sensible (incluye fotos y videos): https://support.google.com/googleplay/android-developer/answer/13986130
+  y el detalle de fotos y videos: https://support.google.com/googleplay/android-developer/answer/14115180
+- Estándares de seguridad infantil: https://support.google.com/googleplay/android-developer/answer/14747720
+- Clasificación del contenido, interacción en línea: https://support.google.com/googleplay/android-developer/answer/7021383
 
 ---
 
@@ -168,6 +182,30 @@ reinicio, y `modules/vesper-blocking` (`BootReceiver.kt`), para rearmar las vent
 rutina y volver a levantar el escudo si una ventana está abierta al reiniciar. No hay
 formulario.
 
+### `CAMERA` (ADR-0051)
+
+- **Formulario en Play:** ninguno. Permiso en tiempo de ejecución.
+- **Cómo se pide:** solo al tocar «Tomar una foto» en la hoja que abre «Agregar la foto de
+  hoy» de un reto con fotos (`platform/camera.ts`, `requestCameraPermissionsAsync`). Nunca en
+  el arranque ni en el onboarding. La cámara que se abre es la del sistema
+  (`IMAGE_CAPTURE`); Vesper no tiene visor propio ni graba video, y el micrófono está
+  bloqueado.
+- **Sin él:** `cameraStatus()` dice por qué y queda «Elegir de tu galería». En Android 8 y 9
+  no hay cámara: por debajo de Android 10 el intent exige además `WRITE_EXTERNAL_STORAGE`, que
+  está bloqueado a propósito, y la razón lo dice.
+
+### Fotos y videos (`READ_MEDIA_IMAGES`, `READ_MEDIA_VIDEO`)
+
+**No se declaran.** La política de Play pide que una app con una necesidad de fotos
+esporádica use el selector del sistema: *"Apps that target Android 13 or later (API level 33+)
+may only request the `READ_MEDIA_IMAGES` and `READ_MEDIA_VIDEO` permissions if system pickers
+(like the Android Photo Picker), are not sufficient for your app to provide core
+functionality"* ([detalle](https://support.google.com/googleplay/android-developer/answer/14115180?hl=en)).
+Vesper abre el Photo Picker (`legacy: false`, una foto a la vez), que no pide permiso y le
+entrega solo la foto elegida; en Android 12 o anterior lo trae Google Play services. Como no
+hay `READ_MEDIA_*` en el manifiesto, Play no muestra la declaración de fotos y videos. Si un
+día aparece, es un error del build.
+
 ### Lo que NO se usa
 
 - **`QUERY_ALL_PACKAGES`:** no. El selector lista solo las apps que responden al intent
@@ -182,15 +220,33 @@ formulario.
 
 ## c) Seguridad de datos (Data safety)
 
-Play define "recopilar" como transmitir datos fuera del dispositivo. Desde ADR-0048 y
-ADR-0050 salen cuatro cosas, y todas se declaran. **Se actualizó el 2026-09-25**: antes
-decía que nada salía, y dejó de ser cierto.
+Play define "recopilar" como *"Transmitting data from your app off a user's device"*. Desde
+ADR-0048, ADR-0050 y ADR-0051 salen cinco cosas, y todas se declaran. **Se actualizó el
+2026-09-25**, cuando dejó de ser cierto que nada salía, y **el 2026-09-26** con las fotos de
+un reto.
+
+**Las fotos y la exención del cifrado de extremo a extremo.** La
+[ayuda de Data safety](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en)
+dice que los datos *"unreadable by you or anyone other than the sender and recipient as a
+result of end-to-end encryption"* no hace falta declararlos. Una foto que nadie reportó está
+en ese caso: el servidor guarda bytes que no puede abrir. Pero hay tres cosas que Vesper **sí
+puede leer**, y esas se declaran:
+
+- **Los datos en claro de cada foto**: quién la subió, a qué reto y qué día, para quiénes va
+  cerrada, medidas, peso, si vino de la cámara o de la galería, y sus fechas.
+- **Una foto reportada**: el reporte trae su llave, el servidor la abre para moderarla y, si
+  es abuso de un menor, la conserva hasta 365 días.
+- **Las fotos de quien dio un correo de recuperación**: el servidor guarda lo que haría falta
+  para abrirlas (ADR-0050), el mismo motivo por el que el respaldo ya se declara.
+
+Por eso **Photos se declara**, con la nota de que viajan cifradas de extremo a extremo y que
+lo declarado es lo reportado y lo que la custodia del correo podría abrir. **[REVISAR]**
 
 | Pregunta del formulario | Respuesta | Por qué |
 |---|---|---|
-| Does your app collect or share any of the required user data types? | **Sí** | Identidad anónima, respaldo cifrado, círculo (opcional) y correo de recuperación (opcional) |
-| Is all of the user data collected by your app encrypted in transit? | **Sí** | Solo HTTPS al servidor del círculo |
-| Do you provide a way for users to request that their data is deleted? | **Sí** | En la app: Ajustes › Respaldo (apagarlo borra la copia), Ajustes › Círculo › "Borrar la cuenta", "Borrar todo y reiniciar". Fuera de la app: ver pendientes |
+| Does your app collect or share any of the required user data types? | **Sí** | Identidad anónima, respaldo cifrado, círculo (opcional), correo de recuperación (opcional) y fotos de un reto (opcionales) |
+| Is all of the user data collected by your app encrypted in transit? | **Sí** | Solo HTTPS al servidor; las fotos además van cifradas de extremo a extremo |
+| Do you provide a way for users to request that their data is deleted? | **Sí** | En la app: Ajustes › Respaldo (apagarlo borra la copia), Ajustes › Círculo › "Borrar la cuenta", "Borrar todo y reiniciar", y «Quitar la foto» en el visor. Fuera de la app: ver pendientes |
 | Independent security review | No | — |
 
 Tipos de datos, uno por fila del formulario:
@@ -203,12 +259,24 @@ Tipos de datos, uno por fila del formulario:
 | Personal info › Name | Nombre y alias del círculo | Opcional (solo con círculo) | App functionality |
 | Personal info › Email address | Correo de recuperación, verificado con un código | Opcional | Account management |
 | Device or other IDs | Token de push para los avisos del círculo | Opcional (solo con círculo y permiso) | App functionality |
+| Photos and videos › Photos | La foto de un día de un reto, **cifrada de extremo a extremo**. Se declara por lo que Vesper sí puede leer: una foto reportada (y, si es abuso de un menor, conservada hasta 365 días) y, en principio, las de quien dio un correo de recuperación | Opcional (solo si el reto lleva fotos y la persona agrega una) | App functionality; Fraud prevention, security, and compliance (moderar lo reportado y cumplir la ley) |
+| App activity › Other user-generated content | El pie de la foto, cifrado igual que la foto y declarado por la misma razón | Opcional | App functionality; Fraud prevention, security, and compliance |
+| App activity › Other actions | Lo que el círculo sube en claro: la semana por métrica, las marcas de un reto y cómo se contó cada día, ánimos y empujones, y los datos de cada foto (quién la subió, reto, día, destinatarios, medidas, peso, cámara o galería, fechas). También los reportes y los bloqueos | Opcional (solo con círculo) | App functionality; Fraud prevention, security, and compliance (reportes y bloqueos) |
+
+Compartir: **ninguno de estos tipos se comparte**. Play no cuenta como compartir lo que se
+transfiere *"for specific legal purposes, such as in response to a legal obligation or
+government requests"*: es el caso de un reporte al CyberTipline de NCMEC o a una autoridad
+de Colombia (`docs/MODERATION.md`). Railway, Neon, Resend y Expo procesan datos por encargo
+de Vesper, que Play tampoco cuenta como compartir.
 
 Lo que la app toca **y no sale**, para que el revisor no encuentre sorpresas:
 
 | Dato | Qué pasa con él |
 |---|---|
 | Lista de apps instaladas (con lanzador) | Se lee para el selector; los paquetes elegidos se guardan en el modo, y salen solo dentro del respaldo cifrado |
+| Metadatos de una foto (Exif, XMP, IPTC: ubicación, fecha, cámara) | Se borran en el teléfono antes de guardar la foto (`lib/jpegMetadata.ts`, con test). Nunca se leen |
+| Una foto cuando nadie más en el reto puede recibirla, o sin perfil del círculo | Se queda en el teléfono. No entra en el respaldo |
+| Las fotos de la galería | El selector del sistema le da a Vesper solo la foto elegida |
 | App en primer plano (eventos de uso) | Durante una sesión se lee cada segundo, se compara y se descarta; Actividad pregunta al sistema y suelta la respuesta. Sin historial propio (ADR-0029) |
 | Lecturas de Health Connect (pasos, entrenamientos, sueño) | Se leen para marcar hábitos y se sueltan; solo el día cumplido se guarda |
 | Diagnóstico / crashes | No se envía |
@@ -234,10 +302,32 @@ sale, cifrado o al círculo.
   el límite con honestidad: la app bloqueada abre y el escudo la cubre en menos de un
   segundo; no la impide.
 - [ ] **Permisos:** cada permiso corresponde a una función visible, se pide en contexto
-  (al entrar a "Apps"), y la app funciona si se niega. Sin `QUERY_ALL_PACKAGES`,
+  (al entrar a "Apps"; la cámara, al tocar «Tomar una foto»), y la app funciona si se niega. Sin `QUERY_ALL_PACKAGES`,
   sin accesibilidad. Divulgación destacada antes de mandar a Ajustes (ver b).
 - [ ] **Servicios en primer plano:** declaración `specialUse` con texto y video (ver a).
-- [ ] **Datos del usuario / Seguridad de datos:** "No recopila ni comparte" (ver c).
+- [ ] **Datos del usuario / Seguridad de datos:** recopila, no comparte (ver c).
+- [ ] **Contenido generado por usuarios** (ADR-0051): aplica desde la tanda 2, porque una
+  foto de un reto es contenido que *"is visible to or accessible by at least a subset of the
+  app's users"*. Lo que exige la política y dónde está:
+  - *"Requires users accept the app's terms of use and/or user policy before users can create
+    or upload UGC"*: `circle/photo-terms`, antes de la primera foto compartida; sin
+    «Entendido» no sale ninguna.
+  - *"Defines objectionable content and behaviors"*: los Términos, "Las fotos de un reto:
+    tolerancia cero" (`web/terms.html#fotos`).
+  - *"Conducts UGC moderation, as is reasonable and consistent with the type of UGC hosted"*:
+    por reporte, en menos de 24 horas (`docs/MODERATION.md`). Con cifrado de extremo a
+    extremo no hay escaneo.
+  - *"in-app system for reporting and blocking objectionable UGC and users"*: «Reportar la
+    foto», «Ocultar las fotos de…» y «Bloquear a…» en el visor; «Bloquear» también en la lista
+    del círculo. **[REVISAR: se reporta una foto, no a una persona. Si Play pide reportar a
+    un usuario, hace falta «Reportar a…» en la lista del círculo.]**
+  - Sin monetización que premie nada.
+- [ ] **Estándares de seguridad infantil:** la política aplica a *"Anonymous and Random chat
+  apps, and apps in the Social and Dating categories"*; Vesper está en Productividad y queda
+  fuera. Cumplir es barato y se hace igual: normas contra el abuso sexual infantil publicadas
+  (los Términos), reportar desde la app, proceso para reportar a NCMEC y a Colombia
+  (`docs/MODERATION.md`) y un contacto de seguridad infantil (pendiente, abajo).
+- [ ] **Permisos de fotos y videos:** no aplica; sin `READ_MEDIA_*` (ver b).
 - [ ] **Stalkerware / monitoreo:** no aplica. Vesper vigila el propio dispositivo para el
   propio usuario, no reporta a nadie y no se oculta: la notificación permanente dice que
   hay una sesión.
@@ -245,8 +335,9 @@ sale, cifrado o al círculo.
   `docs/STORE_LISTING.md`); nada de "bloqueo imposible de saltar".
 - [ ] **Nivel de API objetivo:** `compileSdk`/`targetSdk` 36 en el manifiesto generado
   (`PLATFORM_ANDROID.md`, fase 4); cumple el mínimo vigente. Confirmar en el build de release.
-- [ ] **Cuestionario de clasificación de contenido:** utilidad / productividad, sin
-  contenido generado por usuarios, sin compras, sin anuncios.
+- [ ] **Cuestionario de clasificación de contenido:** categoría "Utility, Productivity,
+  Communication, or Other", sin compras, sin anuncios. **Interacción en línea: sí**, porque se
+  comparten fotos (el detalle, en `docs/APP_REVIEW.md` §3).
 - [ ] **Acceso a la app (App access):** "Todas las funciones están disponibles sin
   cuenta" + las notas del revisor (ver e).
 
@@ -264,6 +355,8 @@ Pegar en "App access › Instructions" y en el campo de notas de la declaración
 > 5. Open Vesper › "Terminar" › after one breathing round tap "Terminar · llevas …". The session ends, the notification disappears and the app you ticked opens normally again.
 >
 > The app never uses AccessibilityService or QUERY_ALL_PACKAGES. Focus, habits, modes and routines work fully offline with no sign-up. An anonymous identity (no email, no password) is created on first launch; it signs an encrypted backup of the user's data (on by default, can be turned off, which deletes the server copy) and, if the user joins, a small circle that syncs only what they turn on. An email for recovery is optional. Deleting everything: Ajustes › "Borrar todo y reiniciar"; the backup and the account can also be deleted on their own.
+>
+> **User-generated content.** In a circle challenge that allows it, a user can add an optional photo to a day they marked. Only the people already in that challenge (at most 12, by mutual invitation) can see it; there is no public profile, feed, search, comments or reactions. Photos are end-to-end encrypted and deleted from the server 14 days after the challenge ends. Before the first shared photo the app shows the rules and a link to the Terms, and nothing is uploaded until the user accepts. On someone else's photo, "…" offers "Reportar la foto" (hides it and sends us that photo's key for review), "Ocultar las fotos de…" and "Bloquear a…". We act on every report within 24 hours. To see it with one device: Ajustes › Círculo › "Ver círculo" › the "Leer" challenge › a photo from Ana › "…". The demo circle is local, so a report there reaches no server.
 
 *Traducción para uso interno: 1) abrir Vesper y conceder "Acceso de uso" y "Mostrar sobre
 otras apps" cuando la app mande a Ajustes (se piden desde "Apps" de un modo) o
@@ -274,7 +367,14 @@ aparece la notificación "Sesión de foco" con cuenta regresiva. 4) Ir al inicio
 Reloj: en menos de un segundo el escudo "Vesper · Sin redes" lo cubre, con la hora a la
 que se libera y "Volver". 5) Abrir Vesper › "Terminar" › una
 ronda de respiración › "Terminar · llevas …". Sin AccessibilityService, sin
-`QUERY_ALL_PACKAGES`, sin red, sin cuenta. Borrar todo: Ajustes › "Borrar todo y reiniciar".*
+`QUERY_ALL_PACKAGES`, sin registro. Borrar todo: Ajustes › "Borrar todo y reiniciar". Fotos:
+en un reto que lo permite, una foto opcional por día marcado, visible solo para quienes ya
+están en el reto, cifrada de extremo a extremo y borrada 14 días después del cierre; términos
+antes de la primera; «…» con reportar, ocultar y bloquear; respuesta en 24 horas. Se prueba
+con los datos de ejemplo: Ajustes › Círculo › "Ver círculo" › «Leer» › una foto de Ana ›
+«…».*
+
+**[REVISAR: la semilla de ejemplo todavía no trae fotos; ver `docs/APP_REVIEW.md` §2.]**
 
 ---
 
@@ -317,7 +417,14 @@ entrenamiento o sueño. Lee solo la semana en curso, en el teléfono, con la app
   identidad de ADR-0048 lo es): una página con los pasos dentro de la app y una forma de
   pedirlo sin la app (un correo de contacto que acepte el id o el correo de recuperación),
   enlazada en el formulario de Data safety. Hoy `web/privacy.html` explica el borrado dentro
-  de la app, pero no ofrece pedirlo sin ella.
+  de la app, pero no ofrece pedirlo sin ella, y el servidor no tiene cómo borrar una cuenta
+  por id sin su secreto (`docs/MODERATION.md`, pendientes del servidor).
+- **Fotos (ADR-0051):** la semilla de ejemplo con fotos para que el revisor vea reportar,
+  ocultar y bloquear con un solo teléfono; el correo de seguridad infantil; lo de "Una sola
+  vez" de `docs/MODERATION.md` (NCMEC, `ADMIN_TOKEN`, el bucket); confirmar `CAMERA` y la
+  ausencia de `READ_MEDIA_*` y de los permisos de almacenamiento en el manifiesto fusionado
+  del build de release.
 - Apple (App Privacy): los mismos tipos de la tabla de (c) — Identifiers › User ID, User
-  Content › Other, Health & Fitness, Contact Info › Name y Email (opcionales) —, todos
-  "vinculados al usuario", ninguno para rastrear.
+  Content › Other, Health & Fitness, Contact Info › Name y Email (opcionales) — más, desde
+  las fotos, User Content › Photos or Videos, todos "vinculados al usuario", ninguno para
+  rastrear. El razonamiento, con las definiciones de Apple, está en `docs/APP_REVIEW.md` §4.

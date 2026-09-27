@@ -260,6 +260,8 @@ type ChallengeRow = {
   created_by: string;
   participant_ids: string;
   habit_id: string | null;
+  /** "Fotos del día", 1 or 0 (011). Missing on a row read before 011: on, as 011's default. */
+  photos?: number | null;
   created_at: number;
   archived_at: number | null;
 };
@@ -290,6 +292,8 @@ function toChallenge(row: ChallengeRow): Challenge {
     createdBy: row.created_by,
     participantIds: parseParticipantIds(row.participant_ids),
     habitId: row.habit_id,
+    // Only an explicit 0 turns them off: a missing column is 011's default, which is on.
+    photos: row.photos !== 0,
     createdAt: row.created_at,
     archivedAt: row.archived_at,
   };
@@ -314,8 +318,8 @@ export function legacyEndWeekKey(challenge: Pick<Challenge, 'startWeekKey' | 'en
 export function upsertChallenge(challenge: Challenge): void {
   getDb().executeSync(
     `INSERT INTO challenges
-       (id, name, weekly_target, start_week_key, end_week_key, end_day_key, created_by, participant_ids, habit_id, created_at, archived_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       (id, name, weekly_target, start_week_key, end_week_key, end_day_key, created_by, participant_ids, habit_id, photos, created_at, archived_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        name = excluded.name,
        weekly_target = excluded.weekly_target,
@@ -325,6 +329,7 @@ export function upsertChallenge(challenge: Challenge): void {
        created_by = excluded.created_by,
        participant_ids = excluded.participant_ids,
        habit_id = excluded.habit_id,
+       photos = excluded.photos,
        archived_at = excluded.archived_at`,
     [
       challenge.id,
@@ -336,6 +341,9 @@ export function upsertChallenge(challenge: Challenge): void {
       challenge.createdBy,
       JSON.stringify(challenge.participantIds),
       challenge.habitId,
+      // Like the read: only an explicit "off" is 0. A row folded from a server that does
+      // not know the column yet must not switch the photos of a challenge off.
+      challenge.photos === false ? 0 : 1,
       challenge.createdAt,
       challenge.archivedAt,
     ],

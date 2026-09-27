@@ -25,6 +25,9 @@ const ANA: Account = {
   platform: 'android',
   appVersion: '1.0.0',
   lastSeenAt: 1,
+  boxKey: null,
+  boxKeyId: null,
+  bannedAt: null,
   createdAt: 1,
   updatedAt: 1,
 };

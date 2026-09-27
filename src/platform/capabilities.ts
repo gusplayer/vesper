@@ -16,7 +16,12 @@ export const isAndroid = Platform.OS === 'android';
 /** True on a physical phone; false in the simulator and the emulator. */
 export const isDevice: boolean = Constants.isDevice ?? false;
 
-export type CapabilityName = 'notifications' | 'health' | 'liveActivity' | 'blocking';
+/**
+ * 'camera' is the photo capability of ADR-0051 as a whole: taking one and choosing one
+ * (platform/camera). 'share' is the system's share sheet and the capture of a view that
+ * feeds it: saving or sending your own photos (platform/share, ADR-0051 §13).
+ */
+export type CapabilityName = 'notifications' | 'health' | 'liveActivity' | 'blocking' | 'camera' | 'share';
 
 export type CapabilityStatus = {
   /** The native module exists and the platform supports it here. */

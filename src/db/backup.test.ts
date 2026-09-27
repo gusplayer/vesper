@@ -7,9 +7,12 @@ import {
   importBackup,
   LATEST_SCHEMA,
   LOCAL_SETTING_KEYS,
+  mergePhotoRows,
   payloadFromTables,
+  PHOTOS_TABLE,
   planImport,
   readPayload,
+  sharedPhotoRows,
   toBackupValue,
   withDeviceFields,
   withRepick,
@@ -168,6 +171,32 @@ describe('payloadFromTables', () => {
     expect(ios.tables.settings?.find((row) => row.key === 'modes_repick')?.value).toBe('["m1"]');
     expect(android.tables.settings?.some((row) => row.key === 'modes_repick')).toBe(false);
   });
+
+  it('carries only the shared photos, with their keys and without their files (ADR-0051)', () => {
+    const withPhotos = {
+      ...tables,
+      challenge_photos: [
+        // Stays on the phone: never shared.
+        { id: 'p-local', challenge_id: 'c-1', member_id: 'me', full_file: 'p-local.jpg', content_key: null, remote_state: 'local' },
+        // Waiting to go up: its file does not travel, so neither does it.
+        { id: 'p-queued', challenge_id: 'c-1', member_id: 'me', full_file: 'p-q.jpg', content_key: 'k0', remote_state: 'queued' },
+        { id: 'p-mine', challenge_id: 'c-1', member_id: 'me', full_file: 'p-mine.jpg', thumb_file: 'p-mine.thumb.jpg', content_key: 'k1', remote_state: 'uploaded' },
+        { id: 'p-ana', challenge_id: 'c-1', member_id: 'ana', full_file: null, thumb_file: 'p-ana.thumb.jpg', content_key: 'k2', remote_state: 'remote' },
+        // Somebody else's with no key for this phone: nothing a restore could open.
+        { id: 'p-luis', challenge_id: 'c-1', member_id: 'luis', full_file: null, content_key: null, remote_state: 'remote' },
+      ],
+    };
+
+    const built = payloadFromTables({ schema: 12, platform: 'android', createdAt: T0, tables: withPhotos });
+
+    expect(PHOTOS_TABLE).toBe('challenge_photos');
+    expect(built.tables.challenge_photos?.map((row) => row.id)).toEqual(['p-mine', 'p-ana']);
+    for (const row of built.tables.challenge_photos ?? []) {
+      expect(row.full_file).toBeNull();
+      expect(row.thumb_file).toBeNull();
+    }
+    expect(built.tables.challenge_photos?.map((row) => row.content_key)).toEqual(['k1', 'k2']);
+  });
 });
 
 describe('withRepick', () => {
@@ -228,6 +257,59 @@ describe('planImport', () => {
     const plan = planImport(payload(), { platform: 'android', localPrototypeSettings: null });
 
     expect(plan.sessions?.map((row) => row.id)).toEqual(['s1']);
+  });
+
+  it('takes only shared photos from a payload, and never a file name: the files are on another phone', () => {
+    const carrying = payload();
+    carrying.tables.challenge_photos = [
+      { id: 'p-1', challenge_id: 'c-1', member_id: 'me', full_file: 'p-1.jpg', content_key: 'k1', remote_state: 'uploaded' },
+      { id: 'p-2', challenge_id: 'c-1', member_id: 'me', full_file: 'p-2.jpg' },
+    ];
+
+    const plan = planImport(carrying, { platform: 'android', localPrototypeSettings: null });
+
+    expect(plan.challenge_photos).toEqual([
+      { id: 'p-1', challenge_id: 'c-1', member_id: 'me', full_file: null, thumb_file: null, content_key: 'k1', remote_state: 'uploaded' },
+    ]);
+  });
+});
+
+describe('sharedPhotoRows', () => {
+  it('needs a key and a state the server keeps alive', () => {
+    const rows = sharedPhotoRows([
+      { id: 'a', content_key: '', remote_state: 'uploaded' },
+      { id: 'b', content_key: 'k', remote_state: 'posted' },
+      { id: 'c', content_key: 'k', remote_state: 'remote', full_file: 'c.jpg', thumb_file: 'c.thumb.jpg' },
+      { id: 'd', content_key: 'k' },
+    ]);
+
+    expect(rows).toEqual([{ id: 'c', content_key: 'k', remote_state: 'remote', full_file: null, thumb_file: null }]);
+  });
+});
+
+describe('mergePhotoRows', () => {
+  const restored = [
+    { id: 'p-same', challenge_id: 'c', member_id: 'ana', day_key: '2026-09-22', content_key: 'k-same', remote_state: 'remote', expires_at: 9, caption_box: 'b', full_file: null },
+    { id: 'p-slot', challenge_id: 'c', member_id: 'me', day_key: '2026-09-21', content_key: 'k-slot', remote_state: 'uploaded', expires_at: 9, caption_box: null, full_file: null },
+    { id: 'p-new', challenge_id: 'c', member_id: 'luis', day_key: '2026-09-22', content_key: 'k-new', remote_state: 'remote', expires_at: 9, caption_box: null, full_file: null },
+  ];
+  const kept = [
+    { id: 'p-same', challenge_id: 'c', member_id: 'ana', day_key: '2026-09-22', content_key: null, remote_state: 'remote', expires_at: null, caption_box: null, full_file: 'p-same.jpg' },
+    { id: 'p-here', challenge_id: 'c', member_id: 'me', day_key: '2026-09-21', content_key: null, remote_state: 'local', expires_at: null, caption_box: null, full_file: 'p-here.jpg' },
+  ];
+
+  it("keeps this phone's rows, which have the files, and never two rows for one id or one day", () => {
+    const merged = mergePhotoRows(restored, kept);
+
+    expect(merged.restored.map((row) => row.id)).toEqual(['p-new']);
+    expect(merged.kept.map((row) => row.id)).toEqual(['p-same', 'p-here']);
+  });
+
+  it("gives this phone's row the backup's key when it has none", () => {
+    const merged = mergePhotoRows(restored, kept);
+
+    expect(merged.kept[0]).toMatchObject({ full_file: 'p-same.jpg', content_key: 'k-same', expires_at: 9, caption_box: 'b' });
+    expect(merged.kept[1]).toEqual(kept[1]);
   });
 });
 
@@ -322,7 +404,7 @@ describe('runMigrations', () => {
 describe('exportBackup', () => {
   it('reads every table but _migrations, with the schema it was written under', () => {
     const db = freshDb();
-    db.whenSql('sqlite_master', [{ name: '_migrations' }, { name: 'modes' }, { name: 'settings' }]);
+    db.whenSql('sqlite_master', [{ name: '_migrations' }, { name: 'challenge_photos' }, { name: 'modes' }, { name: 'settings' }]);
     db.whenSql('MAX(id)', [{ id: 7 }]);
     db.whenSql('FROM "settings"', [
       { key: 'identity', value: '{"id":"me"}', updated_at: T0 },
@@ -333,19 +415,24 @@ describe('exportBackup', () => {
     const exported = exportBackup(T0, 'ios');
 
     expect(exported).toMatchObject({ format: 1, schema: 7, platform: 'ios', createdAt: T0 });
-    expect(Object.keys(exported.tables).sort()).toEqual(['modes', 'settings']);
+    expect(Object.keys(exported.tables).sort()).toEqual(['challenge_photos', 'modes', 'settings']);
     // The emptied token leaves a note: m1's apps are picked again on the new phone.
     expect(exported.tables.settings?.map((row) => row.key)).toEqual(['language', 'modes_repick']);
     expect(exported.tables.modes?.[0]?.selection_token).toBeNull();
     expect(indexOf(db, 'FROM "_migrations"')).toBe(-1);
+    // Read, and none of them shared: no row of them ends up in the payload.
+    expect(exported.tables.challenge_photos).toEqual([]);
   });
 });
 
 describe('importBackup', () => {
   /** A database whose tables and columns the fake reports as they are after migrating. */
-  function stubbedDb(): FakeDb {
+  function stubbedDb(extraTables: string[] = []): FakeDb {
     const db = freshDb();
-    db.whenSql('sqlite_master', [{ name: '_migrations' }, { name: 'modes' }, { name: 'sessions' }, { name: 'settings' }]);
+    db.whenSql(
+      'sqlite_master',
+      ['_migrations', ...extraTables, 'modes', 'sessions', 'settings'].map((name) => ({ name })),
+    );
     db.whenSql('table_info("modes")', [{ name: 'id' }, { name: 'name' }, { name: 'selection_token' }, { name: 'created_at' }]);
     // `started_at` exists; the payload's `outcome` does too; a column the schema lacks does not.
     db.whenSql('table_info("sessions")', [{ name: 'id' }, { name: 'outcome' }, { name: 'started_at' }]);
@@ -458,6 +545,63 @@ describe('importBackup', () => {
       notificationsAllowed: true,
       healthConnected: false,
     });
+  });
+
+  it("keeps this phone's photos across the import and ignores any the payload carries", () => {
+    const db = stubbedDb(['challenge_photos']);
+    db.whenSql('SELECT * FROM "challenge_photos"', [
+      { id: 'p-here', challenge_id: 'c-1', member_id: 'me', day_key: '2026-09-22', full_file: 'p-here.jpg' },
+    ]);
+    db.whenSql('table_info("challenge_photos")', [
+      { name: 'id' },
+      { name: 'challenge_id' },
+      { name: 'member_id' },
+      { name: 'day_key' },
+      { name: 'full_file' },
+    ]);
+    const carrying = payload();
+    carrying.tables.challenge_photos = [
+      { id: 'p-there', challenge_id: 'c-2', member_id: 'me', day_key: '2026-09-21', full_file: 'p-there.jpg' },
+    ];
+
+    importBackup(carrying, T0, 'android');
+
+    const all = sqls(db);
+    const read = indexOf(db, 'SELECT * FROM "challenge_photos"');
+    const drop = indexOf(db, 'DROP TABLE "challenge_photos"');
+    const lastMigration = all.map((sql) => sql.startsWith('INSERT INTO _migrations')).lastIndexOf(true);
+    const inserts = db.calls
+      .map((call, index) => ({ call, index }))
+      .filter(({ call }) => call.sql.startsWith('INSERT INTO "challenge_photos"'));
+    expect(read).toBeGreaterThanOrEqual(0);
+    expect(read).toBeLessThan(drop);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]?.call.params).toEqual(['p-here', 'c-1', 'me', '2026-09-22', 'p-here.jpg']);
+    // Into the fully migrated schema, inside the one transaction.
+    expect(inserts[0]?.index).toBeGreaterThan(lastMigration);
+    expect(inserts[0]?.index).toBeLessThan(indexOf(db, /^COMMIT$/));
+    expect(db.calls.some((call) => (call.params ?? []).includes('p-there'))).toBe(false);
+  });
+
+  it("writes the backup's shared photos without files, next to this phone's, one row per day", () => {
+    const db = stubbedDb(['challenge_photos']);
+    const columns = ['id', 'challenge_id', 'member_id', 'day_key', 'full_file', 'content_key', 'remote_state'];
+    db.whenSql('SELECT * FROM "challenge_photos"', [
+      { id: 'p-here', challenge_id: 'c-1', member_id: 'me', day_key: '2026-09-22', full_file: 'p-here.jpg', content_key: null, remote_state: 'local' },
+    ]);
+    db.whenSql('table_info("challenge_photos")', columns.map((name) => ({ name })));
+    const carrying = { ...payload(), schema: LATEST_SCHEMA };
+    carrying.tables.challenge_photos = [
+      { id: 'p-ana', challenge_id: 'c-1', member_id: 'ana', day_key: '2026-09-22', full_file: 'x.jpg', content_key: 'k-ana', remote_state: 'remote' },
+      // The same day of the user's as the photo here: this phone's wins.
+      { id: 'p-old', challenge_id: 'c-1', member_id: 'me', day_key: '2026-09-22', full_file: null, content_key: 'k-old', remote_state: 'uploaded' },
+    ];
+
+    importBackup(carrying, T0, 'android');
+
+    const inserts = db.calls.filter((call) => call.sql.startsWith('INSERT INTO "challenge_photos"'));
+    expect(inserts.map((call) => call.params?.[0])).toEqual(['p-ana', 'p-here']);
+    expect(inserts[0]?.params).toEqual(['p-ana', 'c-1', 'ana', '2026-09-22', null, 'k-ana', 'remote']);
   });
 
   it('rolls back and turns the foreign keys on again when SQLite refuses a row', () => {

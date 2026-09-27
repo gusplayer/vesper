@@ -34,6 +34,12 @@ type TextProps = {
   live?: boolean;
   /** A long press selects and copies it: a code, a key. */
   selectable?: boolean;
+  /**
+   * False keeps the size the style gives, whatever the system's text size: only for
+   * text drawn to a fixed size as an image (AlbumCard), never for text people read in
+   * the app.
+   */
+  allowFontScaling?: boolean;
 };
 
 const DEFAULT_WEIGHT: Record<TextVariant, 'regular' | 'medium' | 'semibold'> = {
@@ -88,6 +94,7 @@ export function Text({
   numberOfLines,
   live = false,
   selectable,
+  allowFontScaling = true,
 }: TextProps) {
   const { colors } = useTheme();
   const resolvedWeight = weight ?? DEFAULT_WEIGHT[variant];
@@ -114,6 +121,7 @@ export function Text({
       importantForAccessibility={decorative ? 'no' : undefined}
       accessibilityLiveRegion={live ? 'polite' : undefined}
       selectable={selectable}
+      allowFontScaling={allowFontScaling}
       // Big type is welcome on titles; captions and labels stop at 1.6× so fixed
       // layouts (the grid, the tab bar) survive the largest accessibility sizes.
       maxFontSizeMultiplier={variant === 'caption' || variant === 'label' ? 1.6 : 2}

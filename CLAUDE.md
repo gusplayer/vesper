@@ -41,7 +41,10 @@ sigue vigente y cuál fue superado.
    iCloud, Block Store) o con la clave de respaldo. Salen del teléfono solo tres cosas: lo
    que el usuario comparte con su círculo, un **respaldo cifrado que el servidor no puede
    leer** (encendido por defecto, se apaga y se borra en Ajustes › Respaldo) y, de la
-   identidad, cuándo nació, cuándo se vio, plataforma y versión. Nada viaja en claro. Si el
+   identidad, cuándo nació, cuándo se vio, plataforma y versión. Lo que se comparte con el
+   círculo incluye, desde ADR-0051, **la foto de un día marcado de un reto, cifrada de
+   extremo a extremo** para quienes están en ese reto: el servidor guarda bytes que no puede
+   abrir y los borra 14 días después del cierre. Nada viaja en claro. Si el
    usuario lo da, un **correo de recuperación** (ADR-0050) con una copia de su clave cifrada
    con una llave del servidor: es opcional y la pantalla dice su precio. Una identidad es un
    dispositivo activo a la vez. No agregues backend sin ADR.
@@ -54,6 +57,8 @@ sigue vigente y cuál fue superado.
     sin posiciones, ánimo y empujón una vez al día, y cada métrica se comparte solo si el
     usuario lo elige. Un reto ocupa un hábito (regla 4). Notifica solo lo que otra persona
     hizo, con interruptor, y **nunca durante una sesión** (ADR-0021, enmendado por ADR-0027).
+    Una foto vive pegada a la marca de un día de un reto y a nada más: es opcional, no
+    verifica la marca, no notifica, no se reacciona y no se comenta (ADR-0051).
 12. **Nada que muestre el sistema con la app cerrada depende de un temporizador de JS.**
     Relojes nativos en la Live Activity y en la notificación de Android. Ver ADR-0023.
 
@@ -67,9 +72,12 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Expo SDK con dev client (no Expo Go — ver ADR-0001)
 - TypeScript estricto, sin `any`
 - expo-router para navegación (`Stack` con guardas: onboarding o app)
-- op-sqlite para persistencia; migraciones `001`–`009` en `src/db/migrations/`
+- op-sqlite para persistencia; migraciones `001`–`012` en `src/db/migrations/`
 - Zustand para las cachés de la base (`src/data/stores/`) y el estado efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
+- Fotos de los retos (ADR-0051): `expo-image-picker` y `expo-image-manipulator` (este, desde el
+  fuente en iOS con un parche en `patches/`); cifrado de extremo a extremo con `@noble/curves`
+  (X25519) y `@noble/hashes` (HKDF) sobre el AES-GCM de `expo-crypto`, en `platform/photoCrypto.ts`
 - Fuente Outfit (`@expo-google-fonts/outfit`) e iconos Feather (`@expo/vector-icons`)
 - `src/app/`: rutas de expo-router. `src/features/<área>/`: piezas compartidas por varias
   pantallas de un área. `src/dev/`: `DevJump` y las banderas de `route.ts`, solo en dev
@@ -144,12 +152,14 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 ## Qué NO hacer
 
 - No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
-  `src/design/components/index.ts`, hoy 59 más el hook `useTooltip`) se escriben a mano; las barras, grillas y el QR se
+  `src/design/components/index.ts`, hoy 63 más el hook `useTooltip`) se escriben a mano; las barras, grillas y el QR se
   dibujan con `View` y `react-native-svg`.
 - No agregues badges, medallas, puntos ni ranking. La única racha es la diaria del
   ADR-0027 (10 minutos de foco, tres días de gracia al mes), un número sin fuego ni
   animación; la meta semanal sigue siendo la métrica. En el círculo tampoco hay contador
   de ánimos ni de empujones.
+- No agregues historias, video, comentarios ni reacciones por foto, y nunca pidas una foto
+  para contar una marca (ADR-0051). Ninguna ruta de sesión abre la cámara.
 - Fuera de una sesión, máximo dos avisos al día además de los de sesión y rutina, y nada
   entre 22:00 y 8:00. Durante una sesión o una pausa solo existen fin de sesión y fin de
   pausa (ADR-0027).

@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeDb, transactionOn, type FakeRows } from '../../db/testing/fakeDb';
-import { ME, type Challenge, type ChallengeMark, type Member, type MemberWeek } from '../../domain/types';
+import { ME, type Challenge, type ChallengeMark, type Member, type MemberWeek, type StoredPhoto } from '../../domain/types';
 import { DEMO_CHALLENGE_ID } from '../circleSeed';
 import { useCircleStore } from './circle';
+import { usePhotoStore } from './photos';
 
 /**
  * The circle store against a fake database handle, for the three things ADR-0044 added
@@ -24,6 +25,15 @@ vi.mock('../../db/client', () => ({
 }));
 
 vi.mock('../../lib/uuid', () => ({ uuidv7: (now: number) => `id-${now}` }));
+
+const photoFiles = vi.hoisted(() => ({ deleted: [] as (string | null)[][] }));
+
+vi.mock('../../platform/camera', () => ({
+  deletePhotoFiles: (names: readonly (string | null)[]) => {
+    photoFiles.deleted.push([...names]);
+  },
+  deleteAllPhotoFiles: () => undefined,
+}));
 
 const ANA = '0199a1b2-c3d4-7e5f-8a9b-000000000002';
 const CHALLENGE = '0199a1b2-c3d4-7e5f-8a9b-0000000000c1';
@@ -67,6 +77,7 @@ function seedFakeDb(): void {
 }
 
 beforeEach(() => {
+  photoFiles.deleted.length = 0;
   seedFakeDb();
 });
 
@@ -98,6 +109,7 @@ const REMOTE_CHALLENGE: Challenge = {
   createdBy: ANA,
   participantIds: [ANA],
   habitId: null,
+  photos: true,
   createdAt: 20,
   archivedAt: null,
 };
@@ -383,5 +395,193 @@ describe('ending a link here (ADR-0049)', () => {
     expect(state.pendingEnds).toEqual([]);
     expect(state.pendingLeaves).toEqual([]);
     expect(state.linkEndSupport).toBe('no');
+  });
+});
+
+describe('blocking a person (ADR-0051 §18)', () => {
+  function withAccount(): void {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+  }
+
+  it('drops the person here and queues one block for the server, in place of an end', () => {
+    withAccount();
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+    useCircleStore.getState().removeFromCircle(ANA, 60);
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+
+    useCircleStore.getState().blockMember(ANA, 61);
+
+    const state = useCircleStore.getState();
+    expect(state.pendingBlocks).toEqual([ANA]);
+    expect(state.pendingEnds).toEqual([]);
+    expect(state.members).toEqual([]);
+    const writes = fake.calls
+      .filter((call) => call.sql.startsWith('INSERT INTO settings') && call.params?.[0] === 'circle_pending_blocks')
+      .map((call) => call.params?.[1]);
+    expect(writes).toEqual([JSON.stringify([ANA])]);
+  });
+
+  it('queues nothing in the demo circle, and never blocks the user', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+
+    useCircleStore.getState().blockMember(ANA, 61);
+    useCircleStore.getState().blockMember(ME, 62);
+
+    expect(useCircleStore.getState().pendingBlocks).toEqual([]);
+    expect(useCircleStore.getState().members.map((member) => member.id)).not.toContain(ANA);
+  });
+
+  it('forgets a block the server has, and every block with the account', () => {
+    withAccount();
+    useCircleStore.getState().blockMember(ANA, 61);
+    useCircleStore.getState().blockMember('luis', 62);
+
+    useCircleStore.getState().settleBlock(ANA, 63);
+    expect(useCircleStore.getState().pendingBlocks).toEqual(['luis']);
+
+    useCircleStore.getState().clearAccount(64);
+    expect(useCircleStore.getState().pendingBlocks).toEqual([]);
+  });
+});
+
+describe('photos in challenges (ADR-0051)', () => {
+  const photoRow = (id: string, challengeId: string, memberId = ME) => ({
+    id,
+    challenge_id: challengeId,
+    member_id: memberId,
+    day_key: '2026-09-22',
+    origin: 'camera',
+    caption: null,
+    width: 1280,
+    height: 960,
+    full_file: `${id}.jpg`,
+    thumb_file: `${id}.thumb.jpg`,
+    taken_at: 1,
+    created_at: 1,
+    updated_at: 1,
+  });
+
+  const storedPhoto = (id: string, challengeId: string, memberId: string): StoredPhoto => ({
+    id,
+    challengeId,
+    memberId,
+    dayKey: '2026-09-27',
+    origin: 'camera',
+    caption: null,
+    width: 1280,
+    height: 960,
+    fullFile: `${id}.jpg`,
+    thumbFile: `${id}.thumb.jpg`,
+    takenAt: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    contentKey: null,
+    remoteState: memberId === ME ? 'local' : 'remote',
+    expiresAt: null,
+    captionBox: null,
+  });
+
+  function photoDeletes(column: 'challenge_id' | 'member_id'): unknown[] {
+    return fake.calls
+      .filter((call) => call.sql === `DELETE FROM challenge_photos WHERE ${column} = ?`)
+      .map((call) => call.params?.[0]);
+  }
+
+  it('creates a challenge with "Fotos del día" on unless told otherwise', () => {
+    const input = { name: 'Leer', weeklyTarget: 4, days: 21, participantIds: [ANA], join: false };
+
+    const on = useCircleStore.getState().createChallenge(input, 100);
+    const off = useCircleStore.getState().createChallenge({ ...input, name: 'Mesa', photos: false }, 200);
+
+    const byId = (result: { id: string } | 'habitsFull') =>
+      useCircleStore.getState().challenges.find((c) => result !== 'habitsFull' && c.id === result.id);
+    expect(byId(on)?.photos).toBe(true);
+    expect(byId(off)?.photos).toBe(false);
+    const writes = fake.calls.filter((call) => /INSERT INTO challenges/.test(call.sql)).map((call) => call.params?.[9]);
+    expect(writes).toEqual([1, 0]);
+  });
+
+  it('keeps "Fotos del día" when the challenge is rewritten, as when the user leaves it', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, challenges: [{ ...REMOTE_CHALLENGE, photos: false }] });
+
+    useCircleStore.getState().leaveChallenge(CHALLENGE, 30);
+
+    expect(useCircleStore.getState().challenges.find((c) => c.id === CHALLENGE)?.photos).toBe(false);
+  });
+
+  it('deletes the photos of a challenge when it is archived, rows and then files', () => {
+    fake.whenSql('WHERE challenge_id = ? ORDER BY', [photoRow('p-1', DEMO_CHALLENGE_ID)]);
+
+    useCircleStore.getState().archiveChallenge(DEMO_CHALLENGE_ID, 40);
+
+    expect(photoDeletes('challenge_id')).toEqual([DEMO_CHALLENGE_ID]);
+    expect(photoFiles.deleted).toEqual([['p-1.jpg', 'p-1.thumb.jpg']]);
+    expect(useCircleStore.getState().challenges[0]?.archivedAt).toBe(40);
+  });
+
+  it('deletes the photos of every challenge it archives when leaving the circle', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, challenges: [REMOTE_CHALLENGE] });
+
+    useCircleStore.getState().leaveCircle(50);
+
+    expect(photoDeletes('challenge_id')).toEqual([DEMO_CHALLENGE_ID, CHALLENGE]);
+  });
+
+  it("ends today, instead of archiving, a challenge whose maker left when the user has a photo in it", () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({
+      ...EMPTY,
+      members: [ANA_MEMBER],
+      challenges: [{ ...REMOTE_CHALLENGE, participantIds: [ANA, ME], habitId: 'habit-walk' }],
+    });
+    usePhotoStore.setState({
+      photos: [
+        storedPhoto('p-mine', CHALLENGE, ME),
+        storedPhoto('p-ana', CHALLENGE, ANA),
+      ],
+    });
+    const now = new Date(2026, 8, 27, 9, 0).getTime();
+
+    useCircleStore.getState().blockMember(ANA, now);
+
+    const challenge = useCircleStore.getState().challenges.find((c) => c.id === CHALLENGE);
+    expect(challenge?.archivedAt).toBeNull();
+    expect(challenge?.endDayKey).toBe('2026-09-27');
+    expect(usePhotoStore.getState().photos.map((photo) => photo.id)).toEqual(['p-mine']);
+  });
+
+  it('archives a challenge whose maker left when the user has no photo in it', () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({
+      ...EMPTY,
+      members: [ANA_MEMBER],
+      challenges: [{ ...REMOTE_CHALLENGE, participantIds: [ANA, ME], habitId: 'habit-walk' }],
+    });
+    usePhotoStore.setState({ photos: [] });
+
+    useCircleStore.getState().blockMember(ANA, 70);
+
+    expect(useCircleStore.getState().challenges.find((c) => c.id === CHALLENGE)?.archivedAt).toBe(70);
+  });
+
+  it("takes other people's photos of a challenge the user leaves, and keeps the user's", () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, challenges: [{ ...REMOTE_CHALLENGE, participantIds: [ANA, ME] }] });
+    fake.whenSql('WHERE challenge_id = ? ORDER BY', [photoRow('p-mine', CHALLENGE), photoRow('p-ana', CHALLENGE, ANA)]);
+
+    useCircleStore.getState().leaveChallenge(CHALLENGE, 30);
+
+    const deleted = fake.calls
+      .filter((call) => call.sql === 'DELETE FROM challenge_photos WHERE id = ?')
+      .map((call) => call.params?.[0]);
+    expect(deleted).toEqual(['p-ana']);
+    expect(photoFiles.deleted).toEqual([['p-ana.jpg', 'p-ana.thumb.jpg']]);
+  });
+
+  it('takes the photos of a person who leaves the circle with the rest of their rows', () => {
+    useCircleStore.getState().applyRemote({ ...EMPTY, members: [ANA_MEMBER] });
+
+    useCircleStore.getState().removeMember(ANA);
+
+    expect(photoDeletes('member_id')).toEqual([ANA]);
   });
 });

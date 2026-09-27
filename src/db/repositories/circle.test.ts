@@ -5,6 +5,7 @@ import { CIRCLE_SQL } from '../migrations/004_circle';
 import { STREAK_NUDGES_SQL } from '../migrations/007_streak_nudges';
 import { CHALLENGE_MARK_SOURCE_SQL } from '../migrations/009_challenge_mark_source';
 import { MEMBER_WEEKS_NOT_SHARED_SQL } from '../migrations/010_member_weeks_not_shared';
+import { CHALLENGE_PHOTOS_SQL } from '../migrations/011_challenge_photos';
 import { createFakeDb, ddlColumns, insertColumns, transactionOn, type FakeRows } from '../testing/fakeDb';
 import * as circle from './circle';
 import * as settings from './settings';
@@ -90,6 +91,7 @@ const challenge: Challenge = {
   createdBy: 'ana',
   participantIds: ['me', 'ana', 'luis'],
   habitId: 'habit-read',
+  photos: true,
   createdAt: T0,
   archivedAt: null,
 };
@@ -104,6 +106,7 @@ const challengeRow = {
   created_by: 'ana',
   participant_ids: '["me","ana","luis"]',
   habit_id: 'habit-read',
+  photos: 1,
   created_at: T0,
   archived_at: null,
 };
@@ -321,9 +324,25 @@ describe('challenges', () => {
       'ana',
       '["me","ana","luis"]',
       'habit-read',
+      1,
       T0,
       null,
     ]);
+  });
+
+  it('reads "Fotos del día" off only from an explicit 0; a row from before 011 has them on', () => {
+    const { photos: _dropped, ...before011 } = challengeRow;
+    fake.whenSql('FROM challenges', [{ ...challengeRow, photos: 0 }, { ...before011, id: 'c-old' }, challengeRow]);
+
+    expect(circle.listChallenges().map((c) => c.photos)).toEqual([false, true, true]);
+  });
+
+  it('writes "Fotos del día" as 0 or 1, and on an update too', () => {
+    circle.upsertChallenge({ ...challenge, photos: false });
+
+    const call = fake.callMatching(/INSERT INTO challenges/);
+    expect(call.sql).toContain('photos = excluded.photos');
+    expect(call.params?.[9]).toBe(0);
   });
 
   it('derives the legacy end_week_key from the last day, or the start week without an end', () => {
@@ -473,7 +492,7 @@ describe('schema', () => {
     for (const call of inserts) {
       const { table, columns } = insertColumns(call.sql);
       const declared = ddlColumns(
-        `${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}\n${CHALLENGE_MARK_SOURCE_SQL}\n${MEMBER_WEEKS_NOT_SHARED_SQL}`,
+        `${CIRCLE_SQL}\n${STREAK_NUDGES_SQL}\n${CHALLENGE_MARK_SOURCE_SQL}\n${MEMBER_WEEKS_NOT_SHARED_SQL}\n${CHALLENGE_PHOTOS_SQL}`,
         table,
       );
       expect(declared).not.toContain('PRIMARY');
@@ -503,6 +522,7 @@ describe('removeMemberEverywhere', () => {
     createdBy: 'me',
     participantIds: ['me'],
     habitId: null,
+    photos: true,
     createdAt: T0,
     archivedAt: null,
   };

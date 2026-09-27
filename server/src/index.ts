@@ -5,10 +5,17 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { createRecordingMailer, createResendMailer, type Mailer } from './mailer.ts';
 import { createMemoryStore } from './memoryStore.ts';
+import {
+  bucketConfigFrom,
+  createMemoryObjectStore,
+  createS3ObjectStore,
+  type ObjectStore,
+} from './objectStore.ts';
 import { createPgStore } from './pgStore.ts';
 import { createExpoPush, createRecordingPush } from './push.ts';
 import { parseRecoveryKey } from './recovery.ts';
 import type { Store } from './store.ts';
+import { startSweeper } from './sweeper.ts';
 
 /**
  * The entry point (ADR-0033). With `DATABASE_URL` it runs on Postgres and sends real
@@ -17,7 +24,8 @@ import type { Store } from './store.ts';
  * server that pretends to persist is the same lie as a capability behind a flag.
  *
  * The recovery email (ADR-0050) says so too, in one line: on, or off and why — the names
- * of the missing variables, never a value.
+ * of the missing variables, never a value. So do the photos' bucket and the moderation
+ * routes (ADR-0051).
  */
 
 const port = Number(process.env.PORT ?? 8787);
@@ -68,6 +76,48 @@ function recoveryConfig(): { mailer: Mailer | null; recoveryKey: Uint8Array | nu
   };
 }
 
+/**
+ * The photos' bucket (ADR-0051 §17): the variables of a Railway Bucket's "AWS SDK" preset,
+ * or memory — objects lost on restart and URLs served by this process — and a line that
+ * says which, with the names of what is missing and never a value.
+ */
+function objectStore(now: () => number): { objects: ObjectStore; photosEnabled: boolean } {
+  const bucket = bucketConfigFrom(process.env);
+  if ('config' in bucket) {
+    const { config } = bucket;
+    const host = new URL(config.endpoint).host;
+    console.log(
+      `photos in bucket ${config.bucket} at ${host} (${config.pathStyle ? 'path-style' : 'virtual-hosted'}, region ${config.region}${config.prefix === '' ? '' : `, keys under ${config.prefix}`})`,
+    );
+    return { objects: createS3ObjectStore(config, fetch, now), photosEnabled: true };
+  }
+  // With a real database, photos kept in memory would vanish at the next restart under
+  // rows that still say they are there: the routes say 503 until the bucket exists.
+  if (databaseUrl !== null) {
+    console.warn(`photos off (${bucket.missing.join(', ')} not set): /media answers 503`);
+    return { objects: createMemoryObjectStore(now), photosEnabled: false };
+  }
+  console.warn(
+    `photos on memory (${bucket.missing.join(', ')} not set): objects are lost on restart, URLs are served by /media-local`,
+  );
+  return { objects: createMemoryObjectStore(now), photosEnabled: true };
+}
+
+/** `ADMIN_TOKEN`, or null and a line saying the moderation routes answer 404. */
+function adminToken(): string | null {
+  const token = env('ADMIN_TOKEN');
+  if (token === null) {
+    console.warn('moderation off (ADMIN_TOKEN not set): /admin answers 404');
+    return null;
+  }
+  if (token.length < 32) {
+    console.warn('moderation off (ADMIN_TOKEN is shorter than 32 characters): /admin answers 404');
+    return null;
+  }
+  console.log('moderation on: /admin takes ADMIN_TOKEN');
+  return token;
+}
+
 async function main(): Promise<void> {
   let store: Store;
   if (databaseUrl === null) {
@@ -81,7 +131,20 @@ async function main(): Promise<void> {
   }
 
   const push = databaseUrl === null ? createRecordingPush() : createExpoPush();
-  const app = createApp({ store, push, now: () => Date.now(), ...recoveryConfig() });
+  const now = () => Date.now();
+  const { objects, photosEnabled } = objectStore(now);
+  const app = createApp({
+    store,
+    push,
+    now,
+    ...recoveryConfig(),
+    objects,
+    photosEnabled,
+    adminToken: adminToken(),
+  });
+  // Expired photos, abandoned uploads, old tombstones and released evidence, every hour;
+  // objects without a row, every week (sweeper.ts).
+  startSweeper({ store, objects, now });
 
   serve({ fetch: app.fetch, port }, (info) => {
     console.log(`vesper server on :${info.port}`);

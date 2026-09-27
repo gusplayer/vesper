@@ -215,3 +215,7 @@ Ninguna línea habla en primera persona ni menciona apps, redes o bloqueo.
 - **Volver a compartir una sesión más tarde.** Aliviaría la tensión del *cuándo*, pero
   requiere una vista de historia por sesión que la app no tiene (ADR-0015 la dejó
   pendiente). Se retoma si la vista de historia llega.
+
+**Nota al pie (2026-09-26).** El **ADR-0051** revisa el principio 1 de esta propuesta:
+del reto del círculo no sale nada que muestre a otras personas, pero "tu álbum" de un reto
+terminado —solo tus fotos, sin nombres ajenos— sí puede salir del teléfono si tú quieres.

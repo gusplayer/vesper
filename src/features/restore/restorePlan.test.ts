@@ -49,6 +49,7 @@ function challenge(patch: Partial<Challenge>): Challenge {
     createdBy: ME,
     participantIds: [ME],
     habitId: null,
+    photos: true,
     createdAt: 1,
     archivedAt: null,
     ...patch,

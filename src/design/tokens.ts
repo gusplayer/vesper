@@ -39,6 +39,12 @@ export type Colors = {
   shadow: string;
   /** The dimmed page behind a sheet. Ink with alpha, never pure black. */
   scrim: string;
+  /**
+   * The veil over a photo in a grid or an album (ADR-0051): paper in light, the page in
+   * dark, so the thumbnails sit quiet in a page of ink. The photo in full color only
+   * appears when it is opened.
+   */
+  photoVeil: string;
 };
 
 export const colors: Record<Scheme, Colors> = {
@@ -61,6 +67,7 @@ export const colors: Record<Scheme, Colors> = {
     danger: '#C0392B',
     shadow: '#1C1B1A',
     scrim: 'rgba(28, 27, 26, 0.45)',
+    photoVeil: 'rgba(248, 247, 245, 0.42)',
   },
   dark: {
     bg: '#191919',
@@ -79,6 +86,7 @@ export const colors: Record<Scheme, Colors> = {
     danger: '#E06B5E',
     shadow: '#191919',
     scrim: 'rgba(25, 25, 25, 0.6)',
+    photoVeil: 'rgba(25, 25, 25, 0.38)',
   },
 };
 
@@ -179,6 +187,54 @@ export const layout = {
   dot: { size: 6, active: 18 },
   /** The tooltip bubble: how wide it may get, and the triangle that points at the row. */
   tooltip: { maxWidth: 280, tail: 8 },
+  /**
+   * HeatGrid squares: 'md' the four weeks on Focus, 'sm' a week beside text, with the
+   * gap of each, and a square's corner as a share of its side. 'lg' is `photo.cell`.
+   */
+  heatGrid: { md: 28, sm: 16, gap: 6, smallGap: 4, cornerRatio: 0.28 },
+  /**
+   * Photos in a challenge (ADR-0051). `cell` is a HeatGrid square at 'lg', big enough
+   * to hold a thumbnail (a week with its gaps is 288 pt), and the tile that leads a
+   * row; `thumb` an album thumbnail and `gap` the room between two; `dash` the border
+   * of the empty "add" tile; `maxHeight` the tallest a photo is drawn in a card, as a
+   * share of the window, so the lines under it stay on screen.
+   */
+  photo: { cell: 36, thumb: 52, gap: 6, dash: 1.5, maxHeight: 0.58, previewMaxHeight: 0.44 },
+  /**
+   * The image "Compartir tu álbum" makes (ADR-0030, ADR-0051 §13), AlbumCard. Every
+   * measure but `preview` is in pixels of the 1080 × 1920 story it becomes, and the card
+   * scales them all to the size it is drawn at, so the preview in its sheet and the
+   * capture are the same picture. `safeTop`–`safeBottom` is the centered square a feed's
+   * 4:5 or 1:1 crop keeps, and everything drawn stays inside it; above and below it is
+   * only the page, where a story's own buttons sit. `margin` is each side of the grid,
+   * `columns` its days per row (a week), `cellGap` and `cellCorner` (a share of the side)
+   * its squares. `title`, `line` and `word` are the challenge's name, the line under the
+   * grid and the wordmark, each with its line height; `gap` the room between the three
+   * blocks. The mark is `markCell` cells with `markGap` between them, `markSpace` from
+   * the wordmark. `preview` is the tallest the preview may be, as a share of the window,
+   * so the sheet's one button stays on screen.
+   */
+  share: {
+    width: 1080,
+    height: 1920,
+    safeTop: 420,
+    safeBottom: 1500,
+    margin: 108,
+    columns: 7,
+    cellGap: 12,
+    cellCorner: 0.18,
+    title: 56,
+    titleLine: 68,
+    line: 36,
+    lineLine: 48,
+    word: 38,
+    wordLine: 48,
+    gap: 48,
+    markCell: 10,
+    markGap: 3,
+    markSpace: 16,
+    preview: 0.5,
+  },
 } as const;
 
 /** Opacity roles. A disabled control fades as a whole, on top of its muted colors. */

@@ -129,3 +129,9 @@ sesión se retiene y se muestra al cerrar, y eso ya está escrito del lado del c
 describe algo que no existe: `server/src/push.ts` manda una alerta visible, que el
 sistema muestra antes de que la app la vea, y no hay cliente de push en `src/`. La forma
 correcta de entrega se decide en **ADR-0037**. El resto de este ADR sigue vigente.
+
+**Nota al pie (2026-09-26).** La lista "No sale nunca" sigue siendo cierta para lo que el
+servidor puede leer. Desde el **ADR-0051** sale además la foto de un día marcado de un reto,
+cifrada de extremo a extremo para sus participantes: el servidor guarda bytes que no puede
+abrir, quién la subió, a qué reto, qué día, su tamaño y cuándo vence. Un reporte le entrega
+la llave de esa sola foto para moderarla.

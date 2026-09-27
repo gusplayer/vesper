@@ -51,12 +51,17 @@ function targetOption(value: number): number {
  * joins it themselves (`challengeLink`, 'invited'), and the line under the list says so.
  * A challenge with nobody in it cannot be made, and with nobody in the circle the list
  * is the way to invite someone.
+ *
+ * "Fotos del día" (ADR-0051 §6) decides whether a marked day can carry a photo. It is on
+ * unless the suggestion picked clashes with a camera ("Sin teléfono en la mesa",
+ * "Dormir sin pantalla"), and the line under it says a photo is never required.
  */
 export default function NewChallengeScreen() {
   const router = useRouter();
   const strings = useStrings();
   const circle = strings.circle;
   const t = circle.challengeNew;
+  const p = strings.photos;
   const { tag } = useLocale();
   const askHealth = useAskHealthToJoin();
   const [creating, setCreating] = useState(false);
@@ -71,6 +76,7 @@ export default function NewChallengeScreen() {
   const [days, setDays] = useState<number | null>(DEFAULT_CHALLENGE_DAYS);
   const [participantIds, setParticipantIds] = useState<readonly string[]>([]);
   const [join, setJoin] = useState(true);
+  const [photos, setPhotos] = useState(true);
   const [habitsFull, setHabitsFull] = useState(false);
 
   const trimmed = name.trim();
@@ -90,6 +96,7 @@ export default function NewChallengeScreen() {
     setName(idea.name);
     setWeeklyTarget(targetOption(idea.weeklyTarget));
     setDays(idea.days);
+    setPhotos(idea.photos);
     setHabitsFull(false);
   };
 
@@ -109,7 +116,7 @@ export default function NewChallengeScreen() {
       setCreating(false);
     }
     const outcome = createChallenge(
-      { name: trimmed, weeklyTarget: target, days, participantIds: [...participantIds], join },
+      { name: trimmed, weeklyTarget: target, days, participantIds: [...participantIds], join, photos },
       Date.now(),
     );
     if (outcome === 'habitsFull') {
@@ -214,6 +221,21 @@ export default function NewChallengeScreen() {
           ))}
         </Stack>
       </Section>
+
+      <ListGroup>
+        <ListRow
+          label={p.create.toggle}
+          description={p.create.toggleHint}
+          right={
+            <Toggle
+              value={photos}
+              onValueChange={setPhotos}
+              accessibilityLabel={p.create.toggle}
+              accessibilityHint={p.create.toggleHint}
+            />
+          }
+        />
+      </ListGroup>
 
       <Section title={t.withWhom}>
         {members.length === 0 ? (

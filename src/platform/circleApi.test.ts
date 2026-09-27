@@ -294,6 +294,9 @@ describe('reading the answer to /sync', () => {
       rejected: [],
       ended: [],
       ownMarks: [],
+      media: [],
+      ownMedia: [],
+      keys: null,
     });
   });
 
@@ -322,6 +325,115 @@ describe('reading the answer to /sync', () => {
   });
 });
 
+describe('photos in the answer to /sync (ADR-0051)', () => {
+  const MEDIA = '0199a1b2-c3d4-7e5f-8a9b-0000000000d1';
+  const live = {
+    id: MEDIA,
+    challengeId: CHALLENGE,
+    ownerId: ANA,
+    dayKey: '2026-09-22',
+    width: 1280,
+    height: 960,
+    origin: 'camera',
+    epk: 'ZXBr',
+    captionBox: 'Ym94',
+    wrap: { keyId: '0123456789abcdef', box: 'd3JhcA==' },
+    createdAt: 5,
+    updatedAt: 6,
+    expiresAt: 99,
+    deletedAt: null,
+  };
+
+  it('reads a photo row field by field, with the caller\'s wrap', () => {
+    expect(readDownload({ media: [live] }).media).toEqual([{ ...live, origin: 'camera' }]);
+  });
+
+  it('drops a row that is not the shape of a photo, and reads an odd origin as the library', () => {
+    const media = readDownload({
+      media: [
+        { ...live, dayKey: '22/09/2026' },
+        { ...live, width: 0 },
+        { ...live, epk: '' },
+        { ...live, challengeId: 7 },
+        'nonsense',
+        { ...live, id: 'other', origin: 'screenshot', wrap: { keyId: 1 }, captionBox: '' },
+      ],
+    }).media;
+
+    expect(media).toHaveLength(1);
+    expect(media[0]).toMatchObject({ id: 'other', origin: 'library', wrap: null, captionBox: null });
+  });
+
+  it('keeps a tombstone with nothing but its id and when it was deleted', () => {
+    const media = readDownload({ media: [{ id: MEDIA, deletedAt: 50, updatedAt: 50 }] }).media;
+
+    expect(media).toEqual([
+      {
+        id: MEDIA,
+        challengeId: '',
+        ownerId: '',
+        dayKey: '',
+        width: 0,
+        height: 0,
+        origin: 'library',
+        epk: '',
+        captionBox: null,
+        wrap: null,
+        createdAt: 50,
+        updatedAt: 50,
+        expiresAt: null,
+        deletedAt: 50,
+      },
+    ]);
+  });
+
+  it("reads the caller's own photos only from a restore's answer", () => {
+    expect(readDownload({ own: { media: [live] } }).ownMedia).toHaveLength(1);
+    expect(readDownload({ media: [live] }).ownMedia).toEqual([]);
+  });
+
+  it('reads the keys, and null from a server that sends none, so nothing stored is replaced', () => {
+    const keys = readDownload({
+      keys: [
+        { id: ANA, boxKey: 'a2V5', keyId: '0123456789abcdef' },
+        { id: ID, boxKey: 'a2V5', keyId: 'NOT-HEX-AT-ALL!!' },
+        { id: ANA, boxKey: '', keyId: '0123456789abcdef' },
+        null,
+      ],
+    }).keys;
+
+    expect(keys).toEqual([{ id: ANA, boxKey: 'a2V5', keyId: '0123456789abcdef' }]);
+    expect(readDownload({ now: 1 }).keys).toBeNull();
+    expect(readDownload({ keys: [] }).keys).toEqual([]);
+  });
+
+  it('reads "Fotos del día" from a challenge, and on from a server that does not say', () => {
+    const row = {
+      id: CHALLENGE,
+      createdBy: ANA,
+      name: 'Leer',
+      weeklyTarget: 4,
+      startWeekKey: '2026-09-21',
+      participantIds: [ANA],
+    };
+    const [off, silent] = readDownload({ challenges: [{ ...row, photos: false }, row] }).challenges;
+
+    expect(off?.photos).toBe(false);
+    expect(silent?.photos).toBe(true);
+  });
+});
+
+describe('the box key on /device (ADR-0051)', () => {
+  it('goes up when there is one, and is left out otherwise', () => {
+    expect(deviceBody({ timeZone: 'America/Bogota', boxKey: 'a2V5' })).toEqual({
+      timeZone: 'America/Bogota',
+      boxKey: 'a2V5',
+    });
+    expect(deviceBody({ timeZone: 'America/Bogota', boxKey: '' })).toEqual({ timeZone: 'America/Bogota' });
+    expect(deviceBody({ timeZone: 'America/Bogota' })).toEqual({ timeZone: 'America/Bogota' });
+  });
+});
+
 // --- The fold -------------------------------------------------------------------------
 
 const EMPTY: SyncDownload = {
@@ -335,6 +447,9 @@ const EMPTY: SyncDownload = {
   rejected: [],
   ended: [],
   ownMarks: [],
+  media: [],
+  ownMedia: [],
+  keys: null,
 };
 
 const NO_LOCAL = { members: [], challenges: [], nudgeIds: new Set<string>() };
@@ -377,6 +492,7 @@ describe('folding a download into local rows', () => {
       createdBy: ANA,
       participantIds: [ME, ANA],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -393,6 +509,7 @@ describe('folding a download into local rows', () => {
             endDayKey: null,
             participantIds: [ANA, ID],
             archivedAt: null,
+            photos: true,
             createdAt: 1,
             updatedAt: 9,
           },
@@ -408,6 +525,47 @@ describe('folding a download into local rows', () => {
     expect(folded.joins).toEqual([]);
   });
 
+  it('takes "Fotos del día" from the server: it is the maker\'s choice (ADR-0051 §6)', () => {
+    const local: Challenge = {
+      id: CHALLENGE,
+      name: 'Mesa',
+      weeklyTarget: 6,
+      startWeekKey: '2026-09-21',
+      endDayKey: null,
+      createdBy: ANA,
+      participantIds: [ANA],
+      habitId: null,
+      photos: true,
+      createdAt: 1,
+      archivedAt: null,
+    };
+    const folded = foldDownload(
+      {
+        ...EMPTY,
+        challenges: [
+          {
+            id: CHALLENGE,
+            createdBy: ANA,
+            name: 'Mesa',
+            weeklyTarget: 6,
+            startWeekKey: '2026-09-21',
+            endDayKey: null,
+            participantIds: [ANA, ID],
+            archivedAt: null,
+            photos: false,
+            createdAt: 1,
+            updatedAt: 9,
+          },
+        ],
+      },
+      ID,
+      { ...NO_LOCAL, challenges: [local] },
+      999,
+    );
+
+    expect(folded.challenges[0]?.photos).toBe(false);
+  });
+
   it('keeps a join made while offline, and asks for it to be sent', () => {
     const local: Challenge = {
       id: CHALLENGE,
@@ -418,6 +576,7 @@ describe('folding a download into local rows', () => {
       createdBy: ANA,
       participantIds: [ME, ANA],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -435,6 +594,7 @@ describe('folding a download into local rows', () => {
             // The server has not heard about the join yet.
             participantIds: [ANA],
             archivedAt: null,
+            photos: true,
             createdAt: 1,
             updatedAt: 9,
           },
@@ -611,6 +771,26 @@ describe('building what goes up', () => {
     expect(upload.weeks[0]?.focusMs).toBe(7_200_000);
   });
 
+  it('sends "Fotos del día" with the challenges the user made', () => {
+    const made = (photos: boolean): Challenge => ({
+      id: photos ? CHALLENGE : '0199a1b2-c3d4-7e5f-8a9b-0000000000c2',
+      name: 'Leer',
+      weeklyTarget: 4,
+      startWeekKey: '2026-09-21',
+      endDayKey: null,
+      createdBy: ME,
+      participantIds: [ME, ANA],
+      habitId: null,
+      photos,
+      createdAt: 1,
+      archivedAt: null,
+    });
+
+    const upload = buildUpload({ ...BASE, challenges: [made(true), made(false)] });
+
+    expect(upload.challenges.map((challenge) => challenge.photos)).toEqual([true, false]);
+  });
+
   it('leaves the demo seed behind: its ids are not ones the server stores', () => {
     const demo: Challenge = {
       id: 'challenge-read',
@@ -621,6 +801,7 @@ describe('building what goes up', () => {
       createdBy: ME,
       participantIds: [ME, 'ana'],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -646,6 +827,7 @@ describe('building what goes up', () => {
       createdBy: ME,
       participantIds: [ME, ANA, 'ana'],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -664,6 +846,7 @@ describe('building what goes up', () => {
       createdBy: ANA,
       participantIds: [ME, ANA],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -689,6 +872,7 @@ describe('building what goes up', () => {
       createdBy: ANA,
       participantIds: [ANA],
       habitId: null,
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -708,6 +892,7 @@ describe('building what goes up', () => {
       createdBy: ME,
       participantIds: [ME],
       habitId: null,
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
@@ -791,6 +976,7 @@ describe('an ended link in the fold (ADR-0049)', () => {
         endDayKey: null,
         participantIds: [SOF, ANA, ID],
         archivedAt: null,
+        photos: true,
         createdAt: 1,
         updatedAt: 9,
       },
@@ -841,6 +1027,7 @@ describe('an ended link in the fold (ADR-0049)', () => {
       createdBy: SOF,
       participantIds: [ME, SOF],
       habitId: 'habit-read',
+      photos: true,
       createdAt: 1,
       archivedAt: null,
     };
