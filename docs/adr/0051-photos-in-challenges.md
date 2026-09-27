@@ -339,6 +339,14 @@ otra persona llega a un teléfono de la tienda antes de la 3.
   vista previa guarda) nunca terminaba, y la miniatura de la fila se quedaba gris hasta
   volver a montar la pantalla.
 
+**Al llevarlo a `main`, 2026-09-27.**
+
+- **Sin bucket, en producción las fotos se apagan.** Con una base real y sin las variables
+  del bucket, `POST /media`, los `PUT` y la URL de descarga responden `503 photos not
+  configured`, como el correo de recuperación sin su llave. Guardarlas en memoria las habría
+  perdido en el primer reinicio bajo filas que dicen que están. El teléfono deja la foto en
+  su cola, y sale sola el día que exista el bucket.
+
 ## Alternativas descartadas
 
 - **Historias de 24 h, reacciones y comentarios** (opción C): feed, FOMO y likes con

@@ -108,6 +108,14 @@ export type Deps = {
    */
   objects?: ObjectStore;
   /**
+   * False when the photos have nowhere durable to live: a real database and no bucket
+   * (index.ts). Then `POST /media`, the uploads and the download URLs answer
+   * `503 photos not configured` instead of keeping bytes in memory that the next restart
+   * would lose under rows that still say `ready`. The phone keeps the photo queued and
+   * sends it once the bucket exists. True when absent.
+   */
+  photosEnabled?: boolean;
+  /**
    * `ADMIN_TOKEN`: what the moderation routes (`/admin/*`) take as `Bearer`. Null, absent
    * or shorter than 32 characters and those routes answer 404, as if they did not exist.
    */
@@ -354,6 +362,8 @@ function messageOf(error: unknown): string {
 export function createApp(deps: Deps) {
   const { store, push, now } = deps;
   const objects = deps.objects ?? createMemoryObjectStore(now);
+  const photosEnabled = deps.photosEnabled !== false;
+  const photosOff = (c: Context) => c.json({ error: 'photos not configured' }, 503);
   const adminToken =
     typeof deps.adminToken === 'string' && deps.adminToken.length >= MIN_ADMIN_TOKEN ? deps.adminToken : null;
   const app = new Hono<{ Variables: Authed; Bindings: Bindings }>();
@@ -1761,6 +1771,9 @@ export function createApp(deps: Deps) {
    * one as it is. Another photo of the same day replaces the one before, whose objects go.
    */
   app.post('/media', async (c) => {
+    if (!photosEnabled) {
+      return photosOff(c);
+    }
     const me = c.get('account');
     if (me.handle === null) {
       return handleRequired(c);
@@ -1868,6 +1881,9 @@ export function createApp(deps: Deps) {
    */
   const putObject = (variant: MediaVariant) =>
     async (c: Context<{ Variables: Authed; Bindings: Bindings }>) => {
+      if (!photosEnabled) {
+        return photosOff(c);
+      }
       const me = c.get('account');
       if (me.handle === null) {
         return handleRequired(c);
@@ -1929,6 +1945,9 @@ export function createApp(deps: Deps) {
    * wrapped for who is still in the challenge and not blocked either way with the owner.
    */
   app.get('/media/:id/url', async (c) => {
+    if (!photosEnabled) {
+      return photosOff(c);
+    }
     const me = c.get('account');
     if (me.handle === null) {
       return handleRequired(c);

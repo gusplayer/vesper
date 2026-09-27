@@ -48,7 +48,7 @@ correrlo dos veces no rompe nada) y los push salen de verdad por Expo.
 | `RECOVERY_FROM` | Para el correo de recuperación | El remitente, en una dirección de un dominio **verificado en Resend** (un `*.vercel.app` no sirve): `Vesper <codigo@tudominio.com>`. Sin ella, `503`. |
 | `RECOVERY_KEY` | Para el correo de recuperación | 32 bytes en base64: la llave con la que se cifra la copia de cada secreto y con la que se firman los códigos. Se genera una vez con `openssl rand -base64 32`. Sin ella, o con otro largo, `503`. **No se puede perder ni cambiar**: sin la misma llave, las copias no se abren y todo el que tenía correo tiene que confirmarlo de nuevo. Vive en las variables de Railway y en ningún otro lado del repositorio. |
 
-| `AWS_ENDPOINT_URL`, `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Para las fotos | El bucket de las fotos (ADR-0051). Son las variables que inyecta el preset **"AWS SDK"** de un Railway Bucket (pestaña *Variables* del bucket → conectar al servicio con ese preset). Sin alguna de las cuatro, los objetos viven en memoria: se pierden al reiniciar y el arranque lo dice. |
+| `AWS_ENDPOINT_URL`, `AWS_S3_BUCKET_NAME`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Para las fotos | El bucket de las fotos (ADR-0051). Son las variables que inyecta el preset **"AWS SDK"** de un Railway Bucket (pestaña *Variables* del bucket → conectar al servicio con ese preset). Sin alguna de las cuatro: en local (sin `DATABASE_URL`) los objetos viven en memoria y el arranque lo dice; con `DATABASE_URL`, las fotos quedan apagadas y `/media` responde `503 photos not configured`. |
 | `AWS_DEFAULT_REGION` | No | `auto` por defecto, que es lo que usa Tigris (Railway). |
 | `AWS_S3_URL_STYLE` | No | `virtual-hosted` por defecto (`https://<bucket>.t3.storageapi.dev/<llave>`), que es lo que usan los buckets nuevos de Railway. Un valor que empiece por `path` firma `https://<endpoint>/<bucket>/<llave>`: buckets viejos de Railway (la pestaña *Credentials* dice cuál) o MinIO. |
 | `MEDIA_PREFIX` | No | Un prefijo para todas las llaves del bucket (`staging/`), por si dos entornos comparten uno. Vacío por defecto. |
@@ -66,6 +66,7 @@ valores:
 ```
 photos in bucket vesper-photos-x1y2 at t3.storageapi.dev (virtual-hosted, region auto)
 photos on memory (AWS_ENDPOINT_URL, AWS_S3_BUCKET_NAME, … not set): objects are lost on restart, URLs are served by /media-local
+photos off (AWS_ENDPOINT_URL, AWS_S3_BUCKET_NAME, … not set): /media answers 503
 moderation on: /admin takes ADMIN_TOKEN
 moderation off (ADMIN_TOKEN not set): /admin answers 404
 ```
@@ -157,10 +158,11 @@ Lo que sí hay que hacer en Railway, antes o después del despliegue:
    con el preset **AWS SDK**. Eso pone las cinco `AWS_*` (más `AWS_S3_URL_STYLE`).
 2. Poner `ADMIN_TOKEN`.
 
-Mientras falte el bucket, el servidor arranca igual y guarda los objetos en memoria:
-funciona hasta el siguiente reinicio, y después las filas `ready` apuntan a objetos que
-ya no están (la URL devuelve 404 y la conciliación semanal no borra filas). **En
-producción no se prende sin bucket.**
+Mientras falte el bucket, en producción las fotos quedan **apagadas**: `POST /media`,
+los `PUT` y `GET /media/:id/url` responden `503 photos not configured`, y el teléfono
+deja la foto en su cola y la manda cuando el bucket exista. Guardarlas en memoria con
+una base real dejaría, después de cada reinicio, filas `ready` que apuntan a objetos que
+ya no están. En local (sin `DATABASE_URL`) todo sigue en memoria, como el resto.
 
 ## La API, en corto
 

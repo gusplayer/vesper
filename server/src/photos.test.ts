@@ -57,7 +57,7 @@ function seal(key: Uint8Array, mediaId: string, variant: 'thumb' | 'full', text:
 
 type Person = { id: string; token: string; boxKey: string | null };
 
-function setup(options: { adminToken?: string | null } = {}) {
+function setup(options: { adminToken?: string | null; photosEnabled?: boolean } = {}) {
   const store = createMemoryStore();
   const objects = createMemoryObjectStore(() => clock);
   let clock = T0;
@@ -69,6 +69,7 @@ function setup(options: { adminToken?: string | null } = {}) {
     recoveryKey: null,
     objects,
     adminToken: options.adminToken === undefined ? ADMIN : options.adminToken,
+    photosEnabled: options.photosEnabled,
   });
 
   const call = async (
@@ -228,6 +229,21 @@ describe('the box key', () => {
     await call('POST', '/account/secret', { token: gus.token });
 
     expect(await store.getAccount(GUS)).toEqual(expect.objectContaining({ boxKey: null, boxKeyId: null }));
+  });
+});
+
+describe('without a bucket', () => {
+  it('says the photos are not configured instead of keeping them in memory, and the rest works', async () => {
+    const { call, join } = setup({ photosEnabled: false });
+    const gus = await join(GUS, 'Gus', 'gus');
+
+    const posted = await call('POST', '/media', { token: gus.token, body: {} });
+    const put = await call('PUT', `/media/${M1}/thumb`, { token: gus.token, raw: new Uint8Array(4) });
+    const url = await call('GET', `/media/${M1}/url?variant=thumb`, { token: gus.token });
+
+    expect([posted.status, put.status, url.status]).toEqual([503, 503, 503]);
+    expect(posted.body).toEqual({ error: 'photos not configured' });
+    expect((await call('POST', '/sync', { token: gus.token, body: { since: 0 } })).status).toBe(200);
   });
 });
 

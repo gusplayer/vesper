@@ -81,7 +81,7 @@ function recoveryConfig(): { mailer: Mailer | null; recoveryKey: Uint8Array | nu
  * or memory — objects lost on restart and URLs served by this process — and a line that
  * says which, with the names of what is missing and never a value.
  */
-function objectStore(now: () => number): ObjectStore {
+function objectStore(now: () => number): { objects: ObjectStore; photosEnabled: boolean } {
   const bucket = bucketConfigFrom(process.env);
   if ('config' in bucket) {
     const { config } = bucket;
@@ -89,12 +89,18 @@ function objectStore(now: () => number): ObjectStore {
     console.log(
       `photos in bucket ${config.bucket} at ${host} (${config.pathStyle ? 'path-style' : 'virtual-hosted'}, region ${config.region}${config.prefix === '' ? '' : `, keys under ${config.prefix}`})`,
     );
-    return createS3ObjectStore(config, fetch, now);
+    return { objects: createS3ObjectStore(config, fetch, now), photosEnabled: true };
+  }
+  // With a real database, photos kept in memory would vanish at the next restart under
+  // rows that still say they are there: the routes say 503 until the bucket exists.
+  if (databaseUrl !== null) {
+    console.warn(`photos off (${bucket.missing.join(', ')} not set): /media answers 503`);
+    return { objects: createMemoryObjectStore(now), photosEnabled: false };
   }
   console.warn(
     `photos on memory (${bucket.missing.join(', ')} not set): objects are lost on restart, URLs are served by /media-local`,
   );
-  return createMemoryObjectStore(now);
+  return { objects: createMemoryObjectStore(now), photosEnabled: true };
 }
 
 /** `ADMIN_TOKEN`, or null and a line saying the moderation routes answer 404. */
@@ -126,13 +132,14 @@ async function main(): Promise<void> {
 
   const push = databaseUrl === null ? createRecordingPush() : createExpoPush();
   const now = () => Date.now();
-  const objects = objectStore(now);
+  const { objects, photosEnabled } = objectStore(now);
   const app = createApp({
     store,
     push,
     now,
     ...recoveryConfig(),
     objects,
+    photosEnabled,
     adminToken: adminToken(),
   });
   // Expired photos, abandoned uploads, old tombstones and released evidence, every hour;
