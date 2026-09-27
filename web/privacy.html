@@ -28,7 +28,7 @@
           ahí es poco y está contado aquí: un identificador sin nombre, un respaldo cifrado que solo
           tu clave abre —y que puedes apagar— y lo que compartes con tu círculo, si lo usas. Las
           fotos de un reto salen cifradas de extremo a extremo, para que solo las abran quienes
-          están en él. Esta página dice qué datos toca la app, dónde viven y cómo se borran; las reglas de uso están
+          están en él. Y al abrirla, la app pregunta si hay una actualización. Esta página dice qué datos toca la app, dónde viven y cómo se borran; las reglas de uso están
           en <a href="/terms">Términos</a>. Si algo de aquí deja de ser cierto, la página cambia
           antes que la app.
         </p>
@@ -316,6 +316,23 @@
         </div>
 
         <div class="card">
+          <h2>Las actualizaciones de la app</h2>
+          <p>
+            Para que un arreglo te llegue sin esperar una versión nueva en la tienda, cada vez que
+            abres Vesper la app le pregunta a EAS Update, el servicio de actualizaciones de Expo, si
+            hay algo nuevo. Si lo hay, lo descarga en segundo plano y lo usa la próxima vez que la
+            abras. Sin red, la app abre igual con lo que ya tiene.
+          </p>
+          <p>
+            La consulta lleva la plataforma, la versión de la app, qué actualización corre y un
+            identificador al azar que la app crea para Expo, sin relación con tu identidad de Vesper.
+            Expo ve tu dirección IP, como cualquier servidor. Si la app se cerró sola justo después de
+            abrir, la consulta siguiente lleva el texto de ese error, hasta 1024 caracteres, para
+            saber qué falló. Ninguna consulta lleva tu base de datos, tu identidad ni tu respaldo.
+          </p>
+        </div>
+
+        <div class="card">
           <h2>Esta página y la de invitación</h2>
           <p>
             El sitio no usa cookies, no tiene analítica y no carga nada de otro dominio: hasta la
@@ -345,7 +362,7 @@
           What leaves it is little and listed here: an id with no name attached, an encrypted backup
           only your key opens —which you can turn off— and what you share with your circle, if you
           use it. Photos in a challenge leave end-to-end encrypted, so only the people in it can
-          open them. This page says what data the app touches, where it lives and how it is deleted;
+          open them. And when you open it, the app asks whether there is an update. This page says what data the app touches, where it lives and how it is deleted;
           the rules for using it are in <a href="/terms">Terms</a>.
         </p>
 
@@ -587,6 +604,23 @@
             phones that had it. Archiving a challenge deletes your photos of it from your phone.
             Deleting your account deletes all of yours from the server. What was kept because of a
             report of child abuse follows the rules above.
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>App updates</h2>
+          <p>
+            So a fix can reach you without waiting for a new version in the store, each time you open
+            Vesper the app asks EAS Update, Expo's update service, whether there is something new. If
+            there is, it downloads it in the background and uses it the next time you open the app.
+            With no network, the app opens as usual with what it has.
+          </p>
+          <p>
+            The check carries the platform, the app's version, which update is running and a random
+            id the app creates for Expo, unrelated to your Vesper identity. Expo sees your IP address,
+            as any server does. If the app closed on its own right after opening, the next check
+            carries the text of that error, up to 1024 characters, so we can tell what failed. No
+            check carries your database, your identity or your backup.
           </p>
         </div>
 

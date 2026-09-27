@@ -75,6 +75,27 @@ $ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
 
 `/ios` y `/android` están en `.gitignore`: son carpetas generadas por prebuild.
 
+### Actualizaciones por el aire
+
+Un cambio que solo toca JS o assets llega a los builds de tienda sin pasar por revisión
+(ADR-0052):
+
+```bash
+eas update --channel production --message "Arregla el cierre de la semana"
+```
+
+Llega a quien abra la app, en el arranque en frío siguiente. Todo lo nativo pide build:
+módulos, `patches/`, plugins, permisos o una dependencia nativa. El runtime es un
+fingerprint de todo eso, así que una actualización nunca cae sobre un binario que no la
+soporta. Para saber si el runtime cambió desde el último build:
+
+```bash
+npx expo-updates fingerprint:generate --platform ios
+```
+
+Una actualización que trae una migración solo agrega, y no se le hace rollback: se corrige
+con otra.
+
 ### Si `npm install <paquete>` falla
 
 `.npmrc` fija `legacy-peer-deps=true`. El árbol de SDK 57 tiene un conflicto de peers con

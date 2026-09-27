@@ -20,6 +20,7 @@ fase 1 e-ink, cuyo dominio y base de datos siguen vivos debajo de esto.
 | Bloqueo iOS | react-native-device-activity | Sin verificar: falta el entitlement de Family Controls |
 | Bloqueo Android | módulo Expo local en Kotlin, `modules/vesper-blocking/` | Sin AccessibilityService (ADR-0019) |
 | Gráficos | `View` y `react-native-svg` | Barras, grillas, QR y arte de foco a mano |
+| Actualizaciones | expo-updates con EAS Update | Solo JS y assets, aplicados en el arranque siguiente; runtime por `fingerprint` (ADR-0052) |
 
 **Local-first, sin login.** Foco, modos, rutinas, hábitos y vida funcionan enteros sin
 red y sin registro. Desde ADR-0048 cada instalación tiene una **identidad anónima**: un id
