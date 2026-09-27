@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { T0 } from '../domain/fixtures';
 import { BREAK_EVERY_MS } from '../domain/session';
 import { MINUTE } from '../domain/time';
-import { breakPolicy, parseShieldEvents } from './shieldAsk';
+import { en } from '../i18n/en';
+import { es } from '../i18n/es';
+import { askCopy, breakPolicy, parseShieldEvents } from './shieldAsk';
 
 const timing = { startedAt: T0, endsAt: T0 + 60 * MINUTE, open: false, breakUnlocksAt: T0 + 25 * MINUTE, deep: false };
 
@@ -21,6 +23,22 @@ describe('breakPolicy', () => {
 
     expect(deep.breakUnlocksAt).toBeNull();
     expect(deep.breakEveryMs).toBe(0);
+  });
+});
+
+describe('askCopy', () => {
+  it('hands Kotlin templates with the placeholders it fills, in both languages', () => {
+    for (const strings of [es, en]) {
+      const copy = askCopy(strings.session);
+      expect(copy.shieldMinutes).toContain('{n}');
+      expect(copy.shieldNextBreak).toContain('{n}');
+      expect(copy.shieldToday).toContain('{items}');
+      expect(copy.shieldAttemptOne).toContain('{n}');
+      expect(copy.shieldAttemptOther).toContain('{n}');
+      expect(copy.shieldBreakOne).toMatch(/\{n\}.*\{min\}/);
+      expect(copy.shieldBreakOther).toMatch(/\{n\}.*\{min\}/);
+      expect(copy.shieldNoBreak).not.toBe('');
+    }
   });
 });
 

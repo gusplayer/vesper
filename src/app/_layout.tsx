@@ -14,6 +14,7 @@ import { PendingInviteGate } from '../features/onboarding/PendingInviteGate';
 import { SessionGate } from '../features/session/SessionGate';
 import { StreakSettle } from '../features/streak/StreakSettle';
 import { PlatformEffects } from '../platform/PlatformEffects';
+import { takeShieldEvents } from '../platform/blocking';
 import { lockPortrait } from '../platform/orientation';
 import { ChromeProvider } from '../design/chrome';
 import { BootReveal, FatalError, type BootRevealPhase } from '../design/components';
@@ -47,10 +48,11 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({ Outfit_400Regular, Outfit_500Medium, Outfit_600SemiBold });
 
   // A failure here is fatal rather than thrown: this is a local-first app, the database
-  // is the product, and a red box is not an answer we can give a user.
+  // is the product, and a red box is not an answer we can give a user. What the shield
+  // queued while the app was closed goes in before any session is settled (ADR-0053).
   const [boot] = useState<BootResult | Error>(() => {
     try {
-      return bootAndHydrate(Date.now());
+      return bootAndHydrate(Date.now(), takeShieldEvents());
     } catch (caught) {
       return caught instanceof Error ? caught : new Error(String(caught));
     }

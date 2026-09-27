@@ -1,6 +1,7 @@
-import type { NativeShieldEvent } from '../../modules/vesper-blocking';
+import type { NativeAskCopy, NativeShieldEvent } from '../../modules/vesper-blocking';
 import { BREAK_CHOICES_MS, BREAK_EVERY_MS } from '../domain/session';
 import type { ShieldEvent, ShieldEventKind } from '../domain/types';
+import type { Strings } from '../i18n/es';
 import type { PlanTiming } from './blockingTypes';
 
 /**
@@ -25,6 +26,21 @@ export function breakPolicy(timing: PlanTiming): NativeBreakPolicy {
     breakUnlocksAt: timing.deep ? null : timing.breakUnlocksAt,
     breakEveryMs: timing.deep ? 0 : BREAK_EVERY_MS,
     breakChoicesMs: [...BREAK_CHOICES_MS],
+  };
+}
+
+/** The words of the pause row and of today's count, from the current dictionary. */
+export function askCopy(t: Strings['session']): NativeAskCopy {
+  return {
+    shieldPause: t.shield.pauseFocus,
+    shieldMinutes: t.shield.minutes,
+    shieldNextBreak: t.shield.nextBreak,
+    shieldNoBreak: t.active.deepOnlyTimer,
+    shieldToday: t.shield.today,
+    shieldAttemptOne: t.shield.attemptOne,
+    shieldAttemptOther: t.shield.attemptOther,
+    shieldBreakOne: t.shield.breakOne,
+    shieldBreakOther: t.shield.breakOther,
   };
 }
 

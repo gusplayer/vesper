@@ -11,18 +11,20 @@ import java.lang.ref.WeakReference
 /**
  * The shield as an activity, for when the overlay window cannot be added. Translucent
  * theme, but the view paints the whole screen; singleInstance and out of recents so it
- * never becomes a place the user lands in. Back is swallowed: the button is the exit.
+ * never becomes a place the user lands in. Back is swallowed: the buttons are the exit.
+ * It draws the same view as the overlay, from the stored plan and the app it covers
+ * (ADR-0053); with no plan left there is nothing to cover and it closes.
  */
 class ShieldActivity : Activity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     current = WeakReference(this)
-    val copy = ShieldCopy(
-      title = intent.getStringExtra(EXTRA_TITLE) ?: "Vesper",
-      subtitle = intent.getStringExtra(EXTRA_SUBTITLE) ?: "",
-      button = intent.getStringExtra(EXTRA_BUTTON) ?: "Volver",
-    )
-    setContentView(Shield.build(this, copy, intent.getStringExtra(EXTRA_RELEASE)) { goHome() })
+    val plan = PlanStore.load(this)
+    if (plan == null) {
+      finish()
+      return
+    }
+    setContentView(Shield.build(this, plan, intent.getStringExtra(EXTRA_PACKAGE) ?: ""))
   }
 
   override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -36,31 +38,17 @@ class ShieldActivity : Activity() {
     super.onDestroy()
   }
 
-  private fun goHome() {
-    val home = Intent(Intent.ACTION_MAIN)
-      .addCategory(Intent.CATEGORY_HOME)
-      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    runCatching { startActivity(home) }
-    Shield.hide()
-  }
-
   companion object {
     private const val TAG = "VesperBlocking"
-    private const val EXTRA_TITLE = "title"
-    private const val EXTRA_SUBTITLE = "subtitle"
-    private const val EXTRA_BUTTON = "button"
-    private const val EXTRA_RELEASE = "release"
+    private const val EXTRA_PACKAGE = "package"
 
     private var current: WeakReference<ShieldActivity>? = null
 
     /** True when the activity was started; false when the system refused it. */
-    fun open(context: Context, copy: ShieldCopy, releaseLine: String?): Boolean {
+    fun open(context: Context, blockedPackage: String): Boolean {
       val intent = Intent(context, ShieldActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
-        .putExtra(EXTRA_TITLE, copy.title)
-        .putExtra(EXTRA_SUBTITLE, copy.subtitle)
-        .putExtra(EXTRA_BUTTON, copy.button)
-        .putExtra(EXTRA_RELEASE, releaseLine)
+        .putExtra(EXTRA_PACKAGE, blockedPackage)
       return try {
         context.startActivity(intent)
         Log.i(TAG, "shield up (activity)")

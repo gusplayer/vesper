@@ -104,15 +104,15 @@ export const modes: typeof shape = {
     title: 'Vesper needs usage access',
     session: {
       heading: 'During a focus session',
-      body: 'Vesper checks which app is in front, so it can cover it with the reminder when you open one of the apps you chose. It compares it with your list and drops it.',
+      body: 'Vesper checks which app is in front, so it can cover it with the reminder when you open one of the apps you chose, and notes that it did, so it can show you how many times you tried.',
     },
     activity: {
       heading: 'In the Activity tab',
       body: 'With the app open and no session running, Vesper asks the system how long each app you chose was in front today and this week, and shows you the breakdown.',
     },
     privacy: {
-      heading: 'None of this leaves your phone',
-      body: 'Everything is processed here and goes to no server. Vesper keeps no history of the apps you use either: it asks the system each time and shows the answer.',
+      heading: 'None of this leaves in the clear',
+      body: 'Everything is processed here. Vesper keeps no record of how long you use any app: it asks the system each time and shows the answer. All it notes is each time the reminder covered an app you chose, and that only leaves encrypted, in your backup.',
     },
     overlay: {
       heading: 'Display over other apps',

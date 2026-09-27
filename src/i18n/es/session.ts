@@ -188,8 +188,8 @@ export const session = {
     subtitle: 'Estás enfocando. Esta app espera.',
     /** The iOS shield button. It only closes the blocked app, so it says just that. */
     close: 'Cerrar',
-    /** The Android shield button: it goes to the home screen, not to Vesper. */
-    home: 'Volver',
+    /** The Android shield button: it goes to the home screen, out of the app (ADR-0053). */
+    home: 'Volver al foco',
     /**
      * The Android shield's third line when the session has an end. Not a function:
      * Kotlin fills `{time}` with the device's short time format, so the placeholder
@@ -203,5 +203,18 @@ export const session = {
     session: 'Sesión de foco',
     /** The same line during a break, counting down to the session coming back. */
     pause: 'Pausa',
+    /**
+     * The Android shield asks and counts (ADR-0053). Not functions: Kotlin fills `{n}`
+     * (a number), `{min}` (whole minutes) and `{items}` (the parts of today's count
+     * joined by " · "), so the placeholders must stay written exactly like this.
+     */
+    pauseFocus: 'Pausar el foco',
+    minutes: '{n} min',
+    nextBreak: 'Tu próxima pausa en {n} min',
+    today: 'Hoy: {items}',
+    attemptOne: '{n} intento',
+    attemptOther: '{n} intentos',
+    breakOne: '{n} pausa, {min} min',
+    breakOther: '{n} pausas, {min} min',
   },
 };

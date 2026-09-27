@@ -137,15 +137,15 @@ export const modes = {
     title: 'Vesper necesita el acceso a datos de uso',
     session: {
       heading: 'Durante una sesión',
-      body: 'Vesper mira qué app está al frente para cubrirla con el recordatorio cuando abres una de las que elegiste. La compara con tu lista y la suelta.',
+      body: 'Vesper mira qué app está al frente para cubrirla con el recordatorio cuando abres una de las que elegiste, y anota que la cubrió, para mostrarte cuántas veces lo intentaste.',
     },
     activity: {
       heading: 'En la pestaña Actividad',
       body: 'Con la app abierta y sin sesión corriendo, Vesper le pregunta al sistema cuánto estuvo al frente hoy y esta semana cada app que elegiste, y te muestra el desglose.',
     },
     privacy: {
-      heading: 'Nada de esto sale de tu teléfono',
-      body: 'Todo se procesa aquí y no va a ningún servidor. Vesper tampoco guarda historial de las apps que usas: se lo pregunta al sistema cada vez y muestra la respuesta.',
+      heading: 'Nada de esto sale en claro',
+      body: 'Todo se procesa aquí. Vesper no guarda cuánto tiempo usas ninguna app: se lo pregunta al sistema cada vez y muestra la respuesta. Lo único que anota son las veces que el recordatorio cubrió una app que elegiste, y eso solo sale cifrado, en tu respaldo.',
     },
     overlay: {
       heading: 'Mostrar sobre otras apps',
