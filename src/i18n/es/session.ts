@@ -164,6 +164,8 @@ export const session = {
      */
     blocking: 'Bloqueo',
     blockingNone: 'Ninguno',
+    /** What the shield saw during the session (ADR-0053); its value is `activity.shield.line`. */
+    shield: 'En el escudo',
     notBlocked: (reason: string) => `Este teléfono no bloquea apps: ${reason}.`,
     notBlockedHere: 'Este teléfono no bloquea apps.',
   },

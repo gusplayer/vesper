@@ -38,6 +38,8 @@ import {
 import { weekProgress, type WeekProgress } from '../domain/week';
 import { bootDatabase, resetDatabase, type BootResult } from '../db/boot';
 import * as sessionsRepo from '../db/repositories/sessions';
+import { sessionShieldSummary, shieldSummaryBetween } from '../db/queries/shieldSummary';
+import type { ShieldSummary } from '../domain/shieldTally';
 import { getStrings, stringsFor, useStrings, type Strings } from '../i18n';
 import { freshInstallLocale, useLocaleStore } from '../i18n/store';
 import { forgetCircleSync } from '../platform/hooks/useCircleSync';
@@ -384,6 +386,34 @@ export function useStreak(now: number): StreakState {
   const graceDays = useAppStore((state) => state.graceDays);
   const todayKey = dayKeyOf(now);
   return useMemo(() => computeStreak(stats, graceDays, todayKey), [stats, graceDays, todayKey]);
+}
+
+/**
+ * What the shield saw today or this week (ADR-0053): attempts, backs and breaks, with a
+ * line per app. Read from the tables on every change that can move it: the queue
+ * coming in (`shieldVersion`) and the running session, whose breaks write rows.
+ */
+export function useShieldSummary(span: 'today' | 'week', now: number): ShieldSummary {
+  const version = useFocusStore((state) => state.shieldVersion);
+  const session = useFocusStore((state) => state.session);
+  const from = span === 'today' ? dayBounds(now).dayStart : weekStart(now);
+  const to = span === 'today' ? dayBounds(now).dayEnd : now + 1;
+  return useMemo(
+    () => shieldSummaryBetween(from, to, now),
+    // `version` and `session` only say when to read again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [from, to, now, version, session],
+  );
+}
+
+/** One closed session's attempts and breaks, for its closing line (ADR-0053). */
+export function useSessionShieldSummary(sessionId: string | null, now: number): ShieldSummary | null {
+  const version = useFocusStore((state) => state.shieldVersion);
+  return useMemo(
+    () => (sessionId === null ? null : sessionShieldSummary(sessionId, now)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [sessionId, now, version],
+  );
 }
 
 /** The seven days of the week containing `now`, Monday first; future days have zero. */

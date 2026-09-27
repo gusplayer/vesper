@@ -113,6 +113,7 @@ export const session: typeof shape = {
     intention: 'Intention',
     blocking: 'Blocking',
     blockingNone: 'None',
+    shield: 'On the shield',
     notBlocked: (reason) => `This phone does not block apps: ${reason}.`,
     notBlockedHere: 'This phone does not block apps.',
   },

@@ -11,10 +11,11 @@ import {
   StatusNote,
   Text,
 } from '../../design/components';
-import { useFocusStore, useKudosReceived, useMode } from '../../data';
+import { useFocusStore, useKudosReceived, useMode, useSessionShieldSummary } from '../../data';
 import { appsTitleText } from '../../data/modes';
 import { OPEN_SESSION_CAP_MS } from '../../domain/session';
 import { HOUR } from '../../domain/time';
+import { shieldLineText } from '../../features/activity/shieldText';
 import { closingBlockingNote } from '../../features/session/blockingReach';
 import { blockingReachOf } from '../../features/session/blockingReachOf';
 import { useStrings } from '../../i18n';
@@ -51,6 +52,9 @@ export default function SessionCompleteScreen() {
   const kudos = useKudosReceived(now);
   const reach = mode === null ? null : blockingReachOf(mode);
   const blockingNote = reach === null ? null : closingBlockingNote(reach, t);
+  // What the shield saw during this session (ADR-0053); no row when it saw nothing.
+  const shieldSummary = useSessionShieldSummary(closed?.id ?? null, closed?.endedAt ?? 0);
+  const shield = shieldLineText(shieldSummary, strings.activity.shield);
 
   return (
     <Screen footer={<Button label={strings.common.continue} onPress={() => router.dismissTo('/(tabs)')} />}>
@@ -76,6 +80,7 @@ export default function SessionCompleteScreen() {
             <ListRow label={t.blocking} value={t.blockingNone} />
           )}
           <ListRow label={t.duration} value={durationText(closed?.actualMs ?? 0)} />
+          {shield === null ? null : <ListRow label={t.shield} value={shield} valueLines={2} />}
           {closed === null || closed.intention === null ? null : (
             <ListRow label={t.intention} description={closed.intention} />
           )}

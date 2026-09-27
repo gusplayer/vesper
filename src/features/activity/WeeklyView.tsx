@@ -7,6 +7,7 @@ import { durationText } from '../../lib/format';
 import { CircleWeekSection } from '../circle/CircleWeekSection';
 import { dayLabel } from './dates';
 import { HabitsSection } from './HabitsSection';
+import { ShieldSection } from './ShieldSection';
 import {
   deltaVsPrevious,
   emptyWeekLine,
@@ -75,6 +76,7 @@ export function WeeklyView({ stats, now }: WeeklyViewProps) {
         accessibilityLabel={spokenChart}
       />
       {offset === 0 ? <HabitsSection now={now} /> : null}
+      {offset === 0 ? <ShieldSection span="week" now={now} /> : null}
       <Stack gap="md">
         {days.map((day) => (
           <DayCard key={day.dayKey} day={day} />

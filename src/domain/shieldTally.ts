@@ -28,10 +28,15 @@ export type AppShieldTally = ShieldTally & {
   token: string;
 };
 
+/**
+ * Everything counts only what happened on the shield: a break from the session's own
+ * button is kept in `breaks` but belongs to no app and is not the shield's, so it is
+ * left out of these totals.
+ */
 export type ShieldSummary = ShieldTally & {
   /** Some attempt could only be counted from a tap (iOS): the total is a floor. */
   floor: boolean;
-  /** Only what happened over an app: breaks from the session's own button have none. Most attempts first. */
+  /** Most attempts first. */
   byApp: AppShieldTally[];
 };
 
@@ -87,14 +92,15 @@ export function summarizeShield(
   }
 
   for (const record of breaks) {
+    if (record.source !== 'shield' || record.token === null) {
+      continue;
+    }
     const took = breakTook(record, now);
     total.breaks += 1;
     total.breakMs += took;
-    if (record.token !== null) {
-      const line = lineOf(record.token);
-      line.breaks += 1;
-      line.breakMs += took;
-    }
+    const line = lineOf(record.token);
+    line.breaks += 1;
+    line.breakMs += took;
   }
 
   const byApp = [...perApp.entries()]
