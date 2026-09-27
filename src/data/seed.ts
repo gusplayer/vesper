@@ -1,5 +1,5 @@
 import { dayKeyOf, dayStartShifted } from '../domain/day';
-import { BREAK_EVERY_MS } from '../domain/session';
+import { BREAK_EVERY_MS, BREAK_MS } from '../domain/session';
 import { DAY, HOUR, MINUTE } from '../domain/time';
 import type { Strings } from '../i18n/es';
 import type { AppCategory } from '../i18n/es/demo';
@@ -345,6 +345,7 @@ export function seedDemoSessions(now: number, days = DEMO_HISTORY_DAYS): Session
         open: false,
         breakMs: 0,
         breakStartedAt: null,
+        breakLengthMs: BREAK_MS,
         nextBreakAtMs: BREAK_EVERY_MS,
         blockProfile: null,
         intention: null,

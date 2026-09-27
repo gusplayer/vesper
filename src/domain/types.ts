@@ -71,6 +71,11 @@ export type Session = {
   breakMs: number;
   /** The break running right now, if any. The clock is frozen while it is set. */
   breakStartedAt: Millis | null;
+  /**
+   * How long the current break (or the last one) was chosen to last, at most BREAK_MS.
+   * The shield offers 5, 10 or 15 minutes (ADR-0053); the session's own button, 15.
+   */
+  breakLengthMs: number;
   /** Focus time (elapsed) at which the next break unlocks. */
   nextBreakAtMs: number;
   /** Always null in phase 1 — ADR-0003. */
@@ -81,6 +86,49 @@ export type Session = {
   interruptions: number;
   startedAt: Millis;
   endedAt: Millis | null;
+};
+
+/**
+ * What happened on the shield (ADR-0053), as the native side hands it over.
+ * - 'shield_hit': the shield covered an app of the session. Only Android sees this:
+ *   the iOS shield draws itself without telling anyone.
+ * - 'backed_off': the user tapped "Volver al foco".
+ * - 'unlock_granted': the user paused the focus from the shield, for `lengthMs`.
+ */
+export type ShieldEventKind = 'shield_hit' | 'backed_off' | 'unlock_granted';
+
+export type ShieldPlatform = 'ios' | 'android';
+
+export type ShieldEvent = {
+  kind: ShieldEventKind;
+  platform: ShieldPlatform;
+  /**
+   * The app, as the platform names it: the package on Android, the encoded
+   * ApplicationToken on iOS. Never resolved to a name (ADR-0004).
+   */
+  token: string;
+  at: Millis;
+  /** The break length chosen; set only on 'unlock_granted'. */
+  lengthMs: number | null;
+};
+
+/** A stored ShieldEvent, tied to the session it happened in (null when none was running). */
+export type ShieldEventRow = ShieldEvent & { id: string; sessionId: string | null };
+
+/** Where a break was taken: the session's own button, or the shield over an app. */
+export type BreakSource = 'session' | 'shield';
+
+/** One break, as `breaks` keeps it (ADR-0053). `sessions.break_ms` still holds the total. */
+export type BreakRecord = {
+  id: string;
+  sessionId: string;
+  startedAt: Millis;
+  /** Null while it runs. */
+  endedAt: Millis | null;
+  lengthMs: number;
+  source: BreakSource;
+  /** The app whose shield it was taken from; null for the session's own button. */
+  token: string | null;
 };
 
 export type HabitMark = {

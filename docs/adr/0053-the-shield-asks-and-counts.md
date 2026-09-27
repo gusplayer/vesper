@@ -1,6 +1,6 @@
 # ADR-0053 — El escudo de la sesión pregunta y cuenta: intentos y pausas por app
 
-**Estado:** propuesta · 2026-09-27
+**Estado:** aceptada · 2026-09-27
 
 ## Contexto
 

@@ -75,7 +75,7 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - Expo SDK con dev client (no Expo Go — ver ADR-0001)
 - TypeScript estricto, sin `any`
 - expo-router para navegación (`Stack` con guardas: onboarding o app)
-- op-sqlite para persistencia; migraciones `001`–`012` en `src/db/migrations/`
+- op-sqlite para persistencia; migraciones `001`–`013` en `src/db/migrations/`
 - Zustand para las cachés de la base (`src/data/stores/`) y el estado efímero
 - Ids: UUID v7 propio en `src/lib/uuid.ts` sobre `expo-crypto`. No agregues la librería `uuid`
 - Fotos de los retos (ADR-0051): `expo-image-picker` y `expo-image-manipulator` (este, desde el
