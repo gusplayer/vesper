@@ -17,8 +17,18 @@ export type ResumePlan = (plan: BlockPlan, timing?: PlanTiming) => void;
  * the planned end, or the cap of an open session: the service stops there whatever
  * happens to the app. `open` says the session has no planned end, so the notification
  * counts up from `startedAt` instead of down to the cap (ADR-0022, ADR-0023).
+ *
+ * The rest is for a shield that asks (ADR-0053): `breakUnlocksAt` is the instant the
+ * next break unlocks (null: none is coming), and `deep` says breaks never exist in this
+ * session, so the shield says that instead of offering one.
  */
-export type PlanTiming = { startedAt: number; endsAt: number; open: boolean };
+export type PlanTiming = {
+  startedAt: number;
+  endsAt: number;
+  open: boolean;
+  breakUnlocksAt: number | null;
+  deep: boolean;
+};
 
 /**
  * The contract both blocking backends (iOS Screen Time, Android vesper-blocking)

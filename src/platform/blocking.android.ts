@@ -2,10 +2,12 @@ import { AppState, type AppStateStatus } from 'react-native';
 
 import { blockPlan, isEmptyPlan, shieldCopy, type BlockPlan, type BlockRules, type BlockableMode, type ShieldCopy } from '../domain/blocking';
 import { packageNamesFromToken } from '../domain/packageSelection';
+import type { ShieldEvent } from '../domain/types';
 import { getStrings } from '../i18n';
 import type { NativeCopy, NativeStatus, VesperBlockingNative } from '../../modules/vesper-blocking';
 import type { BlockingStatus, PausePlan, PlanTiming, ResumePlan, RoutineWindowSpec } from './blockingTypes';
 import { isAndroid, type CapabilityStatus } from './capabilities';
+import { breakPolicy, parseShieldEvents } from './shieldAsk';
 
 /**
  * blocking on Android: the local Kotlin module in modules/vesper-blocking behind the
@@ -25,6 +27,11 @@ import { isAndroid, type CapabilityStatus } from './capabilities';
  * notification counting the break down, and it resumes watching by itself; `resumePlan`
  * only brings it back early with the session's new end. The notification's words and
  * the shield's release line travel with every plan, so they follow the app language.
+ *
+ * The shield asks and counts (ADR-0053): every plan carries when the next break
+ * unlocks and the words of the pause row and of today's count, so the shield can pause
+ * the focus with no JS awake. What it saw waits in a queue that `takeShieldEvents`
+ * empties.
  *
  * Every native call is wrapped: a build without the module, or a stale one, must
  * degrade to "no disponible", never to a red screen.
@@ -240,6 +247,9 @@ export function applyPlan(plan: BlockPlan, timing?: PlanTiming): void {
       // The Android button goes home, not back to Vesper, so its label says just that.
       shieldButton: getStrings().session.shield.home,
       ...nativeCopy(),
+      // The pause row only exists for a session's plan: without timing there is no
+      // session to pause, and the shield only counts (ADR-0053).
+      ...(timing !== undefined ? breakPolicy(timing) : {}),
     }),
   );
 }
@@ -279,9 +289,8 @@ export const resumePlan: ResumePlan = (plan, timing) => {
     return;
   }
   const end = timing !== undefined && Number.isFinite(timing.endsAt) ? timing.endsAt : null;
-  // The next break's unlock is counted by the service from the break's end until
-  // the plan carries it (ADR-0053).
-  void safeAsync(() => mod.resumePlan(end, null)).then((resumed) => {
+  const unlocksAt = timing !== undefined && !timing.deep ? timing.breakUnlocksAt : null;
+  void safeAsync(() => mod.resumePlan(end, unlocksAt)).then((resumed) => {
     if (!resumed) {
       applyPlan(plan, timing);
     }
@@ -352,6 +361,18 @@ export async function listWindowIds(): Promise<string[]> {
     return [];
   }
   return safe(() => mod.listWindows()) ?? [];
+}
+
+/**
+ * What the shield saw since the last call, oldest first (ADR-0053); the native queue
+ * empties in the same step. Empty where the module is missing.
+ */
+export function takeShieldEvents(): ShieldEvent[] {
+  const mod = nativeModule();
+  if (mod === null) {
+    return [];
+  }
+  return parseShieldEvents(safe(() => mod.takeShieldEvents()) ?? []);
 }
 
 /** Remembers what the shield says; the next applyPlan carries it to the service. */
