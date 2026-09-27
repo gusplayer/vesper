@@ -53,7 +53,31 @@ export type NativeCopy = {
   shieldReleasesAt?: string;
 };
 
-export type NativePlan = NativeCopy & {
+/**
+ * What the shield asks and counts (ADR-0053), in the app's language. Kotlin fills `{n}`
+ * (a number), `{min}` (whole minutes) and `{items}` (the parts of today's count joined
+ * by " · "). Optional: a plan without them offers no pause and shows no count.
+ */
+export type NativeAskCopy = {
+  /** Above the break lengths. */
+  shieldPause?: string;
+  /** One length, '{n} min'. */
+  shieldMinutes?: string;
+  /** While the next break is locked, with `{n}` minutes left. */
+  shieldNextBreak?: string;
+  /** Instead of the pause row when breaks never come (deep). */
+  shieldNoBreak?: string;
+  /** Today's count for the app, around `{items}`. */
+  shieldToday?: string;
+  shieldAttemptOne?: string;
+  shieldAttemptOther?: string;
+  /** With `{n}` breaks and `{min}` minutes. */
+  shieldBreakOne?: string;
+  shieldBreakOther?: string;
+};
+
+export type NativePlan = NativeCopy &
+  NativeAskCopy & {
   packageNames: string[];
   /** 'block' shields the packages; 'allow' shields every other app. */
   mode: 'block' | 'allow';
@@ -66,6 +90,24 @@ export type NativePlan = NativeCopy & {
   shieldTitle: string;
   shieldSubtitle: string;
   shieldButton: string;
+  /**
+   * When the shield may pause the focus (ADR-0053): the epoch ms the next break
+   * unlocks (null: none is coming), the focus between breaks (0: breaks never exist,
+   * deep) and the lengths offered, all in ms.
+   */
+  breakUnlocksAt?: number | null;
+  breakEveryMs?: number;
+  breakChoicesMs?: number[];
+};
+
+/** One event of the shield's queue (ADR-0053), as `takeShieldEvents` hands it over. */
+export type NativeShieldEvent = {
+  kind: string;
+  packageName: string;
+  /** Epoch ms. */
+  at: number;
+  /** The break length chosen, ms; null outside 'unlock_granted'. */
+  lengthMs: number | null;
 };
 
 /** A routine window with its token already opened into package names. See RoutineWindowSpec. */
@@ -126,10 +168,13 @@ export type VesperBlockingNative = {
   pausePlan(untilMs: number): Promise<void>;
   /**
    * Ends the break now. `endsAt` is the plan's new end (epoch ms); null keeps the
-   * old one pushed back by what the break took. Rejects with E_NO_PLAN when nothing
-   * is applied.
+   * old one pushed back by what the break took. `breakUnlocksAt` is when the next break
+   * unlocks (epoch ms); null lets the service count it from the break's end. Rejects
+   * with E_NO_PLAN when nothing is applied.
    */
-  resumePlan(endsAt: number | null): Promise<void>;
+  resumePlan(endsAt: number | null, breakUnlocksAt: number | null): Promise<void>;
+  /** What the shield saw since the last call, oldest first; the queue empties (ADR-0053). */
+  takeShieldEvents(): NativeShieldEvent[];
   /** Registers (or replaces) a window and arms its next start and end. */
   scheduleWindow(window: NativeWindow): Promise<void>;
   cancelWindow(id: string): Promise<void>;

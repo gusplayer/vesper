@@ -34,7 +34,10 @@ import androidx.core.app.NotificationCompat
  * down, stops the watcher and turns the notification into the break countdown, and
  * the service resumes watching at `until` by itself: a main-looper callback while it
  * lives, a PLAN_RESUME alarm if it was killed, and a look at the stored pause when
- * START_STICKY brings it back. No JS in that path.
+ * START_STICKY brings it back. No JS in that path. The shield starts breaks too
+ * (ADR-0053): the pause then remembers the app it was taken from, whatever ends it adds
+ * what it took to that app's count, and the next break unlocks a `breaks.everyMs` of
+ * focus after it.
  *
  * `onStateChanged` tells the module, and through it JS, when it comes and goes.
  */
@@ -80,7 +83,11 @@ class BlockingService : Service() {
       // by what the break took, as it would have had the service lived.
       Log.i(TAG, "restarted after the break ended; resuming")
       PlanStore.clearPause(this)
-      val shifted = plan.copy(endsAt = plan.endsAt?.let { it + (pause.until - pause.startedAt) })
+      ShieldLedger.recordBreakTaken(this, pause, pause.until)
+      val shifted = plan.copy(
+        endsAt = plan.endsAt?.let { it + (pause.until - pause.startedAt) },
+        breaks = plan.breaks.afterBreak(pause.until),
+      )
       PlanStore.save(this, shifted)
       shifted.endsAt?.let { WindowScheduler.armPlanEnd(this, it) }
       enterFocus(shifted, now)
@@ -338,13 +345,20 @@ class BlockingService : Service() {
      * A break until `until`: the shield comes down and nothing is watched, but the
      * service and its notification stay. The plan's end alarm is disarmed for the
      * break's length, since the end will move by what the break takes.
+     *
+     * `packageName` is the app whose shield the break was taken from (ADR-0053). A break
+     * already running keeps its start and its app, and only takes the new `until`: JS
+     * asks for the same break once it learns of one the shield started, and that must
+     * not move its start to now.
      */
-    fun pause(context: Context, until: Long) {
+    fun pause(context: Context, until: Long, packageName: String? = null) {
       if (PlanStore.load(context) == null) {
         Log.i(TAG, "pause with no plan; ignoring")
         return
       }
-      PlanStore.savePause(context, Pause(startedAt = System.currentTimeMillis(), until = until))
+      val now = System.currentTimeMillis()
+      val running = PlanStore.loadPause(context)?.takeIf { it.until > now }
+      PlanStore.savePause(context, running?.copy(until = until) ?: Pause(startedAt = now, until = until, packageName = packageName))
       WindowScheduler.cancelPlanEnd(context)
       start(context, ACTION_PAUSE)
     }
@@ -352,9 +366,11 @@ class BlockingService : Service() {
     /**
      * Ends the break. With `endsAt` (JS knows the new planned end) the plan takes it;
      * without (the service resuming on its own, or an alarm) the old end is pushed
-     * back by what the break took. Nothing happens without a plan.
+     * back by what the break took. The next break unlocks at `breakUnlocksAt` when JS
+     * says, or a `breaks.everyMs` of focus after this one ended. Nothing happens
+     * without a plan.
      */
-    fun resume(context: Context, endsAt: Long?) {
+    fun resume(context: Context, endsAt: Long?, breakUnlocksAt: Long? = null) {
       val plan = PlanStore.load(context)
       if (plan == null) {
         Log.i(TAG, "resume with no plan; ignoring")
@@ -362,16 +378,25 @@ class BlockingService : Service() {
       }
       val pause = PlanStore.loadPause(context)
       val now = System.currentTimeMillis()
+      val resumedAt = pause?.let { minOf(now, it.until) } ?: now
       val newEnd = endsAt ?: plan.endsAt?.let { end ->
-        if (pause == null) end else end + (minOf(now, pause.until) - pause.startedAt)
+        if (pause == null) end else end + (resumedAt - pause.startedAt)
       }
-      PlanStore.save(context, plan.copy(endsAt = newEnd))
+      pause?.let { ShieldLedger.recordBreakTaken(context, it, resumedAt) }
+      val breaks = when {
+        breakUnlocksAt != null -> plan.breaks.copy(unlocksAt = breakUnlocksAt)
+        pause != null -> plan.breaks.afterBreak(resumedAt)
+        else -> plan.breaks
+      }
+      PlanStore.save(context, plan.copy(endsAt = newEnd, breaks = breaks))
       WindowScheduler.cancelPlanResume(context)
       newEnd?.let { WindowScheduler.armPlanEnd(context, it) } ?: WindowScheduler.cancelPlanEnd(context)
       start(context, ACTION_RESUME)
     }
 
     fun release(context: Context) {
+      // A session ending during a shield break: what the break took so far still counts.
+      PlanStore.loadPause(context)?.let { ShieldLedger.recordBreakTaken(context, it, System.currentTimeMillis()) }
       PlanStore.clear(context)
       WindowScheduler.cancelPlanEnd(context)
       WindowScheduler.cancelPlanResume(context)

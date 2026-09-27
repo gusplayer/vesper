@@ -14,10 +14,79 @@ data class ShieldCopy(
   val subtitle: String,
   val button: String,
   val releaseTemplate: String = DEFAULT_RELEASE_TEMPLATE,
+  /** The words of the pause row and of today's count (ADR-0053). Empty for a window's plan. */
+  val asks: AskCopy = AskCopy(),
 ) {
   companion object {
     const val DEFAULT_RELEASE_TEMPLATE = "Se libera a las {time}"
   }
+}
+
+/**
+ * What the shield says when it asks (ADR-0053), from JS in the app's language. Kotlin
+ * only fills the placeholders: `{n}` a number, `{min}` whole minutes, `{items}` the
+ * parts of today's count joined by " · ". An empty `pauseLabel` means the plan never
+ * offers a break from the shield (a routine window's plan, or one from an old build).
+ */
+data class AskCopy(
+  val pauseLabel: String = "",
+  val minutes: String = "{n} min",
+  val nextBreak: String = "",
+  /** Instead of the pause row when breaks never come (deep). Empty: nothing is said. */
+  val noBreak: String = "",
+  val today: String = "",
+  val attemptOne: String = "",
+  val attemptOther: String = "",
+  val breakOne: String = "",
+  val breakOther: String = "",
+) {
+  fun toJson(): JSONObject = JSONObject()
+    .put("pauseLabel", pauseLabel)
+    .put("minutes", minutes)
+    .put("nextBreak", nextBreak)
+    .put("noBreak", noBreak)
+    .put("today", today)
+    .put("attemptOne", attemptOne)
+    .put("attemptOther", attemptOther)
+    .put("breakOne", breakOne)
+    .put("breakOther", breakOther)
+
+  companion object {
+    fun fromJson(raw: String?): AskCopy {
+      val json = raw?.let { runCatching { JSONObject(it) }.getOrNull() } ?: return AskCopy()
+      val defaults = AskCopy()
+      return AskCopy(
+        pauseLabel = json.optString("pauseLabel", defaults.pauseLabel),
+        minutes = json.optString("minutes", defaults.minutes),
+        nextBreak = json.optString("nextBreak", defaults.nextBreak),
+        noBreak = json.optString("noBreak", defaults.noBreak),
+        today = json.optString("today", defaults.today),
+        attemptOne = json.optString("attemptOne", defaults.attemptOne),
+        attemptOther = json.optString("attemptOther", defaults.attemptOther),
+        breakOne = json.optString("breakOne", defaults.breakOne),
+        breakOther = json.optString("breakOther", defaults.breakOther),
+      )
+    }
+  }
+}
+
+/**
+ * When the shield may pause the focus (ADR-0053), decided by JS from the domain and
+ * kept with the plan so the shield can answer with no JS awake.
+ * - `unlocksAt`: the wall-clock instant the next break unlocks; null when none is
+ *   coming (deep, a session too short to reach one).
+ * - `everyMs`: focus between breaks; after a break the service unlocks the next one at
+ *   its end plus this. 0 means breaks never exist here (deep).
+ * - `choicesMs`: the lengths offered, 5, 10 and 15 minutes today.
+ */
+data class BreakPolicy(
+  val unlocksAt: Long? = null,
+  val everyMs: Long = 0L,
+  val choicesMs: List<Long> = emptyList(),
+) {
+  /** The same policy after a break that ended at `resumedAt`. */
+  fun afterBreak(resumedAt: Long): BreakPolicy =
+    if (everyMs > 0L) copy(unlocksAt = resumedAt + everyMs) else copy(unlocksAt = null)
 }
 
 /**
@@ -52,14 +121,21 @@ data class Plan(
   val notification: NotificationCopy = NotificationCopy(),
   /** An open session (ADR-0022): `endsAt` is only its cap, so the notification counts up. */
   val open: Boolean = false,
+  val breaks: BreakPolicy = BreakPolicy(),
 )
 
 /**
  * A break (ADR-0022, ADR-0023): the service keeps running but nothing is shielded
  * until `until`. `startedAt` is when it began, so a resume the service does by itself
- * can push the plan's end back by what the break took, the way JS does.
+ * can push the plan's end back by what the break took, the way JS does, and the
+ * shield's count can add what it took to the app it was taken from.
  */
-data class Pause(val startedAt: Long, val until: Long)
+data class Pause(
+  val startedAt: Long,
+  val until: Long,
+  /** The app whose shield it was taken from (ADR-0053); null for the session's own button. */
+  val packageName: String? = null,
+)
 
 /**
  * A routine window as JS registers it. Mirrors `RoutineWindowSpec` in
@@ -178,6 +254,11 @@ object PlanStore {
   private const val KEY_BREAK_TEXT = "breakText"
   private const val KEY_PAUSED_AT = "pausedAt"
   private const val KEY_PAUSED_UNTIL = "pausedUntil"
+  private const val KEY_PAUSED_PACKAGE = "pausedPackage"
+  private const val KEY_ASKS = "shieldAsks"
+  private const val KEY_BREAK_UNLOCKS_AT = "breakUnlocksAt"
+  private const val KEY_BREAK_EVERY = "breakEveryMs"
+  private const val KEY_BREAK_CHOICES = "breakChoicesMs"
 
   private const val WINDOW_PREFS = "vesper_windows"
 
@@ -201,8 +282,13 @@ object PlanStore {
       .putString(KEY_CHANNEL_DESCRIPTION, plan.notification.channelDescription)
       .putString(KEY_SESSION_TEXT, plan.notification.sessionText)
       .putString(KEY_BREAK_TEXT, plan.notification.breakText)
+      .putString(KEY_ASKS, plan.shield.asks.toJson().toString())
+      .putLong(KEY_BREAK_UNLOCKS_AT, plan.breaks.unlocksAt ?: -1L)
+      .putLong(KEY_BREAK_EVERY, plan.breaks.everyMs)
+      .putString(KEY_BREAK_CHOICES, JSONArray().also { array -> plan.breaks.choicesMs.forEach { array.put(it) } }.toString())
       .remove(KEY_PAUSED_AT)
       .remove(KEY_PAUSED_UNTIL)
+      .remove(KEY_PAUSED_PACKAGE)
       .apply()
   }
 
@@ -229,6 +315,7 @@ object PlanStore {
         subtitle = prefs.getString(KEY_SUBTITLE, null) ?: "",
         button = prefs.getString(KEY_BUTTON, null) ?: "Volver",
         releaseTemplate = prefs.getString(KEY_RELEASES_AT, null) ?: ShieldCopy.DEFAULT_RELEASE_TEMPLATE,
+        asks = AskCopy.fromJson(prefs.getString(KEY_ASKS, null)),
       ),
       windowId = prefs.getString(KEY_WINDOW_ID, null),
       // A plan from before startedAt existed counts up from now; nothing better is known.
@@ -240,7 +327,17 @@ object PlanStore {
         sessionText = prefs.getString(KEY_SESSION_TEXT, null) ?: defaults.sessionText,
         breakText = prefs.getString(KEY_BREAK_TEXT, null) ?: defaults.breakText,
       ),
+      breaks = BreakPolicy(
+        unlocksAt = prefs.getLong(KEY_BREAK_UNLOCKS_AT, -1L).takeIf { it > 0 },
+        everyMs = prefs.getLong(KEY_BREAK_EVERY, 0L),
+        choicesMs = longs(prefs.getString(KEY_BREAK_CHOICES, null)),
+      ),
     )
+  }
+
+  private fun longs(raw: String?): List<Long> {
+    val array = raw?.let { runCatching { JSONArray(it) }.getOrNull() } ?: return emptyList()
+    return (0 until array.length()).map { array.optLong(it) }.filter { it > 0 }
   }
 
   fun clear(context: Context) {
@@ -252,6 +349,7 @@ object PlanStore {
     prefs(context).edit()
       .putLong(KEY_PAUSED_AT, pause.startedAt)
       .putLong(KEY_PAUSED_UNTIL, pause.until)
+      .putString(KEY_PAUSED_PACKAGE, pause.packageName)
       .apply()
   }
 
@@ -259,11 +357,11 @@ object PlanStore {
     val prefs = prefs(context)
     val until = prefs.getLong(KEY_PAUSED_UNTIL, -1L).takeIf { it > 0 } ?: return null
     val startedAt = prefs.getLong(KEY_PAUSED_AT, -1L).takeIf { it > 0 } ?: until
-    return Pause(startedAt, until)
+    return Pause(startedAt, until, prefs.getString(KEY_PAUSED_PACKAGE, null))
   }
 
   fun clearPause(context: Context) {
-    prefs(context).edit().remove(KEY_PAUSED_AT).remove(KEY_PAUSED_UNTIL).apply()
+    prefs(context).edit().remove(KEY_PAUSED_AT).remove(KEY_PAUSED_UNTIL).remove(KEY_PAUSED_PACKAGE).apply()
   }
 
   /**

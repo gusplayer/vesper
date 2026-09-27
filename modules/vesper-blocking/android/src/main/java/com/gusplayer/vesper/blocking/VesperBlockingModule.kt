@@ -38,6 +38,36 @@ class PlanRecord : Record {
   @Field val channelDescription: String? = null
   @Field val sessionText: String? = null
   @Field val breakText: String? = null
+  /** When the shield may pause the focus (ADR-0053). See BreakPolicy. */
+  @Field val breakUnlocksAt: Double? = null
+  @Field val breakEveryMs: Double = 0.0
+  @Field val breakChoicesMs: List<Double> = emptyList()
+  /** The words of the pause row and of today's count. See AskCopy. */
+  @Field val shieldPause: String? = null
+  @Field val shieldMinutes: String? = null
+  @Field val shieldNextBreak: String? = null
+  @Field val shieldNoBreak: String? = null
+  @Field val shieldToday: String? = null
+  @Field val shieldAttemptOne: String? = null
+  @Field val shieldAttemptOther: String? = null
+  @Field val shieldBreakOne: String? = null
+  @Field val shieldBreakOther: String? = null
+}
+
+/** The ask copy a plan record carries; a missing field keeps AskCopy's default. */
+private fun askCopy(record: PlanRecord): AskCopy {
+  val defaults = AskCopy()
+  return AskCopy(
+    pauseLabel = record.shieldPause ?: defaults.pauseLabel,
+    minutes = record.shieldMinutes ?: defaults.minutes,
+    nextBreak = record.shieldNextBreak ?: defaults.nextBreak,
+    noBreak = record.shieldNoBreak ?: defaults.noBreak,
+    today = record.shieldToday ?: defaults.today,
+    attemptOne = record.shieldAttemptOne ?: defaults.attemptOne,
+    attemptOther = record.shieldAttemptOther ?: defaults.attemptOther,
+    breakOne = record.shieldBreakOne ?: defaults.breakOne,
+    breakOther = record.shieldBreakOther ?: defaults.breakOther,
+  )
 }
 
 /** A routine window as JS sends it. Mirrors `NativeWindow` in index.ts. */
@@ -219,10 +249,16 @@ class VesperBlockingModule : Module() {
           record.shieldSubtitle,
           record.shieldButton,
           record.shieldReleasesAt ?: ShieldCopy.DEFAULT_RELEASE_TEMPLATE,
+          askCopy(record),
         ),
         startedAt = record.startedAt?.toLong() ?: System.currentTimeMillis(),
         open = record.open,
         notification = notificationCopy(record.channelName, record.channelDescription, record.sessionText, record.breakText),
+        breaks = BreakPolicy(
+          unlocksAt = record.breakUnlocksAt?.toLong(),
+          everyMs = record.breakEveryMs.toLong().coerceAtLeast(0L),
+          choicesMs = record.breakChoicesMs.map { it.toLong() }.filter { it > 0L },
+        ),
       )
       Log.i(TAG, "applyPlan: ${plan.packageNames.size} packages, ${plan.mode}, endsAt=${plan.endsAt}, open=${plan.open}")
       BlockingService.apply(context, plan)
@@ -241,13 +277,17 @@ class VesperBlockingModule : Module() {
       BlockingService.pause(context, untilMs.toLong())
     }
 
-    AsyncFunction("resumePlan") { endsAt: Double? ->
+    AsyncFunction("resumePlan") { endsAt: Double?, breakUnlocksAt: Double? ->
       if (PlanStore.load(context) == null) {
         throw NoPlanException()
       }
-      Log.i(TAG, "resumePlan endsAt=${endsAt?.toLong()}")
-      BlockingService.resume(context, endsAt?.toLong())
+      Log.i(TAG, "resumePlan endsAt=${endsAt?.toLong()} breakUnlocksAt=${breakUnlocksAt?.toLong()}")
+      BlockingService.resume(context, endsAt?.toLong(), breakUnlocksAt?.toLong())
     }
+
+    // What the shield saw since the last call (ADR-0053), oldest first; the queue is
+    // emptied in the same step. JS writes it to usage_events.
+    Function("takeShieldEvents") { ShieldLedger.drain(context) }
 
     AsyncFunction("scheduleWindow") { record: WindowRecord ->
       if (record.id.isEmpty()) {
