@@ -971,4 +971,17 @@ elección). Las mismas siete áreas lo implementaron.
     `simctl` ni `idb`). Una rutina queda descartada: `markOpenWindows` nunca borra una marca y
     `routineStarts` estaba vacío. Queda un toque en el botón o un error de la app que arranca una
     sesión sola. Si vuelve a pasar, es lo primero que hay que mirar.
+- **2026-09-27 · En `main` y desplegado.** PR #1 (`f7f646a`, merge commit: un commit por fase,
+  y cualquiera se puede revertir). Railway redesplegó `circle-api`: "postgres ready" (el esquema
+  corrió en Neon: `media`, `reports`, `blocks`, `accounts.box_key`/`box_key_id`/`banned_at`,
+  `challenges.photos`), "photos off (AWS_* not set): /media answers 503" y "moderation off".
+  **Prueba en producción:** una identidad nueva; `POST /media` y `GET /media/:id/url` responden
+  `503 photos not configured`, `/report` responde `409 handle required`, y `DELETE /account` da
+  204 y después 401. **Neon, solo lectura:** `media`, `reports`, `blocks`, `challenges` y `links`
+  en cero. Queda 1 cuenta con 1 respaldo: la identidad `01a0de94…` que dejó el primer arranque
+  de la tanda 1, pendiente de borrarse con permiso del dueño.
+- **Para encender las fotos en producción faltan, del dueño:** un Railway Bucket conectado a
+  `circle-api` con el preset "AWS SDK", `ADMIN_TOKEN`, el registro en NCMEC y el resto de
+  `docs/MODERATION.md`. `web/` sigue sin desplegar, así que los textos nuevos de privacidad y
+  términos no están publicados.
 
