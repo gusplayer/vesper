@@ -74,11 +74,11 @@ describe('summarizeShield', () => {
     expect(summary.floor).toBe(true);
   });
 
-  it("counts the session's own breaks in the total but under no app", () => {
+  it("leaves the session's own breaks out: they are not the shield's", () => {
     const summary = summarizeShield([], [aBreak({ source: 'session', token: null, lengthMs: 15 * MINUTE, endedAt: T0 + 15 * MINUTE })], T0);
 
-    expect(summary.breaks).toBe(1);
-    expect(summary.breakMs).toBe(15 * MINUTE);
+    expect(summary.breaks).toBe(0);
+    expect(summary.breakMs).toBe(0);
     expect(summary.byApp).toEqual([]);
   });
 

@@ -10,7 +10,8 @@ import {
   Stack,
   Text,
 } from '../../design/components';
-import { useFocusStore, useMode, useSettings } from '../../data';
+import { useFocusStore, useMode, useSessionShieldSummary, useSettings } from '../../data';
+import { shieldLineText } from '../../features/activity/shieldText';
 import { EMERGENCY_EXIT_REASON, exitReasonText } from '../../features/session/exitReason';
 import { useStrings } from '../../i18n';
 import { durationText } from '../../lib/format';
@@ -44,6 +45,9 @@ export default function SessionClosedScreen() {
   const duration =
     closed === null ? served : closed.open ? t.servedOpen(served) : t.servedOf(served, durationText(closed.plannedMs));
   const reason = closed === null || closed.exitReason === null || emergency ? null : exitReasonText(closed.exitReason, strings.session);
+  // What the shield saw during this session (ADR-0053); no row when it saw nothing.
+  const shieldSummary = useSessionShieldSummary(closed?.id ?? null, closed?.endedAt ?? 0);
+  const shield = shieldLineText(shieldSummary, strings.activity.shield);
 
   return (
     <Screen footer={<Button label={strings.common.continue} onPress={() => router.dismissTo('/(tabs)')} />}>
@@ -68,6 +72,7 @@ export default function SessionClosedScreen() {
       <ListGroup>
         <ListRow label={strings.session.complete.mode} value={mode?.name ?? strings.common.empty} valueLines={2} />
         <ListRow label={strings.session.complete.duration} value={duration} />
+        {shield === null ? null : <ListRow label={strings.session.complete.shield} value={shield} valueLines={2} />}
         {/* A typed reason or intention is a sentence: it wraps under its label instead of squeezing it. */}
         {closed === null || closed.intention === null ? null : (
           <ListRow label={strings.session.complete.intention} description={closed.intention} />

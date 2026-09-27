@@ -51,6 +51,11 @@ type FocusState = {
   /** How many sessions have ever completed — the first one gets a different closing. */
   completedCount: number;
   /**
+   * Bumped whenever the shield's queue brings anything in (ADR-0053), so the screens
+   * that count attempts read the table again. Not persisted.
+   */
+  shieldVersion: number;
+  /**
    * True when `lastClosed` is a session that ran out while the app was dead, so nobody
    * saw it close (ADR-0047 §9). SessionGate shows `session/complete` for it once, on
    * this open, and calls `closingSeen`.
@@ -94,6 +99,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   modeId: null,
   lastClosed: null,
   completedCount: 0,
+  shieldVersion: 0,
   unseenClosing: false,
 
   hydrate: (recovered = null) => {
@@ -245,12 +251,16 @@ export const useFocusStore = create<FocusState>((set, get) => ({
   },
 
   ingestShield: (events) => {
+    if (events.length === 0) {
+      return;
+    }
     if (!ingestShieldEvents(events)) {
+      set((state) => ({ shieldVersion: state.shieldVersion + 1 }));
       return;
     }
     // The table is the truth now: the queue may have started a break the cache never saw.
     const session = sessionsRepo.findRunning();
-    set({ session });
+    set((state) => ({ session, shieldVersion: state.shieldVersion + 1 }));
     useSchemeStore.getState().setScheme(schemeFor(session));
   },
 }));

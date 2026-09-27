@@ -206,5 +206,36 @@ export const activity = {
     footer: (minutes: number, perMonth: number) =>
       `Si un día no llega a ${minutes} minutos, un día de gracia lo cubre solo. Tienes ${perMonth} por mes.`,
   },
+  /**
+   * What the shield saw (ADR-0053): Actividad › De por vida for today, Semanal for the
+   * week, and one line on the session's closing. Counts and breaks, never time in an
+   * app: a break lifts the whole shield and nobody knows what was opened in it.
+   */
+  shield: {
+    title: 'En el escudo',
+    titleWeek: 'En el escudo esta semana',
+    footer: 'Cada vez que el escudo cubrió una app de tu sesión. Una pausa es tiempo fuera del foco, no tiempo en esa app.',
+    /** Added when some attempt could only be counted from a tap (iPhone). */
+    floor: 'En iPhone solo se cuentan los toques en el escudo: son al menos esos.',
+    attempts: 'Intentos',
+    backs: 'Volviste al foco',
+    breaks: 'Pausas',
+    /** A count, or a floor of one. */
+    count: (n: number, floor: boolean) => (floor ? `al menos ${n}` : `${n}`),
+    /** "2 · 20m": how many and what they took. */
+    breaksValue: (n: number, duration: string) => `${n} · ${duration}`,
+    /** One app, under Intentos: its attempts and, if any, its breaks. */
+    appValue: (attempts: number, breaks: number) =>
+      breaks === 0 ? `${attempts}` : `${attempts} · ${breaks === 1 ? '1 pausa' : `${breaks} pausas`}`,
+    appLabel: (name: string, attempts: number, breaks: number) =>
+      `${name}: ${attempts === 1 ? '1 intento' : `${attempts} intentos`}${
+        breaks === 0 ? '' : `, ${breaks === 1 ? '1 pausa' : `${breaks} pausas`}`
+      }`,
+    /** The session's closing line: "4 intentos · 2 pausas, 20m". */
+    line: (attempts: number, breaks: number, duration: string, floor: boolean) => {
+      const tries = `${floor ? 'al menos ' : ''}${attempts === 1 ? '1 intento' : `${attempts} intentos`}`;
+      return breaks === 0 ? tries : `${tries} · ${breaks === 1 ? '1 pausa' : `${breaks} pausas`}, ${duration}`;
+    },
+  },
   ledger,
 };

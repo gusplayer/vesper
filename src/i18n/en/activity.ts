@@ -133,5 +133,26 @@ export const activity: typeof shape = {
     footer: (minutes, perMonth) =>
       `If a day falls short of ${minutes} minutes, a grace day covers it on its own. You get ${perMonth} a month.`,
   },
+  shield: {
+    title: 'On the shield',
+    titleWeek: 'On the shield this week',
+    footer: 'Each time the shield covered an app during your session. A break is time away from focus, not time in that app.',
+    floor: 'On iPhone only taps on the shield are counted: it is at least that many.',
+    attempts: 'Attempts',
+    backs: 'Back to focus',
+    breaks: 'Breaks',
+    count: (n, floor) => (floor ? `at least ${n}` : `${n}`),
+    breaksValue: (n, duration) => `${n} · ${duration}`,
+    appValue: (attempts, breaks) =>
+      breaks === 0 ? `${attempts}` : `${attempts} · ${breaks === 1 ? '1 break' : `${breaks} breaks`}`,
+    appLabel: (name, attempts, breaks) =>
+      `${name}: ${attempts === 1 ? '1 attempt' : `${attempts} attempts`}${
+        breaks === 0 ? '' : `, ${breaks === 1 ? '1 break' : `${breaks} breaks`}`
+      }`,
+    line: (attempts, breaks, duration, floor) => {
+      const tries = `${floor ? 'at least ' : ''}${attempts === 1 ? '1 attempt' : `${attempts} attempts`}`;
+      return breaks === 0 ? tries : `${tries} · ${breaks === 1 ? '1 break' : `${breaks} breaks`}, ${duration}`;
+    },
+  },
   ledger,
 };

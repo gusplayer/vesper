@@ -11,6 +11,7 @@ import { LifeSection } from './LifeSection';
 import { recentMonths } from './selectors';
 import { StreakSection } from './StreakSection';
 import { daysText, hoursText } from './text';
+import { ShieldSection } from './ShieldSection';
 import { TodaySection } from './TodaySection';
 import { WeeklyGoalSection } from './WeeklyGoalSection';
 
@@ -78,6 +79,7 @@ export function LifetimeView({ stats, now, onShowWeek }: LifetimeViewProps) {
       <StreakSection now={now} />
       <HabitsSummary now={now} onShowWeek={onShowWeek} />
       <TodaySection now={now} />
+      <ShieldSection span="today" now={now} />
       <LifeSection now={now} />
     </Stack>
   );
