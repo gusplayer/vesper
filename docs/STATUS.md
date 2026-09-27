@@ -861,15 +861,30 @@ elección). Las mismas siete áreas lo implementaron.
   desconocido responde igual que un código equivocado; con el llavero intacto, la
   bienvenida dice "This Vesper was last used 1 minute ago" y "Start separately" crea otra
   identidad sin `DELETE /account`. `tsc`, lint, 1265 tests de la app y 138 del servidor.
-- **`RECOVERY_KEY` está en Railway** (32 bytes, generada sin mostrarse). **Faltan, del dueño:**
-  una cuenta de Resend con un dominio propio verificado, y `RESEND_API_KEY` y
-  `RECOVERY_FROM` en Railway. Hasta entonces el correo dice "todavía no disponible".
+- **`RECOVERY_KEY` está en Railway** (32 bytes, generada sin mostrarse). **Falta, del dueño:**
+  `RESEND_API_KEY` y `RECOVERY_FROM` en las variables de Railway. Hasta entonces el correo
+  dice "todavía no disponible".
 - **Desplegado (`badbfb4`):** Railway arrancó con `postgres ready` y "email recovery off
   (RESEND_API_KEY, RECOVERY_FROM not set)"; `/recovery/start` responde 503 "email not
   configured" en producción, y la base sigue vacía con `recovery` y `recovery_codes` creadas.
-- **No verificado:** un envío real por Resend; el caso del iPad en un iPad de verdad con la
-  misma cuenta de Apple; "Traerlo aquí" en pantalla (la restauración es la misma ya
-  probada).
+- **Envío real verificado el 2026-09-27, todavía no en Railway.** La cuenta de Resend existe
+  y tiene un dominio verificado, `clarvi.app`: DKIM y SPF en `verified`, `_dmarc.clarvi.app`
+  con `p=none`, y el seguimiento de apertura y de clic apagados, que es lo que pide
+  ADR-0050 §7. Dos correos salieron por el `createResendMailer` de verdad
+  (`server/src/mailer.ts`, no un `curl` a mano) desde `Vesper <codigo@clarvi.app>`:
+  `01a0e338-23a2-77ed-be2e-fb9936157e88` a un Gmail y `01a0e346-003c-777f-a16a-be0ac658ceda`
+  a un Google Workspace, los dos `delivered`. El segundo se vio en pantalla: bandeja de
+  entrada, no spam, firmado por `clarvi.app`, enviado por `send.clarvi.app`, texto plano sin
+  enlaces y en español neutro de tú.
+- **Decisión abierta: el remitente no es un dominio de Vesper.** `clarvi.app` es de otro
+  proyecto, así que el código llega desde un dominio que nadie vio en la app. Llega porque
+  la autenticación está en orden, no porque se lea confiable. Mientras no haya un dominio
+  propio verificado en Resend, la pantalla del correo de recuperación tiene que decir desde
+  dónde va a llegar; cuando lo haya, se cambia `RECOVERY_FROM` y esa línea sobra.
+- **La llave con la que se probó es de acceso completo** (puede listar y borrar dominios).
+  La de Railway tiene que ser una de solo envío, limitada al dominio.
+- **No verificado:** el caso del iPad en un iPad de verdad con la misma cuenta de Apple;
+  "Traerlo aquí" en pantalla (la restauración es la misma ya probada).
 
 ## Fotos en los retos (2026-09-26, ADR-0051)
 
