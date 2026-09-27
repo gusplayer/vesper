@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { resolveActivityId } from '../../db/boot';
+import * as breaksRepo from '../../db/repositories/breaks';
 import * as sessionsRepo from '../../db/repositories/sessions';
 import {
   close as closeSession,
@@ -11,10 +12,11 @@ import {
   startBreak,
   type CloseOutcome,
 } from '../../domain/session';
-import type { Session } from '../../domain/types';
+import type { Session, ShieldEvent } from '../../domain/types';
 import { useSchemeStore } from '../../design/theme';
 import { emptyToNull } from '../../lib/text';
 import { uuidv7 } from '../../lib/uuid';
+import { ingestShieldEvents } from '../shieldIngest';
 import { useAppStore } from './app';
 
 /**
@@ -27,7 +29,9 @@ import { useAppStore } from './app';
  * what decides what gets blocked, which is exactly what that column was reserved for.
  *
  * A break (ADR-0022) flips the theme back to light while it lasts: light is the app,
- * dark is the session, and a break is not the session.
+ * dark is the session, and a break is not the session. Every break also gets its row
+ * in `breaks` (ADR-0053): each write of the session goes through `breaksRepo.follow`,
+ * which opens or closes the row the change implies.
  */
 
 function schemeFor(session: Session | null): 'light' | 'dark' {
@@ -77,6 +81,12 @@ type FocusState = {
   settleNow: (now: number) => Session | null;
   setIntention: (text: string) => void;
   registerInterruption: () => void;
+  /**
+   * Writes what the native shield queued (ADR-0053) and takes its breaks into the
+   * running session. Call it before `settleNow`, so a session a break pushed back is
+   * not closed at its old end. A no-op for an empty queue.
+   */
+  ingestShield: (events: readonly ShieldEvent[]) => void;
 };
 
 export const useFocusStore = create<FocusState>((set, get) => ({
@@ -136,6 +146,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
     }
     const closed = closeSession(current, now, outcome, { exitReason: exitReason ?? null });
     sessionsRepo.update(closed);
+    breaksRepo.follow(current, closed);
     useAppStore.getState().recordFocus(now);
     // The scheme goes first. `set` notifies subscribers synchronously, and the routine
     // engine is one of them: a routine that was waiting starts its session inside this
@@ -163,6 +174,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       return;
     }
     sessionsRepo.update(updated);
+    breaksRepo.follow(current, updated);
     set({ session: updated });
     useSchemeStore.getState().setScheme(schemeFor(updated));
   },
@@ -177,6 +189,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       return;
     }
     sessionsRepo.update(updated);
+    breaksRepo.follow(current, updated);
     set({ session: updated });
     useSchemeStore.getState().setScheme(schemeFor(updated));
   },
@@ -191,6 +204,7 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       return null;
     }
     sessionsRepo.update(settled);
+    breaksRepo.follow(current, settled);
     // Before `set`, for the reason `finish` gives: a waiting routine may start its
     // session from inside it, and its dark scheme must be the last word.
     useSchemeStore.getState().setScheme(schemeFor(settled.outcome === 'running' ? settled : null));
@@ -228,5 +242,15 @@ export const useFocusStore = create<FocusState>((set, get) => ({
       sessionsRepo.update(updated);
       set({ session: updated });
     }
+  },
+
+  ingestShield: (events) => {
+    if (!ingestShieldEvents(events)) {
+      return;
+    }
+    // The table is the truth now: the queue may have started a break the cache never saw.
+    const session = sessionsRepo.findRunning();
+    set({ session });
+    useSchemeStore.getState().setScheme(schemeFor(session));
   },
 }));

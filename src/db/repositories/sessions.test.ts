@@ -215,6 +215,8 @@ describe('recoverOrphans', () => {
     expect(updates).toHaveLength(2);
     expect(updates[0]?.params).toEqual([HOUR, 'completed', null, 2, T0 + HOUR, 'leer', 0, null, BREAK_MS, BREAK_EVERY_MS, 's-1']);
     expect(updates[1]?.params).toEqual([2 * HOUR, 'completed', null, 2, T0 + 3 * HOUR, 'leer', 0, null, BREAK_MS, BREAK_EVERY_MS, 's-2']);
+    // Neither was on a break: no row in `breaks` to open or close.
+    expect(fake.calls.some((call) => call.sql.includes('breaks'))).toBe(false);
   });
 
   it('expires an open orphan at its 12 h cap: the one case that earns expired', () => {
@@ -261,6 +263,9 @@ describe('recoverOrphans', () => {
     const update = fake.callMatching(/UPDATE sessions/);
     // Ended at its own end: 15 min on record, the clock frozen at 30 min of focus.
     expect(update.params).toEqual([0, 'running', null, 2, null, 'leer', BREAK_MS, null, BREAK_MS, 30 * MINUTE + BREAK_EVERY_MS, 's-1']);
+    // Its row in `breaks` closes where the domain ended it, not when boot noticed.
+    const closedBreak = fake.callMatching(/UPDATE breaks/);
+    expect(closedBreak.params).toEqual([T0 + 30 * MINUTE + BREAK_MS, 's-1']);
   });
 
   it('writes nothing when there is no orphan', () => {

@@ -109,10 +109,15 @@ function seedDemoData(now: number, demo: DemoStrings): boolean {
  * orphaned session and, on a fresh database, writes the demo data in the language of
  * `demo`. Synchronous, because op-sqlite is — the app can call it before the first
  * render and know the database is usable when it returns.
+ *
+ * `beforeSettle` runs on the migrated database right before orphans are settled: what
+ * the shield queued with the app closed has to reach the session first (ADR-0053), or
+ * a session a break pushed back would close at its old end.
  */
-export function bootDatabase(now: number, demo: DemoStrings): BootResult {
+export function bootDatabase(now: number, demo: DemoStrings, beforeSettle?: () => void): BootResult {
   getDb();
   activities.seedDefaults(now, demoActivities(demo));
+  beforeSettle?.();
   const orphansRecovered = sessions.recoverOrphans(now);
   const demoSeeded = seedDemoData(now, demo);
 

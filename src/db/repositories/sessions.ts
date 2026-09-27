@@ -1,6 +1,7 @@
 import { settle } from '../../domain/session';
 import type { Session, SessionOutcome } from '../../domain/types';
 import { getDb, rowsAs } from '../client';
+import * as breaks from './breaks';
 
 type SessionRow = {
   id: string;
@@ -179,6 +180,7 @@ export function recoverOrphans(now: number): number {
       continue;
     }
     update(settled);
+    breaks.follow(session, settled);
     if (settled.outcome !== 'running') {
       closed += 1;
     }

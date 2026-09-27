@@ -32,6 +32,7 @@ import {
   type Member,
   type Profile,
   type SharePrefs,
+  type ShieldEvent,
   type StoredPhoto,
 } from '../domain/types';
 import { weekProgress, type WeekProgress } from '../domain/week';
@@ -45,6 +46,7 @@ import { challengeAlbum, myChallengeWeeks, myPhotoSlot, type MyChallengeWeek, ty
 import { useOnboardingDraft } from './onboardingDraft';
 import { demoActivities, demoApps, demoModeIdeas, HEALTH, USAGE, WEBSITES } from './seed';
 import { useAppStore } from './stores/app';
+import { ingestShieldEvents } from './shieldIngest';
 import { readStreak } from './streak';
 import { useCircleStore } from './stores/circle';
 import { useFocusStore } from './stores/focus';
@@ -147,9 +149,15 @@ export function rehydrateStores(now: number): void {
 /**
  * Opens and migrates the database, seeds it when empty, and fills the stores, all
  * before the first render. Throws on failure; the root layout shows FatalError.
+ *
+ * `shieldEvents` is what the native shield queued while the app was closed (ADR-0053),
+ * taken by the root layout from the platform, which this layer never imports. It is
+ * written before any session is settled.
  */
-export function bootAndHydrate(now: number): BootResult {
-  const result = bootDatabase(now, stringsFor(freshInstallLocale()).demo);
+export function bootAndHydrate(now: number, shieldEvents: readonly ShieldEvent[] = []): BootResult {
+  const result = bootDatabase(now, stringsFor(freshInstallLocale()).demo, () => {
+    ingestShieldEvents(shieldEvents);
+  });
   hydrateStores(now);
   return result;
 }

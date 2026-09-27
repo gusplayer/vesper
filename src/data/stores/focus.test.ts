@@ -151,6 +151,16 @@ describe('breaks', () => {
     expect(updates()).toHaveLength(2);
   });
 
+  it('gives every break its row in `breaks`: opened at the start, closed where it ended (ADR-0053)', () => {
+    useFocusStore.getState().start('mode-x', HOUR, T0);
+    useFocusStore.getState().takeBreak(T0 + 25 * MINUTE);
+
+    const opened = fake.callMatching(/INSERT INTO breaks/);
+    expect(opened.params?.slice(2)).toEqual([T0 + 25 * MINUTE, BREAK_MS, 'session', null]);
+
+    useFocusStore.getState().resume(T0 + 30 * MINUTE);
+    expect(fake.callMatching(/UPDATE breaks/).params).toEqual([T0 + 30 * MINUTE, useFocusStore.getState().session?.id]);
+  });
 });
 
 describe('finish', () => {
