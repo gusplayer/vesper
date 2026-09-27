@@ -327,6 +327,18 @@ otra persona llega a un teléfono de la tienda antes de la 3.
 - **iOS pide `NSPhotoLibraryAddUsageDescription`** para "Guardar imagen" desde la hoja, o la app
   se cierra: está en `app.json` y en `locales/`. El ADR-0030 decía que `app.json` no cambiaba.
 
+**Prueba en Android, 2026-09-27.**
+
+- **Un reto cuyo creador sale de tu círculo se termina hoy si tienes fotos tuyas en él**, en
+  vez de archivarse (ADR-0049 lo archivaba). Archivar borra sus fotos, y las tuyas quedan
+  hasta que *tú* archivas el reto (§13): así el cierre muestra cómo fue y tu álbum, y el
+  archivo es tuyo. Sin fotos tuyas se archiva como antes. Lo encontró la prueba: al bloquear
+  al creador, la foto propia se borraba sin aviso.
+- **El fundido de una miniatura corre en JS, no en el hilo nativo.** En Android, un fundido
+  nativo que arranca sobre una pantalla que está debajo de otra ruta (el reto, mientras la
+  vista previa guarda) nunca terminaba, y la miniatura de la fila se quedaba gris hasta
+  volver a montar la pantalla.
+
 ## Alternativas descartadas
 
 - **Historias de 24 h, reacciones y comentarios** (opción C): feed, FOMO y likes con

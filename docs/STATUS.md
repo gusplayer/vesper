@@ -941,4 +941,29 @@ elección). Las mismas siete áreas lo implementaron.
 - **Producción:** el primer arranque de la tanda 1, antes de apuntar la app al servidor local,
   dejó una identidad en la base de producción (`01a0de94…`, sin alias). Está pendiente de
   borrarse con permiso del dueño. Nada de esta rama está desplegado: ni el servidor, ni `web/`.
+- **2026-09-27 · Verificado entre plataformas y en español (Android).** Emulador Pixel 6 (API 34)
+  como Luis, en español (Ajustes › Idioma), y el iPhone 17 Pro de Gus, contra el servidor local:
+  - Luis abre el link de Gus sin perfil ("Primero crea tu perfil."), lo crea, pide entrar; Gus
+    acepta; Gus crea "Move" con Luis y fotos; Luis ve "En este reto se comparten fotos. Las tuyas
+    son opcionales." y se une.
+  - "Antes de tu primera foto" en español; "Términos de uso" abre
+    `terms?lang=es#fotos`. "Tomar una foto" con la cámara del emulador; "La ve Gus, solo en este
+    reto." y "Agregar al reto".
+  - **Cifrado cruzado:** la foto que Luis cifró en Android se abre en el iPhone de Gus ("Luis ·
+    Sunday, September 27", "Caminata al parque", "With the camera · 8:25 AM") y la que Gus cifró
+    en iOS, con un pie con tildes pegado del portapapeles, se abre en Android ("Gus · domingo 27",
+    "Caminé 5 km con música", "De la galería"). "Dar ánimo" dice "Sent".
+  - "Ocultar las fotos de Gus" deja su marca y quita su foto; Ajustes › Círculo lista "Fotos
+    ocultas" con "Mostrar", y la foto vuelve. "Bloquear a Gus" con su confirmación: Gus sale del
+    círculo y del reto en los dos teléfonos, y el código de Gus responde a Luis "Ese código no
+    existe o ya no funciona."
+  - **Dos errores encontrados y corregidos:** bloquear al creador de un reto borraba tu propia
+    foto (ahora el reto se termina hoy y la foto se queda, verificado con Ana bloqueando a Gus:
+    "Stretch · Last day · just you" con su foto), y en Android la miniatura de "Cambiar la foto de
+    hoy" quedaba gris (el fundido pasó a JS; verificado en Android después de guardar).
+  - **No explicado:** una sesión de 25 min ("No socials") arrancó sola en el iPhone de Gus a las
+    08:18:04, mientras solo se tocaba el emulador y un minuto después de que Metro recargara en
+    caliente `src/dev/route.ts`. No la arrancó una rutina (`routineStarts` vacío) ni `DevJump`
+    (habría empezado 3 min antes); su forma es la del botón de Focus. Repetir la recarga con Focus
+    en pantalla no la reprodujo. Queda por observar.
 

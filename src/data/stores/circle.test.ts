@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFakeDb, transactionOn, type FakeRows } from '../../db/testing/fakeDb';
-import { ME, type Challenge, type ChallengeMark, type Member, type MemberWeek } from '../../domain/types';
+import { ME, type Challenge, type ChallengeMark, type Member, type MemberWeek, type StoredPhoto } from '../../domain/types';
 import { DEMO_CHALLENGE_ID } from '../circleSeed';
 import { useCircleStore } from './circle';
+import { usePhotoStore } from './photos';
 
 /**
  * The circle store against a fake database handle, for the three things ADR-0044 added
@@ -460,6 +461,26 @@ describe('photos in challenges (ADR-0051)', () => {
     updated_at: 1,
   });
 
+  const storedPhoto = (id: string, challengeId: string, memberId: string): StoredPhoto => ({
+    id,
+    challengeId,
+    memberId,
+    dayKey: '2026-09-27',
+    origin: 'camera',
+    caption: null,
+    width: 1280,
+    height: 960,
+    fullFile: `${id}.jpg`,
+    thumbFile: `${id}.thumb.jpg`,
+    takenAt: 1,
+    createdAt: 1,
+    updatedAt: 1,
+    contentKey: null,
+    remoteState: memberId === ME ? 'local' : 'remote',
+    expiresAt: null,
+    captionBox: null,
+  });
+
   function photoDeletes(column: 'challenge_id' | 'member_id'): unknown[] {
     return fake.calls
       .filter((call) => call.sql === `DELETE FROM challenge_photos WHERE ${column} = ?`)
@@ -504,6 +525,43 @@ describe('photos in challenges (ADR-0051)', () => {
     useCircleStore.getState().leaveCircle(50);
 
     expect(photoDeletes('challenge_id')).toEqual([DEMO_CHALLENGE_ID, CHALLENGE]);
+  });
+
+  it("ends today, instead of archiving, a challenge whose maker left when the user has a photo in it", () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({
+      ...EMPTY,
+      members: [ANA_MEMBER],
+      challenges: [{ ...REMOTE_CHALLENGE, participantIds: [ANA, ME], habitId: 'habit-walk' }],
+    });
+    usePhotoStore.setState({
+      photos: [
+        storedPhoto('p-mine', CHALLENGE, ME),
+        storedPhoto('p-ana', CHALLENGE, ANA),
+      ],
+    });
+    const now = new Date(2026, 8, 27, 9, 0).getTime();
+
+    useCircleStore.getState().blockMember(ANA, now);
+
+    const challenge = useCircleStore.getState().challenges.find((c) => c.id === CHALLENGE);
+    expect(challenge?.archivedAt).toBeNull();
+    expect(challenge?.endDayKey).toBe('2026-09-27');
+    expect(usePhotoStore.getState().photos.map((photo) => photo.id)).toEqual(['p-mine']);
+  });
+
+  it('archives a challenge whose maker left when the user has no photo in it', () => {
+    useCircleStore.getState().setAccount({ id: PROFILE_ID, createdAt: 50 }, 50);
+    useCircleStore.getState().applyRemote({
+      ...EMPTY,
+      members: [ANA_MEMBER],
+      challenges: [{ ...REMOTE_CHALLENGE, participantIds: [ANA, ME], habitId: 'habit-walk' }],
+    });
+    usePhotoStore.setState({ photos: [] });
+
+    useCircleStore.getState().blockMember(ANA, 70);
+
+    expect(useCircleStore.getState().challenges.find((c) => c.id === CHALLENGE)?.archivedAt).toBe(70);
   });
 
   it("takes other people's photos of a challenge the user leaves, and keeps the user's", () => {

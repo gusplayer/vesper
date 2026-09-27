@@ -394,6 +394,27 @@ export const useCircleStore = create<CircleState>((set, get) => {
    * archived here, because its maker is no longer someone the user shares a circle with
    * (the server takes the user out of it too, ADR-0049). The user's habit stays.
    */
+  /**
+   * A challenge whose maker left the user's circle ends here (ADR-0049). Archiving it
+   * deletes its photos, but the user's own stay until *they* archive it (ADR-0051 §13):
+   * with a photo of theirs in it, it ends today instead of being archived, so the close
+   * shows how it went and their album, and the archive is theirs to make. Without one, it
+   * is archived as before.
+   */
+  const endWithoutMaker = (challenge: Challenge, now: number): void => {
+    const mine = usePhotoStore
+      .getState()
+      .photos.some((photo) => photo.challengeId === challenge.id && photo.memberId === ME);
+    if (!mine) {
+      get().archiveChallenge(challenge.id, now);
+      return;
+    }
+    const today = dayKeyOf(now);
+    const endDayKey = challenge.endDayKey !== null && challenge.endDayKey < today ? challenge.endDayKey : today;
+    saveChallenge({ ...challenge, endDayKey });
+    usePhotoStore.getState().removeOthersPhotos(challenge.id);
+  };
+
   const dropPerson = (memberId: string, now: number): void => {
     if (get().pendingAccepts.includes(memberId)) {
       get().settleAccept(memberId, now);
@@ -401,7 +422,7 @@ export const useCircleStore = create<CircleState>((set, get) => {
     get().removeMember(memberId);
     for (const challenge of get().challenges) {
       if (challenge.createdBy === memberId && challenge.archivedAt === null) {
-        get().archiveChallenge(challenge.id, now);
+        endWithoutMaker(challenge, now);
       }
     }
   };

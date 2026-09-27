@@ -45,7 +45,11 @@ export function PhotoImage({ uri, muted, fit, still = false, onSettle }: PhotoIm
       toValue: 1,
       duration: motion.fadeMs,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
+      // JS-driven on purpose. A tile often mounts on a screen that sits under another
+      // route (the challenge, while the preview saves), and on Android a native-driven
+      // fade started on a detached view never lands: the photo stayed at opacity 0
+      // until the screen was mounted again. A few thumbnails fading is cheap on JS.
+      useNativeDriver: false,
     }).start();
   };
 
