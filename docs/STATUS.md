@@ -965,5 +965,7 @@ elección). Las mismas siete áreas lo implementaron.
     08:18:04, mientras solo se tocaba el emulador y un minuto después de que Metro recargara en
     caliente `src/dev/route.ts`. No la arrancó una rutina (`routineStarts` vacío) ni `DevJump`
     (habría empezado 3 min antes); su forma es la del botón de Focus. Repetir la recarga con Focus
-    en pantalla no la reprodujo. Queda por observar.
+    en pantalla no la reprodujo. La causa más probable: otra sesión de Claude trabajaba en el mismo
+    árbol a esa hora (hizo el commit `ead7dac` a las 08:18:57, que cayó en esta rama) y pudo tocar
+    el mismo simulador. Se le avisó. Si vuelve a pasar sin nadie más, es un error de la app.
 
