@@ -509,3 +509,38 @@ notas de la sesión (`android/`).
 - **Sin probar:** la línea de profundo, la `ShieldActivity` (Ajustes y otras apps que
   esconden superposiciones), la pausa desde el escudo con el proceso muerto y un
   teléfono real.
+
+## Fotos en los retos (ADR-0051)
+
+- **Galería:** el Photo Picker del sistema (`legacy: false`), sin permiso ("This app can
+  only access the photos you select"). La app no declara `READ_MEDIA_*`.
+- **Permisos en el manifiesto:** solo `CAMERA`. `READ_EXTERNAL_STORAGE`,
+  `WRITE_EXTERNAL_STORAGE` y `RECORD_AUDIO`, que agregan los plugins, salen con
+  `android.blockedPermissions` (`tools:node="remove"`). Verificado con
+  `dumpsys package com.gusplayer.vesper`.
+- **Cámara en Android 8 y 9:** por debajo de Android 10, abrir la cámara exige también
+  `WRITE_EXTERNAL_STORAGE`, que está bloqueado; el sistema lo negaría sin diálogo. Ahí
+  `cameraStatus()` dice que no hay cámara y queda la galería. Desde Android 10 el permiso
+  de cámara se pide al tocar "Tomar una foto".
+- **Orientación:** el decodificador (Glide) aplica la rotación EXIF al leer; ancho y alto
+  salen de la imagen ya derecha.
+- **Fundido de las miniaturas:** con el driver nativo, un fundido que arrancaba sobre una
+  pantalla que estaba debajo de otra ruta (el reto, mientras la vista previa guarda) nunca
+  terminaba, y la miniatura quedaba gris. `PhotoImage` anima en JS.
+- **Compartir:** la hoja de Android no tiene "Guardar imagen"; se guarda a través de Google
+  Fotos o Archivos. `react-native-view-shot` toma `width`/`height` en píxeles en Android, así
+  que no se pasan y la tarjeta mide `1080 / PixelRatio`.
+
+### Qué se probó (emulador Pixel 6, API 34, 2026-09-26 y 27)
+
+- La cámara virtual: permiso pedido en el flujo, foto derecha a 960×1280, sin EXIF. El Photo
+  Picker con una foto con GPS: sin EXIF, sin GPS, y el reemplazo borra los archivos
+  anteriores. "Guardar o compartir" y "Compartir tu álbum" (PNG de 1080×1920).
+- En español y contra el iPhone de otra persona: unirse por link, aviso de la primera foto,
+  `terms?lang=es#fotos`, y la foto cifrada en Android que se abre en iOS y al revés;
+  ocultar, mostrar desde Ajustes › Círculo y bloquear.
+- **Cómo probar:** `adb push foto.jpg /sdcard/Pictures/` y
+  `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/foto.jpg`;
+  `adb reverse tcp:8081 tcp:8081` y `tcp:8787 tcp:8787` para Metro y el servidor local;
+  `adb shell run-as com.gusplayer.vesper sqlite3 databases/vesper.db` para mover una fecha.
+
