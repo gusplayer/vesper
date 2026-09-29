@@ -26,7 +26,7 @@ type NamedWorkoutKind = Exclude<WorkoutKind, 'other'>;
 const WORKOUT_KIND_HINTS: readonly { pattern: RegExp; kind: NamedWorkoutKind }[] = [
   {
     pattern:
-      /bici|\bcicla|\bciclis|\brodar|\bpedal|\bspin(?:ning)?\b|\bmtb\b|\bbik(?:e|ing)|bicycl|\bcycl(?:e|ing|ist)|\brid(?:e|es|ing)\b/i,
+      /bici|\bcicla|\bciclis|\brodar|\bpedal|\bspin(?:ning)?\b|\bmtb\b|\bbik(?:e|ing)|bicycl|\bcycl(?:e|ing|ist)|\bcyclo(?:cross|tour)|\bciclo(?:cross|turismo|montañismo|montanismo)|\brid(?:e|es|ing)\b/i,
     kind: 'cycling',
   },
   { pattern: /\bcorrer|\btrot|\brun(?:s|ning|ners?)?\b|\bjog/i, kind: 'running' },

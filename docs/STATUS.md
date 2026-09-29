@@ -1,4 +1,4 @@
-# Estado — 2026-09-27
+# Estado — 2026-09-29
 
 Qué existe, dónde se verificó y qué falta. Se actualiza al cerrar cada tanda de trabajo.
 El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, históricas, en
@@ -11,9 +11,9 @@ Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
-avisos y `npx vitest run` con **1227 tests en 87 archivos**, todos en verde, y también con
+avisos y `npx vitest run` con **1622 tests en 109 archivos**, todos en verde, y también con
 `npm run test:dst` (la misma suite en una zona con horario de verano); los dos módulos Kotlin
-compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **90** tests, está
+compilan con Gradle. El servidor del círculo (`server/`) tiene sus propios **215** tests, está
 desplegado, y **la app por fin le habla** desde ADR-0044: cuenta por dispositivo que nace al
 invitar, secreto en el llavero y sincronía. Lo que no se ha ejecutado nunca es el ciclo
 completo entre dos teléfonos.
