@@ -99,7 +99,9 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
   Health Connect; `modules/vesper-identity/`, el secreto de la identidad en el llavero de
   iCloud (Swift) y en Block Store (Kotlin) (ADR-0048). `plugins/withAndroidBackup.js`: qué
   entra al backup de Android. `targets/`: las tres extensiones
-  de Screen Time en iOS. `patches/`: parche de `react-native-health`
+  de Screen Time en iOS; son código nuestro y el plugin ya no las reescribe (ADR-0054). Al
+  subir `react-native-device-activity`, `COPY_TO_TARGET_FOLDER=1 npx expo prebuild --platform ios`
+  y revisa el diff. `patches/`: parche de `react-native-health`
 - vitest sobre `src/**/*.test.ts`: dominio, lib, db (con handle falso), data, i18n y las
   funciones puras de features y platform. Sin tests de UI: las pantallas se verifican
   corriendo la app
