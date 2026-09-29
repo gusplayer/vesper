@@ -1,5 +1,7 @@
 import { DEV_CIRCLE_API_URL } from '../dev/route';
-import { inviteCodeFor } from '../domain/circle';
+import { challengeStatus, inviteCodeFor } from '../domain/circle';
+import { dayKeyOf, shiftDayKey, weekKeyOf } from '../domain/day';
+import { healthReadStart } from '../domain/healthMarks';
 import { SECOND } from '../domain/time';
 import {
   ME,
@@ -1242,10 +1244,10 @@ export type LocalUpload = {
   myWeek: { focusMs: number; socialMs: number | null; habitsDone: number; habitsTarget: number };
   share: SharePrefs;
   challenges: readonly Challenge[];
-  /** The user's habit marks, already narrowed to the days being reported. */
+  /** The user's habit marks, already narrowed to `markDays`. */
   myMarks: readonly HabitMark[];
-  /** The seven day keys of `weekKey`, Monday first. */
-  weekDays: readonly string[];
+  /** The days a challenge mark goes up for, oldest first: `challengeMarkDays(now)`. */
+  markDays: readonly string[];
   kudos: readonly Kudos[];
   nudges: readonly Nudge[];
   accountId: string;
@@ -1259,6 +1261,26 @@ export function isUuidV7(value: string): boolean {
 }
 
 /**
+ * The days a challenge mark goes up for at `now`, oldest first: from the first day
+ * Health is read to the Sunday of this week, and never less than this whole week.
+ * Health fills a day in late — Sunday's ride, written by Strava on Monday, marks
+ * Sunday on Monday — and with the week alone that mark would stay on this phone and
+ * the circle would never see it (ADR-0055 §6). The week figures in `myWeek` are still
+ * this week's only.
+ */
+export function challengeMarkDays(now: number): string[] {
+  const weekKey = weekKeyOf(now);
+  const healthKey = dayKeyOf(healthReadStart(now));
+  const lastKey = shiftDayKey(weekKey, 6);
+  const days: string[] = [];
+  // DayKeys are 'YYYY-MM-DD', so string order is date order.
+  for (let key = healthKey < weekKey ? healthKey : weekKey; key <= lastKey; key = shiftDayKey(key, 1)) {
+    days.push(key);
+  }
+  return days;
+}
+
+/**
  * What this phone sends up (ADR-0044 §5: local first, then the wire).
  *
  * The week is the one place where a switch turned off has to become **null and not
@@ -1267,9 +1289,10 @@ export function isUuidV7(value: string): boolean {
  * `sharedWeekUsageMs` is null while the floor is still the demo one, so the estimate
  * the seed invents never leaves the phone as if it were this person's (ADR-0035).
  *
- * Marks go up as the whole week, day by day, marked or not, so unmarking a day travels
- * too. Rows with an id the server would not store are dropped here rather than sent to
- * be ignored: the demo seed's `challenge-read` and `kudos-ana-…` are exactly that.
+ * Marks go up day by day over `markDays`, marked or not, so unmarking a day travels
+ * too; a day before the challenge's Monday or after its last day never goes up. Rows
+ * with an id the server would not store are dropped here rather than sent to be
+ * ignored: the demo seed's `challenge-read` and `kudos-ana-…` are exactly that.
  */
 export function buildUpload(local: LocalUpload): SyncUpload {
   const weeks: WeekUpload[] = [
@@ -1304,7 +1327,10 @@ export function buildUpload(local: LocalUpload): SyncUpload {
     if (habitId === null || !isUuidV7(challenge.id) || challenge.archivedAt !== null) {
       continue;
     }
-    for (const dayKey of local.weekDays) {
+    for (const dayKey of local.markDays) {
+      if (challengeStatus(challenge, dayKey) !== 'active') {
+        continue;
+      }
       const mark = local.myMarks.find((m) => m.habitId === habitId && m.dayKey === dayKey);
       marks.push({
         challengeId: challenge.id,

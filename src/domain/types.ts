@@ -28,6 +28,12 @@ export type CountMode = 'verified' | 'declared';
 
 export type HealthType = 'workout' | 'steps' | 'sleep';
 
+/**
+ * What a workout was, as far as a habit cares (ADR-0055). 'other' is every workout that
+ * is none of the three, and every type a platform adds that this list does not know.
+ */
+export type WorkoutKind = 'cycling' | 'running' | 'swimming' | 'other';
+
 /** Where a ledger row's number came from. Never mixed into one metric — ADR-0005. */
 export type Provenance = 'verified' | 'declared' | 'estimated' | 'unknown';
 
@@ -196,8 +202,8 @@ export const ME = 'me';
 /** Product decision: a circle is the people you would text, not an audience. */
 export const MAX_CIRCLE = 12;
 
-/** Times per week a challenge can ask for. */
-export const CHALLENGE_TARGET_OPTIONS = [2, 3, 4, 5, 6] as const;
+/** Times per week a challenge can ask for: the habit's own list (ADR-0055), never 7. */
+export const CHALLENGE_TARGET_OPTIONS = [1, 2, 3, 4, 5, 6] as const;
 
 /**
  * How long a challenge runs, in days: one, two and four weeks, the 21 days that make

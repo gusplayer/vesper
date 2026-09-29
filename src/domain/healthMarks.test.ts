@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
+import { dayBounds, dayKeyOf, dayKeyStart } from './day';
 import { aHabit } from './fixtures';
 import {
   DEFAULT_SLEEP_HOURS,
   EMPTY_HEALTH_WEEK,
   MIN_WORKOUT_MS,
   STEP_GOAL,
+  healthReadStart,
+  healthWindow,
   marksFromHealth,
   sleepHoursFor,
   stepGoalFor,
   type HealthWeek,
+  type HealthWorkout,
 } from './healthMarks';
 import { HOUR, MINUTE } from './time';
-import type { Habit } from './types';
+import type { Habit, WorkoutKind } from './types';
 
 /** Local instants, so the tests read like a calendar. Month is 1-based here. */
 function at(day: number, hour: number, minute = 0): number {
@@ -28,6 +32,11 @@ const sleep: Habit = aHabit({ id: 'h-sleep', name: 'dormir 7h', countMode: 'veri
 
 function week(partial: Partial<HealthWeek>): HealthWeek {
   return { ...EMPTY_HEALTH_WEEK, ...partial };
+}
+
+/** A workout a watch or an app recorded, of no particular kind unless given one. */
+function workout(start: number, end: number, kind: WorkoutKind = 'other', manual = false): HealthWorkout {
+  return { start, end, kind, manual };
 }
 
 describe('sleepHoursFor', () => {
@@ -49,10 +58,7 @@ describe('marksFromHealth: workouts', () => {
     const marks = marksFromHealth(
       [gym],
       week({
-        workouts: [
-          { start: at(18, 7), end: at(18, 7, 45) },
-          { start: at(18, 18), end: at(18, 18, 30) },
-        ],
+        workouts: [workout(at(18, 7), at(18, 7, 45)), workout(at(18, 18), at(18, 18, 30))],
       }),
       NOW,
     );
@@ -70,15 +76,80 @@ describe('marksFromHealth: workouts', () => {
 
   it('ignores a day whose only workouts are under the floor', () => {
     const short = week({
-      workouts: [
-        { start: at(18, 7), end: at(18, 7) + MIN_WORKOUT_MS - 1 },
-        { start: at(18, 9), end: at(18, 9, 5) },
-      ],
+      workouts: [workout(at(18, 7), at(18, 7) + MIN_WORKOUT_MS - 1), workout(at(18, 9), at(18, 9, 5))],
     });
     expect(marksFromHealth([gym], short, NOW)).toHaveLength(0);
 
-    const exact = week({ workouts: [{ start: at(18, 7), end: at(18, 7) + MIN_WORKOUT_MS }] });
+    const exact = week({ workouts: [workout(at(18, 7), at(18, 7) + MIN_WORKOUT_MS)] });
     expect(marksFromHealth([gym], exact, NOW)).toHaveLength(1);
+  });
+});
+
+describe('marksFromHealth: the kind of workout (ADR-0055)', () => {
+  const ride: Habit = aHabit({ id: 'h-ride', name: 'Montar en bici', countMode: 'verified', healthType: 'workout' });
+  const run: Habit = aHabit({ id: 'h-run', name: 'Correr', countMode: 'verified', healthType: 'workout' });
+  const swim: Habit = aHabit({ id: 'h-swim', name: 'Swim', countMode: 'verified', healthType: 'workout' });
+
+  const mixed = week({
+    workouts: [
+      workout(at(17, 7), at(17, 8), 'cycling'),
+      workout(at(18, 7), at(18, 8), 'other'),
+      workout(at(19, 7), at(19, 7, 40), 'running'),
+      workout(at(19, 18), at(19, 18, 30), 'swimming'),
+    ],
+  });
+
+  it('marks a named kind only on the days with a workout of that kind', () => {
+    const marks = marksFromHealth([ride, run, swim], mixed, NOW);
+
+    expect(marks.map((m) => `${m.habitId}:${m.dayKey}`)).toEqual([
+      'h-ride:2026-08-17',
+      'h-run:2026-08-19',
+      'h-swim:2026-08-19',
+    ]);
+  });
+
+  it('marks a workout of any kind for a name that asks for none', () => {
+    expect(marksFromHealth([gym], mixed, NOW).map((m) => m.dayKey)).toEqual(['2026-08-17', '2026-08-18', '2026-08-19']);
+  });
+
+  it('reads the kind from the name when the habit carries no health type', () => {
+    const untyped: Habit = { ...ride, healthType: null };
+    expect(marksFromHealth([untyped], mixed, NOW).map((m) => m.dayKey)).toEqual(['2026-08-17']);
+  });
+
+  it('counts days, not rides: two rides in a day are one mark carrying both', () => {
+    const twice = week({
+      workouts: [workout(at(18, 7), at(18, 8), 'cycling'), workout(at(18, 18), at(18, 18, 45), 'cycling')],
+    });
+    const marks = marksFromHealth([ride], twice, NOW);
+
+    expect(marks).toHaveLength(1);
+    expect(marks[0]).toMatchObject({ id: 'hm-h-ride-2026-08-18', durationMs: 105 * MINUTE });
+  });
+
+  it('adds up only the workouts that count, and lets no other kind lift a short ride', () => {
+    const day = week({
+      workouts: [workout(at(18, 7), at(18, 7, 40), 'cycling'), workout(at(18, 18), at(18, 19), 'other')],
+    });
+    expect(marksFromHealth([ride], day, NOW)[0]?.durationMs).toBe(40 * MINUTE);
+    expect(marksFromHealth([gym], day, NOW)[0]?.durationMs).toBe(100 * MINUTE);
+
+    const shortRide = week({
+      workouts: [workout(at(18, 7), at(18, 7, 5), 'cycling'), workout(at(18, 18), at(18, 19), 'other')],
+    });
+    expect(marksFromHealth([ride], shortRide, NOW)).toEqual([]);
+  });
+
+  it('never verifies a workout typed in by hand (ADR-0005), of any kind', () => {
+    const typed = week({ workouts: [workout(at(18, 7), at(18, 9), 'cycling', true)] });
+    expect(marksFromHealth([ride, gym], typed, NOW)).toEqual([]);
+
+    // A recorded ride the same day still counts, and carries only its own time.
+    const both = week({
+      workouts: [workout(at(18, 7), at(18, 9), 'cycling', true), workout(at(18, 18), at(18, 18, 30), 'cycling')],
+    });
+    expect(marksFromHealth([ride], both, NOW).map((m) => m.durationMs)).toEqual([30 * MINUTE]);
   });
 });
 
@@ -190,7 +261,7 @@ describe('marksFromHealth: sleep', () => {
 
 describe('marksFromHealth: scope', () => {
   const busy = week({
-    workouts: [{ start: at(18, 7), end: at(18, 8) }],
+    workouts: [workout(at(18, 7), at(18, 8))],
     stepsByDay: { '2026-08-18': 10_000 },
     sleepSessions: [{ start: at(17, 23), end: at(18, 7), asleep: true }],
   });
@@ -224,24 +295,40 @@ describe('marksFromHealth: scope', () => {
     expect(marksFromHealth([unmappable, gym], busy, NOW).map((m) => m.habitId)).toEqual(['h-gym']);
   });
 
-  it('ignores days before the week and after now', () => {
+  it('ignores days before the window and after now', () => {
+    // The window of Wednesday the 19th starts on Wednesday the 12th.
     const marks = marksFromHealth(
-      [gym, walk],
+      [gym, walk, sleep],
       week({
         workouts: [
-          { start: at(16, 7), end: at(16, 8) },
-          { start: at(17, 7), end: at(17, 8) },
-          { start: at(20, 7), end: at(20, 8) },
+          workout(at(11, 7), at(11, 8)),
+          workout(at(12, 7), at(12, 8)),
+          workout(at(16, 7), at(16, 8)),
+          workout(at(20, 7), at(20, 8)),
         ],
-        stepsByDay: { '2026-08-10': 20_000, '2026-08-19': 20_000, '2026-08-23': 20_000 },
+        stepsByDay: { '2026-08-11': 20_000, '2026-08-12': 20_000, '2026-08-19': 20_000, '2026-08-23': 20_000 },
+        sleepSessions: [
+          { start: at(10, 23), end: at(11, 7), asleep: true },
+          { start: at(11, 23), end: at(12, 7), asleep: true },
+        ],
       }),
       NOW,
     );
 
     expect(marks.map((m) => `${m.habitId}:${m.dayKey}`)).toEqual([
-      'h-gym:2026-08-17',
+      'h-gym:2026-08-12',
+      'h-gym:2026-08-16',
+      'h-walk:2026-08-12',
       'h-walk:2026-08-19',
+      'h-sleep:2026-08-12',
     ]);
+  });
+
+  it('marks on Monday a Sunday ride that reached Health late (ADR-0055)', () => {
+    const ride: Habit = aHabit({ id: 'h-ride', name: 'bici', countMode: 'verified', healthType: 'workout' });
+    const late = week({ workouts: [workout(at(23, 17), at(23, 19), 'cycling')] });
+
+    expect(marksFromHealth([ride], late, at(24, 9)).map((m) => m.dayKey)).toEqual(['2026-08-23']);
   });
 
   it('produces the same ids on every run', () => {
@@ -258,5 +345,37 @@ describe('marksFromHealth: scope', () => {
 
   it('is empty for an empty week', () => {
     expect(marksFromHealth([gym, walk, sleep], EMPTY_HEALTH_WEEK, NOW)).toEqual([]);
+  });
+});
+
+describe('healthReadStart / healthWindow', () => {
+  it('reads today and the seven days before, from local midnight', () => {
+    expect(healthReadStart(NOW)).toBe(at(12, 0));
+    expect(healthWindow(NOW)).toEqual({ fromKey: '2026-08-12', toKey: '2026-08-19' });
+  });
+
+  it('holds all of last week on a Monday, and only last Sunday on a Sunday', () => {
+    expect(healthWindow(at(24, 0, 5))).toEqual({ fromKey: '2026-08-17', toKey: '2026-08-24' });
+    expect(healthWindow(at(23, 23, 55))).toEqual({ fromKey: '2026-08-16', toKey: '2026-08-23' });
+  });
+
+  it('counts calendar days across a DST change', () => {
+    // Chile, where `npm run test:dst` runs: 4 April 2026 is 25 hours long and
+    // 6 September starts at 01:00 and is 23. Taking 7 × 24 hours from now or from
+    // today's midnight lands on the wrong day in all but the second case; elsewhere
+    // these are ordinary days.
+    const cases: [number, string][] = [
+      [new Date(2026, 3, 7, 23, 30).getTime(), '2026-03-31'],
+      [new Date(2026, 3, 11, 0, 30).getTime(), '2026-04-04'],
+      [new Date(2026, 8, 9, 12).getTime(), '2026-09-02'],
+      [new Date(2026, 8, 13, 0, 30).getTime(), '2026-09-06'],
+    ];
+    for (const [now, fromKey] of cases) {
+      const start = healthReadStart(now);
+      expect(dayKeyOf(start)).toBe(fromKey);
+      expect(start).toBe(dayKeyStart(fromKey));
+      expect(dayBounds(start).dayStart).toBe(start);
+      expect(healthWindow(now)).toEqual({ fromKey, toKey: dayKeyOf(now) });
+    }
   });
 });

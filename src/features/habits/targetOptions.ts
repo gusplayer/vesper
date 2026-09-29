@@ -1,9 +1,9 @@
 /**
  * The target chips of the habit form: the offered targets plus the one already saved,
- * sorted, once each. A habit can carry a target the chips do not offer — the demo's
- * "Dormir" has 5, and a habit a challenge created takes the challenge's 2 to 6
- * (data/stores/circle.ts) — and without its own chip it would show nothing selected
- * and be lost at the first tap. Pure.
+ * sorted, once each. Since ADR-0055 a habit and a challenge offer the same 1 to 6, so
+ * every target this app saves has its chip; the saved one is kept for a target that
+ * came from elsewhere — a challenge row the server accepts with any number — which
+ * without its own chip would show nothing selected and be lost at the first tap. Pure.
  */
 export function targetOptions(offered: readonly number[], saved: number | undefined): number[] {
   const all = saved === undefined || saved <= 0 ? [...offered] : [...offered, saved];

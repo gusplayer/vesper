@@ -17,7 +17,12 @@ export type NativeSdkStatus = 'available' | 'updateRequired' | 'unsupported';
 /** Steps of one local day. `start` is that day's local midnight, epoch ms. */
 export type NativeStepDay = { start: number; count: number };
 
-export type NativeWorkout = { start: number; end: number };
+/**
+ * `exerciseType` is Health Connect's ExerciseSessionRecord.EXERCISE_TYPE_* int, read as a
+ * kind by src/domain/workoutKinds.ts (ADR-0055). `manual` is RECORDING_METHOD_MANUAL_ENTRY:
+ * the user typed it in. A build from before ADR-0055 sends neither.
+ */
+export type NativeWorkout = { start: number; end: number; exerciseType: number; manual: boolean };
 
 /** Health Connect's stage ints: 1 awake, 2 sleeping, 3 out of bed, 4 light, 5 deep, 6 REM, 7 awake in bed. */
 export type NativeSleepStage = { start: number; end: number; stage: number };

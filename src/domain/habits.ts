@@ -1,4 +1,4 @@
-import { MAX_HABITS, type DayKey, type Habit, type HabitMark, type HealthType } from './types';
+import { MAX_HABITS, type DayKey, type Habit, type HabitMark, type HealthType, type WorkoutKind } from './types';
 
 /**
  * Weekly habit progress. Counts, not time — a habit goal is "4 times this week", and
@@ -7,9 +7,34 @@ import { MAX_HABITS, type DayKey, type Habit, type HabitMark, type HealthType } 
  * Pure. Give it the habits and the marks of the week.
  */
 
-/** Offered weekly targets. No custom value in phase 1 — docs/SPRINT_01.md. */
-export const HABIT_TARGET_OPTIONS = [2, 4, 6] as const;
+/**
+ * Offered weekly targets, the same as a challenge's (ADR-0055). 1 is "a ride a week";
+ * 7 is not offered: the target counts days, and a day of rest is part of the plan.
+ */
+export const HABIT_TARGET_OPTIONS = [1, 2, 3, 4, 5, 6] as const;
 export const DEFAULT_HABIT_TARGET = 4;
+
+type NamedWorkoutKind = Exclude<WorkoutKind, 'other'>;
+
+/**
+ * Words that ask for one kind of workout (ADR-0055), in both languages like
+ * HEALTH_HINTS. A stem carries a boundary where it hides inside another word: 'nadar'
+ * in "no hacer nada", 'cicla' in "reciclar", 'correr' in "recorrer", 'cycl' in
+ * "recycle", 'bike' in "motorbike", 'spin' in "spinach", 'ride' in "pride", 'run' in
+ * "brunch".
+ */
+const WORKOUT_KIND_HINTS: readonly { pattern: RegExp; kind: NamedWorkoutKind }[] = [
+  {
+    pattern:
+      /bici|\bcicla|\bciclis|\brodar|\bpedal|\bspin(?:ning)?\b|\bmtb\b|\bbik(?:e|ing)|bicycl|\bcycl(?:e|ing|ist)|\brid(?:e|es|ing)\b/i,
+    kind: 'cycling',
+  },
+  { pattern: /\bcorrer|\btrot|\brun(?:s|ning|ners?)?\b|\bjog/i, kind: 'running' },
+  { pattern: /\bnadar|nataci|swim/i, kind: 'swimming' },
+];
+
+/** Words that ask for a workout of any kind. */
+const ANY_WORKOUT_HINT = /gym|gimnas|entrena|pesas|ejercicio|workout|exercise|\btrain|weights|\blift/i;
 
 /**
  * Names that map to a health type. Unlocks the verified count mode, which is what
@@ -17,13 +42,16 @@ export const DEFAULT_HABIT_TARGET = 4;
  * onboarding. First hint wins. Each pattern carries the Spanish and the English
  * words a user would name the habit with (ADR-0020); a name is data, so it is
  * matched in both languages whatever the app's language is.
+ *
+ * The workout pattern is built from the kinds' own, so a name that asks for a ride is
+ * always a workout habit too.
  */
 export const HEALTH_HINTS: readonly { pattern: RegExp; type: HealthType }[] = [
   {
-    // 'nadar' and 'trot' carry a boundary: 'nada' alone is "nothing", and a name like
-    // "no hacer nada" must not turn into a workout.
-    pattern:
-      /gym|gimnas|entrena|pesas|ejercicio|correr|\bnadar|nataci|\btrot|bici|workout|exercise|\btrain|weights|\blift|\brun|\bjog|bike|cycl|swim/i,
+    pattern: new RegExp(
+      [ANY_WORKOUT_HINT, ...WORKOUT_KIND_HINTS.map((hint) => hint.pattern)].map((p) => p.source).join('|'),
+      'i',
+    ),
     type: 'workout',
   },
   { pattern: /camin|pasos|andar|senderis|walk|step|hike/i, type: 'steps' },
@@ -32,6 +60,16 @@ export const HEALTH_HINTS: readonly { pattern: RegExp; type: HealthType }[] = [
 
 export function healthTypeFor(name: string): HealthType | null {
   return HEALTH_HINTS.find((hint) => hint.pattern.test(name))?.type ?? null;
+}
+
+/**
+ * The one kind of workout a workout habit's name asks for (ADR-0055), or null when it
+ * takes any workout — or is not a workout habit at all; ask healthTypeFor first. The
+ * kind is never stored: a challenge's name gives every participant the same one, like
+ * the step goal (ADR-0042). First kind wins, cycling before running before swimming.
+ */
+export function workoutKindFor(name: string): NamedWorkoutKind | null {
+  return WORKOUT_KIND_HINTS.find((hint) => hint.pattern.test(name))?.kind ?? null;
 }
 
 /**

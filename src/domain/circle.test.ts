@@ -540,6 +540,17 @@ describe('challengeOutlook', () => {
     expect(challengeOutlook({ done: 1, target: 6 }, wednesday, true).risk).toBe('missed');
     expect(challengeOutlook({ done: 4, target: 4 }, wednesday, true).risk).toBe('met');
   });
+
+  it('reads a target of one like any other (ADR-0055): the wall is only Sunday', () => {
+    const saturday = dayKeyStart('2026-08-22') + 10 * HOUR;
+    const once = (done: number, at: number) => challengeOutlook({ done, target: 1 }, at, done > 0);
+
+    expect(once(0, wednesday)).toEqual({ risk: 'onTrack', needed: 1, daysLeft: 5 });
+    expect(once(0, saturday).risk).toBe('tight');
+    expect(once(0, sunday)).toEqual({ risk: 'atRisk', needed: 1, daysLeft: 1 });
+    expect(once(1, wednesday).risk).toBe('met');
+    expect(once(1, sunday)).toEqual({ risk: 'met', needed: 0, daysLeft: 0 });
+  });
 });
 
 describe('challengeWeeks', () => {

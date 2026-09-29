@@ -7,6 +7,7 @@ import {
   backupKeyOf,
   BACKUP_GROUP_SIZE,
   buildUpload,
+  challengeMarkDays,
   CIRCLE_API_URL,
   claimAccount,
   cleanHandle,
@@ -19,6 +20,7 @@ import {
   getAccount,
   isValidHandle,
   markIdOf,
+  MAX_ROWS,
   putAccount,
   putDevice,
   readAccount,
@@ -727,7 +729,7 @@ const BASE = {
   share: { focus: true, habits: true, social: true },
   challenges: [] as Challenge[],
   myMarks: [] as HabitMark[],
-  weekDays: WEEK_DAYS,
+  markDays: WEEK_DAYS,
   kudos: [],
   nudges: [],
   accountId: ID,
@@ -910,6 +912,106 @@ describe('building what goes up', () => {
     });
 
     expect(upload.kudos).toEqual([{ id: KUDOS, toId: ANA, dayKey: '2026-09-22' }]);
+  });
+});
+
+// --- Marks Health wrote late (ADR-0055 §6) ------------------------------------------------
+
+/** Monday 28 September 2026, 9:00 local: the day after the Sunday that ends WEEK_DAYS. */
+const NEXT_MONDAY = new Date(2026, 8, 28, 9).getTime();
+
+const NEXT_WEEK_DAYS = [
+  '2026-09-28',
+  '2026-09-29',
+  '2026-09-30',
+  '2026-10-01',
+  '2026-10-02',
+  '2026-10-03',
+  '2026-10-04',
+];
+
+function ride(overrides: Partial<Challenge> = {}): Challenge {
+  return {
+    id: CHALLENGE,
+    name: 'Rodar juntos',
+    weeklyTarget: 1,
+    startWeekKey: '2026-09-21',
+    endDayKey: null,
+    createdBy: ANA,
+    participantIds: [ME, ANA],
+    habitId: 'habit-ride',
+    photos: true,
+    createdAt: 1,
+    archivedAt: null,
+    ...overrides,
+  };
+}
+
+describe('challenge marks past the week (ADR-0055)', () => {
+  it('reach back to the first day Health reads, and never cover less than the week', () => {
+    // Monday: Health reads from last Monday, and the week runs to next Sunday.
+    expect(challengeMarkDays(NEXT_MONDAY)).toEqual([...WEEK_DAYS, ...NEXT_WEEK_DAYS]);
+    // Sunday night: from last Sunday to this one.
+    expect(challengeMarkDays(new Date(2026, 8, 27, 21).getTime())).toEqual(['2026-09-20', ...WEEK_DAYS]);
+  });
+
+  it("sends last Sunday's ride on Monday, when Health wrote it after Sunday's last sync", () => {
+    const upload = buildUpload({
+      ...BASE,
+      weekKey: '2026-09-28',
+      challenges: [ride()],
+      myMarks: [mark('habit-ride', '2026-09-27', 'health')],
+      markDays: challengeMarkDays(NEXT_MONDAY),
+    });
+
+    expect(upload.marks.map((row) => row.dayKey)).toEqual([...WEEK_DAYS, ...NEXT_WEEK_DAYS]);
+    expect(upload.marks.filter((row) => row.marked)).toEqual([
+      { challengeId: CHALLENGE, dayKey: '2026-09-27', source: 'health', marked: true },
+    ]);
+  });
+
+  it('never sends a day before the challenge starts, even one its habit has marked', () => {
+    const upload = buildUpload({
+      ...BASE,
+      weekKey: '2026-09-28',
+      challenges: [ride({ startWeekKey: '2026-09-28' })],
+      myMarks: [mark('habit-ride', '2026-09-27', 'health')],
+      markDays: challengeMarkDays(NEXT_MONDAY),
+    });
+
+    expect(upload.marks.map((row) => row.dayKey)).toEqual(NEXT_WEEK_DAYS);
+    expect(upload.marks.some((row) => row.marked)).toBe(false);
+  });
+
+  it('never sends a day after the challenge ends, and still sends its last one', () => {
+    const upload = buildUpload({
+      ...BASE,
+      weekKey: '2026-09-28',
+      challenges: [ride({ startWeekKey: '2026-09-14', endDayKey: '2026-09-27' })],
+      myMarks: [mark('habit-ride', '2026-09-27', 'health')],
+      markDays: challengeMarkDays(NEXT_MONDAY),
+    });
+
+    expect(upload.marks.map((row) => row.dayKey)).toEqual(WEEK_DAYS);
+    expect(upload.marks.filter((row) => row.marked).map((row) => row.dayKey)).toEqual(['2026-09-27']);
+  });
+
+  it('leaves the week figures to the current week', () => {
+    const upload = buildUpload({ ...BASE, weekKey: '2026-09-28', markDays: challengeMarkDays(NEXT_MONDAY) });
+
+    expect(upload.weeks).toEqual([
+      { weekKey: '2026-09-28', focusMs: 7_200_000, socialMs: 3_600_000, habitsDone: 5, habitsTarget: 8 },
+    ]);
+  });
+
+  it('stays far under the row cap with five challenges on a Monday', () => {
+    const five = [0, 1, 2, 3, 4].map((i) =>
+      ride({ id: `0199a1b2-c3d4-7e5f-8a9b-0000000000d${i}`, habitId: `habit-${i}` }),
+    );
+    const upload = buildUpload({ ...BASE, challenges: five, markDays: challengeMarkDays(NEXT_MONDAY) });
+
+    expect(upload.marks).toHaveLength(5 * 14);
+    expect(upload.marks.length).toBeLessThan(MAX_ROWS);
   });
 });
 
