@@ -1,3 +1,34 @@
+diff --git a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Queries.m b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Queries.m
+index d6d61ef..9c64d5f 100644
+--- a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Queries.m
++++ b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit+Queries.m
+@@ -526,9 +526,12 @@ - (void)fetchAnchoredWorkouts:(HKSampleType *)type
+                             isTracked = false;
+                         }
+ 
++                        // A nil value in the literal below throws, and the @catch drops the
++                        // workout without a word. productType and metadata are nullable
++                        // (HKSourceRevision.h, HKObject.h); the source's strings are guarded too.
+                         NSString* device = @"";
+                         if (@available(iOS 11.0, *)) {
+-                            device = [[sample sourceRevision] productType];
++                            device = [[sample sourceRevision] productType] ?: @"";
+                         } else {
+                             device = [[sample device] name];
+                             if (!device) {
+@@ -542,9 +545,9 @@ - (void)fetchAnchoredWorkouts:(HKSampleType *)type
+                                                @"activityName" : type,
+                                                @"calories" : @(energy),
+                                                @"tracked" : @(isTracked),
+-                                               @"metadata" : [sample metadata],
+-                                               @"sourceName" : [[[sample sourceRevision] source] name],
+-                                               @"sourceId" : [[[sample sourceRevision] source] bundleIdentifier],
++                                               @"metadata" : [sample metadata] ?: @{},
++                                               @"sourceName" : [[[sample sourceRevision] source] name] ?: @"",
++                                               @"sourceId" : [[[sample sourceRevision] source] bundleIdentifier] ?: @"",
+                                                @"device": device,
+                                                @"distance" : @(distance),
+                                                @"start" : startDateString,
 diff --git a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m b/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m
 index e8ddce1..d3a99e2 100644
 --- a/node_modules/react-native-health/RCTAppleHealthKit/RCTAppleHealthKit.m
