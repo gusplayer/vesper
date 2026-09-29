@@ -18,7 +18,19 @@ describe('verifiedOption', () => {
     expect(option.verifiable).toBe(true);
     expect(option.countMode).toBe('verified');
     expect(option.healthType).toBe('workout');
-    expect(option.description).toBe('Salud lo confirma solo');
+  });
+
+  it('says a workout needs a watch or an app to be confirmed (ADR-0055)', () => {
+    expect(verifiedOption('Montar en bici', 'verified', CONNECTED, es.habits.form).description).toBe(
+      'Salud lo confirma si registras con un reloj o una app',
+    );
+    expect(verifiedOption('Ride a bike', 'declared', CONNECTED, en.habits.form).description).toBe(
+      'Health confirms it if you record with a watch or an app',
+    );
+    // Only a workout says it: without something recording it, Health has none.
+    expect(verifiedOption('dormir 7h', 'verified', CONNECTED, es.habits.form).description).toBe(
+      'Salud lo confirma solo',
+    );
   });
 
   it('never carries a type for a declared habit, however well Health knows the name', () => {

@@ -190,6 +190,8 @@ export const settings = {
     healthConnectNote:
       'En Android, Salud se lee de Health Connect. Si no ves tus pasos, abre Health Connect y conecta Samsung Health, Google Fit o tu reloj.',
     openHealthConnect: 'Abrir Health Connect',
+    /** Opens the "Que llegue a Salud" sheet of the habit form (ADR-0055 §7). */
+    intoHealth: 'Que tus apps lleguen a Salud',
   },
   help: {
     title: 'Centro de ayuda',

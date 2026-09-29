@@ -137,6 +137,7 @@ export const settings: typeof shape = {
     healthConnectNote:
       'On Android, Health is read from Health Connect. If you do not see your steps, open Health Connect and link Samsung Health, Google Fit or your watch.',
     openHealthConnect: 'Open Health Connect',
+    intoHealth: 'Get your apps into Health',
   },
   help: {
     title: 'Help center',

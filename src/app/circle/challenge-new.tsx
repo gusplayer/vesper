@@ -26,8 +26,8 @@ import {
 } from '../../domain/types';
 import { challengeConsentText } from '../../features/circle/challengeText';
 import { healthMissingReason, useAskHealthToJoin } from '../../features/circle/useAskHealthToJoin';
+import { countLineText } from '../../features/habits/countLine';
 import { MAX_CHALLENGE_NAME } from '../../platform/circleApi';
-import { stepGoalText } from '../../features/health/format';
 import { useLocale, useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
 
@@ -44,8 +44,9 @@ function targetOption(value: number): number {
  * a week, for how long (21 days by default, or no end at all, ADR-0027), and who is
  * in. Joining uses a habit slot: when the five are taken the store says 'habitsFull',
  * the line under the button says so, and nothing is created (rule 4, ADR-0021). A
- * steps name says the goal it reads under the field, and a challenge Health can
- * confirm says what joining shares above the button and asks for Health (ADR-0042).
+ * steps name says the goal it reads under the field, a workout name the kind it counts
+ * (ADR-0055), and a challenge Health can confirm says what joining shares above the
+ * button and asks for Health (ADR-0042).
  *
  * Nobody is enrolled behind their back: each person checked here gets the challenge and
  * joins it themselves (`challengeLink`, 'invited'), and the line under the list says so.
@@ -106,7 +107,7 @@ export default function NewChallengeScreen() {
     );
   };
 
-  const goal = stepGoalText(trimmed, strings.habits.form, tag);
+  const countLine = countLineText(trimmed, strings.habits.form, tag);
   const consent = join ? challengeConsentText(trimmed, circle, tag, healthMissingReason()) : null;
 
   const create = async () => {
@@ -160,7 +161,7 @@ export default function NewChallengeScreen() {
         autoFocus
         maxLength={MAX_CHALLENGE_NAME}
       />
-      {goal === null ? null : <StatusNote text={goal} />}
+      {countLine === null ? null : <StatusNote text={countLine} />}
 
       <Section title={t.ideas}>
         <Stack direction="row" gap="sm" wrap>

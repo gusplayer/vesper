@@ -1,5 +1,5 @@
 import type { ChallengeOutlook } from '../../domain/circle';
-import { healthTypeFor } from '../../domain/habits';
+import { healthTypeFor, workoutKindFor } from '../../domain/habits';
 import { stepGoalFor } from '../../domain/healthMarks';
 import type { MarkSource } from '../../domain/types';
 import type { Strings } from '../../i18n';
@@ -28,8 +28,9 @@ export function challengeOutlookText(outlook: ChallengeOutlook, t: CircleStrings
 
 /**
  * What joining shares, said above the button of a challenge Health can confirm
- * (ADR-0042 §5): the days, never the numbers. Null for a challenge nothing verifies,
- * where the marks are taps and there is no Health data to speak of.
+ * (ADR-0042 §5): the days, never the numbers. A workout challenge names its kind and
+ * what stays out of sight, distance, pace, route (ADR-0055). Null for a challenge
+ * nothing verifies, where the marks are taps and there is no Health data to speak of.
  *
  * `noHealthReason` is `health.status().reason` on a phone where Health does not exist:
  * there the habit is born declared, so the line says the user marks it, and why (rule 8),
@@ -48,7 +49,14 @@ export function challengeConsentText(
   if (noHealthReason !== null) {
     return t.challenge.consentNoHealth(noHealthReason);
   }
-  return type === 'steps' ? t.challenge.consentSteps(stepGoalFor(name), tag) : t.challenge.consentHealth;
+  switch (type) {
+    case 'steps':
+      return t.challenge.consentSteps(stepGoalFor(name), tag);
+    case 'workout':
+      return t.challenge.consentWorkout[workoutKindFor(name.trim()) ?? 'any'];
+    case 'sleep':
+      return t.challenge.consentHealth;
+  }
 }
 
 /** How one person's week was counted: 'con Salud', 'marcado a mano'. Null with no marks. */

@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { aHabit, aMark } from '../domain/fixtures';
-import { ME, type Challenge, type ChallengeMark, type ChallengePhoto, type HabitMark } from '../domain/types';
+import {
+  CHALLENGE_TARGET_OPTIONS,
+  ME,
+  type Challenge,
+  type ChallengeMark,
+  type ChallengePhoto,
+  type HabitMark,
+} from '../domain/types';
 import { en } from '../i18n/en';
 import { es } from '../i18n/es';
 import { challengeAlbum, challengeIdeas, challengeReminders, myChallengeWeeks, myPhotoSlot } from './challenges';
@@ -121,7 +128,13 @@ describe('challengeIdeas', () => {
     for (const t of [es, en]) {
       const photos = Object.fromEntries(challengeIdeas(t.circle.challengeNew).map((idea) => [idea.id, idea.photos]));
 
-      expect(photos).toEqual({ read: true, walk: true, table: false, sleep: false, move: true });
+      expect(photos).toEqual({ read: true, walk: true, table: false, sleep: false, exercise: true, bike: true });
+    }
+  });
+
+  it('asks only for targets the screen offers, so none falls back to the default', () => {
+    for (const idea of challengeIdeas(es.circle.challengeNew)) {
+      expect(CHALLENGE_TARGET_OPTIONS).toContain(idea.weeklyTarget);
     }
   });
 });

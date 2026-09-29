@@ -106,8 +106,9 @@ export const circle = {
           : days % 7 === 0 && days !== 21
             ? `${days / 7} semanas`
             : `${days} días`,
-    /** '4 veces por semana · 21 días'. */
-    summary: (target: number, duration: string) => `${target} veces por semana · ${duration}`,
+    /** '4 veces por semana · 21 días', '1 vez por semana · 4 semanas'. */
+    summary: (target: number, duration: string) =>
+      `${target === 1 ? '1 vez' : `${target} veces`} por semana · ${duration}`,
     /** 'con Ana y Luis'. */
     withNames: (names: readonly string[]) => `con ${joinNames(names)}`,
     alone: 'solo tú',
@@ -206,6 +207,13 @@ export const circle = {
     consentSteps: (steps: number, tag: string) =>
       `Tu círculo verá qué días llegaste a ${steps.toLocaleString(tag)} pasos. No verá cuántos.`,
     consentHealth: 'Tu círculo verá qué días cumpliste. No verá tus datos de Salud.',
+    /** The same line for a workout challenge, by the kind its name reads (ADR-0055 §5). */
+    consentWorkout: {
+      any: 'Tu círculo verá qué días entrenaste. No verá qué hiciste, cuánto ni dónde.',
+      cycling: 'Tu círculo verá qué días saliste en bici. No verá distancia, tiempo ni ruta.',
+      running: 'Tu círculo verá qué días corriste. No verá distancia, ritmo ni ruta.',
+      swimming: 'Tu círculo verá qué días nadaste. No verá cuánto ni dónde.',
+    },
     /**
      * Un reto que Salud podría confirmar, en un teléfono sin Salud (regla 8): el hábito
      * nace declarado y hay que decirlo. `reason` es `health.status().reason`.
@@ -240,7 +248,7 @@ export const circle = {
   challengeNew: {
     title: 'Nuevo reto',
     name: 'Nombre',
-    namePlaceholder: 'leer, caminar, dormir 7h',
+    namePlaceholder: 'leer, bici, dormir 7h',
     ideas: 'Retos sugeridos',
     ideasHint: 'Toca uno para empezar por ahí. Puedes cambiar el nombre y las veces.',
     /** The curated few (ADR-0031). Names only: the numbers live in data/challenges.ts. */
@@ -249,7 +257,8 @@ export const circle = {
       walk: 'Caminar 8.000 pasos',
       table: 'Sin teléfono en la mesa',
       sleep: 'Dormir sin pantalla',
-      move: 'Moverte',
+      exercise: 'Hacer ejercicio',
+      bike: 'Montar en bici',
     },
     fromHabit: 'Desde un hábito',
     fromHabitHint: 'Toca uno para usar su nombre y su meta.',
