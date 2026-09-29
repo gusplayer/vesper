@@ -31,8 +31,8 @@ Hay dos caminos para llenar esos huecos.
    Watch, un Garmin sin Strava o un Galaxy Watch.
 
 **Salud y Health Connect** (`health-path.md`) ya reciben lo que Strava registra, cuando la persona
-enciende "Send to Health" en iPhone, o Health Connect en Android, donde solo llegan las actividades
-con GPS. También reciben lo del Apple Watch, Garmin Connect, Samsung Health, Fitbit y Google. Vesper
+enciende "Send to Health" en iPhone, o Health Connect en Android, donde su ayuda habla solo de las
+actividades con GPS. También reciben lo del Apple Watch, Garmin Connect, Samsung Health, Fitbit y Google. Vesper
 ya pide ese permiso, ya lee esos entrenamientos y los datos no salen del teléfono. Solo falta no
 descartar el tipo.
 
@@ -63,9 +63,15 @@ La misma investigación encontró tres fallas en lo que ya existe:
 
 2. **Cuatro clases de actividad, y la clase sale del nombre del hábito**, como la meta de pasos
    (ADR-0042) y las horas de sueño:
-   - **Bicicleta**: `bici`, `bicicleta`, `ciclismo`, `pedalear`, `rodar`, `bike`, `cycling`, `ride`.
+   - **Bicicleta**: `bici` (y `bicicleta`), `cicla`, `ciclismo`, `ciclista`, `ciclocross`,
+     `cicloturismo`, `pedalear`, `rodar`, `spinning`, `MTB`, `bike`, `cycling`, `cyclocross`,
+     `ride`, `spin`.
    - **Correr**: `correr`, `trotar`, `run`, `jog`.
-   - **Nadar**: `nadar`, `natación`, `swim`.
+   - **Nadar**: `nadar`, `natación`, `swim`, `swimming`.
+
+   Cada raíz corta lleva un límite de palabra donde se esconde en otra: "no hacer nada",
+   "reciclar", "recorrer", "motorbike", "spinach", "swimwear". Las pruebas de
+   `domain/habits.test.ts` fijan las dos listas.
    - **Cualquier entrenamiento**: el resto de lo que ya dice entrenamiento (`ejercicio`, `gym`,
      `entrenar`, `pesas`, `workout`…).
 
@@ -116,10 +122,11 @@ La misma investigación encontró tres fallas en lo que ya existe:
 - **Lo que esta vía no ve:**
   - Una salida en e-bike, virtual o de gravel se cuenta como bicicleta, porque ni HealthKit ni
     Health Connect las distinguen.
-  - En Android, lo que Strava registra sin GPS no llega a Health Connect.
+  - En Android, lo que Strava registra sin GPS probablemente no llega a Health Connect: su
+    ayuda solo habla de actividades con GPS.
   - Tampoco lo ve quien no conectó ninguna app a Salud. Esa persona sigue con su hábito declarado.
 - **Sin confirmar hasta probarlo con una cuenta real**: qué tipo escribe Strava en Salud para cada
-  deporte, si sus actividades manuales llegan marcadas como escritas a mano, y las rutas exactas en
+  deporte, si en Android manda algo sin GPS, si sus actividades manuales llegan marcadas como escritas a mano, y las rutas exactas en
   español dentro de Strava y Garmin. La hoja de ayuda se ajusta cuando se vean en un teléfono.
 - **Queda abierto** (`product.md`): marcar a mano un hábito verificado cuando el reloj se quedó en
   casa, lo que tocaría el ADR-0041. Y el empujón del círculo a quien ya rodó pero no abrió Vesper,

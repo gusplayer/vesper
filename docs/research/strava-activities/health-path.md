@@ -2,6 +2,12 @@
 
 Informe técnico · 2026-09-29 · sin cambios al repo
 
+> **Nota posterior.** El ADR-0055 acotó la propuesta de §5:
+> - Son cuatro clases (cualquier entrenamiento, bici, correr, nadar), no seis.
+> - Caminar sigue siendo pasos, y fuerza cae en "cualquier entrenamiento".
+> - Las metas pasan a ir de 1 a 6 en hábitos y en retos. Los retos ya ofrecían el 3; faltaban
+>   el 1 en los dos y el 3 y el 5 en los hábitos.
+
 Leído contra `CLAUDE.md` (reglas 4, 7, 8 y 9), ADR-0005, 0008, 0017, 0041, 0042, 0043 y 0052,
 `src/domain/healthMarks.ts`, `src/domain/habits.ts`, `src/platform/health.ios.ts`,
 `src/platform/healthConnectReading.ts`, `src/platform/hooks/useHealthSync.ts` y
