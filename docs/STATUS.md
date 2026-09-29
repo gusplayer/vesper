@@ -1075,3 +1075,49 @@ elección). Las mismas siete áreas lo implementaron.
   configuración y mueve el runtime de iOS (`c29b421…` a `90f5acb…`). Un cambio en
   `src/i18n/es/focus.ts` no lo mueve. `npx expo prebuild --platform ios --clean` ya no deja
   cambios en `targets/`.
+
+## Actividades por Salud, no por Strava (2026-09-29, ADR-0055)
+
+- **La pregunta:** traer las actividades de Strava para marcar solo "ejercicio 3 veces por
+  semana" o "bici un día a la semana". Tres informes en `docs/research/strava-activities/`
+  (API de Strava, Salud y Health Connect, producto). **Decisión: por Salud y Health Connect,
+  no por la API de Strava**, cuyos términos solo dejan mostrar un dato a su dueño (§2.3), piden
+  un servidor con el secreto y conectan a 10 personas hasta una revisión sin plazo.
+- **Qué se construyó:**
+  - Cuatro clases leídas del nombre del hábito (`workoutKindFor`): cualquier entrenamiento,
+    bicicleta, correr y nadar.
+  - El tipo de cada entrenamiento sale de HealthKit (`activityId`) y de Health Connect
+    (`exerciseType`, en `modules/vesper-health`), traducido en `domain/workoutKinds.ts`.
+  - Lo escrito a mano no verifica.
+  - Metas de 1 a 6 en hábitos y retos.
+  - Salud se lee 8 días hacia atrás, y los retos suben las marcas de esos días: una salida del
+    domingo que llega el lunes llega al círculo.
+  - `react-native-health` ya no descarta un entrenamiento sin metadatos ni `productType`.
+  - En pantalla: la línea "Cuenta los días con una salida en bici…", la hoja "Que llegue a
+    Salud" (desde el hábito y desde Ajustes › Salud), el consentimiento del reto por clase y
+    los sugeridos "Hacer ejercicio" y "Montar en bici".
+- **Verificado:**
+  - `npx tsc --noEmit` limpio y `npm run lint` sin avisos.
+  - `npx vitest run` con 1622 tests en 109 archivos, en Bogotá y con `npm run test:dst`. La
+    ventana de 8 días está probada sobre los dos cambios de hora de Chile.
+  - Los valores de HealthKit (13, 74, 37, 46) se leyeron con Swift contra el SDK, y los de
+    Health Connect (8, 9, 56, 57, 73, 74 y `RECORDING_METHOD_MANUAL_ENTRY` = 3) con `javap`
+    sobre connect-client 1.1.0.
+  - El parche se aplica limpio sobre un `react-native-health` 1.19.0 recién bajado. El Kotlin
+    compila y el build de iOS para simulador pasa.
+  - En el simulador iPhone 17 Pro, en español y en inglés: el editor de hábitos con
+    "Montar en bici" (metas 1 a 6, la línea de bici, la fila de Strava y Garmin), la hoja,
+    "Nuevo reto" con "Rodar juntos" y su consentimiento, los sugeridos, y Ajustes › Salud con
+    la fila nueva.
+- **No verificado:**
+  - Qué tipo escriben Strava, Garmin y el reloj en Salud y en Health Connect para cada deporte.
+  - Si lo manual de Strava llega marcado como escrito a mano.
+  - Las rutas en español dentro de Strava y Garmin, que son traducciones.
+  - La hoja de Android en un emulador.
+  - Una salida real que marque un hábito. Hace falta un teléfono con una cuenta.
+- **Pide build:** el parche y el módulo Kotlin cambian el fingerprint (ADR-0052 y 0054). Un
+  dev client viejo lee cada entrenamiento como "otro", así que un hábito de bici no se marca
+  hasta recompilarlo.
+- **Visto de paso, sin tocar:** con Español forzado, la fila Automático de Ajustes › Idioma
+  dice "Español" aunque el teléfono esté en inglés; tras recargar Metro, algunos días de las
+  grillas de retos en el círculo se dibujaron vacíos.

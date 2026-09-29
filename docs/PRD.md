@@ -157,7 +157,8 @@ heredado de la última sesión. Cada cambio se guarda al instante; no hay botón
 Máximo 5. Cada hábito tiene:
 
 - Nombre (texto libre)
-- Meta semanal (2× / 4× / 6×; sin valor custom en fase 1)
+- Meta semanal: de 1 a 6 días por semana (ADR-0055). El 7 no existe: un día de descanso es
+  parte del plan
 - Tipo de conteo: **verificado** (Health lo confirma) o **declarado** (el usuario marca o pone timer)
 
 El nombre es texto libre porque hay hábitos que nunca son sesiones de foco —sueño y pasos son
@@ -172,6 +173,14 @@ entrenamiento, caminata, sueño. Lo desbloquea el nombre (`healthTypeFor`), y
 **declarado sigue siendo el default**. En iOS, con Salud conectada, HealthKit marca
 solo los hábitos verificados (ADR-0017); en Android lo hace Health Connect (ADR-0043), y
 donde no está, un hábito verificado cae a declarado y la pantalla dice por qué (ADR-0041).
+
+Un hábito de entrenamiento cuenta según su nombre (ADR-0055). "Montar en bici" cuenta solo
+salidas en bici, "Correr" solo carreras y "Nadar" solo natación; en interior también
+cuentan (rodillo y cinta). "Hacer ejercicio", "Gym" y el resto cuentan cualquier
+entrenamiento. En todos los casos basta uno de 10 minutos o más, y se cuentan días, no
+entrenamientos. Lo escrito a mano en Salud no verifica. Vesper no se conecta a Strava ni a
+Garmin: lee lo que dejan en Salud o en Health Connect, y la hoja "Que llegue a Salud" dice
+cómo activarlo en cada app.
 
 Se editan y archivan desde Actividad › De por vida (mantener la fila) o desde
 `habits/edit`. Archivar no borra: las marcas son historia, y el hábito deja de contar y
@@ -210,7 +219,9 @@ a eso, con la condición de no convertirse en lo que combate:
 - **Tú decides qué se ve**, métrica por métrica: foco, hábitos y retos, uso estimado de
   redes (apagado por defecto y siempre presentado como piso estimado, aparte).
 - **Ánimo, no likes.** Un gesto de persona a persona, una vez al día, sin contador.
-- **Retos**: un hábito con testigos. Nombre, veces por semana, 1, 2 o 4 semanas, quiénes.
+- **Retos**: un hábito con testigos. Nombre, veces por semana (1 a 6), 1, 2 o 4 semanas, quiénes.
+  Un reto de entrenamiento cuenta lo que dice su nombre, igual en todos los teléfonos, y el
+  círculo ve solo qué días (ADR-0055).
   Unirse vincula (o crea) un hábito tuyo, y el máximo de 5 sigue valiendo.
 - **Fotos en los retos (ADR-0051).** Una foto opcional por persona, por reto y por día,
   pegada a un día marcado: testimonio, nunca verificación (una marca sin foto cuenta
