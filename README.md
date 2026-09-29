@@ -75,6 +75,16 @@ $ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
 
 `/ios` y `/android` están en `.gitignore`: son carpetas generadas por prebuild.
 
+### Las extensiones de Tiempo de uso
+
+`targets/` sí se versiona, y es código nuestro: el plugin de `react-native-device-activity`
+ya no lo copia en cada build (ADR-0054). Al subir ese paquete, trae sus plantillas nuevas y
+revisa el diff antes de commitear:
+
+```bash
+COPY_TO_TARGET_FOLDER=1 npx expo prebuild --platform ios
+```
+
 ### Actualizaciones por el aire
 
 Un cambio que solo toca JS o assets llega a los builds de tienda sin pasar por revisión
@@ -85,7 +95,7 @@ eas update --channel production --message "Arregla el cierre de la semana"
 ```
 
 Llega a quien abra la app, en el arranque en frío siguiente. Todo lo nativo pide build:
-módulos, `patches/`, plugins, permisos o una dependencia nativa. El runtime es un
+módulos, `targets/`, `patches/`, plugins, permisos o una dependencia nativa. El runtime es un
 fingerprint de todo eso, así que una actualización nunca cae sobre un binario que no la
 soporta. Para saber si el runtime cambió desde el último build:
 

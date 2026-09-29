@@ -132,7 +132,8 @@ modules/vesper-blocking/  módulo Expo local (Kotlin): servicio, vigilante, escu
 modules/vesper-health/    módulo Expo local (Kotlin): Health Connect (ADR-0043)
 modules/vesper-identity/  módulo Expo local (Swift y Kotlin): el secreto que viaja (ADR-0048)
 plugins/withAndroidBackup.js  qué entra al backup de Android: la base sí, el secreto no
-targets/                  ActivityMonitorExtension, ShieldAction, ShieldConfiguration (iOS)
+targets/                  ActivityMonitorExtension, ShieldAction, ShieldConfiguration (iOS); nuestras, no se copian (ADR-0054)
+fingerprint.config.js     suma targets/ al runtime de las actualizaciones (ADR-0054)
 patches/                  react-native-health+1.19.0.patch
 scripts/artPreview.ts     visor de las obras de arte de foco
 ```

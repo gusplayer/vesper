@@ -1049,5 +1049,29 @@ elección). Las mismas siete áreas lo implementaron.
   `docs/PLAY_DECLARATIONS.md` agrega Device or other IDs y Crash logs. `CLAUDE.md` regla 7
   lo nombra.
 - **No verificado:** ninguna actualización publicada ni recibida (hace falta un build con
-  canal); el dev client instalado en el simulador y el emulador no trae `expo-updates` y hay
-  que compilarlo de nuevo tras `prebuild --clean`.
+  canal).
+- **2026-09-28 · Dev clients recompilados** desde `main` (`75d1057`), con `expo-updates` y los
+  cambios de Kotlin del escudo (ADR-0053). iOS: instalado encima en los tres simuladores con
+  Vesper: iPhone 17 Pro F5899768 (26.0), iPhone 17 6A37FEE1 (26.0) e iPhone 17 Pro
+  075508C8 (26.5). Android: `install -r` en Pixel_6_API_34, Pixel_7_API_36 y Vesper_API_33,
+  sin `force-stop`. Los datos se conservaron. Se abrió en F5899768 y en el Pixel 6 contra un
+  Metro propio con `DEV_CIRCLE_API_URL` en el servidor local (así ninguna identidad llega a
+  producción). Las dos abren en Focus con su racha y sus retos, y el launcher del dev client
+  muestra la pestaña Updates. En Android el acceso a datos de uso figura `default`: nunca se
+  dio en ese emulador; una actualización no lo quita.
+- **2026-09-28 · El primer build de iOS falló por una carrera** entre fases que evalúan la
+  configuración y copian `targets/` a la vez (`ENOENT: unlink
+  targets/ShieldConfiguration/expo-target.config.js`); repetido sin cambios, pasó. Lo resuelve
+  el ADR-0054, abajo.
+
+## Las extensiones de Tiempo de uso son nuestras (2026-09-28, ADR-0054)
+
+- **Qué cambió:** `copyToTargetFolder: false` en el plugin de `react-native-device-activity`
+  (`app.json`) y `fingerprint.config.js`, que suma `targets/` al runtime. README y `CLAUDE.md`
+  dicen cómo traer las plantillas al subir el paquete.
+- **Verificado en el worktree:** `targets/` en el repo es idéntico a las plantillas de
+  0.6.1: su hash en el fingerprint es el mismo que cuando el plugin lo copiaba (`8b8b0ef…`).
+  Una línea agregada a `ShieldActionExtension.swift` sobrevive a la evaluación de la
+  configuración y mueve el runtime de iOS (`c29b421…` a `90f5acb…`). Un cambio en
+  `src/i18n/es/focus.ts` no lo mueve. `npx expo prebuild --platform ios --clean` ya no deja
+  cambios en `targets/`.
