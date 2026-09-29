@@ -20,7 +20,8 @@ import type { CountMode, Habit, HealthType } from '../../domain/types';
 import { useLocale, useStrings } from '../../i18n';
 import { goBack } from '../../lib/goBack';
 import { status as healthStatus } from '../../platform/health';
-import { stepGoalText } from '../health/format';
+import { countLineText } from './countLine';
+import { IntoHealthSheet } from './IntoHealthSheet';
 import { targetOptions } from './targetOptions';
 import { useAskHealthForHabit } from './useAskHealthForHabit';
 import { verifiedOption } from './verifiedOption';
@@ -70,6 +71,10 @@ function activityIdFor(name: string, activities: readonly Activity[]): string | 
  * under the cards says so (verifiedOption.ts, ADR-0041). A habit already saved in
  * that state is corrected by opening this screen and saving.
  *
+ * Under the cards, a verified habit says which days its name counts: a step goal, or
+ * a kind of workout (ADR-0055). A workout one also offers a row to the sheet on how
+ * Strava or Garmin reach Health, since Vesper never connects to them.
+ *
  * Saving a verified habit while Health exists but is not connected asks for it right
  * here (ADR-0005); a no still saves. The target chips always include the saved
  * target, so a 5 from the demo or from a challenge is shown and kept, not lost to the
@@ -84,6 +89,7 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary, challe
   const [weeklyTarget, setWeeklyTarget] = useState(initial?.weeklyTarget ?? DEFAULT_HABIT_TARGET);
   const [countMode, setCountMode] = useState<CountMode>(initial?.countMode ?? 'declared');
   const [asking, setAsking] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const askHealth = useAskHealthForHabit();
   const options = targetOptions(HABIT_TARGET_OPTIONS, initial?.weeklyTarget);
 
@@ -98,9 +104,14 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary, challe
     t.habits.form,
   );
 
-  // Only a verified steps habit counts against a number; a declared one is a tap.
+  // Only a verified habit counts against its name, a step goal or a kind of workout;
+  // a declared one is a tap.
   const { tag } = useLocale();
-  const goal = verified.countMode === 'verified' ? stepGoalText(trimmed, t.habits.form, tag) : null;
+  const countLine = verified.countMode === 'verified' ? countLineText(trimmed, t.habits.form, tag) : null;
+  // Where Health can exist, a verified workout habit says how Strava or Garmin get there
+  // (ADR-0055 §7). Where it cannot, the note already says the habit is marked by hand.
+  const offerSources =
+    verified.healthType === 'workout' && (health.available || health.detail?.installable === true);
 
   const save = async () => {
     const values: HabitFormValues = {
@@ -186,8 +197,14 @@ export function HabitForm({ title, initial, onSubmit, caption, secondary, challe
           onPress={() => setCountMode('verified')}
         />
         <StatusNote text={verified.note} />
-        {goal === null ? null : <StatusNote text={goal} />}
+        {countLine === null ? null : <StatusNote text={countLine} />}
+        {offerSources ? (
+          <ListGroup>
+            <ListRow label={t.habits.form.fromApps} onPress={() => setSourcesOpen(true)} />
+          </ListGroup>
+        ) : null}
       </Section>
+      <IntoHealthSheet visible={sourcesOpen} onClose={() => setSourcesOpen(false)} />
     </Screen>
   );
 }

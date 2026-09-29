@@ -70,7 +70,7 @@ export const circle: typeof shape = {
   challenge: {
     duration: (days) =>
       days === null ? 'no limit' : days === 7 ? '1 week' : days % 7 === 0 && days !== 21 ? `${days / 7} weeks` : `${days} days`,
-    summary: (target, duration) => `${target} times a week · ${duration}`,
+    summary: (target, duration) => `${target === 1 ? '1 time' : `${target} times`} a week · ${duration}`,
     withNames: (names) => `with ${joinNames(names)}`,
     alone: 'just you',
     nobody: 'no participants',
@@ -130,6 +130,12 @@ export const circle: typeof shape = {
     invitedCard: 'You were added · tap to join',
     consentSteps: (steps, tag) => `Your circle will see which days you reached ${steps.toLocaleString(tag)} steps. Not how many.`,
     consentHealth: 'Your circle will see which days you did it. Not your Health data.',
+    consentWorkout: {
+      any: 'Your circle will see which days you trained. Not what you did, how much or where.',
+      cycling: 'Your circle will see which days you rode. Not the distance, the time or the route.',
+      running: 'Your circle will see which days you ran. Not the distance, the pace or the route.',
+      swimming: 'Your circle will see which days you swam. Not how far or where.',
+    },
     consentNoHealth: (reason) => `${reason}: you mark this challenge yourself, and your circle sees which days you marked.`,
     markedByHealth: 'Health marks this challenge on its own. Nothing to tap.',
     source: {
@@ -151,7 +157,7 @@ export const circle: typeof shape = {
   challengeNew: {
     title: 'New challenge',
     name: 'Name',
-    namePlaceholder: 'read, walk, sleep 7h',
+    namePlaceholder: 'read, bike, sleep 7h',
     ideas: 'Suggested challenges',
     ideasHint: 'Tap one to start there. You can change the name and the times.',
     ideaName: {
@@ -159,7 +165,8 @@ export const circle: typeof shape = {
       walk: 'Walk 8,000 steps',
       table: 'No phone at the table',
       sleep: 'Sleep without a screen',
-      move: 'Move',
+      exercise: 'Exercise',
+      bike: 'Ride a bike',
     },
     fromHabit: 'From a habit',
     fromHabitHint: 'Tap one to use its name and target.',

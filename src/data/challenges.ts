@@ -149,7 +149,10 @@ export function challengeIdeas(t: Strings['circle']['challengeNew']): ChallengeI
     // A photo of the table is a phone on the table, and one of the bed is a screen in it.
     { id: 'table', name: t.ideaName.table, weeklyTarget: 6, days: DEFAULT_CHALLENGE_DAYS, photos: false },
     { id: 'sleep', name: t.ideaName.sleep, weeklyTarget: 5, days: DEFAULT_CHALLENGE_DAYS, photos: false },
-    { id: 'move', name: t.ideaName.move, weeklyTarget: 3, days: 28, photos: true },
+    // Health counts both on their own, and the name says which workouts (ADR-0055): any
+    // for the first, only rides for the second. A photo of the view, never the route.
+    { id: 'exercise', name: t.ideaName.exercise, weeklyTarget: 3, days: 28, photos: true },
+    { id: 'bike', name: t.ideaName.bike, weeklyTarget: 1, days: 28, photos: true },
   ];
 }
 

@@ -8,12 +8,15 @@ import { useAppStore, useSettings } from '../../data';
 import {
   Button,
   ExplainerBlock,
+  ListGroup,
+  ListRow,
   PageHeader,
   Screen,
   Stack,
   StatusNote,
   type IconName,
 } from '../../design/components';
+import { IntoHealthSheet } from '../../features/habits/IntoHealthSheet';
 import { HealthWeekSummary } from '../../features/health/HealthWeekSummary';
 import { useStrings } from '../../i18n';
 import { useNow } from '../../lib/useNow';
@@ -40,6 +43,9 @@ const BLOCK_KEYS: readonly { key: 'how' | 'privacy' | 'why'; icon: IconName }[] 
  * Connected is a setting, not a guarantee: Health Connect can be uninstalled after
  * the fact. Then the summary stays, the reason is said under it, and the install
  * button comes back where Play can bring Health Connect again.
+ *
+ * Wherever Health can exist, connected or not, a row opens the sheet on how Strava or
+ * Garmin leave their workouts there (ADR-0055 §7): the same one the habit form opens.
  */
 export default function HealthScreen() {
   const router = useRouter();
@@ -50,6 +56,7 @@ export default function HealthScreen() {
   const [busy, setBusy] = useState(false);
   const [denied, setDenied] = useState(false);
   const [installFailed, setInstallFailed] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const now = useNow(CLOCK_MS);
 
   const health = status();
@@ -96,6 +103,12 @@ export default function HealthScreen() {
   const installFailedLine = installFailed ? <StatusNote text={t.settings.health.installFailed} align="center" live /> : null;
 
   const caption = health.reason ?? (denied ? t.settings.health.denied : null);
+  const sourcesRow =
+    health.available || installable ? (
+      <ListGroup>
+        <ListRow label={t.settings.health.intoHealth} onPress={() => setSourcesOpen(true)} />
+      </ListGroup>
+    ) : null;
 
   return (
     <Screen
@@ -134,6 +147,7 @@ export default function HealthScreen() {
             <HealthWeekSummary now={now} onSyncNow={() => syncHealth(true)} />
             {health.reason === null ? null : <StatusNote text={health.reason} icon="info" />}
           </Stack>
+          {sourcesRow}
           <StatusNote text={t.settings.health.syncNote} align="center" />
           {health.detail?.healthConnect === true ? (
             <>
@@ -147,17 +161,21 @@ export default function HealthScreen() {
           ) : null}
         </>
       ) : (
-        <Stack gap="xxl">
-          {BLOCK_KEYS.map(({ key, icon }) => (
-            <ExplainerBlock
-              key={key}
-              icon={icon}
-              heading={t.settings.health.blocks[key].title}
-              body={t.settings.health.blocks[key].text}
-            />
-          ))}
-        </Stack>
+        <>
+          <Stack gap="xxl">
+            {BLOCK_KEYS.map(({ key, icon }) => (
+              <ExplainerBlock
+                key={key}
+                icon={icon}
+                heading={t.settings.health.blocks[key].title}
+                body={t.settings.health.blocks[key].text}
+              />
+            ))}
+          </Stack>
+          {sourcesRow}
+        </>
       )}
+      <IntoHealthSheet visible={sourcesOpen} onClose={() => setSourcesOpen(false)} />
     </Screen>
   );
 }

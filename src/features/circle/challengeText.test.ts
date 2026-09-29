@@ -14,9 +14,31 @@ describe('challengeConsentText', () => {
     );
   });
 
-  it('keeps it general for workouts and sleep', () => {
-    expect(challengeConsentText('gym', es.circle, 'es-ES')).toBe(
+  it('keeps it general for sleep', () => {
+    expect(challengeConsentText('Dormir 7h', es.circle, 'es-ES')).toBe(
       'Tu círculo verá qué días cumpliste. No verá tus datos de Salud.',
+    );
+  });
+
+  it('names the kind of a workout and what stays out of sight (ADR-0055)', () => {
+    expect(challengeConsentText('gym', es.circle, 'es-ES')).toBe(
+      'Tu círculo verá qué días entrenaste. No verá qué hiciste, cuánto ni dónde.',
+    );
+    expect(challengeConsentText('Rodar juntos', es.circle, 'es-ES')).toBe(
+      'Tu círculo verá qué días saliste en bici. No verá distancia, tiempo ni ruta.',
+    );
+    expect(challengeConsentText('Correr', es.circle, 'es-ES')).toBe(
+      'Tu círculo verá qué días corriste. No verá distancia, ritmo ni ruta.',
+    );
+    expect(challengeConsentText('Nadar', es.circle, 'es-ES')).toBe('Tu círculo verá qué días nadaste. No verá cuánto ni dónde.');
+    expect(challengeConsentText('Ride a bike', en.circle, 'en-US')).toBe(
+      'Your circle will see which days you rode. Not the distance, the time or the route.',
+    );
+  });
+
+  it('says the user marks a workout challenge where Health does not exist, whatever its kind', () => {
+    expect(challengeConsentText('Montar en bici', es.circle, 'es-ES', 'Salud no existe en este teléfono')).toBe(
+      'Salud no existe en este teléfono: el reto lo marcas tú, y tu círculo verá qué días marcaste.',
     );
   });
 
@@ -29,6 +51,15 @@ describe('challengeConsentText', () => {
 
   it('says nothing where nothing verifies the challenge', () => {
     expect(challengeConsentText('Leer', es.circle, 'es-ES')).toBeNull();
+  });
+});
+
+describe('challenge.summary', () => {
+  it('says a target of one in the singular (ADR-0055)', () => {
+    expect(es.circle.challenge.summary(1, '4 semanas')).toBe('1 vez por semana · 4 semanas');
+    expect(es.circle.challenge.summary(2, '21 días')).toBe('2 veces por semana · 21 días');
+    expect(en.circle.challenge.summary(1, '4 weeks')).toBe('1 time a week · 4 weeks');
+    expect(en.circle.challenge.summary(3, '21 days')).toBe('3 times a week · 21 days');
   });
 });
 

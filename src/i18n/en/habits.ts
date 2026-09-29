@@ -29,16 +29,24 @@ export const habits: typeof shape = {
   },
   form: {
     name: 'Name',
-    namePlaceholder: 'gym, read, sleep 7h',
+    namePlaceholder: 'gym, bike, read, sleep 7h',
     timesPerWeek: 'Times per week',
     howCounted: 'How it is counted',
     declared: 'Declared',
     declaredDescription: 'You mark it',
     verified: 'Verified',
     verifiedDescription: 'Health confirms it on its own',
+    verifiedWorkout: 'Health confirms it if you record with a watch or an app',
     verifiedPending: 'Health will confirm it once you connect it',
     verifiedManual: 'Health would confirm it; here you mark it',
     stepGoal: (steps, tag) => `Counts the days with ${steps.toLocaleString(tag)} steps or more`,
+    workoutKind: {
+      any: (minutes) => `Counts the days with a workout of ${minutes} minutes or more, of any kind.`,
+      cycling: (minutes) => `Counts the days with a bike ride of ${minutes} minutes or more, outdoors or indoors.`,
+      running: (minutes) => `Counts the days you run for ${minutes} minutes or more, outdoors or on a treadmill.`,
+      swimming: (minutes) => `Counts the days you swim for ${minutes} minutes or more.`,
+    },
+    fromApps: 'Do you record on Strava or Garmin?',
     verifiedUnavailable: 'Only for habits Health can confirm: workouts, walking, sleep',
     note: {
       name: 'Health does not recognize this name, so the habit stays declared and you mark it.',
@@ -85,6 +93,32 @@ export const habits: typeof shape = {
     lastReadOn: (day, time) => `${day} · ${time}`,
     readNow: 'Read Health now',
     reading: 'Reading…',
+  },
+  intoHealth: {
+    title: 'Getting it into Health',
+    ios: {
+      intro: 'Vesper does not connect to your apps: it reads the workouts they leave in Health. Never the route.',
+      sources: [
+        { name: 'Apple Watch', path: 'Nothing to do: what you record on the watch is already in Health.' },
+        { name: 'Strava', path: 'You › Settings › Manage Apps and Devices › Health › Send to Health.' },
+        { name: 'Garmin Connect', path: 'More › Settings › Connected Apps › Apple Health.' },
+      ],
+      footer: (minutes) =>
+        `Not showing up? Check whether it is in Health. If it is and does not count, it was shorter than ${minutes} minutes or of another kind.`,
+    },
+    android: {
+      intro: 'Vesper does not connect to your apps: it reads the workouts they leave in Health Connect. Never the route.',
+      sources: [
+        { name: 'Your watch', path: "Open Health Connect and link Samsung Health, Fitbit or your watch's app." },
+        {
+          name: 'Strava',
+          path: 'You › Settings › Manage Apps and Devices › Health Connect. Only GPS activities go through.',
+        },
+        { name: 'Garmin Connect', path: 'In Garmin Connect, turn on Health Connect under connected apps.' },
+      ],
+      footer: (minutes) =>
+        `Not showing up? Check whether it is in Health Connect. If it is and does not count, it was shorter than ${minutes} minutes or of another kind.`,
+    },
   },
   healthStatus: {
     unsupported: 'Health does not exist on this phone',

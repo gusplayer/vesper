@@ -44,19 +44,34 @@ export const habits = {
   },
   form: {
     name: 'Nombre',
-    namePlaceholder: 'gym, leer, dormir 7h',
+    namePlaceholder: 'gym, bici, leer, dormir 7h',
     timesPerWeek: 'Veces por semana',
     howCounted: 'Cómo se cuenta',
     declared: 'Declarado',
     declaredDescription: 'Lo marcas tú',
     verified: 'Verificado',
     verifiedDescription: 'Salud lo confirma solo',
+    /** A workout only reaches Health when something records it (ADR-0055): the card says so. */
+    verifiedWorkout: 'Salud lo confirma si registras con un reloj o una app',
     /** Health exists here but is not connected yet: saving asks (ADR-0005). */
     verifiedPending: 'Salud lo confirmará cuando la conectes',
     /** Health cannot exist on this phone: the habit still works, by hand. */
     verifiedManual: 'Salud lo confirmaría; aquí lo marcas tú',
     /** La meta leída del nombre (ADR-0042): 'Caminar 10.000 pasos' cuenta desde 10.000. */
     stepGoal: (steps: number, tag: string) => `Cuenta los días con ${steps.toLocaleString(tag)} pasos o más`,
+    /**
+     * Which workouts count, read from the name (ADR-0055): 'Montar en bici' only takes
+     * rides. Days, never distance or pace. `minutes` is the floor in domain/healthMarks.
+     */
+    workoutKind: {
+      any: (minutes: number) => `Cuenta los días con un entrenamiento de ${minutes} minutos o más, del tipo que sea.`,
+      cycling: (minutes: number) =>
+        `Cuenta los días con una salida en bici de ${minutes} minutos o más, al aire libre o en interior.`,
+      running: (minutes: number) => `Cuenta los días que corres ${minutes} minutos o más, al aire libre o en cinta.`,
+      swimming: (minutes: number) => `Cuenta los días que nadas ${minutes} minutos o más.`,
+    },
+    /** The row under a verified workout habit that opens the "Que llegue a Salud" sheet. */
+    fromApps: '¿Registras en Strava o Garmin?',
     verifiedUnavailable:
       'Solo para hábitos que Salud puede confirmar: entrenamiento, caminata, sueño',
     /**
@@ -119,6 +134,39 @@ export const habits = {
     readNow: 'Leer Salud ahora',
     /** The row while the read is running. */
     reading: 'Leyendo…',
+  },
+  /**
+   * "Que llegue a Salud" (ADR-0055 §7): how Strava or Garmin get their workouts to
+   * where Vesper reads them. Vesper never connects to those apps, so the sheet gives
+   * paths, not a button. The Spanish paths inside Strava and Garmin are a translation
+   * until they are copied from the apps on a phone.
+   */
+  intoHealth: {
+    title: 'Que llegue a Salud',
+    ios: {
+      intro: 'Vesper no se conecta a tus apps: lee los entrenamientos que dejan en Salud. Nunca la ruta.',
+      sources: [
+        { name: 'Apple Watch', path: 'Nada que hacer: lo que registras en el reloj ya está en Salud.' },
+        { name: 'Strava', path: 'Tú › Ajustes › Administrar aplicaciones y dispositivos › Salud › Enviar a Salud.' },
+        { name: 'Garmin Connect', path: 'Más › Configuración › Aplicaciones conectadas › Apple Health.' },
+      ],
+      footer: (minutes: number) =>
+        `¿No aparece? Mira si está en Salud. Si está y no cuenta, duró menos de ${minutes} minutos o es de otro tipo.`,
+    },
+    /** Health Connect instead of Health, and Strava only passes what had GPS. */
+    android: {
+      intro: 'Vesper no se conecta a tus apps: lee los entrenamientos que dejan en Health Connect. Nunca la ruta.',
+      sources: [
+        { name: 'Tu reloj', path: 'Abre Health Connect y conecta Samsung Health, Fitbit o la app de tu reloj.' },
+        {
+          name: 'Strava',
+          path: 'Tú › Ajustes › Administrar aplicaciones y dispositivos › Health Connect. Solo pasan las actividades con GPS.',
+        },
+        { name: 'Garmin Connect', path: 'En Garmin Connect, activa Health Connect entre las apps conectadas.' },
+      ],
+      footer: (minutes: number) =>
+        `¿No aparece? Mira si está en Health Connect. Si está y no cuenta, duró menos de ${minutes} minutos o es de otro tipo.`,
+    },
   },
   /** Why Health is unavailable, as `status().reason` in src/platform/health.*.ts says it. */
   healthStatus: {

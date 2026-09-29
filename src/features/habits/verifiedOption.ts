@@ -72,14 +72,25 @@ function noteFor(
   return countMode === 'verified' ? t.note.askOnSave : t.note.disconnected;
 }
 
-function descriptionFor(verifiable: boolean, health: HealthState, t: HabitFormStrings): string {
-  if (!verifiable) {
+/**
+ * A connected Health still only confirms a workout something recorded: without a watch
+ * or an app the week stays at zero, so a workout name's card says so (ADR-0055).
+ */
+function descriptionFor(
+  healthType: HealthType | null,
+  health: HealthState,
+  t: HabitFormStrings,
+): string {
+  if (healthType === null) {
     return t.verifiedUnavailable;
   }
   if (!health.available) {
     return t.verifiedManual;
   }
-  return health.connected ? t.verifiedDescription : t.verifiedPending;
+  if (!health.connected) {
+    return t.verifiedPending;
+  }
+  return healthType === 'workout' ? t.verifiedWorkout : t.verifiedDescription;
 }
 
 export function verifiedOption(
@@ -96,7 +107,7 @@ export function verifiedOption(
     verifiable,
     countMode,
     healthType: countMode === 'verified' ? healthType : null,
-    description: descriptionFor(verifiable, health, t),
+    description: descriptionFor(healthType, health, t),
     note: noteFor(verifiable, trimmed !== '', countMode, health, t),
   };
 }
