@@ -1109,15 +1109,22 @@ elección). Las mismas siete áreas lo implementaron.
     "Montar en bici" (metas 1 a 6, la línea de bici, la fila de Strava y Garmin), la hoja,
     "Nuevo reto" con "Rodar juntos" y su consentimiento, los sugeridos, y Ajustes › Salud con
     la fila nueva.
+  - Dev clients recompilados con el parche y el Kotlin nuevos, e instalados encima (con los
+    datos) en los tres simuladores con Vesper y en Pixel_6_API_34, Pixel_7_API_36 y
+    Vesper_API_33.
+  - Arrancan en Focus en el iPhone 17 Pro (F5899768) y en el Pixel 6, contra un Metro y un
+    servidor local.
+  - En el Pixel 6, Ajustes › Salud muestra "Que tus apps lleguen a Salud", y la hoja de
+    Android dice Health Connect, trae "Tu reloj", la ruta de Strava con "Solo pasan las
+    actividades con GPS" y la de Garmin Connect.
 - **No verificado:**
   - Qué tipo escriben Strava, Garmin y el reloj en Salud y en Health Connect para cada deporte.
   - Si lo manual de Strava llega marcado como escrito a mano.
   - Las rutas en español dentro de Strava y Garmin, que son traducciones.
-  - La hoja de Android en un emulador.
   - Una salida real que marque un hábito. Hace falta un teléfono con una cuenta.
 - **Pide build:** el parche y el módulo Kotlin cambian el fingerprint (ADR-0052 y 0054). Un
-  dev client viejo lee cada entrenamiento como "otro", así que un hábito de bici no se marca
-  hasta recompilarlo.
+  dev client anterior a esta tanda lee cada entrenamiento como "otro", así que un hábito de
+  bici no se marca con él. Los de esta Mac ya están recompilados.
 - **Visto de paso, sin tocar:** con Español forzado, la fila Automático de Ajustes › Idioma
   dice "Español" aunque el teléfono esté en inglés; tras recargar Metro, algunos días de las
   grillas de retos en el círculo se dibujaron vacíos.
