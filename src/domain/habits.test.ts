@@ -10,8 +10,9 @@ import {
   isMarkedOn,
   weeklyProgress,
   isMarkedByHealth,
+  workoutKindFor,
 } from './habits';
-import { MAX_HABITS, type Habit, type HabitMark } from './types';
+import { CHALLENGE_TARGET_OPTIONS, MAX_HABITS, type Habit, type HabitMark } from './types';
 
 function habit(id: string, name: string, weeklyTarget: number): Habit {
   return aHabit({ id, name, weeklyTarget });
@@ -69,12 +70,105 @@ describe('healthTypeFor', () => {
   });
 });
 
+describe('workoutKindFor', () => {
+  const CYCLING = [
+    'bici',
+    'Montar en bicicleta',
+    'Salir en la cicla',
+    'Ciclismo',
+    'Ciclista de fin de semana',
+    'Rodar juntos',
+    'Pedalear',
+    'Spinning',
+    'MTB',
+    'Bike',
+    'Biking to work',
+    'Mountain bike',
+    'E-bike',
+    'Bicycle',
+    'Cycling',
+    'Cycle to work',
+    'Ride',
+    'Morning ride',
+    'Riding',
+    'Spin class',
+  ];
+  const RUNNING = ['Correr', 'Salir a correr', 'Trotar', 'Trote', 'Run', 'Running', 'Morning run', 'Jog', 'Jogging'];
+  const SWIMMING = ['Nadar', 'natación', 'NATACION', 'Swim', 'Swimming'];
+
+  it('reads a ride, a run and a swim in both languages', () => {
+    for (const name of CYCLING) {
+      expect(workoutKindFor(name), name).toBe('cycling');
+    }
+    for (const name of RUNNING) {
+      expect(workoutKindFor(name), name).toBe('running');
+    }
+    for (const name of SWIMMING) {
+      expect(workoutKindFor(name), name).toBe('swimming');
+    }
+  });
+
+  it('makes every name it reads a workout habit too', () => {
+    for (const name of [...CYCLING, ...RUNNING, ...SWIMMING]) {
+      expect(healthTypeFor(name), name).toBe('workout');
+    }
+  });
+
+  it('is null for a workout of any kind', () => {
+    for (const name of ['gym', 'Gimnasio', 'Entrenar', 'Pesas', 'Hacer ejercicio', 'Workout', 'Lift weights']) {
+      expect(healthTypeFor(name), name).toBe('workout');
+      expect(workoutKindFor(name), name).toBeNull();
+    }
+  });
+
+  it('is null for walking and sleep, which are not workouts', () => {
+    expect(workoutKindFor('caminar')).toBeNull();
+    expect(workoutKindFor('Caminar 10.000 pasos')).toBeNull();
+    expect(workoutKindFor('dormir 7h')).toBeNull();
+  });
+
+  it('does not read a word that only hides a stem', () => {
+    const lookalikes = [
+      'no hacer nada',
+      'Reciclar',
+      'Recorrer la ciudad',
+      'Socorrer',
+      'Recycle',
+      'Recycling',
+      'Motorbike',
+      'Eat spinach',
+      'Pride',
+      'Get rid of clutter',
+      'Brunch',
+      'Prune',
+      'Bikini',
+      'Correo',
+      'Ciclo de lectura',
+      'Cyclone drill',
+    ];
+    for (const name of lookalikes) {
+      expect(workoutKindFor(name), name).toBeNull();
+      expect(healthTypeFor(name), name).not.toBe('workout');
+    }
+  });
+
+  it('takes the first kind when a name asks for several', () => {
+    expect(workoutKindFor('Nadar, bici y correr')).toBe('cycling');
+    expect(workoutKindFor('Correr o nadar')).toBe('running');
+    expect(workoutKindFor('Gym y bici')).toBe('cycling');
+  });
+});
+
 describe('targets', () => {
-  it('offers 2, 4 and 6, and defaults to one of them', () => {
-    expect(HABIT_TARGET_OPTIONS).toEqual([2, 4, 6]);
+  it('offers 1 to 6, and defaults to one of them', () => {
+    expect(HABIT_TARGET_OPTIONS).toEqual([1, 2, 3, 4, 5, 6]);
     expect((HABIT_TARGET_OPTIONS as readonly number[]).includes(DEFAULT_HABIT_TARGET)).toBe(
       true,
     );
+  });
+
+  it('offers every target a challenge can ask for, so a linked habit keeps its own', () => {
+    expect(HABIT_TARGET_OPTIONS).toEqual(CHALLENGE_TARGET_OPTIONS);
   });
 });
 
@@ -93,6 +187,13 @@ describe('weeklyProgress', () => {
 
     expect(one[0]?.met).toBe(false);
     expect(two[0]?.met).toBe(true);
+  });
+
+  it('meets a target of one with a single day', () => {
+    const ride = habit('h1', 'bici', 1);
+
+    expect(weeklyProgress([ride], [], TODAY)[0]?.met).toBe(false);
+    expect(weeklyProgress([ride], [mark('h1', '2026-08-17', 'health')], TODAY)[0]?.met).toBe(true);
   });
 
   it('stays met past the target', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { NativeWorkout } from '../../modules/vesper-health';
 import { dayKeyOf } from '../domain/day';
 import { HOUR, MINUTE } from '../domain/time';
 import { weekFromHealthConnect } from './healthConnectReading';
@@ -37,11 +38,39 @@ describe('weekFromHealthConnect', () => {
     const week = weekFromHealthConnect({
       ...EMPTY,
       workouts: [
-        { start, end: start + 45 * MINUTE },
-        { start, end: start },
+        { start, end: start + 45 * MINUTE, exerciseType: 0, manual: false },
+        { start, end: start, exerciseType: 0, manual: false },
       ],
     });
-    expect(week.workouts).toEqual([{ start, end: start + 45 * MINUTE }]);
+    expect(week.workouts).toEqual([{ start, end: start + 45 * MINUTE, kind: 'other', manual: false }]);
+  });
+
+  it('reads the exercise type as a kind and keeps the manual flag', () => {
+    const start = MONDAY + 7 * HOUR;
+    const end = start + HOUR;
+    const week = weekFromHealthConnect({
+      ...EMPTY,
+      workouts: [
+        { start, end, exerciseType: 8, manual: false },
+        { start, end, exerciseType: 57, manual: false },
+        { start, end, exerciseType: 74, manual: true },
+        { start, end, exerciseType: 83, manual: false },
+      ],
+    });
+    expect(week.workouts.map((w) => [w.kind, w.manual])).toEqual([
+      ['cycling', false],
+      ['running', false],
+      ['swimming', true],
+      ['other', false],
+    ]);
+  });
+
+  it('reads a workout from a build that sends only its span as any workout, not manual', () => {
+    const start = MONDAY + 18 * HOUR;
+    // What VesperHealth sent before ADR-0055: no exerciseType, no manual.
+    const stale = { start, end: start + 30 * MINUTE } as unknown as NativeWorkout;
+    const week = weekFromHealthConnect({ ...EMPTY, workouts: [stale] });
+    expect(week.workouts).toEqual([{ start, end: start + 30 * MINUTE, kind: 'other', manual: false }]);
   });
 
   it('lays a staged night back from its end, so it lands on the morning after', () => {

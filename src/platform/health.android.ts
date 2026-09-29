@@ -1,7 +1,6 @@
 import type { VesperHealthNative } from '../../modules/vesper-health';
-import { weekStart } from '../domain/day';
-import { EMPTY_HEALTH_WEEK, type HealthWeek } from '../domain/healthMarks';
-import { DAY } from '../domain/time';
+import { dayStartShifted } from '../domain/day';
+import { EMPTY_HEALTH_WEEK, healthReadStart, type HealthWeek } from '../domain/healthMarks';
 import type { Millis } from '../domain/types';
 import { getStrings } from '../i18n';
 import { isAndroid, type CapabilityStatus } from './capabilities';
@@ -94,18 +93,20 @@ export async function requestAuthorization(): Promise<boolean> {
 }
 
 /**
- * Workouts, steps and sleep from the start of the week to `now`. Sleep is read from a
- * day earlier so Sunday night, which ends on Monday morning, is not lost; the domain
- * keeps only the nights that end inside the week.
+ * Workouts, steps and sleep from `healthReadStart(now)` to `now`: more than the week,
+ * so a workout written to Health Connect after the last read of an earlier day is
+ * still found (ADR-0055). Sleep is read from a day earlier so the night into the first
+ * day, which ends that morning, is not lost; the domain keeps only the nights that end
+ * inside its window.
  */
 export async function readWeek(now: Millis): Promise<HealthWeek> {
   const kit = loadModule();
   if (kit === null || !status().available) {
     return EMPTY_HEALTH_WEEK;
   }
-  const from = weekStart(now);
+  const from = healthReadStart(now);
   try {
-    const native = await kit.readWeek(from, from - DAY, now);
+    const native = await kit.readWeek(from, dayStartShifted(from, -1), now);
     return weekFromHealthConnect(native);
   } catch {
     return EMPTY_HEALTH_WEEK;

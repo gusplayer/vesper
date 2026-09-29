@@ -12,6 +12,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -30,9 +31,9 @@ import kotlin.reflect.KClass
 
 /**
  * Health Connect, read-only (ADR-0043). Five calls: whether it exists, the permission
- * sheet, one week of steps, workouts and sleep, and two ways out to the system (Play
- * for an install, Health Connect for linking sources). Nothing is written and nothing
- * is kept: JS turns the week into habit marks, as it does with HealthKit on iOS.
+ * sheet, the steps, workouts and sleep of the days JS asks for, and two ways out to the
+ * system (Play for an install, Health Connect for linking sources). Nothing is written
+ * and nothing is kept: JS turns the days into habit marks, as it does with HealthKit on iOS.
  *
  * Every read fails on its own. A permission the user did not grant, or a Health
  * Connect that answers with an error, leaves that part empty instead of the week.
@@ -174,11 +175,18 @@ class VesperHealthModule : Module() {
     }
   }
 
+  /**
+   * Sessions with Health Connect's exercise type as an int, which JS reads as a kind of
+   * workout (ADR-0055), and whether the user typed the session in by hand, which never
+   * verifies a habit. Both come in the record READ_EXERCISE already reads.
+   */
   private suspend fun readWorkouts(client: HealthConnectClient, fromMs: Long, toMs: Long): List<Map<String, Any>> =
     readAll(client, ExerciseSessionRecord::class, between(fromMs, toMs)).map { session ->
       mapOf(
         "start" to session.startTime.toEpochMilli().toDouble(),
         "end" to session.endTime.toEpochMilli().toDouble(),
+        "exerciseType" to session.exerciseType,
+        "manual" to (session.metadata.recordingMethod == Metadata.RECORDING_METHOD_MANUAL_ENTRY),
       )
     }
 

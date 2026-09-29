@@ -1,13 +1,14 @@
-import { dayKeyOf, weekStart } from './day';
-import { healthTypeFor } from './habits';
+import { dayKeyOf, dayStartShifted } from './day';
+import { healthTypeFor, workoutKindFor } from './habits';
 import { HOUR, MINUTE } from './time';
-import type { DayKey, Habit, HabitMark, HealthType, Millis } from './types';
+import type { DayKey, Habit, HabitMark, HealthType, Millis, WorkoutKind } from './types';
 
 /**
- * Turns a week of Health data into habit marks. Pure: the platform reads HealthKit
- * and hands the numbers here; the store replaces every health-sourced mark with the
- * result (setHealthMarks). Verified habits only — a declared habit never gets a mark
- * from Health, and the two are never mixed (ADR-0005).
+ * Turns the last days of Health data (healthWindow) into habit marks. Pure: the
+ * platform reads HealthKit and hands the numbers here; the store replaces the
+ * health-sourced marks of those days with the result (setHealthMarks). Verified habits
+ * only — a declared habit never gets a mark from Health, and the two are never mixed
+ * (ADR-0005).
  *
  * Ids are deterministic (`hm-<habit>-<day>`) so a resync yields the same marks and
  * nothing in the UI flickers.
@@ -16,6 +17,10 @@ import type { DayKey, Habit, HabitMark, HealthType, Millis } from './types';
 export type HealthWorkout = {
   start: Millis;
   end: Millis;
+  /** Read from the platform's type by domain/workoutKinds.ts (ADR-0055). */
+  kind: WorkoutKind;
+  /** Typed in by hand (HKWasUserEntered, RECORDING_METHOD_MANUAL_ENTRY): never verifies. */
+  manual: boolean;
 };
 
 export type HealthSleepSession = {
@@ -25,6 +30,7 @@ export type HealthSleepSession = {
   asleep: boolean;
 };
 
+/** One read of Health: the eight days of healthWindow, not a calendar week (ADR-0055). */
 export type HealthWeek = {
   workouts: HealthWorkout[];
   /** Steps per local day. */
@@ -96,13 +102,18 @@ export function stepGoalFor(name: string): number {
 
 type DayTotals = Map<DayKey, number>;
 
-/** Total workout ms per day, for days that had at least one real workout. */
-function workoutDays(workouts: readonly HealthWorkout[]): DayTotals {
+/**
+ * Total workout ms per day, for days that had at least one real workout of `kind`, or
+ * of any kind when it is null. Only the workouts that count add up: a ride habit's day
+ * carries the ride, not the yoga class. One typed in by hand counts for nothing,
+ * because a verified day is one the user cannot inflate (ADR-0005).
+ */
+function workoutDays(workouts: readonly HealthWorkout[], kind: WorkoutKind | null): DayTotals {
   const totals: DayTotals = new Map();
   const qualified = new Set<DayKey>();
   for (const workout of workouts) {
     const ms = Math.max(0, workout.end - workout.start);
-    if (ms === 0) {
+    if (ms === 0 || workout.manual || (kind !== null && workout.kind !== kind)) {
       continue;
     }
     // A workout belongs to the day it started; nobody trains across midnight on purpose.
@@ -155,7 +166,7 @@ function sleepNights(sessions: readonly HealthSleepSession[], minMs: number): Da
 function daysFor(habit: Habit, type: HealthType, week: HealthWeek): DayTotals {
   switch (type) {
     case 'workout':
-      return workoutDays(week.workouts);
+      return workoutDays(week.workouts, workoutKindFor(habit.name));
     case 'steps':
       return stepDays(week.stepsByDay, stepGoalFor(habit.name));
     case 'sleep':
@@ -168,18 +179,32 @@ function durationFor(type: HealthType, total: number): number | null {
   return type === 'steps' ? null : total;
 }
 
+/** Today and the seven days before it (ADR-0055 §6). */
+const HEALTH_READ_DAYS = 8;
+
 /**
- * The days one read of Health speaks for: the week of `now`, up to today. The marks it
- * yields replace the health marks of these days and no others — a verified mark from
- * an earlier week is history Health is no longer asked about, and one restored from a
- * backup (ADR-0048) must survive the first read on the new phone.
+ * Where the platforms start reading Health: local midnight seven days before today.
+ * Eight days and not the week, so a Sunday ride that Strava or a watch writes after
+ * the last open that Sunday is still read on Monday, and last week can still close
+ * with it.
  */
-export function healthWindow(now: Millis): { fromKey: DayKey; toKey: DayKey } {
-  return { fromKey: dayKeyOf(weekStart(now)), toKey: dayKeyOf(now) };
+export function healthReadStart(now: Millis): Millis {
+  return dayStartShifted(now, 1 - HEALTH_READ_DAYS);
 }
 
 /**
- * One mark per verified habit per day Health confirms it, within the week of `now`
+ * The days one read of Health speaks for: from healthReadStart up to today. The marks
+ * it yields replace the health marks of these days and no others — they are recomputed
+ * from what Health says now, last week's tail included. A verified mark from before
+ * the window is history Health is no longer asked about, and one restored from a
+ * backup (ADR-0048) must survive the first read on the new phone.
+ */
+export function healthWindow(now: Millis): { fromKey: DayKey; toKey: DayKey } {
+  return { fromKey: dayKeyOf(healthReadStart(now)), toKey: dayKeyOf(now) };
+}
+
+/**
+ * One mark per verified habit per day Health confirms it, within healthWindow(now)
  * and never in the future. Archived habits and declared habits are ignored.
  */
 export function marksFromHealth(

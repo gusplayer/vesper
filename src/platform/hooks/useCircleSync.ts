@@ -14,6 +14,7 @@ import { loadCredentials } from '../circle';
 import {
   acceptInvite,
   buildUpload,
+  challengeMarkDays,
   claimAccount,
   deleteAccount,
   endLink,
@@ -709,6 +710,11 @@ function collectUpload(accountId: string, now: number) {
   // leave the phone as if it were this person's week (ADR-0035 §2).
   const socialMs = sharedWeekUsageMs(useUsageStore.getState());
 
+  // Challenge marks reach back to the first day Health reads, so a day it filled in
+  // late still goes up (ADR-0055 §6). Everything else, myWeek included, is this week's.
+  const markDays = challengeMarkDays(now);
+  const markFromKey = markDays[0] ?? fromKey;
+
   const oldestDay = weekDays[0] ?? todayKey;
   return buildUpload({
     since: circle.syncSince,
@@ -716,8 +722,8 @@ function collectUpload(accountId: string, now: number) {
     myWeek: { focusMs, socialMs, habitsDone, habitsTarget },
     share: circle.share,
     challenges: circle.challenges,
-    myMarks: weekMarks,
-    weekDays,
+    myMarks: app.habitMarks.filter((mark) => mark.dayKey >= markFromKey && mark.dayKey <= todayKey),
+    markDays,
     kudos: circle.kudos.filter(
       (row) => row.fromId === ME && row.dayKey >= oldestDay && !memory.rejected.has(row.id),
     ),

@@ -1,12 +1,13 @@
-import { dayKeyOf, weekStart } from '../domain/day';
+import { dayKeyOf, dayStartShifted } from '../domain/day';
 import {
   EMPTY_HEALTH_WEEK,
+  healthReadStart,
   type HealthSleepSession,
   type HealthWeek,
   type HealthWorkout,
 } from '../domain/healthMarks';
-import { DAY } from '../domain/time';
 import type { DayKey, Millis } from '../domain/types';
+import { workoutKindFromHealthKit } from '../domain/workoutKinds';
 import { getStrings } from '../i18n';
 import { isIos, type CapabilityStatus } from './capabilities';
 
@@ -34,8 +35,12 @@ type QueryOptions = {
 type WorkoutSample = {
   start: string;
   end: string;
+  /** The HKWorkoutActivityType raw value. activityName is the library's table, which misses newer types. */
+  activityId: number;
   activityName: string;
   calories: number;
+  /** False when the workout was typed in by hand (HKMetadataKeyWasUserEntered). */
+  tracked: boolean;
 };
 
 type StepSample = {
@@ -189,7 +194,12 @@ function toWorkouts(samples: readonly WorkoutSample[]): HealthWorkout[] {
     const start = toMillis(sample.start);
     const end = toMillis(sample.end);
     if (start !== null && end !== null && end > start) {
-      workouts.push({ start, end });
+      workouts.push({
+        start,
+        end,
+        kind: workoutKindFromHealthKit(sample.activityId),
+        manual: sample.tracked === false,
+      });
     }
   }
   return workouts;
@@ -221,20 +231,21 @@ function toSleepSessions(samples: readonly SleepSample[]): HealthSleepSession[] 
 }
 
 /**
- * Workouts, steps and sleep from the start of the week to `now`. Sleep is read from a
- * day earlier so Sunday night, which ends on Monday morning, is not lost; the domain
- * keeps only the nights that end inside the week. A failed query yields its empty
- * part rather than failing the whole read.
+ * Workouts, steps and sleep from `healthReadStart(now)` to `now`: more than the week,
+ * so a workout written to Health after the last read of an earlier day is still found
+ * (ADR-0055). Sleep is read from a day earlier so the night into the first day, which
+ * ends that morning, is not lost; the domain keeps only the nights that end inside
+ * its window. A failed query yields its empty part rather than failing the whole read.
  */
 export async function readWeek(now: Millis): Promise<HealthWeek> {
   const kit = loadModule();
   if (kit === null || !(await checkAvailability())) {
     return EMPTY_HEALTH_WEEK;
   }
-  const from = weekStart(now);
+  const from = healthReadStart(now);
   const startDate = new Date(from).toISOString();
   const endDate = new Date(now).toISOString();
-  const sleepStartDate = new Date(from - DAY).toISOString();
+  const sleepStartDate = new Date(dayStartShifted(from, -1)).toISOString();
 
   try {
     const [workouts, steps, sleep] = await Promise.all([

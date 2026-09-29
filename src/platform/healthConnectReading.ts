@@ -2,6 +2,7 @@ import type { NativeHealthWeek, NativeSleepSession } from '../../modules/vesper-
 import { dayKeyOf } from '../domain/day';
 import type { HealthSleepSession, HealthWeek, HealthWorkout } from '../domain/healthMarks';
 import type { DayKey } from '../domain/types';
+import { workoutKindFromHealthConnect } from '../domain/workoutKinds';
 
 /**
  * What Health Connect hands back, turned into the same HealthWeek HealthKit fills on
@@ -30,8 +31,19 @@ function toStepsByDay(days: NativeHealthWeek['steps']): Record<DayKey, number> {
   return byDay;
 }
 
+/**
+ * A build from before ADR-0055 sends only the span: its workouts read as 'other' and not
+ * manual, which is what every workout was then.
+ */
 function toWorkouts(workouts: NativeHealthWeek['workouts']): HealthWorkout[] {
-  return workouts.filter((w) => isSpan(w.start, w.end)).map((w) => ({ start: w.start, end: w.end }));
+  return workouts
+    .filter((w) => isSpan(w.start, w.end))
+    .map((w) => ({
+      start: w.start,
+      end: w.end,
+      kind: workoutKindFromHealthConnect(w.exerciseType),
+      manual: w.manual === true,
+    }));
 }
 
 /**
