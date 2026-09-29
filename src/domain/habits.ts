@@ -30,7 +30,7 @@ const WORKOUT_KIND_HINTS: readonly { pattern: RegExp; kind: NamedWorkoutKind }[]
     kind: 'cycling',
   },
   { pattern: /\bcorrer|\btrot|\brun(?:s|ning|ners?)?\b|\bjog/i, kind: 'running' },
-  { pattern: /\bnadar|nataci|swim/i, kind: 'swimming' },
+  { pattern: /\bnadar|nataci|\bswim(s|ming|mers?)?\b/i, kind: 'swimming' },
 ];
 
 /** Words that ask for a workout of any kind. */

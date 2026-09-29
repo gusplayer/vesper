@@ -104,7 +104,7 @@ export const habits: typeof shape = {
         { name: 'Garmin Connect', path: 'More › Settings › Connected Apps › Apple Health.' },
       ],
       footer: (minutes) =>
-        `Not showing up? Check whether it is in Health. If it is and does not count, it was shorter than ${minutes} minutes or of another kind.`,
+        `Not showing up? Check whether it is in Health. If it is and does not count, it was shorter than ${minutes} minutes, of another kind or typed in by hand.`,
     },
     android: {
       intro: 'Vesper does not connect to your apps: it reads the workouts they leave in Health Connect. Never the route.',
@@ -117,7 +117,7 @@ export const habits: typeof shape = {
         { name: 'Garmin Connect', path: 'In Garmin Connect, turn on Health Connect under connected apps.' },
       ],
       footer: (minutes) =>
-        `Not showing up? Check whether it is in Health Connect. If it is and does not count, it was shorter than ${minutes} minutes or of another kind.`,
+        `Not showing up? Check whether it is in Health Connect. If it is and does not count, it was shorter than ${minutes} minutes, of another kind or typed in by hand.`,
     },
   },
   healthStatus: {

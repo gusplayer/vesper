@@ -151,7 +151,7 @@ export const habits = {
         { name: 'Garmin Connect', path: 'Más › Configuración › Aplicaciones conectadas › Apple Health.' },
       ],
       footer: (minutes: number) =>
-        `¿No aparece? Mira si está en Salud. Si está y no cuenta, duró menos de ${minutes} minutos o es de otro tipo.`,
+        `¿No aparece? Mira si está en Salud. Si está y no cuenta, duró menos de ${minutes} minutos, es de otro tipo o se escribió a mano.`,
     },
     /** Health Connect instead of Health, and Strava only passes what had GPS. */
     android: {
@@ -165,7 +165,7 @@ export const habits = {
         { name: 'Garmin Connect', path: 'En Garmin Connect, activa Health Connect entre las apps conectadas.' },
       ],
       footer: (minutes: number) =>
-        `¿No aparece? Mira si está en Health Connect. Si está y no cuenta, duró menos de ${minutes} minutos o es de otro tipo.`,
+        `¿No aparece? Mira si está en Health Connect. Si está y no cuenta, duró menos de ${minutes} minutos, es de otro tipo o se escribió a mano.`,
     },
   },
   /** Why Health is unavailable, as `status().reason` in src/platform/health.*.ts says it. */
