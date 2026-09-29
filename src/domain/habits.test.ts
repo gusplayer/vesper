@@ -94,7 +94,7 @@ describe('workoutKindFor', () => {
     'Spin class',
   ];
   const RUNNING = ['Correr', 'Salir a correr', 'Trotar', 'Trote', 'Run', 'Running', 'Morning run', 'Jog', 'Jogging'];
-  const SWIMMING = ['Nadar', 'natación', 'NATACION', 'Swim', 'Swimming'];
+  const SWIMMING = ['Nadar', 'natación', 'NATACION', 'Swim', 'Swimming', 'Swims', 'Swimmer'];
 
   it('reads a ride, a run and a swim in both languages', () => {
     for (const name of CYCLING) {
@@ -145,6 +145,8 @@ describe('workoutKindFor', () => {
       'Correo',
       'Ciclo de lectura',
       'Cyclone drill',
+      'Buy swimwear',
+      'Pack the swimsuit',
     ];
     for (const name of lookalikes) {
       expect(workoutKindFor(name), name).toBeNull();

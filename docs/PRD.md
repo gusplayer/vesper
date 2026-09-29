@@ -246,7 +246,8 @@ el prototipo el círculo es de demostración y las pantallas lo dicen.
 - Modo oscuro como ajuste (la sesión es oscura por diseño; la app no)
 - Tablet / iPad
 - Widget de pantalla de inicio (la Live Activity sí existe)
-- Health Connect en Android
+- Leer Strava, Garmin u otra app directamente: sus actividades llegan por Salud o Health
+  Connect (ADR-0055)
 - Estimación real de uso en iOS (fase 3): ahí el "tiempo consumido" sigue siendo un
   estimado de demostración. En Android es real por app desde ADR-0029
 - Sonido y vibración (ADR-0024, en propuesta)
