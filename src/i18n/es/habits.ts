@@ -52,7 +52,7 @@ export const habits = {
     verified: 'Verificado',
     verifiedDescription: 'Salud lo confirma solo',
     /** A workout only reaches Health when something records it (ADR-0055): the card says so. */
-    verifiedWorkout: 'Salud lo confirma si registras con un reloj o una app',
+    verifiedWorkout: 'Salud lo confirma, si tu reloj o tu app escriben ahí',
     /** Health exists here but is not connected yet: saving asks (ADR-0005). */
     verifiedPending: 'Salud lo confirmará cuando la conectes',
     /** Health cannot exist on this phone: the habit still works, by hand. */

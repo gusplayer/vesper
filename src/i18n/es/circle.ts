@@ -210,7 +210,7 @@ export const circle = {
     /** The same line for a workout challenge, by the kind its name reads (ADR-0055 §5). */
     consentWorkout: {
       any: 'Tu círculo verá qué días entrenaste. No verá qué hiciste, cuánto ni dónde.',
-      cycling: 'Tu círculo verá qué días saliste en bici. No verá distancia, tiempo ni ruta.',
+      cycling: 'Tu círculo verá qué días montaste en bici. No verá distancia, tiempo ni ruta.',
       running: 'Tu círculo verá qué días corriste. No verá distancia, ritmo ni ruta.',
       swimming: 'Tu círculo verá qué días nadaste. No verá cuánto ni dónde.',
     },

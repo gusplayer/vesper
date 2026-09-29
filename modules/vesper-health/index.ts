@@ -22,7 +22,8 @@ export type NativeStepDay = { start: number; count: number };
  * kind by src/domain/workoutKinds.ts (ADR-0055). `manual` is RECORDING_METHOD_MANUAL_ENTRY:
  * the user typed it in. A build from before ADR-0055 sends neither.
  */
-export type NativeWorkout = { start: number; end: number; exerciseType: number; manual: boolean };
+/** exerciseType and manual arrive from ADR-0055 on; an older native build sends neither. */
+export type NativeWorkout = { start: number; end: number; exerciseType?: number; manual?: boolean };
 
 /** Health Connect's stage ints: 1 awake, 2 sleeping, 3 out of bed, 4 light, 5 deep, 6 REM, 7 awake in bed. */
 export type NativeSleepStage = { start: number; end: number; stage: number };

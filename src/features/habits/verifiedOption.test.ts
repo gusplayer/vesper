@@ -22,10 +22,10 @@ describe('verifiedOption', () => {
 
   it('says a workout needs a watch or an app to be confirmed (ADR-0055)', () => {
     expect(verifiedOption('Montar en bici', 'verified', CONNECTED, es.habits.form).description).toBe(
-      'Salud lo confirma si registras con un reloj o una app',
+      'Salud lo confirma, si tu reloj o tu app escriben ahí',
     );
     expect(verifiedOption('Ride a bike', 'declared', CONNECTED, en.habits.form).description).toBe(
-      'Health confirms it if you record with a watch or an app',
+      'Health confirms it, if your watch or app writes to it',
     );
     // Only a workout says it: without something recording it, Health has none.
     expect(verifiedOption('dormir 7h', 'verified', CONNECTED, es.habits.form).description).toBe(

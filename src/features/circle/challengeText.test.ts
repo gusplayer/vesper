@@ -25,7 +25,7 @@ describe('challengeConsentText', () => {
       'Tu círculo verá qué días entrenaste. No verá qué hiciste, cuánto ni dónde.',
     );
     expect(challengeConsentText('Rodar juntos', es.circle, 'es-ES')).toBe(
-      'Tu círculo verá qué días saliste en bici. No verá distancia, tiempo ni ruta.',
+      'Tu círculo verá qué días montaste en bici. No verá distancia, tiempo ni ruta.',
     );
     expect(challengeConsentText('Correr', es.circle, 'es-ES')).toBe(
       'Tu círculo verá qué días corriste. No verá distancia, ritmo ni ruta.',

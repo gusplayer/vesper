@@ -36,7 +36,7 @@ export const habits: typeof shape = {
     declaredDescription: 'You mark it',
     verified: 'Verified',
     verifiedDescription: 'Health confirms it on its own',
-    verifiedWorkout: 'Health confirms it if you record with a watch or an app',
+    verifiedWorkout: 'Health confirms it, if your watch or app writes to it',
     verifiedPending: 'Health will confirm it once you connect it',
     verifiedManual: 'Health would confirm it; here you mark it',
     stepGoal: (steps, tag) => `Counts the days with ${steps.toLocaleString(tag)} steps or more`,
