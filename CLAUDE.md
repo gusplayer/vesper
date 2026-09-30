@@ -161,6 +161,9 @@ que toque un módulo de Expo.** No confíes en la memoria para APIs de SDK.
 - No agregues librerías de UI, de gráficos ni de QR. Los componentes (los que exporta
   `src/design/components/index.ts`, hoy 63 más el hook `useTooltip`) se escriben a mano; las barras, grillas y el QR se
   dibujan con `View` y `react-native-svg`.
+- No conectes Strava, Garmin ni otra app de actividad directamente: sus actividades llegan
+  por Salud y Health Connect, y un hábito cuenta la clase que dice su nombre (ADR-0055). Los
+  términos de la API de Strava prohíben mostrar sus datos al círculo.
 - No agregues badges, medallas, puntos ni ranking. La única racha es la diaria del
   ADR-0027 (10 minutos de foco, tres días de gracia al mes), un número sin fuego ni
   animación; la meta semanal sigue siendo la métrica. En el círculo tampoco hay contador

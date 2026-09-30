@@ -6,6 +6,6 @@
 -->
 <resources>
   <string name="vesper_health_rationale_title">What Vesper reads</string>
-  <string name="vesper_health_rationale_body">Vesper reads steps, workouts and sleep from this week to mark your verified habits on their own. It only reads, never writes, and the readings stay on this phone; the days met only leave encrypted in your backup, or to your circle when they belong to a challenge. You can take the permission back in Health Connect whenever you want.</string>
+  <string name="vesper_health_rationale_body">Vesper reads steps, workouts (with their kind) and sleep from the last eight days to mark your verified habits on their own. It only reads, never writes, and the readings stay on this phone; the days met only leave encrypted in your backup, or to your circle when they belong to a challenge. You can take the permission back in Health Connect whenever you want.</string>
   <string name="vesper_health_rationale_ok">Got it</string>
 </resources>

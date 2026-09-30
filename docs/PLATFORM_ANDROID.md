@@ -59,8 +59,11 @@ hasta finales de 2026. Módulo local `modules/vesper-health/` en Kotlin sobre
 `androidx.health.connect:connect-client:1.1.0`, detrás de `src/platform/health.android.ts`.
 
 - Lee `StepsRecord` (agregado por día con `aggregateGroupByPeriod`, que deduplica entre
-  fuentes), `ExerciseSessionRecord` y `SleepSessionRecord` con sus etapas. La traducción
-  a `HealthWeek` es `src/platform/healthConnectReading.ts`, con tests.
+  fuentes), `ExerciseSessionRecord` y `SleepSessionRecord` con sus etapas. De cada sesión de
+  ejercicio pasan también `exerciseType` y si `metadata.recordingMethod` es
+  `RECORDING_METHOD_MANUAL_ENTRY` (ADR-0055). La traducción a `HealthWeek` es
+  `src/platform/healthConnectReading.ts`, con tests, y el tipo se lee como clase en
+  `src/domain/workoutKinds.ts`. Se leen los últimos ocho días.
 - `sdkStatus()`: `available`, `updateRequired` (Android 9 a 13 sin Health Connect o con
   uno viejo; Ajustes › Salud ofrece "Instalar Health Connect", que abre Play) o
   `unsupported`.
