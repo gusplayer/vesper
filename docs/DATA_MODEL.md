@@ -184,8 +184,9 @@ ALTER TABLE sessions ADD COLUMN next_break_at_ms INTEGER NOT NULL DEFAULT 150000
   la suma en vivo desde el store de foco.
 - **Hábitos y marcas.** `habits` y `habit_marks` tal cual. El editor de hábitos habla
   en claves de actividad; `habits.activity_id` recibe el id de fila resuelto.
-  `replaceHealthMarks` borra todas las marcas `source = 'health'` y escribe las que
-  Salud reporta ahora; las manuales no se tocan. En iOS con HealthKit y en Android con Health Connect (ADR-0043).
+  `replaceHealthMarks` borra las marcas `source = 'health'` de la ventana leída (los
+  últimos ocho días, `healthWindow`) y escribe las que Salud reporta ahora; las manuales
+  no se tocan. En iOS con HealthKit y en Android con Health Connect (ADR-0043).
 - **Datos de demostración.** `bootDatabase` los siembra una sola vez, en la primera
   instalación (modos, horarios —las tres rutinas **apagadas**, ADR-0047 §1—, hábitos,
   marcas de la semana y ~10 semanas de sesiones completadas generadas por
@@ -507,8 +508,8 @@ número son los días con foco, y la gracia solo evita que el caminado se deteng
 ### Previsto y sin migración: salud y bloqueo
 
 Las tablas que siguen **no existen** en `src/db/migrations/`. Quedan como diseño
-para cuando hagan falta. Hoy Salud no guarda muestras: `useHealthSync` lee la semana de
-HealthKit y `domain/healthMarks` la convierte en `habit_marks` con `source = 'health'`
+para cuando hagan falta. Hoy Salud no guarda muestras: `useHealthSync` lee los últimos ocho días de
+HealthKit o Health Connect y `domain/healthMarks` los convierte en `habit_marks` con `source = 'health'`
 (ids deterministas `hm-<hábito>-<día>`, reemplazadas enteras en cada lectura). Y el
 bloqueo no tiene perfiles: el modo es el perfil, su selección vive en
 `modes.selection_token` y la sesión guarda el id del modo en `sessions.block_profile`.

@@ -33,7 +33,9 @@ nada se ha usado en un teléfono.
 ## Fase 1.5 — salud
 
 - [x] HealthKit: workouts, pasos, sueño (`react-native-health`, ADR-0017)
-- [ ] Health Connect en Android (no integrado; `platform/health.status()` lo dice)
+- [x] Health Connect en Android (`modules/vesper-health`, ADR-0043)
+- [x] Entrenamientos por clase (bici, correr, nadar o cualquiera), metas de 1 a 6 y Strava o
+  Garmin a través de Salud (ADR-0055)
 - [x] Hábitos verificados que se marcan solos (`domain/healthMarks`, `useHealthSync`)
 - [x] Permiso pedido en contexto (Ajustes › Salud y el paso de onboarding, con "Ahora no")
 

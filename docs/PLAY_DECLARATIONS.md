@@ -17,7 +17,7 @@ Lo que el build declara hoy y viene de Vesper:
 | `RECEIVE_BOOT_COMPLETED` | `modules/vesper-blocking`, `expo-notifications` | Rearmar las ventanas de rutina y los recordatorios tras reiniciar |
 | `SCHEDULE_EXACT_ALARM` | `modules/vesper-blocking` | Abrir y cerrar las ventanas de rutina al minuto (fase 2) |
 | `<queries>` MAIN/LAUNCHER y MAIN/HOME | `modules/vesper-blocking` | Listar apps con lanzador; reconocer el launcher |
-| `health.READ_STEPS`, `health.READ_EXERCISE`, `health.READ_SLEEP` | `modules/vesper-health` | Leer de Health Connect la semana en curso para marcar solos los hábitos verificados (ADR-0043). Solo lectura; nada se escribe |
+| `health.READ_STEPS`, `health.READ_EXERCISE`, `health.READ_SLEEP` | `modules/vesper-health` | Leer de Health Connect los últimos ocho días para marcar solos los hábitos verificados (ADR-0043, ADR-0055). Solo lectura; nada se escribe |
 | `<queries>` `com.google.android.apps.healthdata`, `PermissionsRationaleActivity` y su alias `VIEW_PERMISSION_USAGE` | `modules/vesper-health` | Saber si Health Connect está instalado; la pantalla que Health Connect abre para explicar por qué pedimos cada permiso |
 | `CAMERA` | `expo-image-picker` | Tomar la foto de un día de un reto, solo al tocar «Tomar una foto» (ADR-0051). Si se niega, queda el selector de fotos |
 | `<queries>` `IMAGE_CAPTURE` y `ACTION_VIDEO_CAPTURE`, el servicio `ModuleDependencies` (`photopicker_activity`) | `expo-image-picker` | Encontrar la app de cámara del sistema; pedirle a Google Play services el selector de fotos en Android 12 o anterior. Vesper nunca graba video |
@@ -392,15 +392,15 @@ inglés; Vesper solo lee.
 
 | Permiso | Justificación para pegar |
 |---|---|
-| `READ_STEPS` | Vesper marks a user's walking habit as done on the days Health Connect reports the step goal the user wrote in the habit's name (8,000 by default). Only the current week is read, on the device, when the app is open. |
-| `READ_EXERCISE` | Vesper marks a user's workout habit as done on the days Health Connect has an exercise session of 10 minutes or more. Only the current week is read, on the device, when the app is open. |
-| `READ_SLEEP` | Vesper marks a user's sleep habit as done on the mornings after a night with the hours the user asked for (7 by default). Only the current week is read, on the device, when the app is open. |
+| `READ_STEPS` | Vesper marks a user's walking habit as done on the days Health Connect reports the step goal the user wrote in the habit's name (8,000 by default). Only the last eight days are read, on the device, when the app is open. |
+| `READ_EXERCISE` | Vesper marks a user's workout habit as done on the days Health Connect has an exercise session of 10 minutes or more, of the kind the habit names (cycling, running, swimming or any). It reads each session's start, end, exercise type and whether it was entered by hand; manual entries never mark a habit. Only the last eight days are read, on the device, when the app is open. |
+| `READ_SLEEP` | Vesper marks a user's sleep habit as done on the mornings after a night with the hours the user asked for (7 by default). Only the last eight days are read, on the device, when the app is open. |
 
 *Vesper marca un hábito como cumplido los días en que Health Connect confirma pasos,
-entrenamiento o sueño. Lee solo la semana en curso, en el teléfono, con la app abierta.*
+entrenamiento o sueño. Lee solo los últimos ocho días, en el teléfono, con la app abierta.*
 
 - Sin lectura en segundo plano (`READ_HEALTH_DATA_IN_BACKGROUND`) ni de historial
-  (`READ_HEALTH_DATA_HISTORY`): la semana en curso entra en los 30 días que Health Connect
+  (`READ_HEALTH_DATA_HISTORY`): los últimos ocho días entran en los 30 días que Health Connect
   concede sin ellos.
 - La pantalla de justificación (`PermissionsRationaleActivity`) es un diálogo que dice qué
   se lee, que nada se escribe, que nada sale del teléfono y cómo quitar el permiso. Play

@@ -1128,3 +1128,15 @@ elección). Las mismas siete áreas lo implementaron.
 - **Visto de paso, sin tocar:** con Español forzado, la fila Automático de Ajustes › Idioma
   dice "Español" aunque el teléfono esté en inglés; tras recargar Metro, algunos días de las
   grillas de retos en el círculo se dibujaron vacíos.
+- **2026-09-30 · Los textos dicen lo que el código hace (ADR-0046 §3):**
+  - `web/privacy.html` (en los dos idiomas), las justificaciones de Health Connect en
+    `PLAY_DECLARATIONS.md` y la pantalla de justificación de Health Connect
+    (`modules/vesper-health/.../strings.xml`, en inglés y en español) dicen "los últimos ocho
+    días" en vez de "la semana en curso".
+  - La privacidad dice además que de cada entrenamiento se leen el tipo y si se escribió a mano,
+    y que Vesper no se conecta a Strava ni a Garmin.
+  - Al día también: `ARCHITECTURE.md`, `DATA_MODEL.md`, `PLATFORM_ANDROID.md`, `ROADMAP.md`
+    (Health Connect marcado como hecho) y `CLAUDE.md` › Qué NO hacer.
+  - La pantalla de justificación es un recurso nativo: el texto nuevo llega con el próximo
+    build de Android. Los dev clients de esta Mac todavía muestran "this week".
+  - La web sigue sin desplegar (ver Qué falta).
