@@ -2,6 +2,9 @@ import { router } from 'expo-router';
 
 import { useOnboardingDraft } from '../../data/onboardingDraft';
 import { Button, Card, NativeHost, NoticeCard, PageHeader, Screen, StatusNote, Text } from '../../design/components';
+import { packageNamesFromToken, tokenFromPackageNames } from '../../domain/packageSelection';
+import { SelectionPicker } from '../../features/modes/SelectionPicker';
+import { useLaunchableApps } from '../../features/modes/useLaunchableApps';
 import { CatalogueApps } from '../../features/onboarding/CatalogueApps';
 import { readAppsStepKind } from '../../features/onboarding/readAppsStepKind';
 import { stepProgress } from '../../features/onboarding/steps';
@@ -36,6 +39,8 @@ export default function AppsScreen() {
   const copy = t.onboarding.apps;
   const next = () => router.push(NEXT);
   const kind = readAppsStepKind();
+  // Android has no system picker: the phone's apps, the same list as modes/apps.
+  const launchable = useLaunchableApps(isAndroid && kind === 'real');
 
   if (kind === 'example') {
     return <CatalogueApps onContinue={next} />;
@@ -61,13 +66,41 @@ export default function AppsScreen() {
     );
   }
 
+  if (isAndroid) {
+    const selected = packageNamesFromToken(selectionToken);
+    const toggle = (packageName: string) => {
+      const picked = selected.includes(packageName)
+        ? selected.filter((name) => name !== packageName)
+        : [...selected, packageName];
+      setSelectionToken(tokenFromPackageNames(picked));
+    };
+    return (
+      <SelectionPicker
+        progress={stepProgress('apps', t.onboarding.progress)}
+        notice={copy.androidSubtitle}
+        title={copy.title(modeName)}
+        searchPlaceholder={t.modes.apps.search}
+        items={launchable ?? []}
+        loading={launchable === null}
+        selectedIds={selected}
+        selectedTitle={t.modes.apps.selected}
+        listTitle={t.modes.apps.all}
+        onToggle={toggle}
+        onBack={() => goBack(router)}
+        onDone={next}
+        doneLabel={t.common.continue}
+        fullTip={t.modes.apps.fullTip}
+      />
+    );
+  }
+
   const summary = selectionSummary(selectionToken);
   const picked = summary.apps + summary.categories + summary.websites > 0;
   return (
     <Screen scroll footer={<Button label={t.common.continue} onPress={next} />}>
       {header}
       <Text variant="label" tone="secondary">
-        {isAndroid ? copy.androidSubtitle : copy.realSubtitle}
+        {copy.realSubtitle}
       </Text>
       <Card padded={false}>
         <NativeHost>

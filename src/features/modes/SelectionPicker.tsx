@@ -51,6 +51,8 @@ type SelectionPickerProps = {
   fullTip: string;
   /** The list is still being read (the phone's apps): the sections say so. */
   loading?: boolean;
+  /** Inside a flow (the onboarding): the dots in the header and the title under them. */
+  progress?: { count: number; index: number; accessibilityLabel: string };
 };
 
 function matches(item: PickerItem, query: string): boolean {
@@ -80,6 +82,7 @@ export function SelectionPicker({
   notice,
   fullTip,
   loading = false,
+  progress,
 }: SelectionPickerProps) {
   const t = useStrings();
   const [query, setQuery] = useState('');
@@ -119,7 +122,14 @@ export function SelectionPicker({
 
   return (
     <Screen scroll footer={<Button label={doneLabel ?? t.common.done} onPress={onDone} />}>
-      <PageHeader onBack={onBack} title={title} />
+      {progress === undefined ? (
+        <PageHeader onBack={onBack} title={title} />
+      ) : (
+        <>
+          <PageHeader onBack={onBack} progress={progress} />
+          <Text variant="title">{title}</Text>
+        </>
+      )}
       <SearchField value={query} onChangeText={setQuery} placeholder={searchPlaceholder} />
       {notice === undefined ? null : <StatusNote text={notice} />}
       {tooltip.element}

@@ -19,7 +19,9 @@ import android.util.Log
  *
  * Verdict per resumed package:
  * - Vesper itself and the launcher clear the shield: the user left the blocked app.
- * - SystemUI and the keyboard are ignored: they sit on top of whatever is there.
+ * - SystemUI, the keyboard and the system's own sheets (sign-in, share, "open with")
+ *   are ignored: they sit on top of whatever is there. A blocked app that opens one
+ *   must not take its own shield down, nor count a second attempt when it closes.
  * - The dialer is never blocked (calls).
  * - In ALLOW mode system Settings passes too, so permissions stay reachable; in BLOCK
  *   mode an explicit choice wins.
@@ -31,7 +33,7 @@ class ForegroundWatcher(private val context: Context, private val plan: Plan) {
   private val usage = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
   private val ownPackage = context.packageName
   private val launchers: Set<String> = findLaunchers()
-  private val neutral: Set<String> = setOfNotNull(SYSTEM_UI, currentIme())
+  private val neutral: Set<String> = SYSTEM_SHEETS + setOfNotNull(currentIme())
   private val dialer: String? = runCatching {
     (context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager).defaultDialerPackage
   }.getOrNull()
@@ -158,7 +160,18 @@ class ForegroundWatcher(private val context: Context, private val plan: Plan) {
      * opened during a break, or before a routine window, and is still sitting in.
      */
     private const val LOOKBACK_MS = 30 * 60_000L
-    private const val SYSTEM_UI = "com.android.systemui"
+    /**
+     * SystemUI, and the sheets Android draws over the app that asked for them: the
+     * Credential Manager sign-in sheet (seen on a Samsung, Android 16, over TikTok),
+     * the share sheet and the "open with" resolver, which live in `android` before
+     * Android 13. An app picked from the sheet is its own package and gets its verdict.
+     */
+    private val SYSTEM_SHEETS = setOf(
+      "com.android.systemui",
+      "com.android.credentialmanager",
+      "com.android.intentresolver",
+      "android",
+    )
     private const val SETTINGS = "com.android.settings"
   }
 }
