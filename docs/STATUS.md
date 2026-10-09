@@ -1,4 +1,4 @@
-# Estado — 2026-09-29
+# Estado — 2026-10-08
 
 Qué existe, dónde se verificó y qué falta. Se actualiza al cerrar cada tanda de trabajo.
 El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, históricas, en
@@ -7,7 +7,8 @@ El plan por fases está en `ROADMAP.md`; las tareas del primer prototipo, histó
 ## Resumen en una línea
 
 **La app está completa en código y corre en el simulador de iOS y en el emulador de
-Android.** Nada se ha probado en un teléfono físico. Lo que bloquea el bloqueo en iOS
+Android**, y desde el 2026-10-08 el build de release de Android corre en un teléfono físico
+(Samsung Galaxy A27 5G, Android 16; ver la última sección). Lo que bloquea el bloqueo en iOS
 no es código: es el entitlement de Family Controls, que lo pide el dueño de la cuenta.
 
 Verificado hoy, en este árbol: `npx tsc --noEmit` limpio, `npm run lint` sin errores ni
@@ -1140,3 +1141,51 @@ elección). Las mismas siete áreas lo implementaron.
   - La pantalla de justificación es un recurso nativo: el texto nuevo llega con el próximo
     build de Android. Los dev clients de esta Mac todavía muestran "this week".
   - La web sigue sin desplegar (ver Qué falta).
+
+## Primer teléfono físico: Samsung A27 5G, Android 16 (2026-10-08)
+
+Build de release local (`./gradlew :app:assembleRelease`, solo arm64, firmado con la llave
+de debug) instalado por `adb` en un SM-A276B con One UI y Android 16 (API 36).
+
+- **Verificado en el teléfono:** onboarding completo en español; la divulgación de uso
+  lleva a la fila de Vesper en "Acceso a datos de uso", y "Mostrar sobre otras apps" abre
+  la **lista** de apps (Android 11+ ignora el paquete: hay que buscar Vesper); la hoja de
+  Health Connect con los tres tipos y "Permitir todo"; el diálogo de notificaciones;
+  sesión profunda con mantener; escudo sobre TikTok con "Hoy: N intentos", "Se libera a
+  las 10:10 p.m." y "Volver al foco" que lleva al inicio; la notificación de la sesión con
+  la cuenta regresiva y **`PROMOTED_ONGOING`** en `dumpsys` (en el emulador API 36 el
+  sistema no la promovía); salida de emergencia y `session/closed` con "En el escudo · 4
+  intentos"; el aviso de Rutinas "Sin alarmas exactas, una rutina puede empezar hasta diez
+  minutos tarde" con "Activar".
+- **Arreglado en esta tanda:**
+  - El paso de apps del onboarding en Android dibujaba el selector de iOS, que en Android
+    no dibuja nada: **una caja vacía**, así que el primer modo no podía bloquear ninguna
+    app. Ahora es la misma lista de apps del teléfono que `modes/apps`, con los puntos del
+    onboarding (`SelectionPicker` acepta `progress`).
+  - TikTok abrió la hoja de inicio de sesión del sistema (`com.android.credentialmanager`)
+    y `ForegroundWatcher` la tomó por otra app: **bajó el escudo** y al volver contó un
+    intento de más. La hoja de credenciales, la de compartir (`com.android.intentresolver`)
+    y el "abrir con" (`android`) ahora son neutras como SystemUI. Verificado: con la hoja
+    arriba, el escudo siguió arriba.
+  - Actualizar la app con una sesión corriendo mataba el servicio y el bloqueo no volvía
+    hasta abrir la app. `BootReceiver` ahora lo arranca también en `MY_PACKAGE_REPLACED`
+    (Android lo permite desde ese broadcast). Verificado: tras `adb install -r`, "resuming
+    session plan" y el escudo subió solo sobre TikTok.
+  - `npm run lint` fallaba por las copias del repo en `.claude/worktrees/`; se ignoran.
+- **Sin alarmas exactas (el caso por defecto en Android 14+), todo lo que tiene hora es
+  inexacto.** En `dumpsys alarm`: `PLAN_END` y la ventana de rutina con `window=+10m`, y
+  el aviso de fin de sesión de expo-notifications con `window=+18m44s`. El servicio corta
+  el bloqueo a tiempo mientras vive, pero **el aviso de fin de sesión puede llegar casi
+  veinte minutos tarde**, y en Android 15+ arrancar el servicio desde una alarma inexacta
+  con la app cerrada no está exento de la restricción de servicios en primer plano (sí lo
+  está una alarma exacta). Pedir "Alarmas y recordatorios" en el onboarding de Android es
+  una decisión de producto: falta su ADR.
+- **Sin verificar:** una rutina que arranca con la app cerrada en Android 16 (la prueba de
+  las 22:00 quedó interrumpida: la app se abrió a las 22:02, antes de que llegara la alarma
+  inexacta); Samsung Health escribiendo en Health Connect; la optimización de batería de
+  One UI con la sesión larga y la pantalla apagada; el toque en la notificación.
+- **Para la ficha:** el APK de release pesa 50 MB solo arm64, 58 MB de ellos en `.dex`:
+  R8 (`enableMinifyInReleaseBuilds`) está apagado. Encenderlo pide reglas de ProGuard
+  para los módulos de Expo y una pasada completa en el teléfono. La barra de navegación de
+  tres botones de Samsung queda clara sobre las pantallas oscuras (bienvenida, sesión).
+
