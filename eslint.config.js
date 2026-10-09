@@ -12,7 +12,7 @@ module.exports = defineConfig([
   {
     // `server/*` is the backend (ADR-0033) and `web/*` the invite page (ADR-0034):
     // neither is the app, and neither goes through Metro.
-    ignores: ['dist/*', 'coverage/*', 'android/*', 'ios/*', 'node_modules/*', 'targets/*', 'modules/*/android/*', 'server/*', 'web/*'],
+    ignores: ['dist/*', 'coverage/*', 'android/*', 'ios/*', 'node_modules/*', 'targets/*', 'modules/*/android/*', 'server/*', 'web/*', '.claude/*'],
   },
   {
     files: ['src/**/*.{ts,tsx}'],

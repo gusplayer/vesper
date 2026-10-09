@@ -47,9 +47,10 @@ class BootReceiver : BroadcastReceiver() {
         Log.i(TAG, "$action: window ${open.first.id} is open but a session plan is running; left alone")
       }
       val plan = PlanStore.load(context)
-      if (action == Intent.ACTION_BOOT_COMPLETED && plan != null && plan.endsAt != null) {
+      if (action in RESTARTS_SERVICE && plan != null && plan.endsAt != null) {
         // A JS session with an end that is still ahead: the service was killed by
-        // the reboot, START_STICKY does not survive one, so it is started again.
+        // the reboot or by the update, START_STICKY survives neither, so it is started
+        // again. Both broadcasts let a receiver start a foreground service.
         Log.i(TAG, "$action: resuming session plan until ${plan.endsAt}")
         BlockingService.apply(context, plan)
       }
@@ -62,6 +63,8 @@ class BootReceiver : BroadcastReceiver() {
 
   companion object {
     private const val TAG = "VesperBlocking"
+    /** Broadcasts that killed the service on their way here. */
+    private val RESTARTS_SERVICE = setOf(Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED)
     private val HANDLED = setOf(
       Intent.ACTION_BOOT_COMPLETED,
       Intent.ACTION_MY_PACKAGE_REPLACED,
